@@ -1,0 +1,13 @@
+LFP_binPath: ''  # path to recording
+LFP_datatype: 'SGLX'  # Datatype of recording
+
+EMGdata_savePath: null  # Where we save the output EMG. If None, saved in the same directory as the original recording
+overwrite: False  # Do we recompute and overwrite preexisting EMG data
+
+sf: 20  # output EMG sf (Hz)
+window_size: 25.0  # Window size in ms for xcorr computing
+bandpass: [300, 600]
+bandstop: [275, 625]
+LFP_downsample: null # sf of LFP used when computing xcorr. 
+LFP_chanList: [] # Which channels are used for EMG computing? All channels loaded if `None` or 'all'. eg: ["LF0;384", "LF1;385"] (If chanListType = 'labels'), or [0, 1, -1] (If chanListType = 'indices')
+LFP_chanListType: 'labels'  # How are values in `chanList` interpreted? ('indices' or 'labels')
