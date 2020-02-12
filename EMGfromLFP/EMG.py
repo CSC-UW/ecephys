@@ -101,8 +101,12 @@ def compute_av_corr(data, data_sf, target_sf, window_size):
     ]
     # Summate corrlation within each window for all channel pairs
     # Iterate on channel pairs, then on timestamps (C-style indexing)
-    for i, j in tqdm.tqdm(chan_pairs, "XCorr: Iterate on channel pairs"):
-        for s, win_center_samp in enumerate(window_center_samps):
+    for i, j in tqdm.tqdm(
+        chan_pairs, "XCorr: Iterate on channel pairs"
+    ):
+        for s, win_center_samp in tqdm.tqdm(
+            enumerate(window_center_samps), "XCorr: Iterate on windows"
+        ):
             # Start and end samples for that window. First and last windows are
             # shorter
             win_start_i = max(0, int(win_center_samp - window_n_samps/2))
