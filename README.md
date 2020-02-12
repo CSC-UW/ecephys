@@ -39,7 +39,7 @@ pip install -e .
 
 - From the command line (make sure you're in your virtualenvironment)
   
-`python -m sleepscore <path_to_config_file>`
+`python -m EMGfromLFP <path_to_config_file>`
 
 - From python:
 
