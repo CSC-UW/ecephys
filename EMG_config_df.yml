@@ -9,8 +9,8 @@ LFP_downsample: null # sf of LFP used when computing xcorr.
 LFP_chanList: [] # List of loaded channels. See sleepscore documentation. eg: (SGLX) ["LF0;384", "LF1;385"] or (TDT) [LFPs-1, LFPs-2]
 
 # Filtering (params passed to scipy.signal.iirdesign)
-bandpass: [300, 600]
-bandstop: [275, 625]
+wp: [300, 600]
+ws: [275, 625]
 gpass: 1
 gstop: 20
 ftype: 'butter'

@@ -69,16 +69,16 @@ def run(EMG_config):
 
 def compute_and_save(LFP_binPath, LFP_datatype=None, LFP_downsample=None,
                      LFP_chanList=None, EMGdata_savePath=None, overwrite=False,
-                     sf=20.0, window_size=25.0, bandpass=None, bandstop=None,
+                     sf=20.0, window_size=25.0, wp=None, ws=None,
                      gpass=1, gstop=20, ftype='butter'):
 
     # Manage default values:
-    if bandpass is None:
-        bandpass = [300, 600]
-        print(f"Set bandpass={bandpass}")
-    if bandstop is None:
-        bandstop = [275, 625]
-        print(f"Set bandstop={bandstop}")
+    if wp is None:
+        wp = [300, 600]
+        print(f"Set wp (pass freq)={wp}")
+    if ws is None:
+        ws = [275, 625]
+        print(f"Set ws (stop freq)={ws}")
 
     # Generate EMG metadata: save all the local variables in this function
     EMG_metadata = locals()
@@ -119,7 +119,7 @@ def compute_and_save(LFP_binPath, LFP_datatype=None, LFP_downsample=None,
     EMG_data = compute_EMG(
         lfp, lfp_sf,
         sf, window_size,
-        bandpass, bandstop, gpass=gpass, gstop=gstop, ftype=ftype
+        wp, ws, gpass=gpass, gstop=gstop, ftype=ftype
     )
 
     # Save EMG
