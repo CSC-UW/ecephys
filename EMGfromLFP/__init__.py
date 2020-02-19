@@ -110,8 +110,7 @@ def compute_and_save(LFP_binPath, LFP_datatype=None, LFP_downsample=None,
         chanList=LFP_chanList,
         downSample=LFP_downsample,
         tStart=None,
-        # tEnd=None,  # Compute for whole recording
-        tEnd=1000,  # Compute for whole recording
+        tEnd=None,  # Compute for whole recording
     )
     print(f"Using the following channels for EMG derivation (labels): "
           f"{' - '.join(chanLabels)}")
