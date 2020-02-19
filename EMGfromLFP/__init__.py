@@ -12,7 +12,6 @@ from . import resample
 EMGCONFIGKEYS = [
     'LFP_binPath', 'LFP_datatype', 'overwrite', 'EMGdata_savePath', 'sf',
     'window_size', 'bandpass', 'bandstop', 'LFP_downsample', 'LFP_chanList',
-    'LFP_chanListType'
 ]
 
 
@@ -61,10 +60,15 @@ def run(EMG_config):
             TODO
     """
 
-    # Validate params
-    assert set(EMG_config.keys()) == set(EMGCONFIGKEYS), (
-        f'Expected EMG_config entries: {EMGCONFIGKEYS}'
-    )
+    # Validate expected params
+    extrakeys = set(EMG_config.keys()) - set(EMGCONFIGKEYS)
+    if extrakeys:
+        raise Exception(f'The following EMG_config keys are not recognized: '
+                        f'{extrakeys}')
+    missingkeys = set(EMGCONFIGKEYS) - set(EMG_config.keys())
+    if missingkeys:
+        raise Exception(f'The following EMG_config keys are missing: '
+                        f'{missingkeys}')
 
     # Get paths
     binPath = Path(EMG_config['LFP_binPath'])
@@ -88,11 +92,10 @@ def run(EMG_config):
     print(f"Computing EMG from LFP:")
     print("Loading LFP for EMG computing")
     # Load LFP for channels of interest
-    lfp, sf, chanLabels, _ = load.loader_switch(
+    lfp, sf, chanLabels = load.loader_switch(
         binPath,
         datatype=EMG_config['LFP_datatype'],
         chanList=EMG_config['LFP_chanList'],
-        chanListType=EMG_config['LFP_chanListType'],
         downSample=EMG_config['LFP_downsample'],
         tStart=None,
         tEnd=None,

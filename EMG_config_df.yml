@@ -9,5 +9,4 @@ window_size: 25.0  # Window size in ms for xcorr computing
 bandpass: [300, 600]
 bandstop: [275, 625]
 LFP_downsample: null # sf of LFP used when computing xcorr. 
-LFP_chanList: [] # Which channels are used for EMG computing? All channels loaded if `None` or 'all'. eg: ["LF0;384", "LF1;385"] (If chanListType = 'labels'), or [0, 1, -1] (If chanListType = 'indices')
-LFP_chanListType: 'labels'  # How are values in `chanList` interpreted? ('indices' or 'labels')
+LFP_chanList: [] # List of loaded channels. See sleepscore documentation. eg: (SGLX) ["LF0;384", "LF1;385"] or (TDT) [LFPs-1, LFPs-2]
