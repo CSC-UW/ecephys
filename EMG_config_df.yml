@@ -12,7 +12,7 @@ LFP_chanList: [] # List of loaded channels. See sleepscore documentation. eg: (S
 wp: [300, 600]
 ws: [275, 625]
 gpass: 1
-gstop: 20
+gstop: 60
 ftype: 'butter'
 
 # Algorithm parameter
