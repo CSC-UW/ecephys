@@ -22,7 +22,8 @@ import tqdm
 from scipy.stats import pearsonr
 
 
-def compute_EMG(lfp, sf, target_sf, window_size, bandpass, bandstop):
+def compute_EMG(lfp, sf, target_sf, window_size, wp, ws, gpass=1,
+                gstop=20, ftype='butter'):
     """Derive EMG from LFP.
 
     Compute av. correlation across channel pairs in sliding windows.
@@ -34,15 +35,17 @@ def compute_EMG(lfp, sf, target_sf, window_size, bandpass, bandstop):
         target_sf: Sampling frequency of output "EMG" array (Hz)
         window_size: Duration (in ms) of each window during which average
             correlation is computed
-        bandpass, bandstop: Used for bandpass filtering
+        wp, ws, gpass, gstop, ftype: passed to
+            scipy.signal.iirdesign
 
     Returns:
         EMG_data: (1 x nSteps) data array. Sampling frequency is `targetsf`
         EMG_metadata: dictionary
     """
 
-    print("Filtering LFP at bandpass={bandpass}, bandstop={bandstop}")
-    lfp_filt = filter_data(lfp, bandpass, bandstop, sf)
+    print(f"Filtering LFP with wp={wp}, ws={ws}, gpass={gpass}, gstop={gstop},"
+          f"filter type={ftype}")
+    lfp_filt = iirfilt(lfp, wp, ws, gpass, gstop, ftype='butter', sf=sf)
     print("Computing EMG from filtered LFP...")
     print(f"target sf = {target_sf}, window size = {window_size}, LFP sf={sf},"
           f" LFP nchans = {lfp_filt.shape[0]}")
@@ -51,17 +54,31 @@ def compute_EMG(lfp, sf, target_sf, window_size, bandpass, bandstop):
     return EMG_data
 
 
-def filter_data(data, bandpass, bandstop, sf):
-    """Bandpass filter data along last dimension. """
+# def filter_data(data, bandpass, bandstop, sf):
+#     """Bandpass filter data along last dimension. """
+# 
+#     Wp = np.array(bandpass) / (sf/2)
+#     Ws = np.array(bandstop) / (sf/2)
+#     Rp = 3
+#     Rs = 20
+#     [N, Wn] = scipy.signal.cheb2ord(Wp, Ws, Rp, Rs)
+#     [b2, a2] = scipy.signal.cheby2(N, Rs, Wn, 'pass')
+# 
+#     return scipy.signal.filtfilt(b2, a2, data)
 
-    Wp = np.array(bandpass) / (sf/2)
-    Ws = np.array(bandstop) / (sf/2)
-    Rp = 3
-    Rs = 20
-    [N, Wn] = scipy.signal.cheb2ord(Wp, Ws, Rp, Rs)
-    [b2, a2] = scipy.signal.cheby2(N, Rs, Wn, 'pass')
+def iirfilt(data, wp, ws, gpass, gstop, ftype='butter', sf=None):
+    """Filter `data` along last dimension using an iir filter."""
 
-    return scipy.signal.filtfilt(b2, a2, data)
+    sos = scipy.signal.iirdesign(
+        wp, ws,
+        gpass, gstop,
+        ftype=ftype,
+        fs=sf,
+        analog=False,
+        output='sos',
+    )
+
+    return scipy.signal.sosfilt(sos, data)
 
 
 def compute_av_corr(data, data_sf, target_sf, window_size):

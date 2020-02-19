@@ -67,10 +67,10 @@ def run(EMG_config):
     compute_and_save(LFP_binPath, **EMG_config)
 
 
-def compute_and_save(LFP_binPath, LFP_datatype=None, EMGdata_savePath=None,
-                     overwrite=False, sf=20.0, window_size=25.0,
-                     bandpass=None, bandstop=None, LFP_downsample=None,
-                     LFP_chanList=None):
+def compute_and_save(LFP_binPath, LFP_datatype=None, LFP_downsample=None,
+                     LFP_chanList=None, EMGdata_savePath=None, overwrite=False,
+                     sf=20.0, window_size=25.0, bandpass=None, bandstop=None,
+                     gpass=1, gstop=20, ftype='butter'):
 
     # Manage default values:
     if bandpass is None:
@@ -117,7 +117,9 @@ def compute_and_save(LFP_binPath, LFP_datatype=None, EMGdata_savePath=None,
           f"{' - '.join(chanLabels)}")
     print("Computing EMG from LFP")
     EMG_data = compute_EMG(
-        lfp, lfp_sf, sf, window_size, bandpass, bandstop
+        lfp, lfp_sf,
+        sf, window_size,
+        bandpass, bandstop, gpass=gpass, gstop=gstop, ftype=ftype
     )
 
     # Save EMG
