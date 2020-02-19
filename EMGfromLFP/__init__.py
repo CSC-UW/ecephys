@@ -9,12 +9,6 @@ from .EMG import compute_EMG
 from . import resample
 
 
-EMGCONFIGKEYS = [
-    'LFP_binPath', 'LFP_datatype', 'overwrite', 'EMGdata_savePath', 'sf',
-    'window_size', 'bandpass', 'bandstop', 'LFP_downsample', 'LFP_chanList',
-]
-
-
 def load_EMG(EMGdatapath, tStart=None, tEnd=None, desired_length=None):
     """Load, slice and resample the EMG saved t `path`"""
 
@@ -53,36 +47,54 @@ def load_EMG(EMGdatapath, tStart=None, tEnd=None, desired_length=None):
 
 
 def run(EMG_config):
-    """Compute and save the lfp-derived EMG and its metadata.
+    """Run `compute_and_save` from EMG config dictionary
 
     Args:
         EMG_config: config dictionary containing the following keys:
             TODO
     """
+    print(f"EMG config = {EMG_config}, \n")
 
-    # Validate expected params
-    extrakeys = set(EMG_config.keys()) - set(EMGCONFIGKEYS)
-    if extrakeys:
-        raise Exception(f'The following EMG_config keys are not recognized: '
-                        f'{extrakeys}')
-    missingkeys = set(EMGCONFIGKEYS) - set(EMG_config.keys())
-    if missingkeys:
-        raise Exception(f'The following EMG_config keys are missing: '
-                        f'{missingkeys}')
+    # Validate keys in config
+    df_values = get_default_args(compute_and_save)
+    for k, v in [(k, v) for k, v in df_values.items() if k not in EMG_config]:
+        print(f"Key {k} is missing from config. Using its default value: {v}")
+    for k in [k for k in EMG_config if k not in df_values]:
+        print(f"Config key {k} is not recognized")
+
+    LFP_binPath = EMG_config.pop('LFP_binPath')
+
+    compute_and_save(LFP_binPath, **EMG_config)
+
+
+def compute_and_save(LFP_binPath, LFP_datatype=None, EMGdata_savePath=None,
+                     overwrite=False, sf=20.0, window_size=25.0,
+                     bandpass=None, bandstop=None, LFP_downsample=None,
+                     LFP_chanList=None):
+
+    # Manage default values:
+    if bandpass is None:
+        bandpass = [300, 600]
+        print(f"Set bandpass={bandpass}")
+    if bandstop is None:
+        bandstop = [275, 625]
+        print(f"Set bandstop={bandstop}")
+
+    # Generate EMG metadata: save all the local variables in this function
+    EMG_metadata = locals()
 
     # Get paths
-    binPath = Path(EMG_config['LFP_binPath'])
-    assert os.path.exists(binPath), "Data not found at {binPath}"
-    if not EMG_config['EMGdata_savePath']:
-        EMGdatapath = Path(binPath.parent / (binPath.stem + ".derivedEMG.npy"))
+    assert os.path.exists(LFP_binPath), "Data not found at {LFP_binPath}"
+    if not EMGdata_savePath:
+        EMGdatapath = Path(LFP_binPath.parent / (LFP_binPath.stem + ".derivedEMG.npy"))
     else:
-        EMGdatapath = Path(EMG_config['EMGdata_savePath'])
+        EMGdatapath = Path(EMGdata_savePath)
     EMGmetapath = get_EMGmetapath(EMGdatapath)
 
     # Do we compute the EMG?
     if os.path.exists(EMGdatapath) and os.path.exists(EMGmetapath):
         print(f"Found preexisting EMG files at {EMGdatapath}, {EMGmetapath}!")
-        if EMG_config['overwrite']:
+        if overwrite:
             print('--> Recomputing EMG ( `overwrite` == True )')
         else:
             print('--> Exiting ( `overwite` == False )')
@@ -92,31 +104,21 @@ def run(EMG_config):
     print(f"Computing EMG from LFP:")
     print("Loading LFP for EMG computing")
     # Load LFP for channels of interest
-    lfp, sf, chanLabels = load.loader_switch(
-        binPath,
-        datatype=EMG_config['LFP_datatype'],
-        chanList=EMG_config['LFP_chanList'],
-        downSample=EMG_config['LFP_downsample'],
+    lfp, lfp_sf, chanLabels = load.loader_switch(
+        LFP_binPath,
+        datatype=LFP_datatype,
+        chanList=LFP_chanList,
+        downSample=LFP_downsample,
         tStart=None,
-        tEnd=None,
+        # tEnd=None,  # Compute for whole recording
+        tEnd=1000,  # Compute for whole recording
     )
     print(f"Using the following channels for EMG derivation (labels): "
           f"{' - '.join(chanLabels)}")
     print("Computing EMG from LFP")
     EMG_data = compute_EMG(
-        lfp, sf,
-        EMG_config['sf'], EMG_config['window_size'], EMG_config['bandpass'],
-        EMG_config['bandstop']
+        lfp, lfp_sf, sf, window_size, bandpass, bandstop
     )
-
-    # Generate EMG metadata
-    EMG_metadata = EMG_config.copy()
-    EMG_metadata['EMGdatapath'] = str(EMGdatapath)
-    EMG_metadata['EMGmetapath'] = str(EMGmetapath)
-    EMG_metadata['LFP_chanLabels'] = chanLabels
-    # EMG_metadata['gitcommit'] = subprocess.check_output(
-    #     ["git", "describe"]
-    # ).strip()
 
     # Save EMG
     print(f"Saving EMG metadata at {EMGmetapath}")
@@ -131,3 +133,13 @@ def get_EMGmetapath(EMGdatapath):
     EMGdatapath = Path(EMGdatapath)
     metaName = EMGdatapath.stem + ".meta.yml"
     return Path(EMGdatapath.parent / metaName)
+
+
+def get_default_args(func):
+    import inspect
+    signature = inspect.signature(func)
+    return {
+        k: v.default
+        for k, v in signature.parameters.items()
+        # if v.default is not inspect.Parameter.empty
+    }
