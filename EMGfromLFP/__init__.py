@@ -30,6 +30,9 @@ def load_EMG(EMGdatapath, tStart=None, tEnd=None, desired_length=None):
         lastSamp = EMG_data.shape[1]
     else:
         lastSamp = int(tEnd * sf)
+    if lastSamp > EMG_data.shape[1]:
+        raise Exception(f"tEnd={tEnd} beyond end of EMG. EMG was computed until"
+                        f" t={EMG_data.shape[1]/sf}s")
     print(f"Select timepoints between samples {firstSamp} and {lastSamp} out of"
           f" {EMG_data.shape[1]}")
     EMG_data = EMG_data[:, firstSamp:lastSamp+1]
@@ -61,6 +64,7 @@ def run(EMG_config):
         print(f"Key {k} is missing from config. Using its default value: {v}")
     for k in [k for k in EMG_config if k not in df_values]:
         print(f"Config key {k} is not recognized")
+    print('\n')
 
     LFP_binPath = EMG_config.pop('LFP_binPath')
 
@@ -68,9 +72,9 @@ def run(EMG_config):
 
 
 def compute_and_save(LFP_binPath, LFP_datatype=None, LFP_downsample=None,
-                     LFP_chanList=None, EMGdata_savePath=None, overwrite=False,
-                     sf=20.0, window_size=25.0, wp=None, ws=None,
-                     gpass=1, gstop=20, ftype='butter'):
+                     LFP_chanList=None, LFP_tEnd=None, EMGdata_savePath=None,
+                     overwrite=False, sf=20.0, window_size=25.0, wp=None,
+                     ws=None, gpass=1, gstop=20, ftype='butter'):
 
     # Manage default values:
     if wp is None:
@@ -110,7 +114,7 @@ def compute_and_save(LFP_binPath, LFP_datatype=None, LFP_downsample=None,
         chanList=LFP_chanList,
         downSample=LFP_downsample,
         tStart=None,
-        tEnd=None,  # Compute for whole recording
+        tEnd=LFP_tEnd,
     )
     print(f"Using the following channels for EMG derivation (labels): "
           f"{' - '.join(chanLabels)}")
