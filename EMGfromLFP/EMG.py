@@ -68,6 +68,18 @@ def compute_EMG(lfp, sf, target_sf, window_size, wp, ws, gpass=1,
 
 def iirfilt(data, wp, ws, gpass, gstop, ftype='butter', sf=None):
     """Filter `data` along last dimension using an iir filter."""
+    
+    # Check input values to avoid https://github.com/scipy/scipy/issues/11559
+    wp_check, ws_check = np.array(wp), np.array(ws)
+    if sf is not None:
+        wp_check, ws_check = wp_check/(sf/2), ws_check/(sf/2)
+    if not (
+        (np.all(wp_check > 0)) & (np.all(wp_check < 1))
+        & (np.all(ws_check > 0)) & (np.all(ws_check < 1))
+    ):
+        raise ValueError(
+            "Digital filter critical frequencies must be 0 < Wn < 1"
+        )
 
     sos = scipy.signal.iirdesign(
         wp, ws,
