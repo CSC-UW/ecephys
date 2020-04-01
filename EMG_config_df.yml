@@ -1,5 +1,5 @@
 # EMG path
-EMGdata_savePath: null  # Where we save the output EMG. If None, saved in the same directory as the original recording
+EMGdata_savePath: null  # The file where we write the output EMG. If None, the fileame is taken from the original recording and written to the same directory.
 overwrite: False  # Do we recompute and overwrite preexisting EMG data
 
 # Source data
