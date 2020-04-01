@@ -22,7 +22,7 @@ Tom Bugnon, 01/2020
 pip install -e .
 ```
 
-- Install this package `sleepscore` (<https://github.com/CSC-UW/sleepscore>)
+- Install this package `EMGfromLFP` (<https://github.com/CSC-UW/EMGfromLFP>)
 
 ```
 # From the `EMGfromLFP` directory you just downloaded
