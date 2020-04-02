@@ -76,8 +76,6 @@ def compute_and_save(LFP_binPath, LFP_datatype=None, LFP_downsample=None,
                      overwrite=False, sf=20.0, window_size=25.0, wp=None,
                      ws=None, gpass=1, gstop=20, ftype='butter'):
 
-    LFP_binPath = Path(LFP_binPath)
-
     # Manage default values:
     if wp is None:
         wp = [300, 600]
@@ -88,6 +86,9 @@ def compute_and_save(LFP_binPath, LFP_datatype=None, LFP_downsample=None,
 
     # Generate EMG metadata: save all the local variables in this function
     EMG_metadata = locals()
+
+    # Convert to Path after saving metadata
+    LFP_binPath = Path(LFP_binPath)
 
     # Get paths
     assert os.path.exists(LFP_binPath), "Data not found at {LFP_binPath}"
