@@ -6,6 +6,7 @@ import EMGfromLFP
 import sleepscore.load
 import scipy.stats
 import tqdm
+from pathlib import Path
 
 from run_EMG_tests import BINPATH, DATATYPE, EXPLORED_PARAMS, DATA_DIR, get_filename, TEND, TARGET_SF
 
@@ -69,7 +70,7 @@ def main():
     ):
         print(chanlist, ftype, gpass, gstop, wp, ws, window_size)
         filename = get_filename(chanlist, ftype, gpass, gstop, wp, ws, window_size)
-        path = DATA_DIR + filename + '.npy'
+        path = Path(DATA_DIR)/(filename + '.npy')
         if not os.path.exists(path):
             continue
         print(filename)

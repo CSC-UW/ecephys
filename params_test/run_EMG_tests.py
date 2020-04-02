@@ -6,6 +6,7 @@ import yaml
 import EMGfromLFP
 import tqdm
 import os
+from pathlib import Path
 
 
 BINPATH = "/Users/tom/data/Jazz_GHB_SW/Jazz07recordings/Block-1"
@@ -47,7 +48,7 @@ def main():
         print(chanlist, ftype, gpass, gstop, wp, ws, window_size)
 
         filename = get_filename(chanlist, ftype, gpass, gstop, wp, ws, window_size)
-        path = DATA_DIR + filename
+        path = Path(DATA_DIR)/filename
 
         if not os.path.exists('./data'):
             os.makedirs('./data', exists_ok=True)
