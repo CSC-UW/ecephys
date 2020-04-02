@@ -76,6 +76,8 @@ def compute_and_save(LFP_binPath, LFP_datatype=None, LFP_downsample=None,
                      overwrite=False, sf=20.0, window_size=25.0, wp=None,
                      ws=None, gpass=1, gstop=20, ftype='butter'):
 
+    LFP_binPath = Path(LFP_binPath)
+
     # Manage default values:
     if wp is None:
         wp = [300, 600]
