@@ -133,9 +133,11 @@ def compute_av_corr(data, data_sf, target_sf, window_size):
     for i, j in tqdm.tqdm(
         chan_pairs, "XCorr: Iterate on channel pairs"
     ):
-        for s, win_center_samp in tqdm.tqdm(
-            enumerate(window_center_samps), "XCorr: Iterate on windows"
+        # Don't use `enumerate` for prettier tqdm nested loop
+        for s in tqdm.tqdm(
+            range(len(window_center_samps)), "XCorr: Iterate on windows"
         ):
+            win_center_samp = window_center_samps[s]
             # Start and end samples for that window. First and last windows are
             # shorter
             win_start_i = max(0, int(win_center_samp - window_n_samps/2))
