@@ -1,7 +1,7 @@
 [run]
 branch = True
-source = shablona/*
-include = shablona/*
+source = ecephys/*
+include = ecephys/*
 omit = */setup.py
 [report]
-include = shablona/*
+include = ecephys/*

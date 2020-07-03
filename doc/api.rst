@@ -5,7 +5,7 @@ API
 Classes
 -------
 
-.. currentmodule:: shablona
+.. currentmodule:: ecephys
 
 .. autosummary::
    :template: class.rst
