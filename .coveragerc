@@ -1,7 +1,0 @@
-[run]
-branch = True
-source = ecephys/*
-include = ecephys/*
-omit = */setup.py
-[report]
-include = ecephys/*

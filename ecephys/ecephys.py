@@ -1,210 +1,267 @@
-from __future__ import absolute_import, division, print_function
+import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-import scipy.optimize as opt
-from scipy.special import erf
-from .due import due, Doi
+from scipy.signal import welch, spectrogram, find_peaks
 
-__all__ = ["Model", "Fit", "opt_err_func", "transform_data", "cumgauss"]
+def rms(data):
 
-
-# Use duecredit (duecredit.org) to provide a citation to relevant work to
-# be cited. This does nothing, unless the user has duecredit installed,
-# And calls this with duecredit (as in `python -m duecredit script.py`):
-due.cite(Doi("10.1167/13.9.30"),
-         description="Template project for small scientific Python projects",
-         tags=["reference-implementation"],
-         path='ecephys')
-
-
-def transform_data(data):
     """
-    Function that takes experimental data and gives us the
-    dependent/independent variables for analysis.
-
-    Parameters
-    ----------
-    data : Pandas DataFrame or string.
-        If this is a DataFrame, it should have the columns `contrast1` and
-        `answer` from which the dependent and independent variables will be
-        extracted. If this is a string, it should be the full path to a csv
-        file that contains data that can be read into a DataFrame with this
-        specification.
-
-    Returns
-    -------
-    x : array
-        The unique contrast differences.
-    y : array
-        The proportion of '2' answers in each contrast difference
-    n : array
-        The number of trials in each x,y condition
-    """
-    if isinstance(data, str):
-        data = pd.read_csv(data)
-
-    contrast1 = data['contrast1']
-    answers = data['answer']
-
-    x = np.unique(contrast1)
-    y = []
-    n = []
-
-    for c in x:
-        idx = np.where(contrast1 == c)
-        n.append(float(len(idx[0])))
-        answer1 = len(np.where(answers[idx[0]] == 1)[0])
-        y.append(answer1 / n[-1])
-    return x, y, n
-
-
-def cumgauss(x, mu, sigma):
-    """
-    The cumulative Gaussian at x, for the distribution with mean mu and
-    standard deviation sigma.
-
-    Parameters
-    ----------
-    x : float or array
-       The values of x over which to evaluate the cumulative Gaussian function
-
-    mu : float
-       The mean parameter. Determines the x value at which the y value is 0.5
-
-    sigma : float
-       The variance parameter. Determines the slope of the curve at the point
-       of Deflection
-
-    Returns
-    -------
-
-    g : float or array
-        The cumulative gaussian with mean $\\mu$ and variance $\\sigma$
-        evaluated at all points in `x`.
-
-    Notes
+    Computes root-mean-squared voltage of a signal
+    Input:
     -----
-    Based on:
-    http://en.wikipedia.org/wiki/Normal_distribution#Cumulative_distribution_function
-
-    The cumulative Gaussian function is defined as:
-
-    .. math::
-
-        \\Phi(x) = \\frac{1}{2} [1 + erf(\\frac{x}{\\sqrt{2}})]
-
-    Where, $erf$, the error function is defined as:
-
-    .. math::
-
-        erf(x) = \\frac{1}{\\sqrt{\\pi}} \\int_{-x}^{x} e^{t^2} dt
+    data - numpy.ndarray
+    Output:
+    ------
+    rms_value - float
+    
     """
-    return 0.5 * (1 + erf((x - mu) / (np.sqrt(2) * sigma)))
 
+    return np.power(np.mean(np.power(data.astype('float32'),2)),0.5)
 
-def opt_err_func(params, x, y, func):
-    """
-    Error function for fitting a function using non-linear optimization.
+class Recording:
+    def __init__(self, file, datafmt, fs, gain):
+        self.file = file
+        self.datafmt = datafmt
+        self.fs = fs
+        self.gain = gain
+        
+        self.numNeuralChannels = 384
+        if self.datafmt == "OpenEphys":
+            self.numRowsInFile = self.numNeuralChannels
+        elif self.datafmt == "SpikeGLX":
+            self.numRowsInFile = self.numNeuralChannels + 1
+        else:
+            raise("Unexpected datafmt")
+        
+        self._data = None
+        self._rms_signal = None
+        self._psd = None
+        self._spectrogram = dict()
 
-    Parameters
-    ----------
-    params : tuple
-        A tuple with the parameters of `func` according to their order of
-        input
+        
+    @property
+    def data(self):
+        if self._data is None:
+            self.load()
+            
+        return self._data
 
-    x : float array
-        An independent variable.
+    
+    @property
+    def rms_signal(self):
+        if self._rms_signal is None:
+            self.compute_rms_signal()
+            
+        return self._rms_signal
+    
+    
+    @property
+    def psd(self):
+        if self._psd is None:
+            self.compute_psd()
+            
+        return self._psd
+    
+    
+    @property
+    def psd_peaks(self):
+        fft_freqs, power = self.psd
+        mean_power_dbs = np.mean(np.log10(power), 1)
+        ipks, pkinfo = find_peaks(mean_power_dbs)
+        return fft_freqs[ipks]
+    
+    
+    def spectrogram(self, channel):
+        if self._spectrogram[channel] is None:
+            self.compute_spectrogram(channel)
+            
+        return self._spectrogram[channel]
+    
+    
+    def load(self):
+        rawData = np.memmap(self.file, dtype='int16', mode='r')
+        rawData = np.reshape(rawData, (int(rawData.size/self.numRowsInFile), self.numRowsInFile))
+        self._data = rawData[:, 0:(self.numNeuralChannels)]
+        
+        
+    def compute_rms_signal(self, start_time=0, end_time=None):
+        data = self.data
+        numChannels = self.numNeuralChannels
+        
+        if not end_time:
+            end_time = int(data.shape[0] / self.fs)
 
-    y : float array
-        The dependent variable.
+        numIterations = 10
+        params = dict()
+        params['start_time'] = start_time
+        params['time_interval'] = min((end_time - start_time) / numIterations, 5)
+        params['skip_s_per_pass'] = int((end_time - start_time) / numIterations)
+        ephys_params = dict()
+        ephys_params['sample_rate'] = self.fs
+        if self.datafmt == "OpenEphys":
+            ephys_params['bit_volts'] = 0.195
+        elif self.datafmt == "SpikeGLX":
+            ephys_params['bit_volts'] = (0.6 / 512 / self.gain) * 1e6
+        else: 
+            raise("Unexpected datafmt")
 
-    func : function
-        A function with inputs: `(x, *params)`
+        offsets = np.zeros((numChannels, numIterations), dtype = 'int16')
+        rms_signal = np.zeros((numChannels, numIterations), dtype='float')
 
-    Returns
-    -------
-    float array
-        The marginals of the fit to x/y given the params
-    """
-    return y - func(x, *params)
+        for i in range(numIterations):
 
+            start_sample = int((params['start_time'] + params['skip_s_per_pass'] * i)* ephys_params['sample_rate'])
+            end_sample = start_sample + int(params['time_interval'] * ephys_params['sample_rate'])
 
-class Model(object):
-    """Class for fitting cumulative Gaussian functions to data"""
-    def __init__(self, func=cumgauss):
-        """ Initialize a model object.
+            for ch in range(numChannels):
+                chunk_data = data[start_sample:end_sample, ch]
+                offsets[ch,i] = np.median(chunk_data)
+                median_subtr = chunk_data - offsets[ch,i]
+                rms_signal[ch,i] = rms(median_subtr) * ephys_params['bit_volts'] # Put data in units of microvolts
 
-        Parameters
-        ----------
-        data : Pandas DataFrame
-            Data from a subjective contrast judgement experiment
+        self._rms_signal = rms_signal
+    
+    
+    def compute_psd(self, start_time, end_time):
+        data = self.data
+        nchannels = self.numNeuralChannels
+        sample_frequency = self.fs
+        window_start = start_time
+        window_length = end_time - start_time
 
-        func : callable, optional
-            A function that relates x and y through a set of parameters.
-            Default: :func:`cumgauss`
-        """
-        self.func = func
+        nfft = 4096*2
+        if self.fs == 2500:
+            nperseg = 2048
+        elif self.fs == 30000:
+            nperseg = 512
+        else:
+            raise
+        mask_chans = 192
 
-    def fit(self, x, y, initial=[0.5, 1]):
-        """
-        Fit a Model to data.
+        startPt = int(sample_frequency*window_start)
+        endPt = startPt + int(sample_frequency*window_length)
 
-        Parameters
-        ----------
-        x : float or array
-           The independent variable: contrast values presented in the
-           experiment
-        y : float or array
-           The dependent variable
+        channels = np.arange(nchannels).astype('int')
 
-        Returns
-        -------
-        fit : :class:`Fit` instance
-            A :class:`Fit` object that contains the parameters of the model.
+        chunk = np.copy(data[startPt:endPt,channels])
 
-        """
-        params, _ = opt.leastsq(opt_err_func, initial,
-                                args=(x, y, self.func))
-        return Fit(self, params)
+        for ch in np.arange(nchannels):
+            chunk[:,ch] = chunk[:,ch] - np.median(chunk[:,ch])
 
+        power = np.zeros((int(nfft/2+1), nchannels))
 
-class Fit(object):
-    """
-    Class for representing a fit of a model to data
-    """
-    def __init__(self, model, params):
-        """
-        Initialize a :class:`Fit` object.
+        for ch in np.arange(nchannels):
 
-        Parameters
-        ----------
-        model : a :class:`Model` instance
-            An object representing the model used
+            sample_frequencies, Pxx_den = welch(chunk[:,ch], fs=sample_frequency, nfft=nfft, nperseg=nperseg)
+            power[:,ch] = Pxx_den
 
-        params : array or list
-            The parameters of the model evaluated for the data
+        self._psd = (sample_frequencies, power)
+    
+    
+    def compute_spectrogram(self, ch, start_time, end_time):
+        nchannels = self.numNeuralChannels
+        window_start = start_time
+        window_length = end_time - start_time
+        
+        nfft = 4096*2
+        if self.fs == 2500:
+            nperseg = 2048
+        elif self.fs == 30000:
+            nperseg=512
+        else:
+            raise
+        mask_chans = 192
 
-        """
-        self.model = model
-        self.params = params
+        startPt = int(self.fs*window_start)
+        endPt = startPt + int(self.fs*window_length)
 
-    def predict(self, x):
-        """
-        Predict values of the dependent variable based on values of the
-        indpendent variable.
+        iCh = ch - 1
+        chunk = np.copy(self.data[startPt:endPt,iCh])
+        chunk = chunk - np.median(chunk)
 
-        Parameters
-        ----------
-        x : float or array
-            Values of the independent variable. Can be values presented in
-            the experiment. For out-of-sample prediction (e.g. in
-            cross-validation), these can be values
-            that were not presented in the experiment.
+        self._spectrogram[ch] = spectrogram(chunk, fs=self.fs, nfft=nfft, noverlap=0, nperseg=nperseg)
+    
+    
+    def plot_rms_signal(self):
+        fig = plt.figure()
+        plt.plot(np.median(self.rms_signal, 1))
+        plt.xlabel('Channel')
+        plt.ylabel('RMS Signal (uV)')
+        plt.show()
+    
+    
+    def plot_psd(self):
+        fft_freqs, power = self.psd
+        
+        fig = plt.figure()
+        plt.subplot(1, 4, 1)
+        plt.semilogx(fft_freqs, np.log10(power))
+        plt.xlabel('frequency [Hz]')
+        plt.ylabel('PSD [V**2/Hz]')
 
-        Returns
-        -------
-        y : float or array
-            Predicted values of the dependent variable, corresponding to
-            values of the independent variable.
-        """
-        return self.model.func(x, *self.params)
+        plt.subplot(1, 4, 2)
+        plt.plot(fft_freqs, np.log10(power))
+        plt.xlabel('frequency [Hz]')
+        plt.ylabel('PSD [V**2/Hz]')
+
+        plt.subplot(1, 4, 3)
+        plt.pcolormesh(fft_freqs, np.arange(power.shape[1]), np.log10(power).T)
+        plt.xlim(np.min(fft_freqs[fft_freqs > 0]), np.max(fft_freqs))
+        plt.xscale('log')
+        plt.xlabel('frequency [Hz]')
+        plt.ylabel('PSD [V**2/Hz]')
+
+        plt.subplot(1, 4, 4)
+        plt.pcolormesh(fft_freqs, np.arange(power.shape[1]), np.log10(power).T)
+        plt.xlim(np.min(fft_freqs[fft_freqs > 0]), np.max(fft_freqs))
+        plt.xlabel('frequency [Hz]')
+        plt.ylabel('PSD [V**2/Hz]')
+
+        plt.show()
+    
+    
+    def plot_psd_peaks(self):
+        fft_freqs, power = self.psd
+        pks = self.psd_peaks
+
+        mean_power_dbs = np.mean(np.log10(power), 1)
+
+        fig = plt.figure()
+        plt.plot(fft_freqs, mean_power_dbs)
+        plt.xlabel('frequency [Hz]')
+        plt.ylabel('PSD [V**2/Hz]')
+        plt.vlines(pks, np.min(mean_power_dbs), np.max(mean_power_dbs), linestyles='dashed')
+        plt.show()
+    
+    
+    def plot_spectrogram(self, channel):
+        f, t, Sxx = self.spectrogram(channel)
+        
+        fig = plt.figure()
+        plt.subplot(2, 1, 1)
+        plt.pcolormesh(t, f, np.log10(Sxx))
+        plt.ylabel('Frequency [Hz]')
+        plt.xlabel('Time [sec]')
+
+        plt.subplot(2, 1, 2)
+        plt.pcolormesh(t, f, np.log10(Sxx))
+        plt.ylim(np.min(f[f > 0]), np.max(f))
+        plt.yscale('log')
+        plt.ylabel('Frequency [Hz]')
+        plt.xlabel('Time [sec]')
+
+        plt.show()
+    
+
+class LFP_Recording(Recording):
+    def __init__(self, file, datafmt):
+        super().__init__(file, datafmt, 2500, 250)
+        
+class AP_Recording(Recording):
+    def __init__(self, file, datafmt):
+        super().__init__(file, datafmt, 30000, 500)
+
+        
+class Dataset:
+    def __init__(self, lfp_file, ap_file, datafmt):
+        self.lfp = LFP_Recording(lfp_file, datafmt)
+        self.ap = AP_Recording(ap_file, datafmt)    
