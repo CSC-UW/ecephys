@@ -34,6 +34,8 @@ def get_run_specs(raw_data_dir, run_dir_prefix=None):
               - triggers as a list of strings e.g. ['0', '1'] or ['cat']
               - probes as a list of strings, e.g. ['0', '1']
     """
+    if run_dir_prefix is None:
+        run_dir_prefix = ''
 
     raw_data_dir = pathlib.Path(raw_data_dir)
 
