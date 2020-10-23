@@ -11,7 +11,8 @@ def get_run_specs(raw_data_dir, run_dir_prefix=None):
 
     Example::
         run_specs = [
-            ['3-17-2020', '0', '3,3', '0']
+            ['3-17-2020', '0', ['3','4','5'], ['0']],
+            ['3-18-2020', '0', ['0'], ['0','1']],
         ]
 
     Args:
@@ -106,3 +107,25 @@ def get_run_specs(raw_data_dir, run_dir_prefix=None):
         )
 
     return run_specs
+
+    
+def get_allen_formatted_run_specs(raw_data_dir, run_dir_prefix=None):
+    """Return info about runs formatted as expected in `ecephys_spike_sorting`.
+    
+    Example::
+        run_specs = [
+            ['3-17-2020', '0', '3,3', '0'],
+            ['3-18-2020', '0', '0,11', '0,1,2'],
+        ]
+    """
+    run_specs = get_run_specs(raw_data_dir, run_dir_prefix)  # All probe and trigger ids as list
+    return [
+        [
+            spec[0],
+            spec[1], 
+            f'{min(map(int, spec[2]))},{max(map(int, spec[2]))}', # min(trg_i),max(trg_i), eg '0,11'
+            ','.join(spec[3]), # eg 0,1,2
+        ]
+        for spec in run_specs
+    ]  # Format expected in ecephys_spike_sorting scripts
+    
