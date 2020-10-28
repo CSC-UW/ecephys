@@ -28,7 +28,7 @@ from ecephys_spike_sorting.scripts.helpers import SpikeGLX_utils
 # name (eg `../processed` or `../processed_nobadchans`)
 # - catGT output will be in the standard SpikeGLX directory structure:
 # run_folder/probe_folder/*.bin
-# - The raw data used by catGT is situated in <output_dir>/../raw and should be
+# - The raw data used by catGT is assumed to be located at <output_dir>/../raw
 OUTPUT_DIRECTORIES = [
     '/Volumes/neuropixel_archive/Data/chronic/CNPIX2-Segundo/BL_15hs/processed_catGT_nobadchan_df_params',
     # '/Volumes/scratch/neuropixels/data/CNPIX4/3-4PM/SR/processed',
@@ -145,7 +145,7 @@ def call_catGT_cmd(
 def run_catGT(output_dir):
 
     print('==========================================')
-    print('Run catGT in output directory {output_dir}')
+    print(f'Run catGT in output directory {output_dir}')
     print('==========================================')
 
     output_dir = Path(output_dir)

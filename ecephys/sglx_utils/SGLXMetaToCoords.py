@@ -538,10 +538,17 @@ def MetaToCoords(metaFullPath, outType, badChan= np.zeros((0), dtype = 'int'), d
             1: CoordsToKSChanMap,
             2: CoordsToJRCString,
     }
-    
+
+    if outType == 4:
+        return CoordsReturn(chans, xCoord, yCoord, connected, shankInd, shankSep, baseName, savePath, buildPath )
+
     writeFunc = outputSwitch.get(outType)
     writeFunc(chans, xCoord, yCoord, connected, shankInd, shankSep, baseName, savePath, buildPath )
-    
+
+# Return AP/LF chans indices anx corresponding xCoords/yCoords
+def CoordsReturn(chans, xCoord, yCoord, connected, shankInd, shankSep, baseName, savePath, buildPath ):
+    return chans, xCoord, yCoord
+
 # Sample calling program to get a metadata file from the user,
 # output a file set by outType
 #

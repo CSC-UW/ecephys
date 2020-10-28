@@ -1,6 +1,8 @@
-from . import readSGLX
 import os.path
 from pathlib import Path
+
+from . import SGLXMetaToCoords, readSGLX
+
 
 def get_metadata(binpath):
     """Return metadata structure from path to bin."""
@@ -17,6 +19,12 @@ def get_channel_labels(binpath):
 def get_channel_map(binpath):
     """Return mapping parsed from meta['snsChanMap'] for bin's channels."""
     return
+
+def get_xy_coords(binpath):
+    """Return AP channel indices and their x and y coordinates."""
+    metapath = Path(binpath).with_suffix('.meta')
+    chans, xcoord, ycoord = SGLXMetaToCoords.MetaToCoords(metapath, 4)
+    return chans, xcoord, ycoord
 
 # Functions below are copied from Allen Institute's ecephys_spike_sorting
 # package
