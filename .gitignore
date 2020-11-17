@@ -6,3 +6,4 @@ auto_examples/
 gen_api/
 *.egg-info
 *.ipynb_checkpoints
+.vscode/
