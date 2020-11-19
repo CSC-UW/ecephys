@@ -237,13 +237,19 @@ def get_ripple_rms_features(time, filtered_lfps, ripple_times):
         Contains the max (across channels) RMS of the LFP during each ripple event.
     """
     ripple_features = pd.DataFrame(
-        columns=["mean_rms", "summed_rms", "max_rms"], index=ripple_times.index
+        {
+            "mean_rms": pd.Series([], dtype=float),
+            "summed_rms": pd.Series([], dtype=float),
+            "max_rms": pd.Series([], dtype=float),
+        },
+        index=ripple_times.index,
     )
-    filtered_lfps = pd.DataFrame(filtered_lfps, index=pd.Index(time, name="time"))
 
     for ripple in ripple_times.itertuples():
-        ripple_lfps = filtered_lfps[ripple.start_time : ripple.end_time]
-        ripple_lfps_rms = np.sqrt(np.mean(ripple_lfps ** 2))
+        ripple_lfps = filtered_lfps[
+            np.logical_and(time >= ripple.start_time, time <= ripple.end_time)
+        ]
+        ripple_lfps_rms = np.sqrt(np.mean(np.power(ripple_lfps, 2), axis=0))
         ripple_features.loc[ripple.Index] = [
             np.mean(ripple_lfps_rms),
             np.sum(ripple_lfps_rms),
@@ -281,7 +287,11 @@ def get_envelope_features_Kay(
         Also contains the size of this envelope's peak.
     """
     ripple_features = pd.DataFrame(
-        columns=["envelope_integral", "envelope_peak"], index=ripple_times.index
+        {
+            "envelope_integral": pd.Series([], dtype=float),
+            "envelope_peak": pd.Series([], dtype=float),
+        },
+        index=ripple_times.index,
     )
 
     filtered_lfps = get_envelope(filtered_lfps)
@@ -335,11 +345,11 @@ def get_envelope_features_Karlsson(
         Contains the max (across channels) peak of the envelope of the filtered lfp.
     """
     ripple_features = pd.DataFrame(
-        columns=[
-            "mean_envelope_integral",
-            "summed_envelope_integrals",
-            "max_envelope_peak",
-        ],
+        {
+            "mean_envelope_integral": pd.Series([], dtype=float),
+            "summed_envelope_integrals": pd.Series([], dtype=float),
+            "max_envelope_peak": pd.Series([], dtype=float),
+        },
         index=ripple_times.index,
     )
 
@@ -379,9 +389,12 @@ def get_ripple_amplitudes(time, filtered_lfps, ripple_times):
     ripple_features: DataFrame, shape (n_ripples, )
         Ripple start and end times, annotated with computer properties.
     """
-
     ripple_features = pd.DataFrame(
-        columns=["mean_amplitude", "max_amplitude"], index=ripple_times.index
+        {
+            "mean_amplitude": pd.Series([], dtype=float),
+            "max_amplitude": pd.Series([], dtype=float)
+        },
+        index=ripple_times.index,
     )
 
     filtered_lfps = pd.DataFrame(filtered_lfps, index=pd.Index(time, name="time"))

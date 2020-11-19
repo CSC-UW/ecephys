@@ -98,7 +98,14 @@ def plot_all_ripples(time, lfps, filtered_lfps, ripple_times):
 
 
 def plot_ripple(
-    time, lfps, filtered_lfps, ripple_times, window_length=1, ripple_number=1, ax=None
+    time,
+    lfps,
+    filtered_lfps,
+    fs,
+    ripple_times,
+    window_length=1,
+    ripple_number=1,
+    ax=None,
 ):
     """Plot a ripple and peri-event data.
 
@@ -109,6 +116,8 @@ def plot_ripple(
         Raw LFPs used for ripple detection.
     filtered_lfps : array_like, shape (n_time, n_signals)
         The bandpass filtered LFPs used for detection.
+    fs: float
+        The sampling frequency of the data
     ripple_times: DataFrame, shape (n_ripples, )
         Ripple event times.
     window_length: float, default: 1
@@ -129,6 +138,7 @@ def plot_ripple(
         time=fixed(time),
         lfps=fixed(lfps),
         filtered_lfps=fixed(filtered_lfps),
+        fs=fixed(fs),
         ripple_times=fixed(ripple_times),
         window_length=(0.25, 2, 0.25),
         ripple_number=(1, len(ripple_times), 1),
@@ -144,8 +154,8 @@ def plot_ripple(
         ax3.cla()
 
     ripple = ripple_times.loc[ripple_number]
-    window_start_time = ripple.center_time - window_length * 1000 / 2
-    window_end_time = ripple.center_time + window_length * 1000 / 2
+    window_start_time = ripple.center_time - window_length / 2
+    window_end_time = ripple.center_time + window_length / 2
     samples_to_plot = np.where(
         np.logical_and(time >= window_start_time, time <= window_end_time)
     )
@@ -161,7 +171,7 @@ def plot_ripple(
     )
 
     freq = np.linspace(1, 300, 300)
-    cwtm = get_perievent_cwtm(lfps[samples_to_plot], 2500, freq)
+    cwtm = get_perievent_cwtm(lfps[samples_to_plot], fs, freq)
     cwtm = cwtm / (1 / freq)[:, None]
     ax3.pcolormesh(time[samples_to_plot], freq, cwtm, cmap="viridis", shading="gouraud")
     ax3.set_xlim(ax1.get_xlim())

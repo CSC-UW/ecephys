@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 def next_power_of_2(x):
@@ -24,8 +25,12 @@ def ncols(x):
     return x.shape[1]
 
 
-# https://stackoverflow.com/questions/21160134/flatten-a-column-with-value-of-type-list-while-duplicating-the-other-columns-va
 def unnest_df(df, col, reset_index=False):
+    """
+    References
+    ----------
+    [1] # https://stackoverflow.com/questions/21160134
+    """
     import pandas as pd
 
     col_flat = pd.DataFrame(
@@ -38,3 +43,59 @@ def unnest_df(df, col, reset_index=False):
     if reset_index:
         df = df.reset_index(drop=True)
     return df
+
+
+def store_df_h5(filename, df, **kwargs):
+    """Store a DataFrame and a dictionary of metadata as HDF5.
+    For conveience, `load_df_h5` can be used to read the data back.
+    Probably works just fine to save non-DataFrames, but h5py may be safer.
+
+    Parameters
+    ----------
+    filename: str
+        The file create or write to.
+    df: pandas.DataFrame
+        The data to save
+    **kwargs:
+        Any metadata you wish to save with the primary data.
+
+    Examples
+    --------
+    filename = '/path/to/myfile.h5'
+    metadata = dict(foo='bar')
+    store_df_h5(filename, df, **metadata)
+    with pd.HDFStore(filename) as store:
+        df, metadata = load_df_h5(store)
+
+    References
+    ----------
+    [1] # https://stackoverflow.com/questions/29129095
+    """
+    store = pd.HDFStore(filename)
+    store.put("mydata", df)
+    store.get_storer("mydata").attrs.metadata = kwargs
+    store.close()
+
+
+def load_df_h5(store):
+    """Read DataFrame and a dictionary of metadata as HDF5.
+    Assumes data were saved using `store_df_h5`.
+
+    Parameters
+    ----------
+    store: pandas.HDFStore
+        The file create or write to.
+
+    Returns
+    -------
+    df: pandas.DataFrame
+    metadata: dict
+
+    Examples
+    --------
+    with pd.HDFStore(filename) as store:
+        df, metadata = load_df_h5(store)
+    """
+    df = store["mydata"]
+    metadata = store.get_storer("mydata").attrs.metadata
+    return df, metadata
