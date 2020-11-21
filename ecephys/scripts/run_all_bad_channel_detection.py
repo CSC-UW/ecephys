@@ -26,8 +26,11 @@ from ecephys_spike_sorting.scripts.helpers import SpikeGLX_utils
 # Directory in which raw data is saved
 # - Assumes standard SpikeGLX directory structure: run_folder/probe_folder/*.bin
 NPX_DIRECTORIES = [
-    "/Volumes/neuropixel_archive/Data/chronic/CNPIX2-Segundo/raw",
-    # '/Volumes/scratch/neuropixels/data/CNPIX4/3-4PM/SR/processed',
+    # "/Volumes/neuropixel_archive/Data/chronic/CNPIX2-Segundo/raw",
+    # "/Volumes/neuropixel_archive/Data/chronic/CNPIX3-Valentino/raw",
+    # "/Volumes/neuropixel_archive/Data/chronic/CNPIX4-Doppio/raw",
+    # "/Volumes/neuropixel_archive/Data/chronic/CNPIX5-Alessandro/raw",
+    # "/Volumes/neuropixel_archive/Data/chronic/CNPIX6-Eugene/raw",
 ]
 
 # Channel marked as bad and excluded from analysis for each
