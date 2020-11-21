@@ -40,6 +40,7 @@ def load_visbrain_hypnogram(hypno_path):
     """
     H = pd.read_csv(hypno_path, sep="\t", names=["state", "end_time"], skiprows=1)
     H["start_time"] = H.apply(lambda row: get_start_time(H, row), axis=1)
+    H["duration"] = H.apply(lambda row: row.end_time - row.start_time, axis=1)
 
     return H
 

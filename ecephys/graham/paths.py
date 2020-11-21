@@ -13,6 +13,11 @@ lfp_bin = {
         "Alessandro": "/Volumes/neuropixel/Data/CNPIX5-Alessandro/8-24-2020_g0_t6.imec0.lf.bin",
         "Eugene": "/Volumes/neuropixel/Data/CNPIX6-Eugene/9.24.2020_BL_24hs2_g0_t5.imec0.lf.bin",
     },
+    "pre-SR": {
+        "Segundo": "/Volumes/neuropixel/Data/CNPIX2-Segundo/1-21-2020_g0_t22.imec0.lf.bin",
+        "Valentino": "/Volumes/neuropixel/Data/CNPIX3-Valentino/2-20-2020_g0_t2.imec0.lf.bin",
+        "Doppio": "/Volumes/neuropixel/Data/CNPIX4-Doppio/3-18-2020_g0_t2.imec0.lf.bin",
+    },
 }
 
 hypnograms = {
@@ -30,6 +35,7 @@ hypnograms = {
         "Alessandro": "/Volumes/neuropixel/Data/CNPIX5-Alessandro/8-24-2020_g0_t6.hypnogram.txt",
         "Eugene": "/Volumes/neuropixel/Data/CNPIX6-Eugene/9.24.2020_BL_24hs2_g0_t5.hypnogram.txt",
     },
+    "pre-SR": {},
 }
 
 ripples = {
@@ -46,5 +52,10 @@ ripples = {
         "Doppio": "/Volumes/neuropixel/Data/CNPIX4-Doppio/3-17-2020_g0_t3.imec0.ripples.h5",
         "Alessandro": "/Volumes/neuropixel/Data/CNPIX5-Alessandro/8-24-2020_g0_t6.imec0.ripples.h5",
         "Eugene": "/Volumes/neuropixel/Data/CNPIX6-Eugene/9.24.2020_BL_24hs2_g0_t5.imec0.ripples.h5",
+    },
+    "pre-SR": {
+        "Segundo": "/Volumes/neuropixel/Data/CNPIX2-Segundo/1-21-2020_g0_t22.imec0.ripples.h5",
+        "Valentino": "/Volumes/neuropixel/Data/CNPIX3-Valentino/2-20-2020_g0_t2.imec0.ripples.h5",
+        "Doppio": "/Volumes/neuropixel/Data/CNPIX4-Doppio/3-18-2020_g0_t2.imec0.ripples.h5",
     },
 }
