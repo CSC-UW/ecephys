@@ -17,6 +17,7 @@ lfp_bin = {
         "Segundo": "/Volumes/neuropixel/Data/CNPIX2-Segundo/1-21-2020_g0_t22.imec0.lf.bin",
         "Valentino": "/Volumes/neuropixel/Data/CNPIX3-Valentino/2-20-2020_g0_t2.imec0.lf.bin",
         "Doppio": "/Volumes/neuropixel/Data/CNPIX4-Doppio/3-18-2020_g0_t2.imec0.lf.bin",
+        "Alessandro": "/Volumes/neuropixel/Data/CNPIX5-Alessandro/8-25-2020_g0_t1.imec0.lf.bin",
     },
 }
 
@@ -57,5 +58,6 @@ ripples = {
         "Segundo": "/Volumes/neuropixel/Data/CNPIX2-Segundo/1-21-2020_g0_t22.imec0.ripples.h5",
         "Valentino": "/Volumes/neuropixel/Data/CNPIX3-Valentino/2-20-2020_g0_t2.imec0.ripples.h5",
         "Doppio": "/Volumes/neuropixel/Data/CNPIX4-Doppio/3-18-2020_g0_t2.imec0.ripples.h5",
+        "Alessandro": "/Volumes/neuropixel/Data/CNPIX5-Alessandro/8-25-2020_g0_t1.imec0.ripples.h5",
     },
 }
