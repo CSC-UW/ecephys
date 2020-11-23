@@ -6,7 +6,13 @@ import matplotlib.pyplot as plt
 from ecephys.scoring import filter_states
 from ecephys.signal.timefrequency import get_perievent_cwtm
 
-state_colors = {"Wake": "palegreen", "N1": "thistle", "N2": "plum", "REM": "bisque"}
+state_colors = {
+    "Wake": "palegreen",
+    "N1": "thistle",
+    "N2": "plum",
+    "REM": "bisque",
+    "None": "White",
+}
 
 
 def plot_spectrogram(

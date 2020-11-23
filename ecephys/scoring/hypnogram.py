@@ -86,3 +86,27 @@ def mask_times(H, states, times):
         mask[np.logical_and(times >= bout.start_time, times <= bout.end_time)] = True
 
     return mask
+
+
+def make_empty_hypnogram(end_time):
+    """Return an empty, unscored hypnogram.
+
+    Parameters
+    ----------
+    end_time: float
+        The time at which the hypnogram should end, in seconds.
+
+    Returns:
+        H: pd.DataFrame
+            A hypnogram containing a single state ("None") extending from t=0 until `end_time`.
+    """
+    H = pd.DataFrame(
+        {
+            "state": "None",
+            "start_time": [0.0],
+            "end_time": [end_time],
+            "duration": [end_time],
+        }
+    )
+
+    return H
