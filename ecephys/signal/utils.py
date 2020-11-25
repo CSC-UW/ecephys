@@ -32,6 +32,10 @@ def median_subtract(sig):
     return sig - np.median(sig, axis=0)
 
 
+def mean_subtract(sig):
+    return sig - np.nanmean(sig, axis=0)
+
+
 def get_perievent_samples(event_time, time, fs, time_before, time_after):
     """Get the first and last sample indices in a perivent window.
 

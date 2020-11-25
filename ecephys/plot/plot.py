@@ -2,9 +2,22 @@ import numpy as np
 from neurodsp.plts.utils import check_ax
 from neurodsp.spectral.utils import trim_spectrogram
 import matplotlib.pyplot as plt
+from ipywidgets import (
+    BoundedFloatText,
+    Checkbox,
+    FloatSlider,
+    HBox,
+    IntSlider,
+    fixed,
+    interact,
+    interactive_output,
+    jslink,
+)
+
 
 from ecephys.scoring import filter_states
 from ecephys.signal.timefrequency import get_perievent_cwtm
+from ecephys.signal.utils import mean_subtract
 
 state_colors = {
     "Wake": "palegreen",
@@ -194,3 +207,115 @@ def plot_ripple(
             ax2.axvspan(
                 ripple.start_time, ripple.end_time, alpha=0.3, color="red", zorder=1000
             )
+
+
+def _plot_timeseries_interactive(
+    time,
+    sig,
+    ax,
+    chan_labels=None,
+    window_length=1.0,
+    window_start=0.0,
+    n_plot_chans=16,
+    i_chan=0,
+    vspace=300,
+    zero_mean=True,
+    flip_dv=False,
+):
+    ax.cla()
+
+    window_start = window_start if window_start else np.min(time)
+    window_end = window_start + window_length
+    selected_samples = np.logical_and(time >= window_start, time <= window_end)
+
+    n_data_chans = sig.shape[1]
+    if (i_chan + n_plot_chans) > n_data_chans:
+        i_chan = n_data_chans - n_plot_chans
+
+    sig = sig[selected_samples, i_chan : i_chan + n_plot_chans]
+    time = time[selected_samples]
+
+    if zero_mean:
+        sig = mean_subtract(sig)
+
+    sig_centers = -np.full(sig.shape, np.arange(n_plot_chans) * vspace)
+    if flip_dv:
+        sig_centers = -sig_centers
+
+    sig_spaced = sig + sig_centers
+
+    ax.plot(
+        time,
+        sig_spaced,
+        color="black",
+        linewidth=0.5,
+    )
+    ax.set_xlim([window_start, window_end])
+
+    if chan_labels is None:
+        chan_labels = np.arange(0, n_data_chans, 1)
+
+    ax.set_yticks(sig_centers[0, :].tolist())
+    ax.set_yticklabels(chan_labels[i_chan : i_chan + n_plot_chans])
+
+
+def plot_timeseries_interactive(time, sig, chan_labels=None, figsize=(20, 8)):
+    # Create interactive widgets for controlling plot parameters
+    window_length = FloatSlider(
+        min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
+    )
+    window_start = FloatSlider(
+        min=np.min(time),
+        max=np.max(time),
+        step=0.1,
+        value=np.min(time),
+        description="Pos",
+    )
+    _window_start = BoundedFloatText(
+        min=np.min(time), max=np.max(time), step=0.1, description="Pos"
+    )
+    jslink(
+        (window_start, "value"), (_window_start, "value")
+    )  # Allow control from either widget for easy navigation
+    n_plot_chans = IntSlider(
+        min=1, max=sig.shape[1], step=1, value=16, description="nCh"
+    )
+    i_chan = IntSlider(min=1, max=sig.shape[1], step=1, value=1, description="Ch")
+    vspace = IntSlider(min=0, max=10000, step=100, value=300, description="V Space")
+    zero_mean = Checkbox(True, description="Zero-mean")
+    flip_dv = Checkbox(False, description="D/V")
+
+    # Lay control widgets out horizontally
+    ui = HBox(
+        [
+            window_length,
+            _window_start,
+            window_start,
+            n_plot_chans,
+            i_chan,
+            vspace,
+            zero_mean,
+            flip_dv,
+        ]
+    )
+
+    # Plot and display
+    _, ax = plt.subplots(figsize=figsize)
+    out = interactive_output(
+        _plot_timeseries_interactive,
+        {
+            "time": fixed(time),
+            "sig": fixed(sig),
+            "ax": fixed(ax),
+            "chan_labels": fixed(chan_labels),
+            "window_length": window_length,
+            "window_start": window_start,
+            "n_plot_chans": n_plot_chans,
+            "i_chan": i_chan,
+            "vspace": vspace,
+            "zero_mean": zero_mean,
+            "flip_dv": flip_dv,
+        },
+    )
+
+    display(ui, out)
