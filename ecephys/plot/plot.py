@@ -272,7 +272,11 @@ def plot_timeseries_interactive(time, sig, chan_labels=None, figsize=(20, 8)):
         description="Pos",
     )
     _window_start = BoundedFloatText(
-        min=np.min(time), max=np.max(time), step=0.1, description="Pos"
+        min=np.min(time),
+        max=np.max(time),
+        step=0.1,
+        value=np.min(time),
+        description="Pos",
     )
     jslink(
         (window_start, "value"), (_window_start, "value")
@@ -281,7 +285,7 @@ def plot_timeseries_interactive(time, sig, chan_labels=None, figsize=(20, 8)):
         min=1, max=sig.shape[1], step=1, value=16, description="nCh"
     )
     i_chan = IntSlider(min=1, max=sig.shape[1], step=1, value=1, description="Ch")
-    vspace = IntSlider(min=0, max=10000, step=100, value=300, description="V Space")
+    vspace = IntSlider(min=0, max=100000, step=100, value=300, description="V Space")
     zero_mean = Checkbox(True, description="Zero-mean")
     flip_dv = Checkbox(False, description="D/V")
 
