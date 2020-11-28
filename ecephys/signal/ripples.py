@@ -104,7 +104,7 @@ def extend_detection_threshold_to_boundaries(
     return sorted(_extend_segment(above_detection_segments, above_boundary_segments))
 
 
-def _threshold_by_zscore(
+def threshold_by_zscore(
     data,
     time,
     minimum_duration=0.015,
@@ -199,7 +199,7 @@ def generalized_Kay_ripple_detector(
     )
     combined_filtered_lfps = np.sqrt(combined_filtered_lfps)
 
-    candidate_ripple_times = _threshold_by_zscore(
+    candidate_ripple_times = threshold_by_zscore(
         combined_filtered_lfps,
         time,
         minimum_duration,

@@ -99,3 +99,10 @@ def load_df_h5(store):
     df = store["mydata"]
     metadata = store.get_storer("mydata").attrs.metadata
     return df, metadata
+
+
+def find_nearest(array, value):
+    """ https://stackoverflow.com/questions/2566412 """
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx]

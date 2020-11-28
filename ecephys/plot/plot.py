@@ -323,3 +323,13 @@ def plot_timeseries_interactive(time, sig, chan_labels=None, figsize=(20, 8)):
     )
 
     display(ui, out)
+
+
+def plot_channel_coords(chans, x, y, figsize=(4, 30)):
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.scatter(x, y, marker=".")
+
+    for i, txt in enumerate(chans):
+        ax.annotate(txt, (x[i] + 2, y[i]), fontsize=8)
+
+    ax.set_xlim([0, 70])

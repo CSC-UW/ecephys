@@ -12,4 +12,7 @@ def kcsd_npix(sig, intersite_distance=0.020, interestimate_distance=0.020):
     else:
         k = KCSD1D(ele_pos, sig.T, gdx=interestimate_distance)
 
+    print("doing L-curve")
+    k.L_curve()
+
     return k.values("CSD"), k.estm_x
