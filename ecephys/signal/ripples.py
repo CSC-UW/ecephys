@@ -392,7 +392,7 @@ def get_ripple_amplitudes(time, filtered_lfps, ripple_times):
     ripple_features = pd.DataFrame(
         {
             "mean_amplitude": pd.Series([], dtype=float),
-            "max_amplitude": pd.Series([], dtype=float)
+            "max_amplitude": pd.Series([], dtype=float),
         },
         index=ripple_times.index,
     )

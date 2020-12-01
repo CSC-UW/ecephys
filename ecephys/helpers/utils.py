@@ -2,6 +2,13 @@ import numpy as np
 import pandas as pd
 
 
+def if_none(x, default):
+    if x is None:
+        return x
+    else:
+        return default
+
+
 def next_power_of_2(x):
     """Return the smallest power of 2 greater than or equal to x."""
     return 1 << (np.int(x) - 1).bit_length()

@@ -39,7 +39,7 @@ superficial_ctx = {
 hippocampus = {
     "Alessandro": LongCol[200:288],  # 1.75mm
     "Eugene": LongCol[225:313],  # 1.75mm
-    "Doppio": LongCol[190:291],  # 2mm
+    "Doppio": CheckPat[190:291],  # 2mm
 }
 
 stratum_radiatum_csd = {"Doppio": CheckPat[260:273]}  # LF137 through LF161

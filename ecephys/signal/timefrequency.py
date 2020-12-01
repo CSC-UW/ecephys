@@ -131,11 +131,14 @@ def get_bandpower(freqs, spg_times, spg, f_range, t_range=None):
     return bandpower
 
 
-def get_perievent_cwtm(evt_sig, fs, freq):
+def get_perievent_cwtm(evt_sig, fs, freq, normalize=False):
     w = 6
     widths = w * fs / (2 * freq * np.pi)
     cwtm = np.apply_along_axis(lambda sig: cwt(sig, morlet2, widths, w=w), 0, evt_sig)
     cwtm = np.mean(np.abs(cwtm), axis=2)  # Average across channels
+
+    if normalize:
+        cwtm = cwtm / (1 / freq)[:, None]
 
     return cwtm
 

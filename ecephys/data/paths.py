@@ -61,3 +61,9 @@ ripples = {
         "Alessandro": "/Volumes/neuropixel/Data/CNPIX5-Alessandro/8-25-2020_g0_t1.imec0.ripples.h5",
     },
 }
+
+spws = {
+    "SR": {
+        "Doppio": "/Volumes/neuropixel/Data/CNPIX4-Doppio/3-18-2020_g0_t3.imec0.spws.h5",
+    }
+}
