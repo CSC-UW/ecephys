@@ -502,30 +502,91 @@ def compute_ripple_features(
 
 
 def get_epoched_ripple_density(
-    recording_start_time, recording_end_time, ripple_times, epoch_length
+    ripples, recording_start_time, recording_end_time, epoch_length
 ):
-    epoch_start_times = np.arange(
-        recording_start_time, recording_end_time, epoch_length
+    epochs = get_epoched_event_density(
+        ripples, recording_start_time, recording_end_time, epoch_length
     )
+    return epochs.rename(
+        columns={"event_count": "n_ripples", "event_density": "ripple_density"}
+    )
+
+
+def get_events_in_interval(events, start_time, end_time, criteria=["midpoint"]):
+    meets_criteria = np.full(len(events), True)
+    for criterion in criteria:
+        meets_criterion = np.logical_and(
+            events[criterion] >= start_time, events[criterion] <= end_time
+        )
+        meets_criteria = np.logical_and(meets_criteria, meets_criterion)
+
+    return events[meets_criteria]
+
+
+def count_events_in_interval(events, start_time, end_time, criteria=["midpoint"]):
+    return len(get_events_in_interval(events, start_time, end_time, criteria=criteria))
+
+
+def get_epoched_event_density(
+    events, first_epoch_start_time, last_epoch_end_time, epoch_length
+):
+    epochs = make_epochs(first_epoch_start_time, last_epoch_end_time, epoch_length)
+    epochs["event_count"] = epochs.apply(
+        lambda epoch: count_events_in_interval(
+            events, epoch.start_time, epoch.end_time
+        ),
+        axis=1,
+    )
+    epochs["event_density"] = epochs.apply(
+        lambda epoch: epoch.event_count / (epoch.end_time - epoch.start_time), axis=1
+    )
+
+    return epochs
+
+
+def make_epochs(start_time, end_time, epoch_length):
+    epoch_start_times = np.arange(start_time, end_time, epoch_length)
     epoch_end_times = epoch_start_times + epoch_length
-    epoch_center_times = (epoch_start_times + epoch_end_times) / 2
+    epoch_midpoints = (epoch_start_times + epoch_end_times) / 2
     epochs = pd.DataFrame(
         data={
             "start_time": epoch_start_times,
             "end_time": epoch_end_times,
-            "center_time": epoch_center_times,
+            "midpoint": epoch_midpoints,
         }
-    )
-    epochs["n_ripples"] = epochs.apply(
-        lambda epoch: np.sum(
-            np.logical_and(
-                ripple_times >= epoch.start_time, ripple_times <= epoch.end_time
-            )
-        ),
-        axis=1,
-    )
-    epochs["ripple_density"] = epochs.apply(
-        lambda epoch: epoch.n_ripples / (epoch.end_time - epoch.start_time), axis=1
     )
 
     return epochs
+
+
+def get_durations(events):
+    return events.apply(lambda evt: evt.end_time - evt.start_time, axis=1)
+
+
+def get_midpoints(events):
+    return events.apply(lambda evt: evt.start_time + evt.duration / 2, axis=1)
+
+
+def get_sink_amplitudes(events, time, sr_csd):
+    def _get_sink_amplitude(evt):
+        evt_mask = np.logical_and(time >= evt.start_time, time <= evt.end_time)
+        evt_csd = sr_csd[:, evt_mask]
+        combined_evt_csd = np.sum(evt_csd, axis=0)
+        n_csd_estimates = evt_csd.shape[0]
+        sink_amplitude = np.min(combined_evt_csd) / n_csd_estimates
+
+        return sink_amplitude
+
+    return events.apply(_get_sink_amplitude, axis=1)
+
+
+def get_sink_integrals(events, time, fs, sr_csd):
+    def _get_sink_integral(evt):
+        evt_mask = np.logical_and(time >= evt.start_time, time <= evt.end_time)
+        evt_csd = sr_csd[:, evt_mask]
+        n_csd_estimates = evt_csd.shape[0]
+        sink_integral = np.sum(evt_csd) / n_csd_estimates / fs
+
+        return sink_integral
+
+    return events.apply(_get_sink_integral, axis=1)

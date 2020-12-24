@@ -43,6 +43,10 @@ hippocampus = {
 }
 
 stratum_radiatum_csd = {"Doppio": CheckPat[260:273]}  # LF137 through LF161
-stratum_radiatum_200um = {"Doppio": [146]}
+stratum_radiatum_140um_to_200um = {
+    "Doppio": [146, 149, 150, 153]
+}  # LF146 = 200um from CA1p ripple inversion
 
 stratum_oriens_100um = {"Doppio": [177]}
+
+emg = {"Doppio": CheckPat[0:-1:191]}

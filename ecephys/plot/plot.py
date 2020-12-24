@@ -132,9 +132,9 @@ def plot_channel_coords(chans, x, y, figsize=(4, 30)):
     ax.set_xlim([0, 70])
 
 
-def _timeseries_explorer(
+def _lfp_explorer(
     time,
-    sig,
+    lfps,
     ax,
     chan_labels=None,
     window_length=None,
@@ -152,22 +152,22 @@ def _timeseries_explorer(
     window_end = window_start + window_length
     selected_samples = np.logical_and(time >= window_start, time <= window_end)
 
-    n_data_chans = sig.shape[1]
+    n_data_chans = lfps.shape[1]
     n_plot_chans = n_plot_chans or n_data_chans
     if (i_chan + n_plot_chans) > n_data_chans:
         i_chan = n_data_chans - n_plot_chans
 
-    sig = sig[selected_samples, i_chan : i_chan + n_plot_chans]
+    lfps = lfps[selected_samples, i_chan : i_chan + n_plot_chans]
     time = time[selected_samples]
 
     if zero_mean:
-        sig = mean_subtract(sig)
+        lfps = mean_subtract(lfps)
 
-    sig_centers = -np.full(sig.shape, np.arange(n_plot_chans) * vspace)
+    lfp_centers = -np.full(lfps.shape, np.arange(n_plot_chans) * vspace)
     if flip_dv:
-        sig_centers = -sig_centers
+        lfp_centers = -lfp_centers
 
-    sig_spaced = sig + sig_centers
+    sig_spaced = lfps + lfp_centers
 
     ax.plot(
         time,
@@ -180,11 +180,12 @@ def _timeseries_explorer(
     if chan_labels is None:
         chan_labels = np.arange(0, n_data_chans, 1)
 
-    ax.set_yticks(sig_centers[0, :].tolist())
+    ax.set_yticks(lfp_centers[0, :].tolist())
     ax.set_yticklabels(chan_labels[i_chan : i_chan + n_plot_chans])
+    ax.set_ylabel("Channel")
 
 
-def timeseries_explorer(time, sig, chan_labels=None, figsize=(20, 8)):
+def lfp_explorer(time, lfps, chan_labels=None, figsize=(20, 8)):
     # Create interactive widgets for controlling plot parameters
     window_length = FloatSlider(
         min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
@@ -207,9 +208,11 @@ def timeseries_explorer(time, sig, chan_labels=None, figsize=(20, 8)):
         (window_start, "value"), (_window_start, "value")
     )  # Allow control from either widget for easy navigation
     n_plot_chans = IntSlider(
-        min=1, max=sig.shape[1], step=1, value=16, description="nCh"
+        min=1, max=lfps.shape[1], step=1, value=16, description="nCh"
     )
-    i_chan = IntSlider(min=0, max=(sig.shape[1] - 1), step=1, value=1, description="Ch")
+    i_chan = IntSlider(
+        min=0, max=(lfps.shape[1] - 1), step=1, value=1, description="Ch"
+    )
     vspace = IntSlider(min=0, max=100000, step=100, value=300, description="V Space")
     zero_mean = Checkbox(True, description="Zero-mean")
     flip_dv = Checkbox(False, description="D/V")
@@ -231,10 +234,10 @@ def timeseries_explorer(time, sig, chan_labels=None, figsize=(20, 8)):
     # Plot and display
     _, ax = plt.subplots(figsize=figsize)
     out = interactive_output(
-        _timeseries_explorer,
+        _lfp_explorer,
         {
             "time": fixed(time),
-            "sig": fixed(sig),
+            "lfps": fixed(lfps),
             "ax": fixed(ax),
             "chan_labels": fixed(chan_labels),
             "window_length": window_length,
@@ -254,17 +257,15 @@ def _colormesh_timeseries_explorer(
     time,
     sig,
     ax,
-    yaxis=None,
-    ylabel=None,
+    y=None,
     window_length=None,
     window_start=None,
     n_plot_rows=None,
     i_row=0,
     zero_mean=False,
+    flip_dv=False,
 ):
     ax.cla()
-
-    yaxis_visible = False if yaxis is None else True
 
     window_length = window_length or (np.max(time) - np.min(time))
     window_start = window_start if window_start is not None else np.min(time)
@@ -272,27 +273,26 @@ def _colormesh_timeseries_explorer(
     selected_samples = np.logical_and(time >= window_start, time <= window_end)
 
     n_data_rows = sig.shape[1]
-    yaxis = yaxis if yaxis is not None else np.linspace(0, 1, n_data_rows)
+    y = y if y is not None else np.linspace(0, 1, n_data_rows)
     n_plot_rows = n_plot_rows if n_plot_rows is not None else n_data_rows
     if (i_row + n_plot_rows) > n_data_rows:
         i_row = n_data_rows - n_plot_rows
 
     sig = sig[selected_samples, i_row : i_row + n_plot_rows]
     time = time[selected_samples]
-    yaxis = yaxis[i_row : i_row + n_plot_rows]
+    y = y[i_row : i_row + n_plot_rows]
 
     if zero_mean:
         sig = mean_subtract(sig)
 
-    ax.pcolormesh(time, yaxis, sig.T, shading="gouraud")
+    ax.pcolormesh(time, y, sig.T, shading="gouraud")
     ax.set_xlim([window_start, window_end])
     ax.set_xlabel("Time [sec]")
-    ax.set_ylabel(ylabel)
-    if yaxis_visible is False:
-        ax.set_yticks([])
+    if flip_dv:
+        ax.invert_yaxis()
 
 
-def colormesh_timeseries_explorer(time, sig, yaxis=None, ylabel=None, figsize=(20, 8)):
+def colormesh_timeseries_explorer(time, sig, y=None, figsize=(20, 8)):
     # Create interactive widgets for controlling plot parameters
     window_length = FloatSlider(
         min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
@@ -319,6 +319,7 @@ def colormesh_timeseries_explorer(time, sig, yaxis=None, ylabel=None, figsize=(2
     )
     i_row = IntSlider(min=0, max=(sig.shape[1] - 1), step=1, value=1, description="Row")
     zero_mean = Checkbox(False, description="Zero-mean")
+    flip_dv = Checkbox(False, description="D/V")
 
     # Lay control widgets out horizontally
     ui = HBox(
@@ -329,6 +330,7 @@ def colormesh_timeseries_explorer(time, sig, yaxis=None, ylabel=None, figsize=(2
             n_plot_rows,
             i_row,
             zero_mean,
+            flip_dv,
         ]
     )
 
@@ -340,20 +342,20 @@ def colormesh_timeseries_explorer(time, sig, yaxis=None, ylabel=None, figsize=(2
             "time": fixed(time),
             "sig": fixed(sig),
             "ax": fixed(ax),
-            "yaxis": fixed(yaxis),
-            "ylabel": fixed(ylabel),
+            "y": fixed(y),
             "window_length": window_length,
             "window_start": window_start,
             "n_plot_rows": n_plot_rows,
             "i_row": i_row,
             "zero_mean": zero_mean,
+            "flip_dv": flip_dv,
         },
     )
 
     display(ui, out)
 
 
-def _lazy_spw_explorer(
+def _lazy_ripple_explorer(
     ripples,
     metadata,
     subject,
@@ -367,7 +369,7 @@ def _lazy_spw_explorer(
     Parameters
     ----------
     ripples: DataFrame, shape (n_ripples, )
-        Each ripple must have a 'center_time' field
+        Each ripple must have a 'midpoint' field
     metadata: dict
         The metadata from ripple detection. Must include "chans" field containing channels used for detection.
     subject: str
@@ -387,8 +389,8 @@ def _lazy_spw_explorer(
 
     # Compute peri-event window
     ripple = ripples.loc[ripple_number]
-    window_start_time = ripple.center_time - window_length / 2
-    window_end_time = ripple.center_time + window_length / 2
+    window_start_time = ripple.midpoint - window_length / 2
+    window_end_time = ripple.midpoint + window_length / 2
 
     # Load the peri-event data
     all_chans = channel_groups.full[subject]
@@ -471,7 +473,7 @@ def _lazy_spw_explorer(
             )
 
 
-def lazy_spw_explorer(ripples, metadata, subject, condition, figsize=(20, 10)):
+def lazy_ripple_explorer(ripples, metadata, subject, condition, figsize=(20, 10)):
     """
     Examples
     --------
@@ -498,7 +500,7 @@ def lazy_spw_explorer(ripples, metadata, subject, condition, figsize=(20, 10)):
     # Plot and display
     _, axes = plt.subplots(4, 1, figsize=figsize)
     out = interactive_output(
-        _lazy_spw_explorer,
+        _lazy_ripple_explorer,
         {
             "ripples": fixed(ripples),
             "metadata": fixed(metadata),
@@ -528,8 +530,8 @@ def _spw_explorer(
 
     # Compute peri-event window
     spw = spws.loc[spw_number]
-    window_start_time = spw.center_time - window_length / 2
-    window_end_time = spw.center_time + window_length / 2
+    window_start_time = spw.midpoint - window_length / 2
+    window_end_time = spw.midpoint + window_length / 2
 
     window_mask = np.logical_and(time >= window_start_time, time <= window_end_time)
     hpc_lfps = hpc_lfps[window_mask]
@@ -537,7 +539,7 @@ def _spw_explorer(
     time = time[window_mask]
 
     # Plot raw LFPs
-    _timeseries_explorer(time, hpc_lfps, axes[0])
+    _lfp_explorer(time, hpc_lfps, axes[0])
 
     # Plot CSD
     _colormesh_timeseries_explorer(time, hpc_csd.T, ax=axes[1])
@@ -564,14 +566,20 @@ def _lazy_spw_explorer(
     axes,
     window_length=1,
     spw_number=1,
+    n_plot_chans=None,
+    i_chan=0,
+    vspace=300,
+    show_lfps=True,
+    show_csd=True,
 ):
-    for ax in axes:
-        ax.cla()
+    lfp_ax, csd_ax = axes
+    lfp_ax.cla()
+    csd_ax.cla()
 
     # Compute peri-event window
     spw = spws.loc[spw_number]
-    window_start_time = spw.center_time - window_length / 2
-    window_end_time = spw.center_time + window_length / 2
+    window_start_time = spw.midpoint - window_length / 2
+    window_end_time = spw.midpoint + window_length / 2
 
     # Load the peri-event data
     all_chans = channel_groups.full[subject]
@@ -583,43 +591,75 @@ def _lazy_spw_explorer(
     )
 
     # Select subset of data used for detection
-    idx_detection_chans = np.isin(all_chans, metadata["chans"])
+    idx_detection_chans = np.isin(all_chans, metadata["csd_chans"])
     lfps = lfps[:, idx_detection_chans]
+    chan_labels = all_chans[idx_detection_chans]
+
+    # Select further subset of data selected for plotting
+    n_data_chans = lfps.shape[1]
+    n_plot_chans = n_data_chans if n_plot_chans is None else n_plot_chans
+    if (i_chan + n_plot_chans) > n_data_chans:
+        i_chan = n_data_chans - n_plot_chans
+
+    lfps = lfps[:, i_chan : i_chan + n_plot_chans]
+    chan_labels = chan_labels[i_chan : i_chan + n_plot_chans]
 
     # Plot raw LFPs
-    _timeseries_explorer(time, lfps, axes[0])
+    lfp_ax.set_facecolor("none")
+    if show_lfps:
+        _lfp_explorer(
+            time, lfps, lfp_ax, chan_labels=chan_labels, vspace=vspace, zero_mean=True
+        )
+        lfp_ax.margins(y=0)
 
     # Compute CSD
-    k = get_kcsd(
-        lfps,
-        do_lcurve=False,
-        intersite_distance=metadata["intersite_distance"],
-        gdx=metadata["gdx"],
-        lambd=metadata["lambd"],
-        R_init=metadata["R"],
-    )
-    csd = k.values("CSD")
+    if show_csd:
+        k = get_kcsd(
+            lfps,
+            do_lcurve=False,
+            intersite_distance=metadata["intersite_distance"],
+            gdx=metadata["gdx"],
+            lambd=metadata["lambd"],
+            R_init=metadata["R"],
+        )
+        csd = k.values("CSD")
 
     # Plot CSD
-    _colormesh_timeseries_explorer(time, csd.T, axes[1], yaxis=k.estm_x)
-    axes[1].set_xlim(axes[0].get_xlim())
-    axes[1].set_xlabel("Time [sec]")
-    axes[1].set_ylabel("Depth (mm)")
+    csd_ax.set_zorder(lfp_ax.get_zorder() - 1)
+    csd_ax.set_xlabel("Time [sec]")
+    if show_csd:
+        _colormesh_timeseries_explorer(time, csd.T, csd_ax, y=k.estm_x, flip_dv=True)
+        csd_ax.set_ylabel("Depth (mm)")
+
+    # Plot location of detection channels on CSD axes
+    show_detection_chans = False
+    if show_detection_chans:
+        sr_chan_mask = np.isin(metadata["csd_chans"], metadata["detection_chans"])
+        csd_ax.axhline(
+            np.max(metadata["electrode_positions"][sr_chan_mask]),
+            color="r",
+            alpha=0.5,
+            linestyle=":",
+        )
+        csd_ax.axhline(
+            np.min(metadata["electrode_positions"][sr_chan_mask]),
+            color="r",
+            alpha=0.5,
+            linestyle=":",
+        )
 
     # Highlight each ripple
     for spw in spws.itertuples():
         if (spw.start_time >= window_start_time) and (spw.end_time <= window_end_time):
-            axes[0].axvspan(
+            lfp_ax.axvspan(
                 spw.start_time, spw.end_time, alpha=0.1, color="red", zorder=1000
             )
-            axes[1].axvspan(
+            csd_ax.axvspan(
                 spw.start_time, spw.end_time, fill=False, linestyle=":", zorder=1000
             )
 
 
-def lazy_spw_explorer(
-    spws, metadata, subject, condition, figsize=(20, 10), overlay_lfp_on_csd=False
-):
+def lazy_spw_explorer(spws, metadata, subject, condition, figsize=(20, 8)):
     """
     Examples
     --------
@@ -639,12 +679,29 @@ def lazy_spw_explorer(
     jslink(
         (spw_number, "value"), (_spw_number, "value")
     )  # Allow control from either widget for easy navigation
+    n_plot_chans = BoundedIntText(min=1, max=1000, value=1000, description="nCh")
+    i_chan = BoundedIntText(min=0, max=999, value=0, description="Ch")
+    vspace = BoundedIntText(min=0, max=1000000, value=300, description="V Space")
+    show_lfps = Checkbox(value=True, description="LFP")
+    show_csd = Checkbox(value=True, description="CSD")
 
     # Lay control widgets out horizontally
-    ui = HBox([window_length, spw_number, _spw_number])
+    ui = HBox(
+        [
+            window_length,
+            spw_number,
+            _spw_number,
+            n_plot_chans,
+            i_chan,
+            vspace,
+            show_lfps,
+            show_csd,
+        ]
+    )
 
     # Plot and display
-    _, axes = plt.subplots(2, 1, figsize=figsize)
+    _, ax = plt.subplots(figsize=figsize)
+    (lfp_ax, csd_ax) = (ax, ax.twinx())
     out = interactive_output(
         _lazy_spw_explorer,
         {
@@ -652,9 +709,14 @@ def lazy_spw_explorer(
             "metadata": fixed(metadata),
             "subject": fixed(subject),
             "condition": fixed(condition),
-            "axes": fixed(axes),
+            "axes": fixed((lfp_ax, csd_ax)),
             "window_length": window_length,
             "spw_number": spw_number,
+            "n_plot_chans": n_plot_chans,
+            "i_chan": i_chan,
+            "vspace": vspace,
+            "show_lfps": show_lfps,
+            "show_csd": show_csd,
         },
     )
 

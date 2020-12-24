@@ -65,5 +65,21 @@ ripples = {
 spws = {
     "SR": {
         "Doppio": "/Volumes/neuropixel/Data/CNPIX4-Doppio/3-18-2020_g0_t3.imec0.spws.h5",
+    },
+    "BL": {
+        "Doppio": "/Volumes/neuropixel/Data/CNPIX4-Doppio/3-17-2020_g0_t3.imec0.spws.h5",
+    },
+    "pre-SR": {
+        "Doppio": "/Volumes/neuropixel/Data/CNPIX4-Doppio/3-18-2020_g0_t2.imec0.spws.h5",
+    },
+}
+
+emg = {
+    "SR": {
+        "Doppio": "/Volumes/neuropixel/Data/CNPIX4-Doppio/3-18-2020_g0_t3.imec0.emg.nc"
     }
+}
+
+lfp_bandpower = {
+    "SR": {"Doppio": "/Volumes/neuropixel/Data/CNPIX4-Doppio/3-18-2020_g0_t3.pow.nc"}
 }

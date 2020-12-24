@@ -1,6 +1,7 @@
 import os.path
 from pathlib import Path
 import numpy as np
+import xarray as xr
 
 from . import SGLXMetaToCoords
 from .readSGLX import makeMemMapRaw, readMeta, SampRate, GainCorrectIM
@@ -94,7 +95,7 @@ def Chan0_uVPerBit(meta):
     return uVPerBit
 
 
-def load_timeseries(bin_path, chans, start_time=None, end_time=None):
+def load_timeseries(bin_path, chans, start_time=None, end_time=None, xarray=False):
     """Load SpikeGLX timeseries data.
 
     Parameters
@@ -145,10 +146,22 @@ def load_timeseries(bin_path, chans, start_time=None, end_time=None):
     if meta["typeThis"] == "imec":
         # apply gain correction and convert to uV
         sig = 1e6 * GainCorrectIM(selectData, chans, meta)
+        sig_units = "uV"
     else:
         MN, MA, XA, DW = ChannelCountsNI(meta)
         # print("NI channel counts: %d, %d, %d, %d" % (MN, MA, XA, DW))
         # apply gain coorection and conver to mV
         sig = 1e3 * GainCorrectNI(selectData, chans, meta)
+        sig_units = "mV"
 
-    return time, sig.T, fs
+    if xarray:
+        data = xr.DataArray(
+            sig.T, dims=("time", "channel"), coords={"time": time, "channel": chans}
+        )
+        data.attrs["long_name"] = bin_path.stem
+        data.attrs["units"] = sig_units
+        data.attrs["fs"] = fs
+    else:
+        data = (time, sig.T, fs)
+
+    return data
