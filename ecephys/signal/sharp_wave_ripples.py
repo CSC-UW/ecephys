@@ -590,3 +590,48 @@ def get_sink_integrals(events, time, fs, sr_csd):
         return sink_integral
 
     return events.apply(_get_sink_integral, axis=1)
+
+
+def detect_sharp_waves(
+    time, sr_csd, detection_threshold=2.5, boundary_threshold=1, minimum_duration=0.005
+):
+    """Find start and end times of sharp waves, done by thresholding the combined stratum radiatum CSD.
+
+     Parameters
+     ----------
+     time : array_like, shape (n_time,)
+     sr_csd: array_like, shape (n_estimates, n_time)
+        Stratum radiatum CSD values. See notebook example.
+     minimum_duration : float, optional
+         Minimum time the z-score has to stay above threshold to be
+         considered an event. The default is given assuming time is in
+         units of seconds.
+     detection_zscore_threshold : float, optional
+         Number of standard deviations the combined CSD must exceed to
+         be considered an event.
+    boundary_zscore_threshold : float, optional
+         Number of standard deviations the combined CSD must drop
+         below to define the event start or end time.
+
+     Returns
+     -------
+     spws : pandas DataFrame
+    """
+
+    sr_csd = -sr_csd.T
+    combined_csd = np.sum(sr_csd, axis=1)
+
+    candidate_spw_times = threshold_by_zscore(
+        combined_csd,
+        time,
+        minimum_duration=minimum_duration,
+        detection_zscore_threshold=detection_threshold,
+        boundary_zscore_threshold=boundary_threshold,
+    )
+
+    index = pd.Index(np.arange(len(candidate_spw_times)) + 1, name="spw_number")
+    spws = pd.DataFrame(
+        candidate_spw_times, columns=["start_time", "end_time"], index=index
+    )
+
+    return spws

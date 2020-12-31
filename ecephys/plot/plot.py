@@ -11,6 +11,8 @@ from ipywidgets import (
     FloatSlider,
     HBox,
     IntSlider,
+    SelectionSlider,
+    Select,
     fixed,
     interact,
     interactive_output,
@@ -27,6 +29,8 @@ from ecephys.signal.csd import get_kcsd
 
 state_colors = {
     "Wake": "palegreen",
+    "qWk": "darkseagreen",
+    "aWk": "lightgreen",
     "N1": "thistle",
     "N2": "plum",
     "REM": "bisque",
@@ -584,7 +588,7 @@ def _lazy_spw_explorer(
     # Load the peri-event data
     all_chans = channel_groups.full[subject]
     (time, lfps, fs) = load_timeseries(
-        Path(paths.lfp_bin[condition][subject]),
+        paths.get_datapath(subject=subject, condition=condition, data="lf.bin"),
         all_chans,
         start_time=window_start_time,
         end_time=window_end_time,
@@ -670,15 +674,18 @@ def lazy_spw_explorer(spws, metadata, subject, condition, figsize=(20, 8)):
     window_length = FloatSlider(
         min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
     )
-    spw_number = IntSlider(
-        min=1, max=len(spws), step=1, value=1, description="SPW number"
+    spw_number = SelectionSlider(
+        options=spws.index.values, value=spws.index.values[0], description="SPW number"
     )
-    _spw_number = BoundedIntText(
-        min=1, max=len(spws), step=1, value=1, description="SPW number"
-    )
-    jslink(
-        (spw_number, "value"), (_spw_number, "value")
-    )  # Allow control from either widget for easy navigation
+    # spw_number = BoundedIntText(
+    #   min=1, max=spws.index.max(), step=1, value=1, description="SPW number"
+    # )
+    # _spw_number = BoundedIntText(
+    #    min=1, max=spws.index.max(), step=1, value=1, description="SPW number"
+    # )
+    # jslink(
+    #    (spw_number, "value"), (_spw_number, "value")
+    # )  # Allow control from either widget for easy navigation
     n_plot_chans = BoundedIntText(min=1, max=1000, value=1000, description="nCh")
     i_chan = BoundedIntText(min=0, max=999, value=0, description="Ch")
     vspace = BoundedIntText(min=0, max=1000000, value=300, description="V Space")
@@ -690,7 +697,7 @@ def lazy_spw_explorer(spws, metadata, subject, condition, figsize=(20, 8)):
         [
             window_length,
             spw_number,
-            _spw_number,
+            #        _spw_number,
             n_plot_chans,
             i_chan,
             vspace,

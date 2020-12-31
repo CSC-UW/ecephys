@@ -1,0 +1,13 @@
+[Thd 52 CPU 117 12/30/20 17:59:12.313] Cmdline: CatGT -dir=/Volumes/neuropixel_archive/Data/chronic/CNPIX4-Doppio/raw -run=3-18-2020_g0 -g=0 -t=0,1 -prb=0 -lf -dest=/Volumes/neuropixel/Data/CNPIX4-Doppio/
+[Thd 52 CPU 117 12/30/20 17:59:12.337] Meta file not found '/Volumes/neuropixel_archive/Data/chronic/CNPIX4-Doppio/raw/3-18-2020_g0_g0/3-18-2020_g0_g0_t0.imec0.lf.meta'.
+[Thd 52 CPU 117 12/30/20 17:59:12.338] 
+[Thd 42 CPU 5 12/30/20 18:05:31.905] Cmdline: CatGT -dir=/Volumes/neuropixel_archive/Data/chronic/CNPIX4-Doppio/raw -run=3-18-2020 -g=0 -t=0,1 -prb=0 -lf -dest=/Volumes/neuropixel/Data/CNPIX4-Doppio/
+[Thd 42 CPU 5 12/30/20 18:05:31.927] Meta file not found '/Volumes/neuropixel_archive/Data/chronic/CNPIX4-Doppio/raw/3-18-2020_g0/3-18-2020_g0_t0.imec0.lf.meta'.
+[Thd 42 CPU 5 12/30/20 18:05:31.927] 
+[Thd 42 CPU 132 12/30/20 18:12:39.611] Cmdline: CatGT -dir=/Volumes/neuropixel_archive/Data/chronic/CNPIX4-Doppio/raw -run=3-18-2020 -g=0 -t=0,1 -prb_fld -prb=0 -lf -SY=0,384,6,500 -dest=/Volumes/neuropixel/Data/CNPIX4-Doppio/ -out_prb_fld
+[Thd 42 CPU 132 12/30/20 18:14:53.826] Done lf prb 0 t 0
+[Thd 42 CPU 222 12/30/20 18:17:31.269] 
+[Thd 42 CPU 132 12/31/20 11:48:05.190] Cmdline: CatGT -dir=/Volumes/neuropixel_archive/Data/chronic/CNPIX4-Doppio/raw -run=3-18-2020 -g=0 -t=0,9 -prb_fld -prb=0 -lf -SY=0,384,6,500 -dest=/Volumes/neuropixel/Data/CNPIX4-Doppio/ -out_prb_fld
+[Thd 42 CPU 152 12/31/20 11:50:19.099] Done lf prb 0 t 0
+[Thd 42 CPU 84 12/31/20 12:10:46.529] 
+[Thd 42 CPU 20 12/31/20 13:21:44.567] Cmdline: CatGT -dir=/Volumes/neuropixel_archive/Data/chronic/CNPIX4-Doppio/raw -run=3-18-2020 -g=0 -t=0,9 -prb_fld -prb=0 -lf -SY=0,384,6,500 -dest=/Volumes/neuropixel/Data/CNPIX4-Doppio/ -out_prb_fld

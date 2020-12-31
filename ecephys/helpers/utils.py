@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from scipy.stats import median_abs_deviation
 
 
 def if_none(x, default):
@@ -113,3 +114,23 @@ def find_nearest(array, value):
     array = np.asarray(array)
     idx = (np.abs(array - value)).argmin()
     return array[idx]
+
+
+def add_attrs(obj, **kwargs):
+    for key in kwargs:
+        obj.attrs[key] = kwargs[key]
+
+    return obj
+
+
+def discard_outliers(x):
+    mad = median_abs_deviation(x)
+    threshold = np.median(x) + 6 * mad
+    return x[x <= threshold]
+
+
+def replace_outliers(x, fill_value=np.nan):
+    mad = median_abs_deviation(x)
+    threshold = np.median(x) + 6 * mad
+    x[x > threshold] = fill_value
+    return x
