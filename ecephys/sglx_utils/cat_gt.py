@@ -76,4 +76,4 @@ def get_catGT_command(catGT_path, wine_path=None, **kwargs):
 
     cmd = " ".join(cmd_parts)
 
-    print(cmd)
+    return cmd
