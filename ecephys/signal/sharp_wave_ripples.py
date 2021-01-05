@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
-from ecephys.helpers import unnest_df
-from ecephys.scoring import mask_times, filter_states
+from ..data.paths import get_datapath
+from ..utils import unnest_df, zscore_to_value, add_attrs, load_df_h5
+from ..scoring import mask_times, filter_states
 from ripple_detection.core import (
     exclude_close_events,
     exclude_movement,
@@ -104,35 +105,66 @@ def extend_detection_threshold_to_boundaries(
     return sorted(_extend_segment(above_detection_segments, above_boundary_segments))
 
 
-def threshold_by_zscore(
-    data,
-    time,
-    minimum_duration=0.015,
-    detection_zscore_threshold=2,
-    boundary_zscore_threshold=0,
+def threshold_by_value(
+    data, time, detection_threshold, boundary_threshold, minimum_duration=0.015
 ):
-    """Standardize the data and determine whether it is above a given
-    number.
+    """Determine whether it exceeds the threshold values.
 
     Parameters
     ----------
     data : array_like, shape (n_time,)
-    detection_zscore_threshold : int, optional
-    boundary_zscore_threshold: int, optional
+    detection_threshold_zscore : int, optional
+        The data must exceed this threshold in order for an event to be detected.
+    boundary_threshold_zscore: int, optional
+        Once an event is detected, the event's boundaries are defined as the time that the data drop below this threshold.
+    minimum_duration: float, optional
+        The minimum time that an event must persist.
 
     Returns
     -------
-    candidate_ripple_times : pandas Dataframe
+    candidate_event_times : pandas Dataframe
     """
-    zscored_data = zscore(data)
-    is_above_boundary_threshold = zscored_data >= boundary_zscore_threshold
-    is_above_detection_threshold = zscored_data >= detection_zscore_threshold
+    is_above_boundary_threshold = data >= boundary_threshold
+    is_above_detection_threshold = data >= detection_threshold
 
     return extend_detection_threshold_to_boundaries(
         is_above_boundary_threshold,
         is_above_detection_threshold,
         time,
         minimum_duration=minimum_duration,
+    )
+
+
+def threshold_by_zscore(
+    data,
+    time,
+    detection_threshold_zscore=2,
+    boundary_threshold_zscore=0,
+    minimum_duration=0.015,
+):
+    """Standardize the data and determine whether it exceeds the threshold values.
+
+    Parameters
+    ----------
+    data : array_like, shape (n_time,)
+    detection_threshold_zscore : int, optional
+        The data must exceed this threshold in order for an event to be detected.
+    boundary_threshold_zscore: int, optional
+        Once an event is detected, the event's boundaries are defined as the time that the data drop below this threshold.
+    minimum_duration: float, optional
+        The minimum time that an event must persist.
+
+    Returns
+    -------
+    candidate_event_times : pandas Dataframe
+    """
+    zscored_data = zscore(data)
+    return threshold_by_value(
+        zscored_data,
+        time,
+        detection_threshold_zscore,
+        detection_boundary_threshold,
+        minimum_duration,
     )
 
 
@@ -143,8 +175,8 @@ def generalized_Kay_ripple_detector(
     sampling_frequency,
     speed_threshold=4.0,
     minimum_duration=0.015,
-    detection_zscore_threshold=2.0,
-    boundary_zscore_threshold=0.0,
+    detection_threshold_zscore=2.0,
+    boundary_threshold_zscore=0.0,
     smoothing_sigma=0.004,
     close_ripple_threshold=0.0,
 ):
@@ -167,10 +199,10 @@ def generalized_Kay_ripple_detector(
          Minimum time the z-score has to stay above threshold to be
          considered a ripple. The default is given assuming time is in
          units of seconds.
-     detection_zscore_threshold : float, optional
+     detection_threshold_zscore : float, optional
          Number of standard deviations the ripple power must exceed to
          be considered a ripple
-    boundary_zscore_threshold : float, optional
+    boundary_threshold_zscore : float, optional
          Number of standard deviations the ripple power must drop
          below to define the ripple start or end time.
      smoothing_sigma : float, optional
@@ -203,8 +235,8 @@ def generalized_Kay_ripple_detector(
         combined_filtered_lfps,
         time,
         minimum_duration,
-        detection_zscore_threshold,
-        boundary_zscore_threshold,
+        detection_threshold_zscore,
+        boundary_threshold_zscore,
     )
 
     ripple_times = exclude_movement(
@@ -568,32 +600,32 @@ def get_midpoints(events):
 
 
 def get_sink_amplitudes(events, time, sr_csd):
+    mean_sr_csd = sr_csd.mean(axis=0)
+
     def _get_sink_amplitude(evt):
         evt_mask = np.logical_and(time >= evt.start_time, time <= evt.end_time)
-        evt_csd = sr_csd[:, evt_mask]
-        combined_evt_csd = np.sum(evt_csd, axis=0)
-        n_csd_estimates = evt_csd.shape[0]
-        sink_amplitude = np.min(combined_evt_csd) / n_csd_estimates
-
-        return sink_amplitude
+        mean_evt_csd = mean_sr_csd[evt_mask]
+        return np.min(mean_evt_csd)
 
     return events.apply(_get_sink_amplitude, axis=1)
 
 
 def get_sink_integrals(events, time, fs, sr_csd):
+    normed_sr_csd = sr_csd.mean(axis=0) / fs
+
     def _get_sink_integral(evt):
         evt_mask = np.logical_and(time >= evt.start_time, time <= evt.end_time)
-        evt_csd = sr_csd[:, evt_mask]
-        n_csd_estimates = evt_csd.shape[0]
-        sink_integral = np.sum(evt_csd) / n_csd_estimates / fs
-
-        return sink_integral
+        return normed_sr_csd[evt_mask].sum()
 
     return events.apply(_get_sink_integral, axis=1)
 
 
-def detect_sharp_waves(
-    time, sr_csd, detection_threshold=2.5, boundary_threshold=1, minimum_duration=0.005
+def detect_sharp_waves_by_zscore(
+    time,
+    sr_csd,
+    detection_threshold_zscore=2.5,
+    boundary_threshold_zscore=1,
+    minimum_duration=0.005,
 ):
     """Find start and end times of sharp waves, done by thresholding the combined stratum radiatum CSD.
 
@@ -606,10 +638,10 @@ def detect_sharp_waves(
          Minimum time the z-score has to stay above threshold to be
          considered an event. The default is given assuming time is in
          units of seconds.
-     detection_zscore_threshold : float, optional
+     detection_threshold_zscore : float, optional
          Number of standard deviations the combined CSD must exceed to
          be considered an event.
-    boundary_zscore_threshold : float, optional
+    boundary_threshold_zscore : float, optional
          Number of standard deviations the combined CSD must drop
          below to define the event start or end time.
 
@@ -618,15 +650,57 @@ def detect_sharp_waves(
      spws : pandas DataFrame
     """
 
-    sr_csd = -sr_csd.T
-    combined_csd = np.sum(sr_csd, axis=1)
+    combined_csd = np.sum(-sr_csd.T, axis=1)
 
-    candidate_spw_times = threshold_by_zscore(
+    detection_threshold = zscore_to_value(combined_csd, detection_threshold_zscore)
+    boundary_threshold = zscore_to_value(combined_csd, boundary_threshold_zscore)
+
+    spws = detect_sharp_waves(
+        time,
+        sr_csd,
+        minimum_duration=minimum_duration,
+        detection_threshold=detection_threshold,
+        boundary_threshold=boundary_threshold,
+    )
+
+    spws.attrs["detection_threshold_zscore"] = detection_threshold_zscore
+    spws.attrs["boundary_threshold_zscore"] = boundary_threshold_zscore
+
+    return spws
+
+
+def detect_sharp_waves(
+    time, sr_csd, detection_threshold, boundary_threshold, minimum_duration=0.005
+):
+    """Find start and end times of sharp waves, done by thresholding the combined stratum radiatum CSD.
+
+     Parameters
+     ----------
+     time : array_like, shape (n_time,)
+     sr_csd: array_like, shape (n_estimates, n_time)
+        Stratum radiatum CSD values. See notebook example.
+     minimum_duration : float, optional
+         Minimum time the data has to stay above threshold to be
+         considered an event. The default is given assuming time is in
+         units of seconds.
+     detection_threshold_zscore : float, optional
+         Value the combined CSD must exceed to be considered an event.
+    boundary_threshold_zscore : float, optional
+         Value the combined CSD must drop below to define the event start or end time.
+
+     Returns
+     -------
+     spws : pandas DataFrame
+    """
+
+    combined_csd = np.sum(-sr_csd.T, axis=1)
+
+    candidate_spw_times = threshold_by_value(
         combined_csd,
         time,
+        detection_threshold=detection_threshold,
+        boundary_threshold=boundary_threshold,
         minimum_duration=minimum_duration,
-        detection_zscore_threshold=detection_threshold,
-        boundary_zscore_threshold=boundary_threshold,
     )
 
     index = pd.Index(np.arange(len(candidate_spw_times)) + 1, name="spw_number")
@@ -634,4 +708,31 @@ def detect_sharp_waves(
         candidate_spw_times, columns=["start_time", "end_time"], index=index
     )
 
+    spws.attrs["detection_threshold"] = detection_threshold
+    spws.attrs["boundary_threshold"] = boundary_threshold
+    spws.attrs["minimum_duration"] = minimum_duration
+
     return spws
+
+
+def load_sharp_waves(path=None, subject=None, condition=None):
+    if not path:
+        path = get_datapath(subject=subject, condition=condition, data="sharp_waves.h5")
+
+    with pd.HDFStore(path) as store:
+        spws, spws_metadata = load_df_h5(store)
+        spws = add_attrs(spws, **spws_metadata)
+
+    return spws
+
+
+def add_states_to_events(events, hypnogram):
+    events["state"] = None
+    for index, bout in hypnogram.iterrows():
+        events_in_bout = np.logical_and(
+            events["start_time"] >= bout["start_time"],
+            events["start_time"] < bout["end_time"],
+        )
+        events.loc[events_in_bout, "state"] = bout["state"]
+
+    return events

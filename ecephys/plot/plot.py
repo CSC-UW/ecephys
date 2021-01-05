@@ -3,6 +3,7 @@ from kcsd import KCSD1D
 from neurodsp.plts.utils import check_ax
 from neurodsp.spectral.utils import trim_spectrogram
 import matplotlib.pyplot as plt
+import seaborn as sns
 from pathlib import Path
 from ipywidgets import (
     BoundedFloatText,
@@ -29,7 +30,7 @@ from ecephys.signal.csd import get_kcsd
 
 state_colors = {
     "Wake": "palegreen",
-    "qWk": "darkseagreen",
+    "qWk": "seagreen",
     "aWk": "lightgreen",
     "N1": "thistle",
     "N2": "plum",
@@ -81,7 +82,7 @@ def plot_spectrogram(
         ax.set_ylim(np.min(freqs[freqs > 0]), np.max(freqs))
 
 
-def plot_hypnogram_overlay(hypnogram, ax=None):
+def plot_hypnogram_overlay(hypnogram, ax=None, figsize=(18, 3)):
     """Shade plot background using hypnogram state.
 
     Parameters
@@ -93,7 +94,7 @@ def plot_hypnogram_overlay(hypnogram, ax=None):
     """
     xlim = ax.get_xlim() if ax else (None, None)
 
-    ax = check_ax(ax, figsize=(18, 3))
+    ax = check_ax(ax, figsize=figsize)
 
     for bout in hypnogram.itertuples():
         ax.axvspan(
@@ -102,6 +103,7 @@ def plot_hypnogram_overlay(hypnogram, ax=None):
             alpha=0.3,
             color=state_colors[bout.state],
             zorder=1000,
+            ec="none",
         )
 
     ax.set_xlim(xlim)
@@ -728,3 +730,23 @@ def lazy_spw_explorer(spws, metadata, subject, condition, figsize=(20, 8)):
     )
 
     display(ui, out)
+
+
+def plot_spw_density(spws, binwidth=10, ax=None, figsize=(20, 4)):
+    ax = check_ax(ax, figsize=figsize)
+    g = sns.histplot(
+        spws.start_time, binwidth=binwidth, stat="frequency", color="black", ax=ax
+    )
+
+    seconds_per_hour = 3600
+    hours = int(np.ceil(spws.end_time.max() / seconds_per_hour))
+    xticks = [x * seconds_per_hour for x in range(hours)]
+    xticklabels = [str(x) for x in range(hours)]
+    g.set(
+        xticks=xticks,
+        xticklabels=xticklabels,
+        xlabel=f"Hours from 9AM",
+        ylabel="Density (events per second)",
+        title=f"SPW Density ({binwidth}s bins)",
+    )
+    plt.show(g)

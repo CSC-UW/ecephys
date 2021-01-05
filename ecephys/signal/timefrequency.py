@@ -5,7 +5,7 @@ from neurodsp.spectral.utils import trim_spectrogram
 from multiprocessing import Pool
 from functools import partial
 
-from ecephys.helpers import ncols, all_arrays_equal
+from ecephys.utils import ncols, all_arrays_equal
 from ecephys.signal.utils import get_perievent_time, get_perievent_data
 
 

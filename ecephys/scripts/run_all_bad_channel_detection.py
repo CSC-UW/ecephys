@@ -4,10 +4,10 @@ from pathlib import Path
 import numpy as np
 
 import yaml
-from ecephys.helpers.path_utils import get_run_specs
+from ecephys.utils.path_utils import get_run_specs
 from ecephys.sglx_utils import get_xy_coords
 from ecephys.signal.bad_channels import get_good_channels
-from ecephys_spike_sorting.scripts.helpers import SpikeGLX_utils
+from ecephys_spike_sorting.scripts.utils import SpikeGLX_utils
 
 # script to run CatGT,  on data collected using # SpikeGLX. The construction of
 # the paths assumes data was saved with "Folder per probe" selected (probes
@@ -43,8 +43,12 @@ noise_threshold = 18
 # - We also create a file containing the union (`..tunion..``) or intersection
 # (`..tinter`..) of bad channels created for each trigger
 # BAD_CHANNEL_PATH = "./bad_channels/bad_channels_t{trigger_i}.imec{prb_i}.{stream}.yml"
-BAD_CHANNEL_PATH = "./bad_channels_thres="+str(noise_threshold)+"/bad_channels_t{trigger_i}.imec{prb_i}.{stream}.yml"
-NCHAN_FILENAME = "N_bad_channels.imec{prb_i}.{stream}.yml"# Number of bad channels for each trigger. Saved in same directory as bad channel files
+BAD_CHANNEL_PATH = (
+    "./bad_channels_thres="
+    + str(noise_threshold)
+    + "/bad_channels_t{trigger_i}.imec{prb_i}.{stream}.yml"
+)
+NCHAN_FILENAME = "N_bad_channels.imec{prb_i}.{stream}.yml"  # Number of bad channels for each trigger. Saved in same directory as bad channel files
 TRIG_FILENAME = "trg_per_chan.imec{prb_i}.{stream}.yml"  # List of triggers for which a channel is bad
 
 # Streams for which we compute bad channels
@@ -100,13 +104,18 @@ def run_bad_channels_detection(npx_directory):
 
                 # Pass if files already there
                 if not overwrite:
-                    nchan_path = (prb_fld / BAD_CHANNEL_PATH.format(
-                        **{"prb_i": prb_i, "stream": stream, "trigger_i": 'NULL'}
-                        )).parent/NCHAN_FILENAME.format(
-                            **{"prb_i": prb_i, "stream": stream}
+                    nchan_path = (
+                        prb_fld
+                        / BAD_CHANNEL_PATH.format(
+                            **{"prb_i": prb_i, "stream": stream, "trigger_i": "NULL"}
                         )
+                    ).parent / NCHAN_FILENAME.format(
+                        **{"prb_i": prb_i, "stream": stream}
+                    )
                     if nchan_path.exists():
-                        print(f'overwrite==False: Passing stream {stream}, run/probe {prb_fld_name}')
+                        print(
+                            f"overwrite==False: Passing stream {stream}, run/probe {prb_fld_name}"
+                        )
                         continue
 
                 # Fill bad channels for each trigger to get whole-run bad
@@ -117,9 +126,7 @@ def run_bad_channels_detection(npx_directory):
                 # list of triggers for which a channel is bad
                 all_bad_trg = {chan_i: [] for chan_i in range(384)}
 
-
                 for trg_i in triggers_i:
-
 
                     raw_data_file = (
                         prb_fld
@@ -133,7 +140,7 @@ def run_bad_channels_detection(npx_directory):
                         uVPerBit,
                     ) = SpikeGLX_utils.EphysParams(raw_data_file)
 
-                    if stream == 'ap':
+                    if stream == "ap":
                         (
                             ap_chans,  # AP channel indices
                             xcoords,
@@ -146,7 +153,7 @@ def run_bad_channels_detection(npx_directory):
                     # Order channels along probe
                     channel_map = np.argsort(ycoords)
 
-                    print(f"t={trg_i}: ", end='')
+                    print(f"t={trg_i}: ", end="")
                     good_channels_mask = get_good_channels(
                         raw_data_file,
                         num_channels,
@@ -176,7 +183,9 @@ def run_bad_channels_detection(npx_directory):
 
                 # Compute and save whole-run bad channels
                 # Intersection of all triggers bad chans
-                inter_bad_chans = sorted(list(set.intersection(*map(set, all_trg_bad_channels))))
+                inter_bad_chans = sorted(
+                    list(set.intersection(*map(set, all_trg_bad_channels)))
+                )
                 inter_path = prb_fld / BAD_CHANNEL_PATH.format(
                     **{"prb_i": prb_i, "stream": stream, "trigger_i": "inter"}
                 )
@@ -185,34 +194,35 @@ def run_bad_channels_detection(npx_directory):
                 print(
                     f"Whole run bad N chans (intersection method): {len(inter_bad_chans)}"
                 )
-                all_trg_N_bad['inter'] = len(inter_bad_chans)
+                all_trg_N_bad["inter"] = len(inter_bad_chans)
                 # union of all triggers bad chans
-                union_bad_chans = sorted(list(set.union(*map(set, all_trg_bad_channels))))
+                union_bad_chans = sorted(
+                    list(set.union(*map(set, all_trg_bad_channels)))
+                )
                 union_path = prb_fld / BAD_CHANNEL_PATH.format(
                     **{"prb_i": prb_i, "stream": stream, "trigger_i": "union"}
                 )
                 with open(union_path, "w") as f:
                     yaml.dump(union_bad_chans, f, default_flow_style=False)
-                print(
-                    f"Whole run bad N chans (union method): {len(union_bad_chans)}"
-                )
-                all_trg_N_bad['union'] = len(union_bad_chans)
+                print(f"Whole run bad N chans (union method): {len(union_bad_chans)}")
+                all_trg_N_bad["union"] = len(union_bad_chans)
 
                 # Save report file containing number of bad channels
-                nchan_path = union_path.parent/NCHAN_FILENAME.format(
+                nchan_path = union_path.parent / NCHAN_FILENAME.format(
                     **{"prb_i": prb_i, "stream": stream}
                 )
                 with open(nchan_path, "w") as f:
                     yaml.dump(all_trg_N_bad, f, default_flow_style=False)
                 print(f"Save Number of channels per trigger at {nchan_path}")
                 # Save report file containing list of trigs for which each channel is bad
-                badtrig_path = union_path.parent/TRIG_FILENAME.format(
+                badtrig_path = union_path.parent / TRIG_FILENAME.format(
                     **{"prb_i": prb_i, "stream": stream}
                 )
                 with open(badtrig_path, "w") as f:
                     yaml.dump(all_bad_trg, f, default_flow_style=False)
-                print(f"Save list of triggers for which each channel is bad at {badtrig_path}")
-
+                print(
+                    f"Save list of triggers for which each channel is bad at {badtrig_path}"
+                )
 
             print(
                 f"Done processing probe. Running time = {(time.time() - tstart)/60}min. \n"
@@ -227,13 +237,10 @@ def main():
     else:
         from joblib import Parallel, delayed
 
-        Parallel(
-            n_jobs=n_jobs
-        )(
-            delayed(run_bad_channels_detection)(npx_dir)
-            for npx_dir in NPX_DIRECTORIES
+        Parallel(n_jobs=n_jobs)(
+            delayed(run_bad_channels_detection)(npx_dir) for npx_dir in NPX_DIRECTORIES
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

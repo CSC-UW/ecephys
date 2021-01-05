@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from ..data.paths import get_datapath
+
 
 def get_start_time(H, row):
     """Infer a bout's start time from the previous bout's end time.
@@ -25,12 +27,12 @@ def get_start_time(H, row):
     return start_time
 
 
-def load_visbrain_hypnogram(hypno_path):
+def load_visbrain_hypnogram(path=None, subject=None, condition=None):
     """Load a Visbrain-formatted hypngoram.
 
     Parameters
     ----------
-    hypno_path: pathlib.Path
+    path: pathlib.Path
         The path to the hypnogram.
 
     Returns:
@@ -38,11 +40,18 @@ def load_visbrain_hypnogram(hypno_path):
     H: DataFrame
         The loaded hypnogram.
     """
-    H = pd.read_csv(hypno_path, sep="\t", names=["state", "end_time"], skiprows=1)
+    if not path:
+        path = get_datapath(subject=subject, condition=condition, data="hypnogram.txt")
+
+    H = pd.read_csv(path, sep="\t", names=["state", "end_time"], skiprows=1)
     H["start_time"] = H.apply(lambda row: get_start_time(H, row), axis=1)
     H["duration"] = H.apply(lambda row: row.end_time - row.start_time, axis=1)
 
     return H
+
+
+def write_visbrain_hypnogram(H, path):
+    H.to_csv(path, columns=["state", "end_time"], sep="\t", index=False)
 
 
 def filter_states(H, states):
@@ -110,3 +119,41 @@ def make_empty_hypnogram(end_time):
     )
 
     return H
+
+
+def get_separated_wake_hypnogram(qwk_intervals, awk_intervals):
+    """Turn a list of quiet wake and active wake intervals into a hypnogram.
+
+    Parameters
+    ----------
+    qwk_intervals: list(tuple(float))
+        Start and end times of each quiet wake bout.
+    awk_intervals: list(tuple(float))
+        Start and end times of each quiet wake bout.
+
+    Returns
+    -------
+    hypnogram: pandas.DataFrame
+    """
+
+    qwk_intervals = np.asarray(qwk_intervals)
+    awk_intervals = np.asarray(awk_intervals)
+
+    qwk = pd.DataFrame(
+        {
+            "state": "qWk",
+            "start_time": qwk_intervals[:, 0],
+            "end_time": qwk_intervals[:, 1],
+            "duration": np.diff(qwk_intervals).flatten(),
+        }
+    )
+    awk = pd.DataFrame(
+        {
+            "state": "aWk",
+            "start_time": awk_intervals[:, 0],
+            "end_time": awk_intervals[:, 1],
+            "duration": np.diff(awk_intervals).flatten(),
+        }
+    )
+
+    return pd.concat([qwk, awk]).sort_values(by=["start_time"]).reset_index()

@@ -134,3 +134,85 @@ def replace_outliers(x, fill_value=np.nan):
     threshold = np.median(x) + 6 * mad
     x[x > threshold] = fill_value
     return x
+
+
+def zscore_to_value(data, z):
+    return z * data.std() + data.mean()
+
+
+def get_disjoint_interval_intersections(arr1, arr2):
+    """Given two 2-D arrays which represent intervals. Each 2-D array represents a list
+    of intervals. Each list of intervals is disjoint and sorted in increasing order.
+    Find the intersection or set of ranges that are common to both the lists.
+
+    Examples
+    ---------
+    Input:
+        arr1 = [(0, 4), (5, 10), (13, 20), (24, 25)]
+        arr2 = [(1, 5), (8, 12), (15, 24), (25, 26)]
+    Output:
+        [(1, 4), (5, 5), (8, 10), (15, 20), (24, 24), (25, 25)]
+
+    References
+    ----------
+    [1] https://www.geeksforgeeks.org/find-intersection-of-intervals-given-by-two-lists/
+    """
+
+    intersection = list()
+
+    # i and j pointers for arr1
+    # and arr2 respectively
+    i = j = 0
+
+    n = len(arr1)
+    m = len(arr2)
+
+    # Loop through all intervals unless one
+    # of the interval gets exhausted
+    while i < n and j < m:
+
+        # Left bound for intersecting segment
+        l = max(arr1[i][0], arr2[j][0])
+
+        # Right bound for intersecting segment
+        r = min(arr1[i][1], arr2[j][1])
+
+        # If segment is valid print it
+        if l <= r:
+            intersection.append((l, r))
+
+        # If i-th interval's right bound is
+        # smaller increment i else increment j
+        if arr1[i][1] < arr2[j][1]:
+            i += 1
+        else:
+            j += 1
+
+    return intersection
+
+
+def get_interval_complements(intervals, start_time, end_time):
+    """Get intervals complementary to those provided over a specified time range.
+
+    Examples
+    --------
+    Input:
+        intervals = [(0, 4), (5, 10), (13, 20), (24, 25)]
+        start_time, end_time = (0, 30)
+    Output:
+        [(4, 5), (10, 13), (20, 24), (25, 30)]
+    """
+
+    intervals = np.asarray(intervals)
+    complement = list()
+
+    assert start_time < intervals.flatten()[0]
+    assert end_time > intervals.flatten()[-1]
+
+    edges = np.concatenate([[start_time], intervals.flatten(), [end_time]])
+    it = iter(edges)
+    for l in it:
+        r = next(it)
+        complement.append((l, r))
+
+    return complement
