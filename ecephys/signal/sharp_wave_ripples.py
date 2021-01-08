@@ -655,12 +655,12 @@ def detect_sharp_waves_by_zscore(
     detection_threshold = zscore_to_value(combined_csd, detection_threshold_zscore)
     boundary_threshold = zscore_to_value(combined_csd, boundary_threshold_zscore)
 
-    spws = detect_sharp_waves(
+    spws = detect_sharp_waves_by_value(
         time,
         sr_csd,
-        minimum_duration=minimum_duration,
         detection_threshold=detection_threshold,
         boundary_threshold=boundary_threshold,
+        minimum_duration=minimum_duration,
     )
 
     spws.attrs["detection_threshold_zscore"] = detection_threshold_zscore
@@ -669,7 +669,7 @@ def detect_sharp_waves_by_zscore(
     return spws
 
 
-def detect_sharp_waves(
+def detect_sharp_waves_by_value(
     time, sr_csd, detection_threshold, boundary_threshold, minimum_duration=0.005
 ):
     """Find start and end times of sharp waves, done by thresholding the combined stratum radiatum CSD.
