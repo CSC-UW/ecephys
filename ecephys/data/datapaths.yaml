@@ -1,0 +1,16 @@
+---
+Eugene:
+  raw-data-root: /Volumes/neuropixel_archive/Data/chronic/CNPIX6-Eugene/raw/
+  analysis-root: /Volumes/neuropixel/Data/CNPIX6-Eugene/
+  extended-wake:
+    - 9.24.2020_SD_24hs_g0_t0.imec0
+    - 9.24.2020_SD_24hs1_g0_t0.imec0
+    - 9.24.2020_SD_24hs2_g0_t0.imec0
+    - 9.24.2020_SD_24hs3_g0_t0.imec0
+    - 9.24.2020_SD_24hs3_g1_t0.imec0
+    - 9.24.2020_SD_24hs3_g1_t1.imec0
+    - 9.24.2020_SD_24hs4_g0_t0.imec0
+    - 9.24.2020_SD_24hs5_g0_t0.imec0
+    - 9.24.2020_SD_24hs7_g0_t0.imec0
+    - 9.24.2020_SD_24hs8_g0_t0.imec0
+    - 9.24.2020_SD_24hs8_g0_t1.imec0

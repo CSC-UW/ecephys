@@ -2,6 +2,7 @@ import os.path
 from pathlib import Path
 import numpy as np
 import xarray as xr
+import pandas as pd
 
 from . import SGLXMetaToCoords
 from .readSGLX import makeMemMapRaw, readMeta, SampRate, GainCorrectIM
@@ -95,7 +96,9 @@ def Chan0_uVPerBit(meta):
     return uVPerBit
 
 
-def load_timeseries(bin_path, chans, start_time=None, end_time=None, xarray=False):
+def load_timeseries(
+    bin_path, chans, start_time=None, end_time=None, datetime=False, xarray=False
+):
     """Load SpikeGLX timeseries data.
 
     Parameters
@@ -110,15 +113,24 @@ def load_timeseries(bin_path, chans, start_time=None, end_time=None, xarray=Fals
     end_time: float, optional, default: None
         End time of the data to load, relative to the file start, in seconds.
         If `None`, load until the end of the file.
+    datetime: boolean
+        If `True`, return time as a datetime vector with nanosecond resolution.
+        Note that this WILL result in a loss of timing resolution, but it is marginal.
+    xarray: boolean
+        If `True`, return data as a DataArray
 
     Returns
     -------
-    time : 1d array, (n_samples, )
-        Time of the data, in seconds from the file start.
-    sig: 2d array, (n_samples, n_chans)
-        Gain-converted signal
-    fs: float
-        The sampling frequency of the data
+    if xarray=`False`:
+        time : 1d array, (n_samples, )
+            Time of the data, in seconds from the file start.
+        sig: 2d array, (n_samples, n_chans)
+            Gain-converted signal
+        fs: float
+            The sampling frequency of the data
+    if xarray=`True`:
+        data : xr.DataArray (n_samples, n_chans)
+            With labeled dimensions `time` and `channel`, and `fs` attribute.
     """
 
     meta = readMeta(bin_path)
@@ -138,9 +150,15 @@ def load_timeseries(bin_path, chans, start_time=None, end_time=None, xarray=Fals
         nFileSamp = int(int(meta["fileSizeBytes"]) / (2 * nFileChan))
         lastSamp = nFileSamp - 1
 
-    # array of times for plot
+    # Get timestamps of each sample
     time = np.arange(firstSamp, lastSamp + 1)
-    time = time / fs  # plot time axis in seconds
+    time = time / fs  # timestamps in seconds from start of file
+    if datetime:
+        start_dt = pd.to_datetime(meta["fileCreateTime"]) + pd.to_timedelta(
+            time.min(), "s"
+        )
+        end_dt = start_dt + pd.to_timedelta(time.max(), "s")
+        time = pd.date_range(start_dt, end_dt, periods=len(time))
 
     selectData = rawData[chans, firstSamp : lastSamp + 1]
     if meta["typeThis"] == "imec":
