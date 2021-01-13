@@ -29,7 +29,7 @@ def get_datapath_from_csv(**kwargs):
     Load like:
         get_datapath_from_csv(subject="Doppio", condition="REC-0+2", data="lf.bin")
     """
-    df = pd.read_csv(DATAPATHS_FILE)
+    df = pd.read_csv(DATAPATHS_CSV_FILE)
     mask = pd.Series(True, index=df.index)
     for column, value in kwargs.items():
         mask = mask & (df[column] == value)
@@ -77,7 +77,7 @@ def get_sglx_style_parent_path(run, gate, trigger, probe, root_dir):
     """
     probe_dir = f"{run}_{gate}_{probe}"
     run_dir = f"{run}_{gate}"
-    return Path(root_dir, run_dir, probe_dir)
+    return root_dir / run_dir / probe_dir
 
 
 def get_sglx_style_abs_path(stem, ext, root):
@@ -90,17 +90,29 @@ def get_sglx_style_abs_path(stem, ext, root):
     return parent / fname
 
 
-def get_datapaths(subject, condition, ext):
+def get_sglx_style_datapaths(subject, condition, ext):
     """Get all datapaths, assuming a properly formatted YAML file an folder-per-probe
     organization."""
-    with open(YAML_FILE) as file:
-        yaml_data = yaml.safe_load(file)
+    with open(YAML_FILE) as fp:
+        yaml_data = yaml.safe_load(fp)
 
     if (ext == "lf.bin") or (ext == "ap.bin"):
-        root = yaml_data[subject]["raw-data-root"]
+        root = Path(yaml_data[subject]["raw-data-root"])
     else:
-        root = yaml_data[subject]["analysis-root"]
+        root = Path(yaml_data[subject]["analysis-root"])
 
     condition_manifest = yaml_data[subject][condition]
 
     return [get_sglx_style_abs_path(stem, ext, root) for stem in condition_manifest]
+
+
+def get_datapath(subject, condition, file):
+    with open(YAML_FILE) as fp:
+        yaml_data = yaml.safe_load(fp)
+
+    datapath = Path(yaml_data[subject]["analysis-root"])
+
+    if condition:
+        datapath = datapath / condition
+
+    return datapath / file

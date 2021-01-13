@@ -715,17 +715,6 @@ def detect_sharp_waves_by_value(
     return spws
 
 
-def load_sharp_waves(path=None, subject=None, condition=None):
-    if not path:
-        path = get_datapath(subject=subject, condition=condition, data="sharp_waves.h5")
-
-    with pd.HDFStore(path) as store:
-        spws, spws_metadata = load_df_h5(store)
-        spws = add_attrs(spws, **spws_metadata)
-
-    return spws
-
-
 def add_states_to_events(events, hypnogram):
     events["state"] = None
     for index, bout in hypnogram.iterrows():

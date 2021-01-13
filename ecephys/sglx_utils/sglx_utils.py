@@ -176,10 +176,49 @@ def load_timeseries(
         data = xr.DataArray(
             sig.T, dims=("time", "channel"), coords={"time": time, "channel": chans}
         )
-        data.attrs["long_name"] = bin_path.stem
         data.attrs["units"] = sig_units
         data.attrs["fs"] = fs
     else:
         data = (time, sig.T, fs)
 
     return data
+
+
+def load_multifile_timeseries(bin_paths, chans, datetime=False, xarray=False):
+    """Load and concatenate multiple SpikeGLX files.
+    Will load all data into memory unless using xarray.
+    If not using xarray, all data are assumed to be contiguous without gaps.
+    """
+
+    all_data = [
+        load_timeseries(
+            path,
+            chans,
+            start_time=None,
+            end_time=None,
+            datetime=datetime,
+            xarray=xarray,
+        )
+        for path in bin_paths
+    ]
+
+    if xarray:
+        return xr.concat(all_data, dim="time")
+    else:
+        print(
+            "You are loading multifile SGLX data without xarray.\n",
+            "Are you sure you want to do this? Please see documentation.",
+        )
+        all_time, all_sig, all_fs = zip(*all_data)
+        file_durations = [time.max() for time in all_time]
+        file_ends = np.cumsum(file_durations)
+        offset_time = np.concatenate(
+            [all_time[i] + file_ends[i - 1] for i in range(1, len(all_time))]
+        )
+        time = np.concatenate([all_time[0], offset_time])
+        sig = np.concatenate(all_sig)
+        fs = all_fs[0]
+        assert np.all(
+            np.asarray(all_fs) == fs
+        ), "All recordings must have the same sampling rate"
+        return (time, sig, fs)

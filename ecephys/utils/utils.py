@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import median_abs_deviation
+from pathlib import Path
 
 
 def if_none(x, default):
@@ -79,34 +80,33 @@ def store_df_h5(filename, df, **kwargs):
     ----------
     [1] # https://stackoverflow.com/questions/29129095
     """
+    # Create parent directories if they do not already exist.
+    Path(filename).parent.mkdir(parents=True, exist_ok=True)
     store = pd.HDFStore(filename)
     store.put("mydata", df)
     store.get_storer("mydata").attrs.metadata = kwargs
     store.close()
 
 
-def load_df_h5(store):
+def load_df_h5(path):
     """Read DataFrame and a dictionary of metadata as HDF5.
     Assumes data were saved using `store_df_h5`.
 
     Parameters
     ----------
-    store: pandas.HDFStore
+    path: str or pathlib.Path
         The file create or write to.
 
     Returns
     -------
     df: pandas.DataFrame
-    metadata: dict
-
-    Examples
-    --------
-    with pd.HDFStore(filename) as store:
-        df, metadata = load_df_h5(store)
+        Metadata are saved in `df.attrs`
     """
-    df = store["mydata"]
-    metadata = store.get_storer("mydata").attrs.metadata
-    return df, metadata
+    with pd.HDFStore(path) as store:
+        df = store["mydata"]
+        metadata = store.get_storer("mydata").attrs.metadata
+
+    return add_attrs(df, **metadata)
 
 
 def find_nearest(array, value):

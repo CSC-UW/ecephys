@@ -87,8 +87,8 @@ Alessandro,REC-30+18,sharp_wave_detection_params.json,/Volumes/neuropixel/Data/C
 Alessandro,REC-0+1,lf.bin,/Volumes/neuropixel_archive/Data/chronic/CNPIX5-Alessandro/raw/8-25-2020_g0/8-25-2020_g0_imec0/8-25-2020_g0_t2.imec0.lf.bin
 Alessandro,REC-0+1,hypnogram.txt,/Volumes/neuropixel/Data/CNPIX5-Alessandro/8-25-2020_g0/8-25-2020_g0_t2.hypnogram.txt
 Alessandro,REC-0+1,ripples.h5,/Volumes/neuropixel/Data/CNPIX5-Alessandro/8-25-2020_g0/8-25-2020_g0_imec0/8-25-2020_g0_t2.imec0.ripples.h5
-Alessandro,REC-1+2,lf.bin,/Volumes/neuropixel_archive/Data/chronic/CNPIX5-Alessandro/raw/8-25-2020_g0/8-25-2020_g0_imec0/8-25-2020_g0_t3.imec0.lf.bin
-Alessandro,REC-1+2,sharp_waves.h5,/Volumes/neuropixel/Data/CNPIX5-Alessandro/8-25-2020_g0/8-25-2020_g0_imec0/8-25-2020_g0_t3.imec0.spws.h5
+Alessandro,REC+1+2,lf.bin,/Volumes/neuropixel_archive/Data/chronic/CNPIX5-Alessandro/raw/8-25-2020_g0/8-25-2020_g0_imec0/8-25-2020_g0_t3.imec0.lf.bin
+Alessandro,REC+1+2,sharp_waves.h5,/Volumes/neuropixel/Data/CNPIX5-Alessandro/8-25-2020_g0/8-25-2020_g0_imec0/8-25-2020_g0_t3.imec0.spws.h5
 Alessandro,REC-1-0,lf.bin,/Volumes/neuropixel_archive/Data/chronic/CNPIX5-Alessandro/raw/8-25-2020_g0/8-25-2020_g0_imec0/8-25-2020_g0_t1.imec0.lf.bin
 Alessandro,REC-1-0,sharp_waves.h5,/Volumes/neuropixel/Data/CNPIX5-Alessandro/8-25-2020_g0/8-25-2020_g0_imec0/8-25-2020_g0_t1.imec0.spws.h5
 Alessandro,REC-1-0,ripples.h5,/Volumes/neuropixel/Data/CNPIX5-Alessandro/8-25-2020_g0/8-25-2020_g0_imec0/8-25-2020_g0_t1.imec0.ripples.h5

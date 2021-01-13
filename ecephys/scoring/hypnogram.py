@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 from ..data.paths import get_datapath
 
@@ -27,7 +28,7 @@ def get_start_time(H, row):
     return start_time
 
 
-def load_visbrain_hypnogram(path=None, subject=None, condition=None):
+def load_visbrain_hypnogram(path):
     """Load a Visbrain-formatted hypngoram.
 
     Parameters
@@ -40,9 +41,6 @@ def load_visbrain_hypnogram(path=None, subject=None, condition=None):
     H: DataFrame
         The loaded hypnogram.
     """
-    if not path:
-        path = get_datapath(subject=subject, condition=condition, data="hypnogram.txt")
-
     H = pd.read_csv(path, sep="\t", names=["state", "end_time"], skiprows=1)
     H["start_time"] = H.apply(lambda row: get_start_time(H, row), axis=1)
     H["duration"] = H.apply(lambda row: row.end_time - row.start_time, axis=1)
@@ -51,6 +49,7 @@ def load_visbrain_hypnogram(path=None, subject=None, condition=None):
 
 
 def write_visbrain_hypnogram(H, path):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     H.to_csv(path, columns=["state", "end_time"], sep="\t", index=False)
 
 
@@ -157,3 +156,33 @@ def get_separated_wake_hypnogram(qwk_intervals, awk_intervals):
     )
 
     return pd.concat([qwk, awk]).sort_values(by=["start_time"]).reset_index()
+
+
+def visbrain_hypnogram_to_datetime(H, file_start_dt):
+    hypnogram = H.copy()
+    hypnogram["start_time"] = file_start_dt + pd.to_timedelta(
+        hypnogram["start_time"], "s"
+    )
+    hypnogram["end_time"] = file_start_dt + pd.to_timedelta(hypnogram["end_time"], "s")
+    hypnogram["duration"] = pd.to_timedelta(hypnogram["duration"], "s")
+
+    return hypnogram
+
+
+def write_datetime_hypnogram(H, path):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    H.to_csv(
+        path,
+        columns=["state", "start_time", "end_time", "duration"],
+        sep="\t",
+        index=False,
+    )
+
+
+def load_datetime_hypnogram(path):
+    H = pd.read_csv(path, sep="\t")
+    H["start_time"] = pd.to_datetime(H["start_time"])
+    H["end_time"] = pd.to_datetime(H["end_time"])
+    H["duration"] = pd.to_timedelta(H["duration"])
+
+    return H
