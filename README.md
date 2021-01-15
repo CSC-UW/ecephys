@@ -46,7 +46,7 @@ pip install -e .
 ```python
 import EMGfromLFP
 
-EMGfromLFP.run(<path_to_config_file>)
+EMGfromLFP.run({config_dict}) # See function docstring
 ```
 
 3. Load the computed data with
