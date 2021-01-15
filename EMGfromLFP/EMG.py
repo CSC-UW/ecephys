@@ -56,19 +56,19 @@ def compute_EMG(lfp, sf, target_sf, window_size, wp, ws, gpass=1,
 
 # def filter_data(data, bandpass, bandstop, sf):
 #     """Bandpass filter data along last dimension. """
-# 
+#
 #     Wp = np.array(bandpass) / (sf/2)
 #     Ws = np.array(bandstop) / (sf/2)
 #     Rp = 3
 #     Rs = 20
 #     [N, Wn] = scipy.signal.cheb2ord(Wp, Ws, Rp, Rs)
 #     [b2, a2] = scipy.signal.cheby2(N, Rs, Wn, 'pass')
-# 
+#
 #     return scipy.signal.filtfilt(b2, a2, data)
 
 def iirfilt(data, wp, ws, gpass, gstop, ftype='butter', sf=None):
     """Filter `data` along last dimension using an iir filter."""
-    
+
     # Check input values to avoid https://github.com/scipy/scipy/issues/11559
     wp_check, ws_check = np.array(wp), np.array(ws)
     if sf is not None:
@@ -82,7 +82,7 @@ def iirfilt(data, wp, ws, gpass, gstop, ftype='butter', sf=None):
         )
 
     sos = scipy.signal.iirdesign(
-        wp, ws,
+        wp_check, ws_check,
         gpass, gstop,
         ftype=ftype,
         fs=sf,
