@@ -85,7 +85,7 @@ def iirfilt(data, wp, ws, gpass, gstop, ftype='butter', sf=None):
         wp_check, ws_check,
         gpass, gstop,
         ftype=ftype,
-        fs=sf,
+        fs=None,  # Don't normalize (again) by Nyquist
         analog=False,
         output='sos',
     )
