@@ -1,11 +1,14 @@
-# EMG path
-EMGdata_savePath: null  # The file where we write the output EMG. If None, the fileame is taken from the original recording and written to the same directory.
-overwrite: False  # Do we recompute and overwrite preexisting EMG data
+# The file where we write the output EMG.
+# If None, the fileame is taken from the original recording and written to the same directory.
+# Filename must end in .npy
+EMGdata_savePath: null
+# Do we recompute and overwrite preexisting EMG data?
+overwrite: False
 
 # Source data
 LFP_binPath: ''  # path to recording
 LFP_datatype: 'SGLX'  # Datatype of recording
-LFP_downsample: null # sf of LFP used when computing xcorr. 
+LFP_downsample: null # sf of LFP used when computing xcorr.
 LFP_chanList: [] # List of loaded channels. See sleepscore documentation. eg: (SGLX) ["LF0;384", "LF1;385"] or (TDT) [LFPs-1, LFPs-2]
 LFP_tEnd: null  # Compute EMG only until tEnd
 
