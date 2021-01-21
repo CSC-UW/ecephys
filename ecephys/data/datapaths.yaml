@@ -19,8 +19,19 @@ Valentino:
     - 2-20-2020_g0_t0.imec0
     - 2-20-2020_g0_t1.imec0
     - 2-20-2020_g0_t2.imec0
-  recovery-sleep:
+  recovery-sleep-2h:
     - 2-20-2020_g0_t3.imec0
+  recovery-sleep-6h:
+    - 2-20-2020_g0_t3.imec0
+    - 2-20-2020_g0_t4.imec0
+    - 2-20-2020_g0_t5.imec0
+  sleep-deprivation-12h:
+    - 2-20-2020_g0_t0.imec0
+    - 2-20-2020_g0_t1.imec0
+    - 2-20-2020_g0_t2.imec0
+    - 2-20-2020_g0_t3.imec0
+    - 2-20-2020_g0_t4.imec0
+    - 2-20-2020_g0_t5.imec0
 Doppio:
   raw-data-root: /Volumes/neuropixel_archive/Data/chronic/CNPIX4-Doppio/raw/
   analysis-root: /Volumes/neuropixel/Data/CNPIX4-Doppio/
@@ -30,8 +41,19 @@ Doppio:
     - 3-18-2020_g0_t0.imec0
     - 3-18-2020_g0_t1.imec0
     - 3-18-2020_g0_t2.imec0
-  recovery-sleep:
+  recovery-sleep-2h:
     - 3-18-2020_g0_t3.imec0
+  recovery-sleep-6h:
+    - 3-18-2020_g0_t3.imec0
+    - 3-18-2020_g0_t4.imec0
+    - 3-18-2020_g0_t5.imec0
+  sleep-deprivation-12h:
+    - 3-18-2020_g0_t0.imec0
+    - 3-18-2020_g0_t1.imec0
+    - 3-18-2020_g0_t2.imec0
+    - 3-18-2020_g0_t3.imec0
+    - 3-18-2020_g0_t4.imec0
+    - 3-18-2020_g0_t5.imec0
 Alessandro:
   raw-data-root: /Volumes/neuropixel_archive/Data/chronic/CNPIX5-Alessandro/raw/
   analysis-root: /Volumes/neuropixel/Data/CNPIX5-Alessandro/
