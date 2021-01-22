@@ -8,8 +8,19 @@ Segundo:
     - 1-21-2020_g0_t20.imec0
     - 1-21-2020_g0_t21.imec0
     - 1-21-2020_g0_t22.imec0
-  recovery-sleep:
+  recovery-sleep-2h:
     - 1-21-2020_g0_t23.imec0
+  recovery-sleep-6h:
+    - 1-21-2020_g0_t23.imec0
+    - 1-21-2020_g0_t24.imec0
+    - 1-21-2020_g0_t25.imec0
+  sleep-deprivation-12h:
+    - 1-21-2020_g0_t20.imec0
+    - 1-21-2020_g0_t21.imec0
+    - 1-21-2020_g0_t22.imec0
+    - 1-21-2020_g0_t23.imec0
+    - 1-21-2020_g0_t24.imec0
+    - 1-21-2020_g0_t25.imec0
 Valentino:
   raw-data-root: /Volumes/neuropixel_archive/Data/chronic/CNPIX3-Valentino/raw/
   analysis-root: /Volumes/neuropixel/Data/CNPIX3-Valentino/
