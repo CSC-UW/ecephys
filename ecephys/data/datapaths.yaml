@@ -78,9 +78,29 @@ Alessandro:
     - 8-25-2020_SD2_g0_t0.imec0
     - 8-25-2020_g0_t0.imec0
     - 8-25-2020_g0_t1.imec0
-  recovery-sleep:
+  recovery-sleep-2h:
     - 8-25-2020_g0_t2.imec0
     - 8-25-2020_g0_t3.imec0
+  recovery-sleep-6h:
+    - 8-25-2020_g0_t2.imec0
+    - 8-25-2020_g0_t3.imec0
+    - 8-25-2020_g0_t4.imec0
+    - 8-25-2020_g0_t5.imec0
+    - 8-25-2020_g0_t6.imec0
+    - 8-25-2020_g0_t7.imec0
+  sleep-deprivation-12h:
+    - 8-25-2020_SD_g0_t0.imec0
+    - 8-25-2020_SD_g0_t1.imec0
+    - 8-25-2020_SD_g0_t2.imec0
+    - 8-25-2020_SD2_g0_t0.imec0
+    - 8-25-2020_g0_t0.imec0
+    - 8-25-2020_g0_t1.imec0
+    - 8-25-2020_g0_t2.imec0
+    - 8-25-2020_g0_t3.imec0
+    - 8-25-2020_g0_t4.imec0
+    - 8-25-2020_g0_t5.imec0
+    - 8-25-2020_g0_t6.imec0
+    - 8-25-2020_g0_t7.imec0
 Eugene:
   raw-data-root: /Volumes/neuropixel_archive/Data/chronic/CNPIX6-Eugene/raw/
   analysis-root: /Volumes/neuropixel/Data/CNPIX6-Eugene/
@@ -99,6 +119,33 @@ Eugene:
     - 9.24.2020_SD_24hs7_g0_t0.imec0
     - 9.24.2020_SD_24hs8_g0_t0.imec0
     - 9.24.2020_SD_24hs8_g0_t1.imec0
-  recovery-sleep:
+  recovery-sleep-2h:
     - 9.24.2020_SR_24hs_g0_t0.imec0
     - 9.24.2020_SR_24hs_g0_t1.imec0
+  recovery-sleep-6h:
+    - 9.24.2020_SR_24hs_g0_t0.imec0
+    - 9.24.2020_SR_24hs_g0_t1.imec0
+    - 9.24.2020_SR_24hs_g0_t2.imec0
+    - 9.24.2020_SR_24hs_g0_t3.imec0
+    - 9.24.2020_SR_24hs_g0_t4.imec0
+    # - 9.24.2020_SR_24hs_g0_t5.imec0
+    # - 9.24.2020_SR_24hs1_g0_t0.imec0
+  sleep-deprivation-12h:
+    - 9.24.2020_SD_24hs_g0_t0.imec0
+    - 9.24.2020_SD_24hs1_g0_t0.imec0
+    - 9.24.2020_SD_24hs2_g0_t0.imec0
+    - 9.24.2020_SD_24hs3_g0_t0.imec0
+    - 9.24.2020_SD_24hs3_g1_t0.imec0
+    - 9.24.2020_SD_24hs3_g1_t1.imec0
+    - 9.24.2020_SD_24hs4_g0_t0.imec0
+    - 9.24.2020_SD_24hs5_g0_t0.imec0
+    - 9.24.2020_SD_24hs7_g0_t0.imec0
+    - 9.24.2020_SD_24hs8_g0_t0.imec0
+    - 9.24.2020_SD_24hs8_g0_t1.imec0
+    - 9.24.2020_SR_24hs_g0_t0.imec0
+    - 9.24.2020_SR_24hs_g0_t1.imec0
+    - 9.24.2020_SR_24hs_g0_t2.imec0
+    - 9.24.2020_SR_24hs_g0_t3.imec0
+    - 9.24.2020_SR_24hs_g0_t4.imec0
+    # - 9.24.2020_SR_24hs_g0_t5.imec0
+    # - 9.24.2020_SR_24hs1_g0_t0.imec0
