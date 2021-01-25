@@ -9,7 +9,7 @@ overwrite: False
 LFP_binPath: ''  # path to recording
 LFP_datatype: 'SGLX'  # Datatype of recording
 LFP_downsample: null # sf of LFP used when computing xcorr.
-LFP_chanList: [] # List of loaded channels. See sleepscore documentation. eg: (SGLX) ["LF0;384", "LF1;385"] or (TDT) [LFPs-1, LFPs-2]
+LFP_chanList: [] # List of loaded channels, e.g. (SGLX) ["LF0;384", "LF1;385"] or (TDT) [LFPs-1, LFPs-2]
 LFP_tEnd: null  # Compute EMG only until tEnd
 
 # Filtering (params passed to scipy.signal.iirdesign)

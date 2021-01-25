@@ -3,8 +3,7 @@
 
 ### Usage:
 
-Set constants in `run_EMG_tests.py` and run it in a venv with sleepscore and
-EMGfromLFP installed. derived EMGs will be computed for all combinations of
+Set constants in `run_EMG_tests.py` and run it in a venv with EMGfromLFP installed. derived EMGs will be computed for all combinations of
 parameters. All data will be saved in DATA_DIR.
 
 Then run `analyze_EMG_tests.py`.

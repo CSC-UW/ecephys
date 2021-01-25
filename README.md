@@ -15,30 +15,23 @@ Tom Bugnon, 01/2020
 
 ## Installation
 
-- Download and install the `sleepscore` (<https://github.com/CSC-UW/sleepscore>)
-
-```
-# From the `sleepscore` directory you just downloaded
-pip install -e .
-```
-
-- Install this package `EMGfromLFP` (<https://github.com/CSC-UW/EMGfromLFP>)
+- Clone, fork, or download this package `EMGfromLFP` (<https://github.com/CSC-UW/EMGfromLFP>)
 
 ```
 # From the `EMGfromLFP` directory you just downloaded
 pip install -e .
 ```
 
-## Usage:
+## Command-line usage:
 
 
 1.  Copy the default configuration file (`EMG_config_df`)
 
-2.  Manually set the parameters for the copied config file. 
+2.  Manually set the parameters for the copied config file.
 
 
 - From the command line (make sure you're in your virtualenvironment)
-  
+
 `python -m EMGfromLFP <path_to_config_file>`
 
 - From python:

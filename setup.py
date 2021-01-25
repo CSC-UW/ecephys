@@ -15,7 +15,6 @@ install_requires = [
     'numpy>=1.17.2',
     'tqdm',
     'scipy',
-    'sleepscore',
 ]
 
 setup(

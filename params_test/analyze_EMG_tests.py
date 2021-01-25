@@ -10,7 +10,6 @@ import tqdm
 
 import EMGfromLFP
 import pandas as pd
-import sleepscore.load
 from run_EMG_tests import (BINPATH, DATA_DIR, DATATYPE, EMG_CHANNAME,
                            EXPLORED_PARAMS, RESULTS_DIR, TARGET_SF, TEND,
                            get_filename)
@@ -30,27 +29,22 @@ def main():
         a2 = np.power(a, 2).flatten()
         window = np.ones(window_size)/float(window_size)
         return np.sqrt(np.convolve(a2, window, 'same'))
-    
+
     print('Load true EMG\n')
-    EMG, emg_sf, _ = sleepscore.load.loader_switch(
+    EMG, emg_sf, _ = EMGfromLFP.load.loader_switch(
         BINPATH, datatype=DATATYPE, tEnd=TEND, chanList=[EMG_CHANNAME]
     )
     print('done')
     print('\n\n\n')
 
     print('Compute RMS of True EMG: \n')
-    # plt.figure()
-    # for winsize in 50, 100, 200, 1000:
-    #     EMG_rms = window_rms(EMG, winsize) # 1-dim
-    #     plt.plot(EMG_rms)
-    # plt.show()
     EMG_rms = window_rms(EMG, RMS_WINSIZE) # 1-dim
     print('done')
     print('\n\n\n')
 
     # Downsample rms EMG
     print('Downsample RMS of true EMG:\n')
-    dsf, emg_downsample = sleepscore.load.utils.get_dsf(TARGET_SF, emg_sf)
+    dsf, emg_downsample = EMGfromLFP.load.utils.get_dsf(TARGET_SF, emg_sf)
     EMG_rms_ds = EMG_rms[::dsf]
     nsamples = len(EMG_rms_ds)
     # count nan
@@ -59,22 +53,6 @@ def main():
     EMG_rms_ds[np.isnan(EMG_rms_ds)] = 0
     print('Done. \n\n\n')
 
-    # Load downsampled EMG for comparison with RMS
-    # EMG_ds, _, _ = sleepscore.load.read_TDT(
-    #     BINPATH, tEnd=TEND, chanList=['EMGs-1'], downSample=TARGET_SF
-    # )
-
-    # # PLot EMG and rms EMG
-    # nsamp_plot = nsamples
-    # plt.figure()
-    # x = np.arange(0, nsamples)/target_sf
-    # plt.plot(x[:nsamp_plot], EMG_ds.flatten()[:nsamp_plot], label='EMG')
-    # plt.plot(x[:nsamp_plot], EMG_rms_ds.flatten()[:nsamp_plot], label='rms EMG')
-    # plt.legend()
-    # plt.xlabel('time (s)')
-    # plt.show()
-
-    
     # Load all derived EMGs (same number of samples as RMS EMG)
     print('Load all derived EMGs: \n')
     labels_list = []
@@ -102,7 +80,7 @@ def main():
         emg, emgmeta = EMGfromLFP.load_EMG(path, tEnd=TEND, desired_length=nsamples)
         emg_list.append(emg)
         labels_list.append(filename)
-        
+
         params_list.append(params)
 
     emgs = np.concatenate(emg_list)
@@ -123,7 +101,7 @@ def main():
         fig.savefig(RESULTS_DIR/'all_derived_EMG', bbox_extra_artists=(lgd,), bbox_inches='tight')
         print("Done\n\n\n")
 
-    #  correlation with RMS 
+    #  correlation with RMS
     print("Compute correlation between derived EMGs and RMS of true EMG\n")
     corrs = []
     for i in range(emgs.shape[0]):
@@ -133,7 +111,7 @@ def main():
         corrs.append(corr)
     # Save correlations
     print('Done\n')
-        
+
     # Max
     i_max = np.argmax(corrs)
     maxcorr = corrs[i_max]

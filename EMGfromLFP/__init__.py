@@ -3,10 +3,8 @@ from pathlib import Path
 
 import numpy as np
 
-from sleepscore import load
-
 from .EMG import compute_EMG
-from . import resample
+from . import load
 
 
 def load_EMG(EMGdatapath, tStart=None, tEnd=None, desired_length=None):
@@ -40,7 +38,7 @@ def load_EMG(EMGdatapath, tStart=None, tEnd=None, desired_length=None):
     if desired_length is not None:
         print(f"Resampling EMG slice from {EMG_data.shape[1]} to "
               f"{desired_length} datapoints")
-        EMG_data = resample.signal_resample(
+        EMG_data = load.resample.signal_resample(
             EMG_data[0, :],
             desired_length=desired_length,
             method='numpy'
