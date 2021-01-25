@@ -22,8 +22,9 @@ import tqdm
 from scipy.stats import pearsonr
 
 
-def compute_EMG(lfp, sf, target_sf, window_size, wp, ws, gpass=1,
-                gstop=20, ftype='butter'):
+def compute_emg(
+    lfp, sf, target_sf, window_size, wp, ws, gpass=1, gstop=20, ftype="butter"
+):
     """Derive EMG from LFP.
 
     Compute av. correlation across channel pairs in sliding windows.
@@ -39,19 +40,22 @@ def compute_EMG(lfp, sf, target_sf, window_size, wp, ws, gpass=1,
             scipy.signal.iirdesign
 
     Returns:
-        EMG_data: (1 x nSteps) data array. Sampling frequency is `targetsf`
-        EMG_metadata: dictionary
+        emg_data: (1 x nSteps) data array. Sampling frequency is `targetsf`
     """
 
-    print(f"Filtering LFP with wp={wp}, ws={ws}, gpass={gpass}, gstop={gstop},"
-          f"filter type={ftype}")
-    lfp_filt = iirfilt(lfp, wp, ws, gpass, gstop, ftype='butter', sf=sf)
+    print(
+        f"Filtering LFP with wp={wp}, ws={ws}, gpass={gpass}, gstop={gstop},"
+        f"filter type={ftype}"
+    )
+    lfp_filt = iirfilt(lfp, wp, ws, gpass, gstop, ftype="butter", sf=sf)
     print("Computing EMG from filtered LFP...")
-    print(f"target sf = {target_sf}, window size = {window_size}, LFP sf={sf},"
-          f" LFP nchans = {lfp_filt.shape[0]}")
-    EMG_data = compute_av_corr(lfp_filt, sf, target_sf, window_size)
-    print('Done!')
-    return EMG_data
+    print(
+        f"target sf = {target_sf}, window size = {window_size}, LFP sf={sf},"
+        f" LFP nchans = {lfp_filt.shape[0]}"
+    )
+    emg_data = compute_av_corr(lfp_filt, sf, target_sf, window_size)
+    print("Done!")
+    return emg_data
 
 
 # def filter_data(data, bandpass, bandstop, sf):
@@ -66,28 +70,31 @@ def compute_EMG(lfp, sf, target_sf, window_size, wp, ws, gpass=1,
 #
 #     return scipy.signal.filtfilt(b2, a2, data)
 
-def iirfilt(data, wp, ws, gpass, gstop, ftype='butter', sf=None):
+
+def iirfilt(data, wp, ws, gpass, gstop, ftype="butter", sf=None):
     """Filter `data` along last dimension using an iir filter."""
 
     # Check input values to avoid https://github.com/scipy/scipy/issues/11559
     wp_check, ws_check = np.array(wp), np.array(ws)
     if sf is not None:
-        wp_check, ws_check = wp_check/(sf/2), ws_check/(sf/2)
+        wp_check, ws_check = wp_check / (sf / 2), ws_check / (sf / 2)
     if not (
-        (np.all(wp_check > 0)) & (np.all(wp_check < 1))
-        & (np.all(ws_check > 0)) & (np.all(ws_check < 1))
+        (np.all(wp_check > 0))
+        & (np.all(wp_check < 1))
+        & (np.all(ws_check > 0))
+        & (np.all(ws_check < 1))
     ):
-        raise ValueError(
-            "Digital filter critical frequencies must be 0 < Wn < 1"
-        )
+        raise ValueError("Digital filter critical frequencies must be 0 < Wn < 1")
 
     sos = scipy.signal.iirdesign(
-        wp_check, ws_check,
-        gpass, gstop,
+        wp_check,
+        ws_check,
+        gpass,
+        gstop,
         ftype=ftype,
         fs=None,  # Don't normalize (again) by Nyquist
         analog=False,
-        output='sos',
+        output="sos",
     )
 
     return scipy.signal.sosfilt(sos, data)
@@ -125,14 +132,11 @@ def compute_av_corr(data, data_sf, target_sf, window_size):
 
     corr_data = np.zeros((1, len(window_center_samps)))
     chan_pairs = [
-        (i, j) for i, j in itertools.product(range(n_chans), repeat=2)
-        if i < j
+        (i, j) for i, j in itertools.product(range(n_chans), repeat=2) if i < j
     ]
     # Summate corrlation within each window for all channel pairs
     # Iterate on channel pairs, then on timestamps (C-style indexing)
-    for i, j in tqdm.tqdm(
-        chan_pairs, "XCorr: Iterate on channel pairs"
-    ):
+    for i, j in tqdm.tqdm(chan_pairs, "XCorr: Iterate on channel pairs"):
         # Don't use `enumerate` for prettier tqdm nested loop
         for s in tqdm.tqdm(
             range(len(window_center_samps)), "XCorr: Iterate on windows"
@@ -140,12 +144,12 @@ def compute_av_corr(data, data_sf, target_sf, window_size):
             win_center_samp = window_center_samps[s]
             # Start and end samples for that window. First and last windows are
             # shorter
-            win_start_i = max(0, int(win_center_samp - window_n_samps/2))
-            win_end_i = min(n_samps, int(win_center_samp + window_n_samps/2))
+            win_start_i = max(0, int(win_center_samp - window_n_samps / 2))
+            win_end_i = min(n_samps, int(win_center_samp + window_n_samps / 2))
             # Add correlation for pair to total
             corr_data[0, s] += pearsonr(
-                data[i, win_start_i:win_end_i+1],
-                data[j, win_start_i:win_end_i+1],
+                data[i, win_start_i : win_end_i + 1],
+                data[j, win_start_i : win_end_i + 1],
             )[0]
 
     # Normalize after summation

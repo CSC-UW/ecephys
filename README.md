@@ -1,4 +1,4 @@
-# EMGfromLFP
+# emg_from_lfp
 
 Derive EMG from LFP through correlation of highfrequency activity.
 
@@ -15,10 +15,10 @@ Tom Bugnon, 01/2020
 
 ## Installation
 
-- Clone, fork, or download this package `EMGfromLFP` (<https://github.com/CSC-UW/EMGfromLFP>)
+- Clone, fork, or download this package `emg_from_lfp` (<https://github.com/CSC-UW/emg_from_lfp>)
 
 ```
-# From the `EMGfromLFP` directory you just downloaded
+# From the `emg_from_lfp` directory you just downloaded
 pip install -e .
 ```
 
@@ -32,23 +32,23 @@ pip install -e .
 
 - From the command line (make sure you're in your virtualenvironment)
 
-`python -m EMGfromLFP <path_to_config_file>`
+`python -m emg_from_lfp <path_to_config_file>`
 
 - From python:
 
 ```python
-import EMGfromLFP
+import emg_from_lfp
 
-EMGfromLFP.run({config_dict}) # See function docstring
+emg_from_lfp.run({config_dict}) # See function docstring
 ```
 
 3. Load the computed data with
 
 ```python
-import EMGfromLFP
+import emg_from_lfp
 
 # Load
-EMGfromLFP.load_EMG(
+emg_from_lfp.load_EMG(
   <path_to_EMGdata>, tStart=None, tEnd=None, desired_length=None
 )
 ```
