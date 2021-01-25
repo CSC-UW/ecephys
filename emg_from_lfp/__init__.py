@@ -11,7 +11,7 @@ def load_emg(emg_data_path, tStart=None, tEnd=None, desired_length=None):
     """Load, slice and resample the EMG saved t `path`"""
 
     emg_metadata_path = get_emg_metadata_path(emg_data_path)
-    if not os.path.exists(emg_data_path) or not os.path.exists(EMGmetapath):
+    if not os.path.exists(emg_data_path) or not os.path.exists(emg_metadata_path):
         raise Exception(
             f"Couldn't find EMG files at {emg_data_path}, {emg_metadata_path}"
         )
