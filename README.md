@@ -48,7 +48,7 @@ emg_from_lfp.run({config_dict}) # See function docstring
 import emg_from_lfp
 
 # Load
-emg_from_lfp.load_EMG(
+emg_from_lfp.load_emg(
   <path_to_EMGdata>, tStart=None, tEnd=None, desired_length=None
 )
 ```

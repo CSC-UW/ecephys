@@ -7,7 +7,7 @@ from .emg import compute_emg
 from . import load
 
 
-def load_EMG(emg_data_path, tStart=None, tEnd=None, desired_length=None):
+def load_emg(emg_data_path, tStart=None, tEnd=None, desired_length=None):
     """Load, slice and resample the EMG saved t `path`"""
 
     emg_metadata_path = get_emg_metadata_path(emg_data_path)
