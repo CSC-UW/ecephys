@@ -2,14 +2,13 @@ import os.path
 from pathlib import Path
 
 import numpy as np
+import xarray as xr
 
 from .emg import compute_emg
 from . import load
 
 
-def load_emg(emg_data_path, tStart=None, tEnd=None, desired_length=None):
-    """Load, slice and resample the EMG saved t `path`"""
-
+def load_emg_npy(emg_data_path, tStart=None, tEnd=None, desired_length=None):
     emg_metadata_path = get_emg_metadata_path(emg_data_path)
     if not os.path.exists(emg_data_path) or not os.path.exists(emg_metadata_path):
         raise Exception(
@@ -49,6 +48,40 @@ def load_emg(emg_data_path, tStart=None, tEnd=None, desired_length=None):
         ).reshape((1, desired_length))
 
     return emg_data, emg_metadata
+
+
+def load_emg_netcdf(emg_data_path, tStart=None, tEnd=None, desired_length=None):
+    emg = xr.open_dataset(emg_data_path).emg
+
+    if tStart is None:
+        tStart = emg.time.values.min()
+    if tEnd is None:
+        tEnd = emg.time.values.max()
+
+    selected_data = emg.sel(time=slice(tStart, tEnd)).values
+
+    if desired_length:
+        print(
+            f"Resampling EMG slice from {len(selected_data)} to {desired_length} datapoints"
+        )
+        selected_data = load.resample.signal_resample(
+            selected_data, desired_length=desired_length, method="numpy"
+        ).reshape((1, desired_length))
+
+    return selected_data, emg.attrs
+
+
+def load_emg(emg_data_path, tStart=None, tEnd=None, desired_length=None):
+    """Load, slice and resample the EMG saved t `path`"""
+    emg_data_path = Path(emg_data_path)
+    supported_file_types = [".npy", ".nc"]
+    assert path.suffix in supported_file_types, "Unsupported file type."
+
+    if path.suffix == ".npy":
+        return load_emg_npy(emg_data_path, tStart, tEnd, desired_length)
+
+    if path.suffix == ".nc":
+        return load_emg_netcdf(emg_data_path, tStart, tEnd, desired_length)
 
 
 def run(emg_config):

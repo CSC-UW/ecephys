@@ -11,11 +11,7 @@ about = {}
 with open("./emg_from_lfp/__about__.py") as f:
     exec(f.read(), about)
 
-install_requires = [
-    "numpy>=1.17.2",
-    "tqdm",
-    "scipy",
-]
+install_requires = ["numpy>=1.17.2", "tqdm", "scipy", "xarray"]
 
 setup(
     name=about["__title__"],
