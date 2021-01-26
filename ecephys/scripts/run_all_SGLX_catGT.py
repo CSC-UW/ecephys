@@ -31,31 +31,31 @@ cfg = {}
 # - catGT output will be in the standard SpikeGLX directory structure:
 # run_folder/probe_folder/*.bin
 # - The raw data used by catGT is assumed to be located at <output_dir>/../raw
-cfg['OUTPUT_DIRNAME'] = 'processed_catGT_df'
-cfg['OUTPUT_DIRECTORIES'] = [
-    # f'/Volumes/scratch/neuropixels/data/CNPIX2-Segundo/BL_15hs/{cfg["OUTPUT_DIRNAME"]}',
+cfg["OUTPUT_DIRNAME"] = "processed_catGT_df"
+cfg["OUTPUT_DIRECTORIES"] = [
+    # f"/Volumes/scratch/neuropixels/data/CNPIX2-Segundo/BL_15hs/{cfg["OUTPUT_DIRNAME"]}",
 ]
 
 # Relative path to the yaml file containing 0-indexed list of bad channels used
 # in the catGT run.
 # - The path is relative to the directory containing the raw .bin data
-# - If None: don't use bad channels
-cfg['bad_channel_path'] = './bad_channels_thres=18/bad_channels.imec{prb_i}.{stream}.yml'
-# cfg['bad_channel_path'] = None
+# - If None: don"t use bad channels
+cfg["bad_channel_path"] = "./bad_channels_thres=18/bad_channels.imec{prb_i}.{stream}.yml"
+# cfg["bad_channel_path"] = None
 
 # CatGT params. Incorporated in command string:
-# catGT_cmd_string = '-prb_fld -out_prb_fld -aphipass=300 -aplopass=9000 -gbldmx -gfix=0,0.10,0.02 -SY=0,384,6,500 -SY=1,384,6,500'
-cfg['catGT_stream'] = '-ap'  # -lf not supported for now
-cfg['catGT_hipass'] = 300
-cfg['catGT_lopass'] = 9000
-cfg['catGT_gfix'] = '0,0.10,0.02'
+# catGT_cmd_string = "-prb_fld -out_prb_fld -aphipass=300 -aplopass=9000 -gbldmx -gfix=0,0.10,0.02 -SY=0,384,6,500 -SY=1,384,6,500"
+cfg["catGT_stream"] = "-ap"  # -lf not supported for now
+cfg["catGT_hipass"] = 300
+cfg["catGT_lopass"] = 9000
+cfg["catGT_gfix"] = "0,0.10,0.02"
 
 # 0-indexed. Should be same id for all runs and probes
-cfg['sync_chan_id'] = 384
+cfg["sync_chan_id"] = 384
 
 # Paths
-wineexe_fullpath = '/usr/bin/wine'  # Run with wine if not None
-catGTexe_fullpath = r'/Volumes/scratch/neuropixels/bin/CatGT/CatGT.exe'
+wineexe_fullpath = "/usr/bin/wine"  # Run with wine if not None
+catGTexe_fullpath = r"/Volumes/scratch/neuropixels/bin/CatGT/CatGT.exe"
 
 rerun_existing = True
 assert rerun_existing == True  # TODO
@@ -68,7 +68,7 @@ n_jobs = 5
 # -------------------------------
 # -------------------------------
 
-assert cfg['catGT_stream'] == '-ap'
+assert cfg["catGT_stream"] == "-ap"
 
 
 def call_catGT_cmd(
@@ -79,13 +79,13 @@ def call_catGT_cmd(
     prb_i,
     trigger_str,
     bad_chans=None,
-    stream_str=cfg['catGT_stream'],
+    stream_str=cfg["catGT_stream"],
     catGTexe_fullpath=catGTexe_fullpath,
     winexe_fullpath=None,
-    catGT_hipass=cfg['catGT_hipass'],
-    catGT_lopass=cfg['catGT_lopass'],
-    catGT_gfix=cfg['catGT_gfix'],
-    sync_chan_id=cfg['sync_chan_id'],
+    catGT_hipass=cfg["catGT_hipass"],
+    catGT_lopass=cfg["catGT_lopass"],
+    catGT_gfix=cfg["catGT_gfix"],
+    sync_chan_id=cfg["sync_chan_id"],
     logPath=None,
 ):
 
@@ -102,59 +102,59 @@ def call_catGT_cmd(
     # see CatGT readme for details
 
     catGT_cmd_str = (
-        f'-prb_fld -out_prb_fld '
-        f'-aphipass={catGT_hipass} -aplopass={catGT_lopass} '
-        f'-gbldmx '
-        f'-gfix={catGT_gfix} '
-        f'-SY={prb_i},{sync_chan_id},6,500'
+        f"-prb_fld -out_prb_fld "
+        f"-aphipass={catGT_hipass} -aplopass={catGT_lopass} "
+        f"-gbldmx "
+        f"-gfix={catGT_gfix} "
+        f"-SY={prb_i},{sync_chan_id},6,500"
     )
 
     cmd_parts = list()
 
     if wineexe_fullpath:
-        # Run the command with wine if we're on linux
+        # Run the command with wine if we"re on linux
         cmd_parts.append(wineexe_fullpath)
     cmd_parts.append(catGTexe_fullpath)
-    cmd_parts.append('-dir=' + str(npx_directory))
-    cmd_parts.append('-dest=' + str(output_dir))
-    cmd_parts.append('-run=' + run_name)
-    cmd_parts.append('-g=' + gate_str)
-    cmd_parts.append('-t=' + trigger_str)
-    cmd_parts.append('-prb=' + str(prb_i))
+    cmd_parts.append("-dir=" + str(npx_directory))
+    cmd_parts.append("-dest=" + str(output_dir))
+    cmd_parts.append("-run=" + run_name)
+    cmd_parts.append("-g=" + gate_str)
+    cmd_parts.append("-t=" + trigger_str)
+    cmd_parts.append("-prb=" + str(prb_i))
     cmd_parts.append(stream_str)
     cmd_parts.append(catGT_cmd_str)
     if bad_chans is not None:
-        bad_chans_str = ','.join([str(c) for c in bad_chans])
-        cmd_parts.append('-chnexcl=' + bad_chans_str)
+        bad_chans_str = ",".join([str(c) for c in bad_chans])
+        cmd_parts.append("-chnexcl=" + bad_chans_str)
 
-    catGT_cmd = ' '        # use space as the separator for the command parts
+    catGT_cmd = " "        # use space as the separator for the command parts
     catGT_cmd = catGT_cmd.join(cmd_parts)
 
-    print('CatGT command line:' + catGT_cmd)
+    print("CatGT command line:" + catGT_cmd)
 
     Path(logPath.parent).mkdir(parents=True, exist_ok=True)
-    with open(logPath, 'a') as f:
-        f.write(catGT_cmd + '\n')
+    with open(logPath, "a") as f:
+        f.write(catGT_cmd + "\n")
 
     start = time.time()
     subprocess.call(catGT_cmd, shell=True)
 
     execution_time = time.time() - start
 
-    print('total time: ' + str(np.around(execution_time, 2)) + ' seconds')
+    print("total time: " + str(np.around(execution_time, 2)) + " seconds")
 
 
 def run_catGT(output_dir, cfg):
 
-    print('==========================================')
-    print(f'Run catGT in output directory {output_dir}')
-    print('==========================================')
+    print("==========================================")
+    print(f"Run catGT in output directory {output_dir}")
+    print("==========================================")
 
     output_dir = Path(output_dir)
 
     # Raw data directory = npx_directory
     # run_specs = name, gate, trigger and probes to process
-    npx_directory = str(output_dir.parent/'raw')
+    npx_directory = str(output_dir.parent/"raw")
     if not Path(npx_directory).exists():
         raise ValueError(
             f"Could not find raw data directory at `<output_dir>/../raw` for"
@@ -165,29 +165,29 @@ def run_catGT(output_dir, cfg):
 
     # Each run_spec is a list of 4 strings:
     #   undecorated run name (no g/t specifier, the run field in CatGT)
-    #   gate index, as a string (e.g. '0')
-    #   triggers to process/concatenate, as a string e.g. '0,400', '0,0 for a single file
-    #           can replace first limit with 'start', last with 'end'; 'start,end'
+    #   gate index, as a string (e.g. "0")
+    #   triggers to process/concatenate, as a string e.g. "0,400", "0,0 for a single file
+    #           can replace first limit with "start", last with "end"; "start,end"
     #           will concatenate all trials in the probe folder
-    #   probes to process, as a string, e.g. '0', '0,3', '0:3'
+    #   probes to process, as a string, e.g. "0", "0,3", "0:3"
     # run_specs = [
-    #     ['my_run', '0', '0,11', '0'],
+    #     ["my_run", "0", "0,11", "0"],
     #     ...
     # ]
     run_specs = get_allen_formatted_run_specs(npx_directory)
-    print(f'run specs in npx directory. Looks good?: {run_specs}\n\n\n')
+    print(f"run specs in npx directory. Looks good?: {run_specs}\n\n\n")
     if not len(run_specs):
         raise ValueError(
             f"Could not find runs in npx directory `npx_directory`"
         )
 
     # Get streams
-    if cfg['catGT_stream'] == '-ap':
-        stream = 'ap'
+    if cfg["catGT_stream"] == "-ap":
+        stream = "ap"
     else:
-        raise ValueError('Only -ap stream supported for now')
+        raise ValueError("Only -ap stream supported for now")
 
-    catGT_logpath = output_dir/'CatGT.log'
+    catGT_logpath = output_dir/"CatGT.log"
 
     if rerun_existing:
         try:
@@ -203,37 +203,37 @@ def run_catGT(output_dir, cfg):
         gate_str = spec[1]
 
         # Get probes ids for that run
-        probes_i = spec[3].split(',')
+        probes_i = spec[3].split(",")
 
         # Run catGT separately for each probe because the set of bad channels
         # may change
         for prb_i in probes_i:
 
             # build path to the raw data folder
-            run_folder_name = spec[0] + '_g' + gate_str
-            prb_fld_name = run_folder_name + '_imec' + str(prb_i)
+            run_folder_name = spec[0] + "_g" + gate_str
+            prb_fld_name = run_folder_name + "_imec" + str(prb_i)
             prb_fld = Path(npx_directory)/run_folder_name/prb_fld_name
             print(f"Processing run/probe: {prb_fld_name}")
 
             # Load bad channels for that probe/stream
-            if cfg['bad_channel_path'] is None:
+            if cfg["bad_channel_path"] is None:
                 bad_channels = None
             else:
-                badchan_path = prb_fld/cfg['bad_channel_path'].format(**{
-                    'prb_i': prb_i,
-                    'stream': stream,
+                badchan_path = prb_fld/cfg["bad_channel_path"].format(**{
+                    "prb_i": prb_i,
+                    "stream": stream,
                 })
                 if not badchan_path.exists():
                     raise ValueError(
                         "Could not find yaml file containing bad channels at:"
                         f"\n{badchan_path}"
                     )
-                with open(badchan_path, 'r') as f:
+                with open(badchan_path, "r") as f:
                     bad_channels = yaml.load(f, Loader=yaml.FullLoader)
                 print(f"Specifying N={len(bad_channels)} bad channels")
 
             first_trig, last_trig = SpikeGLX_utils.ParseTrigStr(spec[2], prb_fld)
-            trigger_str = repr(first_trig) + ',' + repr(last_trig)
+            trigger_str = repr(first_trig) + "," + repr(last_trig)
 
             # Run catGT
             call_catGT_cmd(
@@ -244,19 +244,19 @@ def run_catGT(output_dir, cfg):
                 prb_i,
                 trigger_str,
                 bad_chans=bad_channels,
-                stream_str=cfg['catGT_stream'],
+                stream_str=cfg["catGT_stream"],
                 catGTexe_fullpath=catGTexe_fullpath,
                 winexe_fullpath=wineexe_fullpath,
-                catGT_hipass=cfg['catGT_hipass'],
-                catGT_lopass=cfg['catGT_lopass'],
-                catGT_gfix=cfg['catGT_gfix'],
-                sync_chan_id=cfg['sync_chan_id'],
+                catGT_hipass=cfg["catGT_hipass"],
+                catGT_lopass=cfg["catGT_lopass"],
+                catGT_gfix=cfg["catGT_gfix"],
+                sync_chan_id=cfg["sync_chan_id"],
                 logPath=catGT_logpath
             )
 
             # Save cfg
-            cfgPath = output_dir/'catGT_cfg.yml'
-            with open(cfgPath, 'w') as f:
+            cfgPath = output_dir/"catGT_cfg.yml"
+            with open(cfgPath, "w") as f:
                 yaml.dump(cfg, f)
 
             print("\n\n")
@@ -265,7 +265,7 @@ def run_catGT(output_dir, cfg):
 def main():
 
     if n_jobs == 1:
-        for output_dir in cfg['OUTPUT_DIRECTORIES']:
+        for output_dir in cfg["OUTPUT_DIRECTORIES"]:
             run_catGT(output_dir, cfg)
     else:
         from joblib import Parallel, delayed
@@ -274,9 +274,9 @@ def main():
             n_jobs=n_jobs
         )(
             delayed(run_catGT)(output_dir, cfg)
-            for output_dir in cfg['OUTPUT_DIRECTORIES']
+            for output_dir in cfg["OUTPUT_DIRECTORIES"]
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

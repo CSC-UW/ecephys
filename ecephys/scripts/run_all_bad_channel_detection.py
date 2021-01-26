@@ -74,11 +74,11 @@ def run_bad_channels_detection(npx_directory):
 
     # Each run_spec is a list containing:
     #   - undecorated run name (no g/t specifier, the run field in CatGT)
-    #   - gate index, as a string (e.g. '0')
-    #   - triggers to process, as a list e.g. ['0', '1', '400']
-    #   - probes to process, as a list, e.g. ['0', '1']
+    #   - gate index, as a string (e.g. "0")
+    #   - triggers to process, as a list e.g. ["0", "1", "400"]
+    #   - probes to process, as a list, e.g. ["0", "1"]
     # run_specs = [
-    #     ['my_run', '0', ['0', '1', '400'], ['0', '1']],
+    #     ["my_run", "0", ["0", "1", "400"], ["0", "1"]],
     #     ...
     # ]
     run_specs = get_run_specs(npx_directory)
@@ -104,12 +104,12 @@ def run_bad_channels_detection(npx_directory):
                 # Pass if files already there
                 if not overwrite:
                     nchan_path = (prb_fld / BAD_CHANNEL_PATH.format(
-                        **{"prb_i": prb_i, "stream": stream, "trigger_i": 'NULL'}
+                        **{"prb_i": prb_i, "stream": stream, "trigger_i": "NULL"}
                         )).parent/NCHAN_FILENAME.format(
                             **{"prb_i": prb_i, "stream": stream}
                         )
                     if nchan_path.exists():
-                        print(f'overwrite==False: Passing stream {stream}, run/probe {prb_fld_name}')
+                        print(f"overwrite==False: Passing stream {stream}, run/probe {prb_fld_name}")
                         continue
 
                 # Fill bad channels for each trigger to get whole-run bad
@@ -136,7 +136,7 @@ def run_bad_channels_detection(npx_directory):
                         uVPerBit,
                     ) = SpikeGLX_utils.EphysParams(raw_data_file)
 
-                    if stream == 'ap':
+                    if stream == "ap":
                         (
                             ap_chans,  # AP channel indices
                             xcoords,
@@ -149,7 +149,7 @@ def run_bad_channels_detection(npx_directory):
                     # Order channels along probe
                     channel_map = np.argsort(ycoords)
 
-                    print(f"t={trg_i}: ", end='')
+                    print(f"t={trg_i}: ", end="")
                     good_channels_mask = get_good_channels(
                         raw_data_file,
                         num_channels,
@@ -188,7 +188,7 @@ def run_bad_channels_detection(npx_directory):
                 print(
                     f"Whole run bad N chans (intersection method): {len(inter_bad_chans)}"
                 )
-                all_trg_N_bad['inter'] = len(inter_bad_chans)
+                all_trg_N_bad["inter"] = len(inter_bad_chans)
                 # union of all triggers bad chans
                 union_bad_chans = sorted(list(set.union(*map(set, all_trg_bad_channels))))
                 union_path = prb_fld / BAD_CHANNEL_PATH.format(
@@ -199,7 +199,7 @@ def run_bad_channels_detection(npx_directory):
                 print(
                     f"Whole run bad N chans (union method): {len(union_bad_chans)}"
                 )
-                all_trg_N_bad['union'] = len(union_bad_chans)
+                all_trg_N_bad["union"] = len(union_bad_chans)
 
                 # Save report file containing number of bad channels
                 nchan_path = union_path.parent/NCHAN_FILENAME.format(
@@ -238,5 +238,5 @@ def main():
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
