@@ -15,9 +15,7 @@ def get_xy_coords(binpath):
     return chans, xcoord, ycoord
 
 
-def load_timeseries(
-    bin_path, chans, start_time=None, end_time=None, datetime=False, xarray=False
-):
+def load_timeseries(bin_path, chans, start_time=None, end_time=None):
     """Load SpikeGLX timeseries data.
 
     Parameters
@@ -32,9 +30,6 @@ def load_timeseries(
     end_time: float, optional, default: None
         End time of the data to load, relative to the file start, in seconds.
         If `None`, load until the end of the file.
-    datetime: boolean
-        If `True`, return time as a datetime vector with nanosecond resolution.
-        Note that this WILL result in a loss of timing resolution, but it is marginal.
     xarray: boolean
         If `True`, return data as a DataArray
 
@@ -72,12 +67,6 @@ def load_timeseries(
     # Get timestamps of each sample
     time = np.arange(firstSamp, lastSamp + 1)
     time = time / fs  # timestamps in seconds from start of file
-    if datetime:
-        start_dt = pd.to_datetime(meta["fileCreateTime"]) + pd.to_timedelta(
-            time.min(), "s"
-        )
-        end_dt = start_dt + pd.to_timedelta(time.max(), "s")
-        time = pd.date_range(start_dt, end_dt, periods=len(time))
 
     selectData = rawData[chans, firstSamp : lastSamp + 1]
     if meta["typeThis"] == "imec":
@@ -91,22 +80,36 @@ def load_timeseries(
         sig = 1e3 * GainCorrectNI(selectData, chans, meta)
         sig_units = "mV"
 
-    if xarray:
-        data = xr.DataArray(
-            sig.T, dims=("time", "channel"), coords={"time": time, "channel": chans}
-        )
-        data.attrs["units"] = sig_units
-        data.attrs["fs"] = fs
-    else:
-        data = (time, sig.T, fs)
+    data = xr.DataArray(
+        sig.T, dims=("time", "channel"), coords={"time": time, "channel": chans}
+    )
+    data.attrs["units"] = sig_units
+    data.attrs["fs"] = fs
+    data.attrs["file_create_time"] = pd.to_datetime(meta["fileCreateTime"])
+    data.attrs["first_sample"] = meta["firstSample"]
 
     return data
 
 
-def load_multifile_timeseries(bin_paths, chans, datetime=False, xarray=False):
+def load_multifile_timeseries(bin_paths, chans, contiguous=False):
     """Load and concatenate multiple SpikeGLX files.
-    Will load all data into memory unless using xarray.
-    If not using xarray, all data are assumed to be contiguous without gaps.
+
+    Parameters
+    ----------
+    bin_paths: iterable Path objects
+        The data to concatenate, in order.
+    chans: 1d array
+        The list of channels to load.
+    contiguous: bool
+        If `true`, data are assumed to be contiguous (i.e. no gaps)
+
+    Returns
+    -------
+    data: xr.DataArray
+        The concatenated data.
+        If contiguous, "time" dimension is a numpy array of timestamps in seconds.
+        If not contiguous, "time" dimension is an array of datetime objects.
+        Metadata is copied from the first file.
     """
 
     all_data = [
@@ -115,29 +118,29 @@ def load_multifile_timeseries(bin_paths, chans, datetime=False, xarray=False):
             chans,
             start_time=None,
             end_time=None,
-            datetime=datetime,
-            xarray=xarray,
         )
         for path in bin_paths
     ]
 
-    if xarray:
-        return xr.concat(all_data, dim="time")
+    all_fs = [data.fs for data in all_data]
+    fs = all_fs[0]
+    assert np.all(
+        np.asarray(all_fs) == fs
+    ), "All recordings must have the same sampling rate"
+
+    if contiguous:
+        samples_per_file = np.asarray([len(data) for data in all_data])
+        total_samples = np.sum(samples_per_file)
+        time = np.arange(0, total_samples) / fs
+        first_samples = np.cumsum(samples_per_file) - samples_per_file
+        last_samples = np.cumsum(samples_per_file)
+
+        for i in range(0, len(all_data)):
+            all_data[i]["time"] = time[first_samples[i] : last_samples[i]]
     else:
-        print(
-            "You are loading multifile SGLX data without xarray.\n",
-            "Are you sure you want to do this? Please see documentation.",
-        )
-        all_time, all_sig, all_fs = zip(*all_data)
-        file_durations = [time.max() for time in all_time]
-        file_ends = np.cumsum(file_durations)
-        offset_time = np.concatenate(
-            [all_time[i] + file_ends[i - 1] for i in range(1, len(all_time))]
-        )
-        time = np.concatenate([all_time[0], offset_time])
-        sig = np.concatenate(all_sig)
-        fs = all_fs[0]
-        assert np.all(
-            np.asarray(all_fs) == fs
-        ), "All recordings must have the same sampling rate"
-        return (time, sig, fs)
+        for data in all_data:
+            data["time"] = data.file_create_time + pd.to_timedelta(
+                data.time.values, "s"
+            )
+
+    return xr.concat(all_data, dim="time")
