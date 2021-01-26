@@ -1,5 +1,20 @@
 import numpy as np
 
+
+def _CheckPat():
+    CheckPat = np.empty((384,), dtype=np.int)
+    CheckPat[0:192:2] = np.arange(0, 384, 4)
+    CheckPat[1:192:2] = np.arange(3, 384, 4)
+    CheckPat[192::2] = np.arange(1, 384, 4)
+    CheckPat[193::2] = c = np.arange(2, 384, 4)
+
+    return CheckPat
+
+
+CheckPat = _CheckPat()
+
+LongCol = np.concatenate((np.arange(0, 384, 2), np.arange(1, 384, 2)))
+
 # fmt: off
 CheckPat_chans = np.array(
     [

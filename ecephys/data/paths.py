@@ -1,15 +1,10 @@
-import os
 import re
 import yaml
 from pathlib import Path
 import pandas as pd
 
-MODULE_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
-DATAPATHS_CSV_FILE = os.path.join(MODULE_DIRECTORY, "datapaths.csv")
-YAML_FILE = os.path.join(MODULE_DIRECTORY, "datapaths.yaml")
 
-
-def get_datapath_from_csv(**kwargs):
+def get_datapath_from_csv(csv_path, **kwargs):
     """Find and load a path from a CSV file.
 
     Returns
@@ -29,7 +24,7 @@ def get_datapath_from_csv(**kwargs):
     Load like:
         get_datapath_from_csv(subject="Doppio", condition="REC-0+2", data="lf.bin")
     """
-    df = pd.read_csv(DATAPATHS_CSV_FILE)
+    df = pd.read_csv(csv_path)
     mask = pd.Series(True, index=df.index)
     for column, value in kwargs.items():
         mask = mask & (df[column] == value)
@@ -90,10 +85,10 @@ def get_sglx_style_abs_path(stem, ext, root):
     return parent / fname
 
 
-def get_sglx_style_datapaths(subject, condition, ext):
+def get_sglx_style_datapaths(yaml_path, subject, condition, ext):
     """Get all datapaths, assuming a properly formatted YAML file an folder-per-probe
     organization."""
-    with open(YAML_FILE) as fp:
+    with open(yaml_path) as fp:
         yaml_data = yaml.safe_load(fp)
 
     if (ext == "lf.bin") or (ext == "ap.bin"):
@@ -106,8 +101,8 @@ def get_sglx_style_datapaths(subject, condition, ext):
     return [get_sglx_style_abs_path(stem, ext, root) for stem in condition_manifest]
 
 
-def get_datapath(subject, condition, file):
-    with open(YAML_FILE) as fp:
+def get_datapath(yaml_path, subject, condition, file):
+    with open(yaml_path) as fp:
         yaml_data = yaml.safe_load(fp)
 
     datapath = Path(yaml_data[subject]["analysis-root"])
