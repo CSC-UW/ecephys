@@ -34,26 +34,6 @@ cfg = {}
 cfg['OUTPUT_DIRNAME'] = 'processed_catGT_df'
 cfg['OUTPUT_DIRECTORIES'] = [
     # f'/Volumes/scratch/neuropixels/data/CNPIX2-Segundo/BL_15hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX2-Segundo/BL_21hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX2-Segundo/SR_15hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX2-Segundo/SR_21hs/{cfg["OUTPUT_DIRNAME"]}',
-
-    # f'/Volumes/scratch/neuropixels/data/CNPIX3-Valentino/BL_15hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX3-Valentino/BL_21hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX3-Valentino/SR_15hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX3-Valentino/SR_21hs/{cfg["OUTPUT_DIRNAME"]}',
-
-    # f'/Volumes/scratch/neuropixels/data/CNPIX4-Doppio/BL_15hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX4-Doppio/BL_21hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX4-Doppio/BL2_15hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX4-Doppio/SR_15hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX4-Doppio/SR_21hs/{cfg["OUTPUT_DIRNAME"]}',
-
-    # f'/Volumes/scratch/neuropixels/data/CNPIX5-Alessandro/BL_15hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX5-Alessandro/BL_21hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX5-Alessandro/BL2_15hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX5-Alessandro/SR_15hs/{cfg["OUTPUT_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX5-Alessandro/SR_21hs/{cfg["OUTPUT_DIRNAME"]}',
 ]
 
 # Relative path to the yaml file containing 0-indexed list of bad channels used
@@ -61,7 +41,7 @@ cfg['OUTPUT_DIRECTORIES'] = [
 # - The path is relative to the directory containing the raw .bin data
 # - If None: don't use bad channels
 cfg['bad_channel_path'] = './bad_channels_thres=18/bad_channels.imec{prb_i}.{stream}.yml'
-# bad_channel_path = None
+# cfg['bad_channel_path'] = None
 
 # CatGT params. Incorporated in command string:
 # catGT_cmd_string = '-prb_fld -out_prb_fld -aphipass=300 -aplopass=9000 -gbldmx -gfix=0,0.10,0.02 -SY=0,384,6,500 -SY=1,384,6,500'
