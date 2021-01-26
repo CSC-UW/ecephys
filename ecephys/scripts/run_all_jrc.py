@@ -16,26 +16,6 @@ cfg = {}
 cfg['NPX_DIRNAME'] = 'processed_catGT_df'
 cfg['NPX_DIRECTORIES'] = [
     # f'/Volumes/scratch/neuropixels/data/CNPIX2-Segundo/BL_15hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX2-Segundo/BL_21hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX2-Segundo/SR_15hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX2-Segundo/SR_21hs/{cfg["NPX_DIRNAME"]}',
-
-    # f'/Volumes/scratch/neuropixels/data/CNPIX3-Valentino/BL_15hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX3-Valentino/BL_21hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX3-Valentino/SR_15hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX3-Valentino/SR_21hs/{cfg["NPX_DIRNAME"]}',
-
-    # f'/Volumes/scratch/neuropixels/data/CNPIX4-Doppio/BL_15hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX4-Doppio/BL_21hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX4-Doppio/BL2_15hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX4-Doppio/SR_15hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX4-Doppio/SR_21hs/{cfg["NPX_DIRNAME"]}',
-
-    # f'/Volumes/scratch/neuropixels/data/CNPIX5-Alessandro/BL_15hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX5-Alessandro/BL_21hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX5-Alessandro/BL2_15hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX5-Alessandro/SR_15hs/{cfg["NPX_DIRNAME"]}',
-    # f'/Volumes/scratch/neuropixels/data/CNPIX5-Alessandro/SR_21hs/{cfg["NPX_DIRNAME"]}',
 ]
 cfg['RUN_DIR_PREFIX'] = 'catgt_'  # Run dirs in base directories start with this
 
@@ -49,6 +29,7 @@ cfg['JRC_PARAMS'] = {
 # - The path is relative to the directory containing the raw .bin data
 # - If None: don't use bad channels
 cfg['bad_channel_path'] = './bad_channels_thres=18/bad_channels.imec{prb_i}.ap.yml'
+# cfg['bad_channel_path'] = None
 
 rerun_existing = False
 
