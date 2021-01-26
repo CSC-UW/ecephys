@@ -72,15 +72,15 @@ def load_emg_netcdf(emg_data_path, tStart=None, tEnd=None, desired_length=None):
 
 
 def load_emg(emg_data_path, tStart=None, tEnd=None, desired_length=None):
-    """Load, slice and resample the EMG saved t `path`"""
+    """Load, slice and resample the EMG saved to `path`"""
     emg_data_path = Path(emg_data_path)
     supported_file_types = [".npy", ".nc"]
-    assert path.suffix in supported_file_types, "Unsupported file type."
+    assert emg_data_path.suffix in supported_file_types, "Unsupported file type."
 
-    if path.suffix == ".npy":
+    if emg_data_path.suffix == ".npy":
         return load_emg_npy(emg_data_path, tStart, tEnd, desired_length)
 
-    if path.suffix == ".nc":
+    if emg_data_path.suffix == ".nc":
         return load_emg_netcdf(emg_data_path, tStart, tEnd, desired_length)
 
 
