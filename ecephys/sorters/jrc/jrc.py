@@ -1,7 +1,8 @@
 from pathlib import Path
 import os
 import matlab.engine
-from ...sglx_utils import sglx_utils, SGLXMetaToCoords
+import ...sglx_utils
+import ...sglx_utils.external.SGLXMetaToCoords
 
 """Run JRClust."""
 
@@ -88,7 +89,7 @@ def get_jrc_config_str(binpath, jrc_output_dir, jrc_params=None, badChans=None):
     params = {k: str(v) for k, v in params.items()}
 
     cfg_str = """
-% JRCLUST parameters (common parameters only) 
+% JRCLUST parameters (common parameters only)
 % For a description of these parameters, including legal options, see https://jrclust.readthedocs.io/en/latest/parameters/index.html
 
 % USAGE PARAMETERS
