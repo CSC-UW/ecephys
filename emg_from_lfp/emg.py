@@ -18,7 +18,7 @@ import itertools
 
 import numpy as np
 import scipy.signal
-import tqdm
+from tqdm.auto import tqdm
 from scipy.stats import pearsonr
 
 
@@ -136,11 +136,9 @@ def compute_av_corr(data, data_sf, target_sf, window_size):
     ]
     # Summate corrlation within each window for all channel pairs
     # Iterate on channel pairs, then on timestamps (C-style indexing)
-    for i, j in tqdm.tqdm(chan_pairs, "XCorr: Iterate on channel pairs"):
+    for i, j in tqdm(chan_pairs, "XCorr: Iterate on channel pairs"):
         # Don't use `enumerate` for prettier tqdm nested loop
-        for s in tqdm.tqdm(
-            range(len(window_center_samps)), "XCorr: Iterate on windows"
-        ):
+        for s in tqdm(range(len(window_center_samps)), "XCorr: Iterate on windows"):
             win_center_samp = window_center_samps[s]
             # Start and end samples for that window. First and last windows are
             # shorter
