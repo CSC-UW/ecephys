@@ -6,8 +6,8 @@ from pathlib import Path
 import numpy as np
 
 import yaml
-from ecephys.helpers.path_utils import get_allen_formatted_run_specs
-from ecephys_spike_sorting.scripts.helpers import SpikeGLX_utils
+from ecephys.utils.path_utils import get_allen_formatted_run_specs
+from ecephys_spike_sorting.scripts.utils import SpikeGLX_utils
 
 # script to run CatGT,  on data collected using # SpikeGLX. The construction of
 # the paths assumes data was saved with "Folder per probe" selected (probes

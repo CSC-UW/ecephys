@@ -4,7 +4,7 @@ import time
 import os.path
 from pathlib import Path
 
-from ecephys.helpers import path_utils
+from ecephys.utils import path_utils
 from ecephys.sorters.jrc import jrc
 
 # """""""""""""""""""""
