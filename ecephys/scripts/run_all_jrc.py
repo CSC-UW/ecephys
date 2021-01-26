@@ -1,3 +1,6 @@
+import yaml
+import time
+
 import os.path
 from pathlib import Path
 
@@ -8,66 +11,79 @@ from ecephys.sorters.jrc import jrc
 # USER INPUT
 # """""""""""""""""""""
 
-BASE_DIRECTORIES = [
-    "/Volumes/scratch/neuropixels/data/CNPIX4/3-4PM/BL/processed",
-    "/Volumes/scratch/neuropixels/data/CNPIX4/3-4PM/SR/processed",
-    "/Volumes/scratch/neuropixels/data/CNPIX4/9-10PM/BL/processed",
-    "/Volumes/scratch/neuropixels/data/CNPIX4/9-10PM/SR/processed",
-    "/Volumes/scratch/neuropixels/data/CNPIX3/3-4PM/BL/processed",
-    "/Volumes/scratch/neuropixels/data/CNPIX3/3-4PM/BL2/processed",
-    "/Volumes/scratch/neuropixels/data/CNPIX3/3-4PM/SR/processed",
-    "/Volumes/scratch/neuropixels/data/CNPIX3/9-10PM/BL/processed",
-    "/Volumes/scratch/neuropixels/data/CNPIX3/9-10PM/SR/processed",
-]  # Each contains the run directories
-RUN_DIRECTORY_PREFIX = "catgt_"  # Run dirs in base directories start with this
+cfg = {}
 
-JRC_PARAMS = {
+cfg["NPX_DIRNAME"] = "processed_catGT_df"
+cfg["NPX_DIRECTORIES"] = [
+    # f"/Volumes/scratch/neuropixels/data/CNPIX2-Segundo/BL_15hs/{cfg["NPX_DIRNAME"]}",
+]
+cfg["RUN_DIR_PREFIX"] = "catgt_"  # Run dirs in base directories start with this
+
+cfg["JRC_PARAMS"] = {
     "CARMode": "none",  # No need to CAR if we already ran catGT
     "refracInt": "1.0",
 }
 
-badChannels = [
-    [192],
-    [192],
-    [192],
-    [192],
-    [192],
-    [192],
-    [192],
-    [192],
-    [192],
-]  # Same length as BASE_DIRECTORIES, 1-indexed !!!
+# Relative path to the yaml file containing 0-indexed list of bad channels used
+# in the catGT run.
+# - The path is relative to the directory containing the raw .bin data
+# - If None: don"t use bad channels
+cfg["bad_channel_path"] = "./bad_channels_thres=18/bad_channels.imec{prb_i}.ap.yml"
+# cfg["bad_channel_path"] = None
 
 rerun_existing = False
 
-n_jobs = 3
+n_jobs = 5
 
 # """""""""""""""""""""
 # END user input
 # """""""""""""""""""""
 
-assert len(badChannels) == len(BASE_DIRECTORIES)
 
+def run_npx_dir(npx_directory, cfg):
 
-def run_base_dir(i, base_dir):
+    print("==========================================")
+    print(f"Sort directory {npx_directory}")
+    print("==========================================")
 
-    print(f"\n\nRunning dir {base_dir}")
-
-    run_specs = path_utils.get_run_specs(base_dir, run_dir_prefix=RUN_DIRECTORY_PREFIX)
-    print(f"Run specs for base dir: {run_specs}")
-
-    # Bad chans
-    badChans = badChannels[i]
+    run_specs = path_utils.get_run_specs(
+        npx_directory, run_dir_prefix=cfg["RUN_DIR_PREFIX"]
+    )
+    print(f"Run specs for npx dir. Looks good?: {run_specs}")
 
     # Runs
-    for run_name, gate_i, triggers_i, probes_i in run_specs:
-
-        run_dir = Path(base_dir) / f"{RUN_DIRECTORY_PREFIX}{run_name}_g{gate_i}"
+    for run_name, gate_str, triggers_i, probes_i in run_specs:
 
         # Probes
-        for probe_i in probes_i:
+        for prb_i in probes_i:
 
-            probe_dir = run_dir / f"{run_name}_g{gate_i}_imec{probe_i}"
+            # build path to the raw data folder
+            run_folder_name = cfg["RUN_DIR_PREFIX"] + run_name + "_g" + gate_str
+            prb_fld_name = run_name + "_g" + gate_str + "_imec" + str(prb_i)
+            prb_fld = Path(npx_directory)/run_folder_name/prb_fld_name
+            print(f"Processing run/probe: {prb_fld_name}")
+
+            # Load bad channels for that probe/stream
+            if cfg["bad_channel_path"] is None:
+                bad_channels = None
+            else:
+                # Go to raw data dir
+                raw_run_name = run_name + "_g" + gate_str
+                raw_prb_fld_name = raw_run_name + "_imec" + str(prb_i)
+                raw_prb_fld = Path(npx_directory).parent/"raw"/raw_run_name/raw_prb_fld_name
+                badchan_path = raw_prb_fld/cfg["bad_channel_path"].format(**{
+                    "prb_i": prb_i,
+                })
+                if not badchan_path.exists():
+                    raise ValueError(
+                        "Could not find yaml file containing bad channels at:"
+                        f"\n{badchan_path}"
+                    )
+                with open(badchan_path, "r") as f:
+                    bad_channels = yaml.load(f, Loader=yaml.FullLoader)
+                print(f"Specifying N={len(bad_channels)} bad channels")
+            # JRC bad channels are 1-indexed
+            badChans = [int(c) + 1 for c in bad_channels]
 
             # Single trigger in the probe directory (`tcat`)
             if len(triggers_i) > 1:
@@ -75,46 +91,59 @@ def run_base_dir(i, base_dir):
             trigger_i = triggers_i[0]
 
             # Bin file
-            binfilename = f"{run_name}_g{gate_i}_t{trigger_i}.imec{probe_i}.ap.bin"
-            binpath = probe_dir / binfilename
+            binfilename = \
+                f"{run_name}_g{gate_str}_t{trigger_i}.imec{prb_i}.ap.bin"
+            binpath = prb_fld/binfilename
             assert os.path.exists(binpath)
 
             # JRC output
             output_dirname = "jrc_" + "_".join(
-                sorted([f"{key}={value}" for key, value in JRC_PARAMS.items()])
+                sorted([
+                    f"{key}={value}" for key, value in cfg["JRC_PARAMS"].items()
+                ])
             )
-            jrc_output_dir = probe_dir / output_dirname
+            jrc_output_dir = prb_fld/output_dirname
             jrc_output_dir.mkdir(exist_ok=True)
-            config_name = f"{run_name}_g{gate_i}_t{trigger_i}.imec{probe_i}"
+            config_name = f"{run_name}_g{gate_str}_t{trigger_i}.imec{prb_i}"
 
             # Already run?
             if (
-                jrc_output_dir / f"{config_name}_res.mat"
-            ).exists() and not rerun_existing:
+                    (jrc_output_dir/f"{config_name}_res.mat").exists()
+                    and not rerun_existing
+            ):
                 print("found JRC result file in {jrc_output_dir}: passing")
                 continue
 
             # Run JRC
+
+            tstart = time.time()
             jrc.run_JRC(
                 binpath,
                 jrc_output_dir,
-                jrc_params=JRC_PARAMS,
+                jrc_params=cfg["JRC_PARAMS"],
                 badChans=badChans,
                 config_name=config_name,
             )
+            print(f"Done sorting porbe {prb_fld_name}: ", end="")
+            print(f"Total time={(time.time() - tstart)/60}min")
+
+    print(f"Done sorting directory {npx_directory}")
+    print("==========================================\n")
 
 
 def main():
 
     if n_jobs == 1:
-        for i, base_dir in enumerate(BASE_DIRECTORIES):
-            run_base_dir(i, base_dir)
+        for npx_dir in cfg["NPX_DIRECTORIES"]:
+            run_npx_dir(npx_dir, cfg)
     else:
         from joblib import Parallel, delayed
 
-        Parallel(n_jobs=n_jobs)(
-            delayed(run_base_dir)(i, base_dir)
-            for i, base_dir in enumerate(BASE_DIRECTORIES)
+        Parallel(
+            n_jobs=n_jobs
+        )(
+            delayed(run_npx_dir)(npx_dir, cfg)
+            for npx_dir in cfg["NPX_DIRECTORIES"]
         )
 
 

@@ -26,8 +26,7 @@ from ecephys_spike_sorting.scripts.utils import SpikeGLX_utils
 # Directory in which raw data is saved
 # - Assumes standard SpikeGLX directory structure: run_folder/probe_folder/*.bin
 NPX_DIRECTORIES = [
-    "/Volumes/neuropixel_archive/Data/chronic/CNPIX2-Segundo/raw",
-    # '/Volumes/scratch/neuropixels/data/CNPIX4/3-4PM/SR/processed',
+    # "/Volumes/neuropixel_archive/Data/chronic/CNPIX2-Segundo/raw",
 ]
 
 # Channel marked as bad and excluded from analysis for each
@@ -75,11 +74,11 @@ def run_bad_channels_detection(npx_directory):
 
     # Each run_spec is a list containing:
     #   - undecorated run name (no g/t specifier, the run field in CatGT)
-    #   - gate index, as a string (e.g. '0')
-    #   - triggers to process, as a list e.g. ['0', '1', '400']
-    #   - probes to process, as a list, e.g. ['0', '1']
+    #   - gate index, as a string (e.g. "0")
+    #   - triggers to process, as a list e.g. ["0", "1", "400"]
+    #   - probes to process, as a list, e.g. ["0", "1"]
     # run_specs = [
-    #     ['my_run', '0', ['0', '1', '400'], ['0', '1']],
+    #     ["my_run", "0", ["0", "1", "400"], ["0", "1"]],
     #     ...
     # ]
     run_specs = get_run_specs(npx_directory)
@@ -104,18 +103,16 @@ def run_bad_channels_detection(npx_directory):
 
                 # Pass if files already there
                 if not overwrite:
-                    nchan_path = (
-                        prb_fld
-                        / BAD_CHANNEL_PATH.format(
-                            **{"prb_i": prb_i, "stream": stream, "trigger_i": "NULL"}
+                    nchan_path = (prb_fld / BAD_CHANNEL_PATH.format(
+                        **{"prb_i": prb_i, "stream": stream, "trigger_i": "NULL"}
+                        )).parent/NCHAN_FILENAME.format(
+                            **{"prb_i": prb_i, "stream": stream}
                         )
                     ).parent / NCHAN_FILENAME.format(
                         **{"prb_i": prb_i, "stream": stream}
                     )
                     if nchan_path.exists():
-                        print(
-                            f"overwrite==False: Passing stream {stream}, run/probe {prb_fld_name}"
-                        )
+                        print(f"overwrite==False: Passing stream {stream}, run/probe {prb_fld_name}")
                         continue
 
                 # Fill bad channels for each trigger to get whole-run bad
@@ -204,7 +201,9 @@ def run_bad_channels_detection(npx_directory):
                 )
                 with open(union_path, "w") as f:
                     yaml.dump(union_bad_chans, f, default_flow_style=False)
-                print(f"Whole run bad N chans (union method): {len(union_bad_chans)}")
+                print(
+                    f"Whole run bad N chans (union method): {len(union_bad_chans)}"
+                )
                 all_trg_N_bad["union"] = len(union_bad_chans)
 
                 # Save report file containing number of bad channels
