@@ -38,7 +38,10 @@ def run_JRC(binpath, jrc_output_dir, jrc_params=None, badChans=None,
         f.write(config_str)
 
     print(
-        f'Running jrc detect for `{binpath}`. Results at `{jrc_output_dir}`'
+        f'Running jrc detect for `{binpath}`. Results at `{jrc_output_dir}`.'
+    )
+    print(
+        f'JRC config: {jrc_params}'
     )
 
     module_dir_path = os.path.dirname(os.path.realpath(__file__))

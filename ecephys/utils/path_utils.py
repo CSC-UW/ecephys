@@ -4,6 +4,7 @@ All run directories are assumed to have been saved with probe folders.
 """
 
 import pathlib
+import regex as re
 
 
 def get_run_specs(raw_data_dir, run_dir_prefix=None):
@@ -12,7 +13,7 @@ def get_run_specs(raw_data_dir, run_dir_prefix=None):
     Example::
         run_specs = [
             ['3-17-2020', '0', ['3','4','5'], ['0']],
-            ['3-18-2020', '0', ['0'], ['0','1']],
+            ['3-18-2020.my-run', '0', ['0'], ['0','1']],
         ]
 
     Args:
@@ -53,11 +54,11 @@ def get_run_specs(raw_data_dir, run_dir_prefix=None):
         run_dir_name = run_dir[len(run_dir_prefix):]
 
         # Check it's a run directory and parse out run_name/gate_name
-        if not len(run_dir_name.split('_g')) == 2:
+        run_dir_match = re.match('(.*)_g([0-9]+)', run_dir_name)
+        if run_dir_match is None:
             print(f'Passing subdir `{run_dir}`: not a run directory')
             continue
-        run_name, gate_i = run_dir_name.split('_g')
-        assert gate_i.isdigit()
+        run_name, gate_i = run_dir_match.groups()
 
         probes = []
         probe_triggers = []
@@ -67,30 +68,40 @@ def get_run_specs(raw_data_dir, run_dir_prefix=None):
             dir.name for dir in (raw_data_dir/run_dir).iterdir() if dir.is_dir()
         ]:
 
-            if not (
-                len(probe_dir.split('_imec')) == 2
-                and probe_dir.split('_imec')[0].split('_g')[0] == run_name
-            ):
+            prb_dir_match = re.match(
+                f'{run_dir_name}_imec([0-9]+)',
+                probe_dir
+            )
+            if prb_dir_match is None:
                 print(f'Passing subdir `{probe_dir}`: not a probe directory')
                 continue
-
-            _, probe_i = probe_dir.split('_imec')
-            assert probe_i.isdigit()
+            probe_i = prb_dir_match.groups()[0]
 
             probes.append(probe_i)
 
-            # Iterate on triggers
+            # Iterate on files and parse triggers
             triggers = []
-            for bin_stem in [
-                    binfile.name.split('.')[0]
-                    for binfile in (raw_data_dir/run_dir/probe_dir).iterdir()
-                    if '.bin' in binfile.suffixes
-                    and '.ap' in binfile.suffixes
+            for binfile in [
+                f.name for f in (raw_data_dir/run_dir/probe_dir).iterdir()
+                if f.is_file()
             ]:
 
-                assert len(bin_stem.split('_t')) == 2
+                bin_match = re.match(
+                    f'\A{run_name}_g{gate_i}_t(.*).imec{probe_i}.ap.bin\Z',
+                    binfile,
+                )
+                if bin_match is None:
+                    # print(binfile)
+                    # print( f'{run_name}_g{gate_i}_t([0-9]+).imec{probe_i}.ap.bin')
+                    continue
+                print(binfile)
+                # print( f'{run_name}_g{gate_i}_t([0-9]+).imec{probe_i}.ap.bin')
+                trg_i = bin_match.groups()[0]
+                assert trg_i.isdigit() or trg_i == 'cat'
+                triggers.append(trg_i)
 
-                triggers.append(bin_stem.split('_t')[1])
+            # Sanity: signle matched file per trigger
+            assert len(set(triggers)) == len(triggers)
 
             probe_triggers.append(triggers)
 
