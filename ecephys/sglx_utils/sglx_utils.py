@@ -85,8 +85,8 @@ def load_timeseries(bin_path, chans, start_time=None, end_time=None):
     )
     data.attrs["units"] = sig_units
     data.attrs["fs"] = fs
-    data.attrs["file_create_time"] = pd.to_datetime(meta["fileCreateTime"])
-    data.attrs["first_sample"] = meta["firstSample"]
+    data.attrs["fileCreateTime"] = meta["fileCreateTime"]
+    data.attrs["firstSample"] = meta["firstSample"]
 
     return data
 
@@ -139,7 +139,7 @@ def load_multifile_timeseries(bin_paths, chans, contiguous=False):
             all_data[i]["time"] = time[first_samples[i] : last_samples[i]]
     else:
         for data in all_data:
-            data["time"] = data.file_create_time + pd.to_timedelta(
+            data["time"] = pd.to_datetime(data.fileCreateTime) + pd.to_timedelta(
                 data.time.values, "s"
             )
 
