@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Repair SGLX metadata file following SGLX crash.
+Repair SGLX metadata_3B2 file following SGLX crash.
 
 Usage:
 
@@ -24,7 +24,7 @@ __license__ = 'Public Domain, 2021'
 
 def repair_meta(binpath, dry_run=True, backup_original_meta=True,
                 check_SHA1_integrity=False, preview_metadata=True):
-    """Add missing fields to SGLX metadatafiles following SGLX crash.
+    """Add missing fields to SGLX metadata 3B2 files following SGLX crash.
 
     The following fields may be missing from file following SGLX crash:
         - fileSizeBytes
