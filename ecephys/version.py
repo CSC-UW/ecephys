@@ -49,6 +49,6 @@ MINOR = _version_minor
 MICRO = _version_micro
 VERSION = __version__
 PACKAGE_DATA = {"ecephys": [pjoin("data", "*")]}
-REQUIRES = ["neurodsp", "ripple_detection", "scipy", "xarray", "seaborn"]
+REQUIRES = ["neurodsp", "ripple_detection", "scipy", "xarray", "seaborn", "pyyaml"]
 
 PYTHON_REQUIRES = ">= 3.7"
