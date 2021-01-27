@@ -20,7 +20,7 @@ from ipywidgets import (
     jslink,
 )
 
-from ecephys.data import channel_groups, paths
+# from ecephys.data import channel_groups, paths
 from ecephys.scoring import filter_states
 from ecephys.sglx_utils import load_timeseries
 from ecephys.signal.sharp_wave_ripples import apply_ripple_filter
