@@ -53,6 +53,17 @@ def write_visbrain_hypnogram(H, path):
     H.to_csv(path, columns=["state", "end_time"], sep="\t", index=False)
 
 
+def load_spike2_hypnogram(path):
+    return pd.read_table(
+        hypnogram_path,
+        sep="\t",
+        names=["epoch", "start_time", "end_time", "state", "comment", "blank"],
+        usecols=["epoch", "start_time", "end_time", "state"],
+        index_col="epoch",
+        skiprows=22,
+    )
+
+
 def filter_states(H, states):
     """Return only hypnogram entries corresponding to desired states.
 

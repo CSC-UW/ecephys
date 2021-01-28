@@ -30,8 +30,11 @@ from ecephys.signal.csd import get_kcsd
 
 state_colors = {
     "Wake": "palegreen",
-    "qWk": "seagreen",
+    "W": "palegreen",
     "aWk": "lightgreen",
+    "qWk": "seagreen",
+    "M": "darkseagreen",
+    "NREM": "plum",
     "N1": "thistle",
     "N2": "plum",
     "REM": "bisque",
