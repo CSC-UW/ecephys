@@ -49,6 +49,14 @@ MINOR = _version_minor
 MICRO = _version_micro
 VERSION = __version__
 PACKAGE_DATA = {"ecephys": [pjoin("data", "*")]}
-REQUIRES = ["neurodsp", "ripple_detection", "scipy", "xarray", "seaborn", "pyyaml"]
+REQUIRES = [
+    "neurodsp",
+    "ripple_detection",
+    "scipy",
+    "xarray",
+    "seaborn",
+    "pyyaml",
+    "kcsd @ git+https://github.com/Neuroinflab/kCSD-python@master#egg=kcsd",
+]
 
 PYTHON_REQUIRES = ">= 3.7"
