@@ -38,6 +38,8 @@ state_colors = {
     "N1": "thistle",
     "N2": "plum",
     "REM": "bisque",
+    "Art": "crimson",
+    "?": "crimson",
     "None": "White",
 }
 
