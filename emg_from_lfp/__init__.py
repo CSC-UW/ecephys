@@ -51,7 +51,7 @@ def load_emg_npy(emg_data_path, tStart=None, tEnd=None, desired_length=None):
 
 
 def load_emg_netcdf(emg_data_path, tStart=None, tEnd=None, desired_length=None):
-    emg = xr.open_dataset(emg_data_path).emg
+    emg = xr.open_dataarray(emg_data_path)
 
     if tStart is None:
         tStart = emg.time.values.min()
