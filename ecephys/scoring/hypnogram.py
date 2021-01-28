@@ -55,7 +55,7 @@ def write_visbrain_hypnogram(H, path):
 
 def load_spike2_hypnogram(path):
     return pd.read_table(
-        hypnogram_path,
+        path,
         sep="\t",
         names=["epoch", "start_time", "end_time", "state", "comment", "blank"],
         usecols=["epoch", "start_time", "end_time", "state"],
