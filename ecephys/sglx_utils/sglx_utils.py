@@ -30,21 +30,11 @@ def load_timeseries(bin_path, chans, start_time=None, end_time=None):
     end_time: float, optional, default: None
         End time of the data to load, relative to the file start, in seconds.
         If `None`, load until the end of the file.
-    xarray: boolean
-        If `True`, return data as a DataArray
 
     Returns
     -------
-    if xarray=`False`:
-        time : 1d array, (n_samples, )
-            Time of the data, in seconds from the file start.
-        sig: 2d array, (n_samples, n_chans)
-            Gain-converted signal
-        fs: float
-            The sampling frequency of the data
-    if xarray=`True`:
-        data : xr.DataArray (n_samples, n_chans)
-            With labeled dimensions `time` and `channel`, and `fs` attribute.
+    data : xr.DataArray (n_samples, n_chans)
+        Attrs: units, fs, fileCreateTime, firstSample
     """
 
     meta = readMeta(bin_path)
