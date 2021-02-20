@@ -5,7 +5,12 @@ import xarray as xr
 import pandas as pd
 
 from .external import SGLXMetaToCoords
-from .external.readSGLX import makeMemMapRaw, readMeta, SampRate, GainCorrectIM
+from .external.readSGLX import (
+    makeMemMapRaw,
+    readMeta,
+    SampRate,
+    GainCorrectIM,
+)
 
 
 def get_xy_coords(binpath):
@@ -59,17 +64,15 @@ def load_timeseries(bin_path, chans, start_time=None, end_time=None):
     time = time / fs  # timestamps in seconds from start of file
 
     selectData = rawData[chans, firstSamp : lastSamp + 1]
-    if meta["typeThis"] == "imec":
-        # apply gain correction and convert to uV
-        sig = 1e6 * GainCorrectIM(selectData, chans, meta)
-        sig_units = "uV"
-    else:
-        MN, MA, XA, DW = ChannelCountsNI(meta)
-        # print("NI channel counts: %d, %d, %d, %d" % (MN, MA, XA, DW))
-        # apply gain coorection and conver to mV
-        sig = 1e3 * GainCorrectNI(selectData, chans, meta)
-        sig_units = "mV"
 
+    # apply gain correction and convert to uV
+    assert (
+        meta["typeThis"] == "imec"
+    ), "This function only supports loading of analog IMEC data."
+    sig = 1e6 * GainCorrectIM(selectData, chans, meta)
+    sig_units = "uV"
+
+    # Wrap data with xarray
     data = xr.DataArray(
         sig.T, dims=("time", "channel"), coords={"time": time, "channel": chans}
     )

@@ -2,6 +2,7 @@ import re
 import yaml
 from pathlib import Path
 import pandas as pd
+from ..utils import flatten
 
 
 def get_datapath_from_csv(csv_path, **kwargs):
@@ -96,7 +97,7 @@ def get_sglx_style_datapaths(yaml_path, subject, condition, ext):
     else:
         root = Path(yaml_data[subject]["analysis-root"])
 
-    condition_manifest = yaml_data[subject][condition]
+    condition_manifest = list(flatten(yaml_data[subject][condition]))
 
     return [get_sglx_style_abs_path(stem, ext, root) for stem in condition_manifest]
 
