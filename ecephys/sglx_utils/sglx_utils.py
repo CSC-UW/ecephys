@@ -20,6 +20,48 @@ def get_xy_coords(binpath):
     return chans, xcoord, ycoord
 
 
+def load_timestamps(bin_path, start_time=None, end_time=None):
+    """Load SpikeGLX timestamps
+
+    Parameters
+    ----------
+    bin_path: joblib Path object
+        The path to the binary data (i.e. *.bin)
+    start_time: float, optional, default: None
+        Start time of the data to load, relative to the file start, in seconds.
+        If `None`, load from the start of the file.
+    end_time: float, optional, default: None
+        End time of the data to load, relative to the file start, in seconds.
+        If `None`, load until the end of the file.
+
+    Returns
+    -------
+    time : np.array (n_samples, )
+        Time of each sample, in seconds.
+    """
+    meta = readMeta(bin_path)
+    fs = SampRate(meta)
+
+    # Calculate desire start and end samples
+    if start_time:
+        firstSamp = int(fs * start_time)
+    else:
+        firstSamp = 0
+
+    if end_time:
+        lastSamp = int(fs * end_time)
+    else:
+        nFileChan = int(meta["nSavedChans"])
+        nFileSamp = int(int(meta["fileSizeBytes"]) / (2 * nFileChan))
+        lastSamp = nFileSamp - 1
+
+    # Get timestamps of each sample
+    time = np.arange(firstSamp, lastSamp + 1)
+    time = time / fs  # timestamps in seconds from start of file
+
+    return time
+
+
 def load_timeseries(bin_path, chans, start_time=None, end_time=None):
     """Load SpikeGLX timeseries data.
 
