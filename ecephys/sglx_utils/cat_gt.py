@@ -69,8 +69,9 @@ def get_catGT_command(catGT_path, wine_path=None, **kwargs):
     cmd_parts.append(f"-t={kwargs.pop('t')}")
 
     for opt, val in kwargs.items():
-        if (type(val) == bool) and val:
-            cmd_parts.append(f"-{opt}")
+        if type(val) == bool:
+            if val:
+                cmd_parts.append(f"-{opt}")
         else:
             cmd_parts.append(f"-{opt}={val}")
 
