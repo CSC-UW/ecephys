@@ -79,6 +79,9 @@ def get_sglx_style_parent_path(run, gate, trigger, probe, root_dir):
 def get_sglx_style_abs_path(stem, ext, root):
     """Get the absolute path where a SpikeGLX filew ould be found, assuming
     folder-per-probe organization.
+
+    root: pathlib.Path
+        The absolute path to the directory containing the SGLX run directories.
     """
     run, gate, trigger, probe = parse_sglx_stem(stem)
     fname = get_sglx_style_filename(run, gate, trigger, probe, ext)
@@ -86,27 +89,27 @@ def get_sglx_style_abs_path(stem, ext, root):
     return parent / fname
 
 
-def get_sglx_style_datapaths(yaml_path, subject, condition, ext):
+def get_sglx_style_datapaths(yaml_path, subject, experiment, condition, ext):
     """Get all datapaths, assuming a properly formatted YAML file an folder-per-probe
     organization."""
     with open(yaml_path) as fp:
         yaml_data = yaml.safe_load(fp)
 
     if (ext == "lf.bin") or (ext == "ap.bin"):
-        root = Path(yaml_data[subject]["raw-data-root"])
+        root = Path(yaml_data[subject][experiment]["raw-data-root"])
     else:
-        root = Path(yaml_data[subject]["analysis-root"])
+        root = Path(yaml_data[subject][experiment]["analysis-root"])
 
-    condition_manifest = list(flatten(yaml_data[subject][condition]))
+    condition_manifest = list(flatten(yaml_data[subject][experiment][condition]))
 
     return [get_sglx_style_abs_path(stem, ext, root) for stem in condition_manifest]
 
 
-def get_datapath(yaml_path, subject, condition, file):
+def get_datapath(yaml_path, file, subject, experiment, condition=None):
     with open(yaml_path) as fp:
         yaml_data = yaml.safe_load(fp)
 
-    datapath = Path(yaml_data[subject]["analysis-root"])
+    datapath = Path(yaml_data[subject][experiment]["analysis-root"])
 
     if condition:
         datapath = datapath / condition
