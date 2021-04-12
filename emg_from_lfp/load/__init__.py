@@ -7,7 +7,7 @@ import numpy as np
 import tdt
 
 from . import readSGLX as SGLX
-from . import resample, utils
+from . import resample
 
 DATA_FORMATS = ['SGLX', 'OpenEphys', 'TDT']
 

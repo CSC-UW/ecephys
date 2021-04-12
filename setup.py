@@ -3,7 +3,7 @@
 # setup.py
 
 try:
-    from setuptools import setup
+    from setuptools import setup, find_packages
 except ImportError:
     from distutils.core import setup
 
@@ -22,7 +22,7 @@ setup(
     url=about["__url__"],
     license=about["__license__"],
     install_requires=install_requires,
-    packages=["emg_from_lfp"],
+    packages=find_packages(),
     zip_safe=False,
     classifiers=[
         "Development Status :: 3 - Alpha",

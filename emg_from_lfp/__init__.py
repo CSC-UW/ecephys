@@ -5,7 +5,7 @@ import numpy as np
 import xarray as xr
 
 from .emg import compute_emg
-from . import load
+from .load import resample, utils
 
 
 def load_emg_npy(emg_data_path, tStart=None, tEnd=None, desired_length=None):
@@ -16,7 +16,7 @@ def load_emg_npy(emg_data_path, tStart=None, tEnd=None, desired_length=None):
         )
     print(f"Load EMG at {emg_data_path}")
     emg_data = np.load(emg_data_path)
-    emg_metadata = load.utils.load_yaml(emg_metadata_path)
+    emg_metadata = utils.load_yaml(emg_metadata_path)
 
     # Select time segment of interest for EMG
     sf = emg_metadata["sf"]
@@ -43,7 +43,7 @@ def load_emg_npy(emg_data_path, tStart=None, tEnd=None, desired_length=None):
             f"Resampling EMG slice from {emg_data.shape[1]} to "
             f"{desired_length} datapoints"
         )
-        emg_data = load.resample.signal_resample(
+        emg_data = resample.signal_resample(
             emg_data[0, :], desired_length=desired_length, method="numpy"
         ).reshape((1, desired_length))
 
@@ -64,7 +64,7 @@ def load_emg_netcdf(emg_data_path, tStart=None, tEnd=None, desired_length=None):
         print(
             f"Resampling EMG slice from {len(selected_data)} to {desired_length} datapoints"
         )
-        selected_data = load.resample.signal_resample(
+        selected_data = resample.signal_resample(
             selected_data, desired_length=desired_length, method="numpy"
         ).reshape((1, desired_length))
 
@@ -179,7 +179,7 @@ def compute_and_save(
 
     # Save EMG
     print(f"Saving EMG metadata at {emg_metadata_path}")
-    load.utils.save_yaml(emg_metadata_path, emg_metadata)
+    utils.save_yaml(emg_metadata_path, emg_metadata)
     print(f"Saving EMG data at {emg_data_path}")
     np.save(emg_data_path, EMG_data)
 
