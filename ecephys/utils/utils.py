@@ -2,6 +2,15 @@ import numpy as np
 import pandas as pd
 from scipy.stats import median_abs_deviation
 from pathlib import Path
+from collections.abc import Iterable
+
+# https://stackoverflow.com/questions/2158395/flatten-an-irregular-list-of-lists
+def flatten(l):
+    for el in l:
+        if isinstance(el, Iterable) and not isinstance(el, (str, bytes)):
+            yield from flatten(el)
+        else:
+            yield el
 
 
 def if_none(x, default):
