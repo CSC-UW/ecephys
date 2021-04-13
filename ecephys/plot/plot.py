@@ -34,13 +34,17 @@ state_colors = {
     "aWk": "lightgreen",
     "qWk": "seagreen",
     "M": "darkseagreen",
-    "NREM": "plum",
+    "NREM": "royalblue",
     "N1": "thistle",
     "N2": "plum",
-    "REM": "bisque",
+    "REM": "magenta",
     "Art": "crimson",
     "?": "crimson",
     "None": "White",
+    "Unsure": "darkorange",
+    "Brief-Arousal": "palegreen",
+    "Slow-During-Wake": "chartreuse",
+    "Transition": "grey"
 }
 
 
