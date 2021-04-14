@@ -62,7 +62,7 @@ def load_timestamps(bin_path, start_time=None, end_time=None):
     return time
 
 
-def load_timeseries(bin_path, chans, start_time=None, end_time=None):
+def load_timeseries(bin_path, chans, start_time=0, end_time=np.Inf):
     """Load SpikeGLX timeseries data.
 
     Parameters
@@ -88,18 +88,18 @@ def load_timeseries(bin_path, chans, start_time=None, end_time=None):
     rawData = makeMemMapRaw(bin_path, meta)
     fs = SampRate(meta)
 
-    # Calculate desire start and end samples
-    if start_time:
-        firstSamp = int(fs * start_time)
-    else:
-        firstSamp = 0
+    # Calculate file's start and end samples
+    nFileChan = int(meta["nSavedChans"])
+    nFileSamp = int(int(meta["fileSizeBytes"]) / (2 * nFileChan))
+    (firstFileSamp, lastFileSamp) = (0, nFileSamp - 1)
 
-    if end_time:
-        lastSamp = int(fs * end_time)
-    else:
-        nFileChan = int(meta["nSavedChans"])
-        nFileSamp = int(int(meta["fileSizeBytes"]) / (2 * nFileChan))
-        lastSamp = nFileSamp - 1
+    # Get the requested start and end samples
+    firstRequestedSamp = int(fs * start_time)
+    lastRequestedSamp = int(fs * end_time)
+
+    # Get the start and end samples
+    firstSamp = max(firstFileSamp, firstRequestedSamp)
+    lastSamp = min(lastFileSamp, lastRequestedSamp)
 
     # Get timestamps of each sample
     time = np.arange(firstSamp, lastSamp + 1)

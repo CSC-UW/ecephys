@@ -44,6 +44,7 @@ state_colors = {
     "Art": "crimson",
     "?": "crimson",
     "None": "white",
+    "Drug": "plum",
 }
 
 
