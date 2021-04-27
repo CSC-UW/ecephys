@@ -35,6 +35,16 @@ def all_arrays_equal(iterator):
         return True
 
 
+def all_equal(iterator):
+    """Check if all items in an un-nested array are equal."""
+    try:
+        iterator = iter(iterator)
+        first = next(iterator)
+        return all(first == rest for rest in iterator)
+    except StopIteration:
+        return True
+
+
 def nrows(x):
     return x.shape[0]
 

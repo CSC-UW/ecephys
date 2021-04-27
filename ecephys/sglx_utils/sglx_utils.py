@@ -94,12 +94,12 @@ def load_timeseries(bin_path, chans, start_time=0, end_time=np.Inf):
     (firstFileSamp, lastFileSamp) = (0, nFileSamp - 1)
 
     # Get the requested start and end samples
-    firstRequestedSamp = int(fs * start_time)
-    lastRequestedSamp = int(fs * end_time)
+    firstRequestedSamp = fs * start_time
+    lastRequestedSamp = fs * end_time
 
     # Get the start and end samples
-    firstSamp = max(firstFileSamp, firstRequestedSamp)
-    lastSamp = min(lastFileSamp, lastRequestedSamp)
+    firstSamp = int(max(firstFileSamp, firstRequestedSamp))
+    lastSamp = int(min(lastFileSamp, lastRequestedSamp))
 
     # Get timestamps of each sample
     time = np.arange(firstSamp, lastSamp + 1)

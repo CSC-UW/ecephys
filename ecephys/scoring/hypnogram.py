@@ -107,6 +107,67 @@ def mask_times(H, states, times):
     return mask
 
 
+def get_timepoint_states(h, times):
+    """Return the state label of each timepoint in `times`.
+
+    Parameters:
+    -----------
+    h: DataFrame, (n_bouts, ?)
+        Hypnogram in Visbrain format with 'start_time' and 'end_time' fields.
+    times: (n_samples,)
+        The times for which we want state labels. The format must match that of `h`.
+        For example, if `h` uses `datetime`, so must `times`.
+
+    Returns:
+    --------
+    states (n_samples,)
+        The state label for each sample in `times`.
+    """
+    states = pd.Series([""] * len(times))
+    for bout in h.itertuples():
+        mask = np.logical_and(times >= bout.start_time, times <= bout.end_time)
+        states.values[mask] = bout.state
+
+    return states
+
+
+def add_states_to_ds(ds, hypnogram):
+    """Annotate each timepoint in the dataset with the corresponding state label.
+
+    Parameters:
+    -----------
+    ds: xr.Dataset with dimension `time`.
+        The data to annotate.
+    hypnogram: DataFrame, (n_bouts, ?)
+        Hypnogram in Visbrain format with `start_time` and `end_time` formats that
+        match `ds`.
+
+    Returns:
+    --------
+    ds: xr.Dataset with new coordinate `state`.
+    """
+    states = get_timepoint_states(hypnogram, ds.time)
+    return ds.assign_coords(state=("time", states))
+
+def filter_ds(ds, hypnogram, states):
+    """Select only timepoints corresponding to desired states.
+
+    Parameters:
+    -----------
+    ds: xr.Dataset
+    hypnogram: pd.DataFrame
+    states: list of strings
+        The states to retain.
+
+    Returns:
+    --------
+    ds: xr.Dataset
+        A dataset with the same dimensions as `ds`, with values that do not
+        correspond to `states` set to nan.
+    """
+    timepoint_states = get_timepoint_states(hypnogram, ds.time)
+    return ds.where(np.isin(timepoint_states, states))
+
 def make_empty_hypnogram(end_time):
     """Return an empty, unscored hypnogram.
 
