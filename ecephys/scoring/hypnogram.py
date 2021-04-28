@@ -83,6 +83,12 @@ def filter_states(H, states):
     return H[H["state"].isin(states)]
 
 
+def filter_by_cumulative_time_in_state(h, states, n, unit):
+    filtered_h = filter_states(h, states)
+    bouts_to_keep = filtered_h.duration.cumsum() <= pd.to_timedelta(n, unit)
+    return h.loc[bouts_to_keep[bouts_to_keep].index]
+
+
 def mask_times(H, states, times):
     """Return a mask that is true where times belong to specific states.
 
@@ -149,6 +155,7 @@ def add_states_to_ds(ds, hypnogram):
     states = get_timepoint_states(hypnogram, ds.time)
     return ds.assign_coords(state=("time", states))
 
+
 def filter_ds(ds, hypnogram, states):
     """Select only timepoints corresponding to desired states.
 
@@ -167,6 +174,7 @@ def filter_ds(ds, hypnogram, states):
     """
     timepoint_states = get_timepoint_states(hypnogram, ds.time)
     return ds.where(np.isin(timepoint_states, states))
+
 
 def make_empty_hypnogram(end_time):
     """Return an empty, unscored hypnogram.
