@@ -44,7 +44,10 @@ state_colors = {
     "Unsure": "darkorange",
     "Brief-Arousal": "palegreen",
     "Slow-During-Wake": "chartreuse",
-    "Transition": "grey"
+    "Transition": "grey", 
+    "Transition-to-NREM": "lightskyblue",
+    "Transition-to-REM": "plum",
+    "Transition-to-Wake": "palegreen"
 }
 
 
@@ -91,9 +94,7 @@ def plot_spectrogram(
         ax.set_ylim(np.min(freqs[freqs > 0]), np.max(freqs))
 
 
-def plot_hypnogram_overlay(
-    hypnogram, state_colors=state_colors, ax=None, figsize=(18, 3)
-):
+def plot_hypnogram_overlay(hypnogram, ax=None, figsize=(18, 3)):
     """Shade plot background using hypnogram state.
 
     Parameters
