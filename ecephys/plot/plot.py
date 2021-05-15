@@ -44,7 +44,7 @@ state_colors = {
     "Art": "crimson",
     "?": "crimson",
     "None": "white",
-    "Drug": "plum",
+    "Drug": "grey",
 }
 
 
@@ -85,14 +85,14 @@ def plot_spectrogram(
     ax.pcolormesh(spg_times, freqs, np.log10(spg), shading="gouraud")
     ax.set_yscale(yscale)
     ax.set_ylabel("Frequency [Hz]")
-    ax.set_xlabel("Time [sec]")
+    ax.set_xlabel("Time")
 
     if yscale == "log":
         ax.set_ylim(np.min(freqs[freqs > 0]), np.max(freqs))
 
 
 def plot_hypnogram_overlay(
-    hypnogram, state_colors=state_colors, ax=None, figsize=(18, 3)
+    hypnogram, state_colors=state_colors, ax=None, xlim=None, figsize=(18, 3)
 ):
     """Shade plot background using hypnogram state.
 
@@ -103,7 +103,7 @@ def plot_hypnogram_overlay(
     ax: matplotlib.Axes, optional
         An axes upon which to plot.
     """
-    xlim = ax.get_xlim() if ax else (None, None)
+    xlim = ax.get_xlim() if (ax and not xlim) else xlim
 
     ax = check_ax(ax, figsize=figsize)
 
