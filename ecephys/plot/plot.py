@@ -22,7 +22,7 @@ from ipywidgets import (
 
 # from ecephys.data import channel_groups, paths
 from ecephys.scoring import filter_states
-from ecephys.sglx_utils import load_timeseries
+from ecephys.sglx_utils import load_trigger
 from ecephys.signal.sharp_wave_ripples import apply_ripple_filter
 from ecephys.signal.timefrequency import get_perievent_cwtm
 from ecephys.signal.utils import mean_subtract
@@ -411,7 +411,7 @@ def _lazy_ripple_explorer(
 
     # Load the peri-event data
     all_chans = channel_groups.full[subject]
-    (time, sig, fs) = load_timeseries(
+    (time, sig, fs) = load_trigger(
         Path(paths.lfp_bin[condition][subject]),
         all_chans,
         start_time=window_start_time,
@@ -600,7 +600,7 @@ def _lazy_spw_explorer(
 
     # Load the peri-event data
     all_chans = channel_groups.full[subject]
-    (time, lfps, fs) = load_timeseries(
+    (time, lfps, fs) = load_trigger(
         paths.get_datapath(subject=subject, condition=condition, data="lf.bin"),
         all_chans,
         start_time=window_start_time,

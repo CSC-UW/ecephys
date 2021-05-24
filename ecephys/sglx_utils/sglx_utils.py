@@ -11,6 +11,7 @@ from .external.readSGLX import (
     SampRate,
     GainCorrectIM,
 )
+from ..utils import all_equal
 
 
 def get_xy_coords(binpath):
@@ -62,7 +63,7 @@ def load_timestamps(bin_path, start_time=None, end_time=None):
     return time
 
 
-def load_timeseries(bin_path, chans, start_time=0, end_time=np.Inf):
+def load_trigger(bin_path, chans, start_time=0, end_time=np.Inf):
     """Load SpikeGLX timeseries data.
 
     Parameters
@@ -104,6 +105,8 @@ def load_timeseries(bin_path, chans, start_time=0, end_time=np.Inf):
     # Get timestamps of each sample
     time = np.arange(firstSamp, lastSamp + 1)
     time = time / fs  # timestamps in seconds from start of file
+    timedelta = pd.to_timedelta(time, "s")
+    datetime = pd.to_datetime(meta["fileCreateTime"]) + timedelta
 
     selectData = rawData[chans, firstSamp : lastSamp + 1]
 
@@ -116,18 +119,22 @@ def load_timeseries(bin_path, chans, start_time=0, end_time=np.Inf):
 
     # Wrap data with xarray
     data = xr.DataArray(
-        sig.T, dims=("time", "channel"), coords={"time": time, "channel": chans}
+        sig.T,
+        dims=("time", "channel"),
+        coords={
+            "time": time,
+            "channel": chans,
+            "timedelta": ("time", timedelta),
+            "datetime": ("time", datetime),
+        },
+        attrs={"units": sig_units, "fs": fs},
     )
-    data.attrs["units"] = sig_units
-    data.attrs["fs"] = fs
-    data.attrs["fileCreateTime"] = meta["fileCreateTime"]
-    data.attrs["firstSample"] = meta["firstSample"]
 
     return data
 
 
-def load_multifile_timeseries(bin_paths, chans, contiguous=False):
-    """Load and concatenate multiple SpikeGLX files.
+def load_contiguous_triggers(bin_paths, chans):
+    """Load and concatenate a list of contiguous SGLX files.
 
     Parameters
     ----------
@@ -135,47 +142,20 @@ def load_multifile_timeseries(bin_paths, chans, contiguous=False):
         The data to concatenate, in order.
     chans: 1d array
         The list of channels to load.
-    contiguous: bool
-        If `true`, data are assumed to be contiguous (i.e. no gaps)
 
     Returns
     -------
     data: xr.DataArray
         The concatenated data.
-        If contiguous, "time" dimension is a numpy array of timestamps in seconds.
-        If not contiguous, "time" dimension is an array of datetime objects.
         Metadata is copied from the first file.
     """
+    triggers = [load_trigger(path, chans) for path in bin_paths]
+    data = xr.concat(triggers, dim="time")
 
-    all_data = [
-        load_timeseries(
-            path,
-            chans,
-            start_time=None,
-            end_time=None,
-        )
-        for path in bin_paths
-    ]
+    time = np.arange(data.time.size) / data.fs
+    timedelta = pd.to_timedelta(time)
+    datetime = data.datetime.values.min() + timedelta
 
-    all_fs = [data.fs for data in all_data]
-    fs = all_fs[0]
-    assert np.all(
-        np.asarray(all_fs) == fs
-    ), "All recordings must have the same sampling rate"
-
-    if contiguous:
-        samples_per_file = np.asarray([len(data) for data in all_data])
-        total_samples = np.sum(samples_per_file)
-        time = np.arange(0, total_samples) / fs
-        first_samples = np.cumsum(samples_per_file) - samples_per_file
-        last_samples = np.cumsum(samples_per_file)
-
-        for i in range(0, len(all_data)):
-            all_data[i]["time"] = time[first_samples[i] : last_samples[i]]
-    else:
-        for data in all_data:
-            data["time"] = pd.to_datetime(data.fileCreateTime) + pd.to_timedelta(
-                data.time.values, "s"
-            )
-
-    return xr.concat(all_data, dim="time")
+    return data.assign_coords(
+        {"time": time, "timedelta": ("time", timedelta), "datetime": ("time", datetime)}
+    )

@@ -1,20 +1,29 @@
 import numpy as np
+import xarray as xr
 from kcsd import KCSD1D
 
 
-def get_kcsd(lfps, intersite_distance=0.020, do_lcurve=False, **kwargs):
-    n_chans = lfps.shape[1]
-    ele_pos = np.linspace(0.0, (n_chans - 1) * intersite_distance, n_chans).reshape(
-        n_chans, 1
-    )
-
-    k = KCSD1D(ele_pos, lfps.T, **kwargs)
+def get_kcsd(sig, ele_pos, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
+    """If signal units are in uV, then CSD units are in nA/mm."""
+    channels = sig.channel.values  # Save for later
+    sig = sig.assign_coords({"pos": ("channel", ele_pos)})
+    sig = sig.drop_sel(channel=drop_chans, errors="ignore")
+    k = KCSD1D(sig.pos.values.reshape(-1, 1), sig.values.T, **kcsd_kwargs)
 
     if do_lcurve:
         print("Performing L-curve parameter estimation...")
         k.L_curve()
 
-    return k
+    csd = xr.DataArray(
+        k.values("CSD"),
+        dims=("pos", "time"),
+        coords={"pos": k.estm_x, "time": sig.time.values},
+    )
+
+    if (k.estm_x == ele_pos).all():
+        csd = csd.assign_coords({"channel": ("pos", channels)})
+
+    return csd.assign_attrs(kcsd=k, fs=sig.fs)
 
 
 def get_pitts_csd(trial_mean_lfp, spacing):
