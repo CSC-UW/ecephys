@@ -5,7 +5,7 @@ from ripple_detection.core import gaussian_smooth
 
 
 def estimate_fs(da):
-    sample_period = mode(np.diff(da.time.values)).mode[0]
+    sample_period = mode(np.diff(da.datetime.values)).mode[0]
     assert isinstance(sample_period, np.timedelta64)
     sample_period = sample_period / pd.to_timedelta(1, "s")
     return 1 / sample_period

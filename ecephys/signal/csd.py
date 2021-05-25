@@ -4,7 +4,28 @@ from kcsd import KCSD1D
 
 
 def get_kcsd(sig, ele_pos, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
-    """If signal units are in uV, then CSD units are in nA/mm."""
+    """If signal units are in uV, then CSD units are in nA/mm.
+
+    Paramters:
+    ----------
+    sig: xr.DataArray (time, channel)
+        The data on which to compute a 1D KCSD.
+    ele_pos: (n_channels,)
+        The positions, in mm, of each electrode in `sig`.
+    drop_chans: list
+        Channels (as they appear in `sig`) to exclude when estimating the CSD.
+    do_lcurve: Boolean
+        Whether to perform L-Curve parameter estimation.
+    **kcsd_kwargs:
+        Keywords passed to KCSD1D.
+
+    Returns:
+    --------
+    csd: xr.DataArray (time, pos)
+        The CSD estimates. If the estimation locations requested of KCSD1D correspond
+        exactly to electrode positions, a `channel` coordinate on the `pos` dimension
+        will give corresponding channels for each estimate.
+    """
     channels = sig.channel.values  # Save for later
     sig = sig.assign_coords({"pos": ("channel", ele_pos)})
     sig = sig.drop_sel(channel=drop_chans, errors="ignore")
