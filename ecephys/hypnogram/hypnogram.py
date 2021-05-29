@@ -15,7 +15,7 @@ class Hypnogram(pd.DataFrame):
     def _constructor(self):
         return Hypnogram
 
-    def filter_by_state(self, states):
+    def keep_states(self, states):
         """Return all bouts of the given states.
 
         Parameters:
@@ -40,7 +40,7 @@ class Hypnogram(pd.DataFrame):
             True where `times` belong to one of the indicated states, false otherise.
         """
         mask = np.full_like(times, False, dtype=bool)
-        for bout in self.filter_by_state(states).itertuples():
+        for bout in self.keep_states(states).itertuples():
             mask[(times >= bout.start_time) & (times <= bout.end_time)] = True
 
         return mask
@@ -106,9 +106,18 @@ class DatetimeHypnogram(Hypnogram):
         cumulative_duration:
             Any valid timedelta specifier, `02:30:10` for 2h, 30m, 10s.
         """
-        filt = self.filter_by_state(states)
+        filt = self.keep_states(states)
         keep = filt.duration.cumsum() <= pd.to_timedelta(cumulative_duration)
-        return self.loc[keep]
+        return filt.loc[keep]
+
+    def keep_between(self, start_time, end_time):
+        keep = np.intersect1d(
+            pd.DatetimeIndex(self.start_time).indexer_between_time(
+                start_time, end_time
+            ),
+            pd.DatetimeIndex(self.end_time).indexer_between_time(start_time, end_time),
+        )
+        return self.iloc[keep]
 
 
 def _infer_bout_start(df, bout):

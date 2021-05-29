@@ -1,4 +1,5 @@
 import numpy as np
+from .hypnogram import DatetimeHypnogram
 
 
 def add_states_to_dataset(ds, hypnogram):
@@ -6,17 +7,17 @@ def add_states_to_dataset(ds, hypnogram):
 
     Parameters:
     -----------
-    ds: xr.Dataset with dimension `time`.
+    ds: xr.Dataset with coordinate `datetime` on dimension `time`.
         The data to annotate.
-    hypnogram: DataFrame, (n_bouts, ?)
-        Hypnogram in Visbrain format with `start_time` and `end_time` formats that
-        match `ds`.
+    hypnogram: DatetimeHypnogram
+        Hypnogram with states to add.
 
     Returns:
     --------
-    ds: xr.Dataset with new coordinate `state`.
+    ds: xr.Dataset with new coordinate `state` on dimension `time`.
     """
-    states = hypnogram.get_states(ds.time)
+    assert isinstance(hypnogram, DatetimeHypnogram)
+    states = hypnogram.get_states(ds.datetime)
     return ds.assign_coords(state=("time", states))
 
 
@@ -25,8 +26,9 @@ def filter_dataset_by_state(ds, hypnogram, states):
 
     Parameters:
     -----------
-    ds: xr.Dataset
-    hypnogram: pd.DataFrame
+    ds: xr.Dataset with dimension `datetime`
+        The data to filder
+    hypnogram: DatetimeHypnogram
     states: list of strings
         The states to retain.
 
@@ -36,5 +38,6 @@ def filter_dataset_by_state(ds, hypnogram, states):
         A dataset with the same dimensions as `ds`, with values that do not
         correspond to `states` set to nan.
     """
-    labels = hypnogram.get_states(ds.time)
-    return ds.where(np.isin(labels, states))
+    assert isinstance(hypnogram, DatetimeHypnogram)
+    labels = hypnogram.get_states(ds.datetime)
+    return ds.where(np.isin(labels, states)).dropna(dim="time")
