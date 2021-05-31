@@ -1,9 +1,9 @@
 import os.path as op
 import numpy.testing as npt
-import shablona as ece
+import hypnogram
 
-data_path = op.join(ece.__path__[0], 'data')
-#Load data like: op.join(data_path, 'mydatafile.dat')
+data_path = op.join(hypnogram.__path__[0], "data")
+# Load data like: op.join(data_path, 'mydatafile.dat')
 
 
 def test_trivial():

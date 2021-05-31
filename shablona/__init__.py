@@ -1,1 +1,0 @@
-from .shablona import *  # noqa
