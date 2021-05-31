@@ -110,6 +110,13 @@ class DatetimeHypnogram(Hypnogram):
         keep = filt.duration.cumsum() <= pd.to_timedelta(cumulative_duration)
         return filt.loc[keep]
 
+    def keep_last(self, states, cumulative_duration):
+        filt = self.keep_states(states)
+        keep = np.cumsum(filt.duration[::-1])[::-1] <= pd.to_timedelta(
+            cumulative_duration
+        )
+        return filt.loc[keep]
+
     def keep_between(self, start_time, end_time):
         keep = np.intersect1d(
             pd.DatetimeIndex(self.start_time).indexer_between_time(
