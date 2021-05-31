@@ -96,28 +96,41 @@ class DatetimeHypnogram(Hypnogram):
     def _constructor(self):
         return DatetimeHypnogram
 
-    def keep_first(self, states, cumulative_duration):
-        """Keep bouts of given states until a cumulative duration is reached.
+    def keep_first(self, cumulative_duration):
+        """Keep hypnogram bouts until a cumulative duration is reached.
 
         Parameters:
         -----------
-        states: list of str
-            States which count towards the cumulative time limit.
         cumulative_duration:
             Any valid timedelta specifier, `02:30:10` for 2h, 30m, 10s.
         """
-        filt = self.keep_states(states)
-        keep = filt.duration.cumsum() <= pd.to_timedelta(cumulative_duration)
-        return filt.loc[keep]
+        keep = self.duration.cumsum() <= pd.to_timedelta(cumulative_duration)
+        return self.loc[keep]
 
-    def keep_last(self, states, cumulative_duration):
-        filt = self.keep_states(states)
-        keep = np.cumsum(filt.duration[::-1])[::-1] <= pd.to_timedelta(
+    def keep_last(self, cumulative_duration):
+        """Keep only a given amount of time at the end of a hypnogram.
+
+        Parameters:
+        -----------
+        cumulative_duration:
+            Any valid timedelta specifier, `02:30:10` for 2h, 30m, 10s.
+        """
+
+        keep = np.cumsum(self.duration[::-1])[::-1] <= pd.to_timedelta(
             cumulative_duration
         )
-        return filt.loc[keep]
+        return self.loc[keep]
 
     def keep_between(self, start_time, end_time):
+        """Keep all hypnogram bouts that fall between two times of day.
+
+        Paramters:
+        ----------
+        start_time:
+            The starting hour, e.g. '13:00:00' for 1PM.
+        end_time:
+            The ending hour, e.g. '14:00:00' for 2PM.
+        """
         keep = np.intersect1d(
             pd.DatetimeIndex(self.start_time).indexer_between_time(
                 start_time, end_time
