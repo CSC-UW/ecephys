@@ -1,4 +1,4 @@
-## hypnogra(ha)m
+## HypnoGra(ha)m
 
 ### Core classes
 This package provides a Hypnogram class, which is just a subclassed Pandas DataFrame with some useful methods. Every hypnogram should have `state`, `start_time`, `end_time`, and `duration` columns, and each row should be one bout of a vigilance state. For example:
