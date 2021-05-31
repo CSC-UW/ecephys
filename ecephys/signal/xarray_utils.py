@@ -44,9 +44,35 @@ def filter_dataset_by_state(ds, hypnogram, states):
     Returns:
     --------
     ds: xr.Dataset
-        A dataset with the same dimensions as `ds`, with values that do not
-        correspond to `states` set to nan.
+        A dataset with the same dimensions as `ds`, and all values that do not
+        correspond to `states` dropped.
     """
     assert isinstance(hypnogram, DatetimeHypnogram)
     labels = hypnogram.get_states(ds.datetime)
     return ds.where(np.isin(labels, states)).dropna(dim="time")
+
+
+def filter_dataset_by_hypnogram(ds, hypnogram):
+    """Select only timepoints covered by the hypnogram.
+
+    Parameters:
+    -----------
+    ds: xr.Dataset with dimension `datetime`
+        The data to filder
+    hypnogram: DatetimeHypnogram
+
+    Returns:
+    --------
+    ds: xr.Dataset
+        A dataset with the same dimensions as `ds`, and all values that do not
+        correspond to bouts in the hypnogram dropped.
+    """
+    assert isinstance(hypnogram, DatetimeHypnogram)
+    keep = np.full_like(ds.datetime, False)
+    for bout in hypnogram.itertuples():
+        times_in_bout = (ds.datetime >= bout.start_time) * (
+            ds.datetime <= bout.end_time
+        )
+        keep[times_in_bout] = True
+
+    return ds.where(keep).dropna(dim="time")
