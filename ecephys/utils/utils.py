@@ -1,8 +1,12 @@
+import os
+import shutil
+from collections.abc import Iterable
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from scipy.stats import median_abs_deviation
-from pathlib import Path
-from collections.abc import Iterable
+
 
 # https://stackoverflow.com/questions/2158395/flatten-an-irregular-list-of-lists
 def flatten(l):
@@ -225,3 +229,25 @@ def get_interval_complements(intervals, start_time, end_time):
         complement.append((l, r))
 
     return complement
+
+
+def find_nearest(array, value, tie_select='first'):
+    """Index of element in array nearest to value.
+    
+    Return either first or last value if ties"""
+    array = np.asarray(array)
+    a = np.abs(array - value)
+    if tie_select == 'first':
+        return a.argmin()
+    elif tie_select == 'last':
+        # reverse array to find last occurence
+        b = a[::-1]
+        return len(b) - np.argmin(b) - 1
+    else:
+        raise ValueError()
+
+
+# Avoid PermissionError with shutil.copytree on NAS smb share
+def system_copy(src, dst):
+    import subprocess
+    subprocess.call(['cp', '-r', str(src), str(dst)])
