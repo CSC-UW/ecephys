@@ -21,7 +21,6 @@ from ipywidgets import (
 )
 
 # from ecephys.data import channel_groups, paths
-from ecephys.scoring import filter_states
 from ecephys.sglx_utils import load_trigger
 from ecephys.signal.sharp_wave_ripples import apply_ripple_filter
 from ecephys.signal.timefrequency import get_perievent_cwtm
