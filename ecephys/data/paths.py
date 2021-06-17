@@ -94,13 +94,15 @@ def get_sglx_style_abs_path(stem, ext, root, catgt_data=False):
     return parent / fname
 
 
-def get_sglx_style_datapaths(yaml_path, subject, condition, ext, catgt_data=False, cat_trigger=False):
+def get_sglx_style_datapaths(yaml_path, subject, condition, ext, catgt_data=False, cat_trigger=False,
+                             data_root=None):
     """Get all datapaths, assuming a properly formatted YAML file an folder-per-probe
     organization.
+
+    The data for each condition is loaded in one of three ways:
+
     
     Kwargs:
-        use_analysis_root: bool
-            Use analysis directory rather than raw data directory as root for returned path
         catgt_data: bool
             Path to corresponding catGT-processed concatenated file.
             catGT file is saved in the analysis directory, uses `cat`
@@ -108,24 +110,35 @@ def get_sglx_style_datapaths(yaml_path, subject, condition, ext, catgt_data=Fals
             run directory.
         cat_trigger: bool
             Replace trigger id with 'cat' to designate data issued from concatenated files.
-        
+        data-root: str
+            Force root path
     """
     with open(yaml_path) as fp:
         yaml_data = yaml.safe_load(fp)
 
-    data_file = (ext == "lf.bin") or (ext == "ap.bin")
-    if data_file and not catgt_data:
+    data_file = any([
+        ext in data_ext
+        for data_ext in ["lf.bin", "lf.meta", "ap.bin", "ap.meta"]
+    ]) 
+    if data_root is not None:
+        root = Path(data_root)
+    elif data_file and not catgt_data:
         root = Path(yaml_data[subject]["raw-data-root"])
     else:
         root = Path(yaml_data[subject]["analysis-root"])
 
     condition_data = yaml_data[subject][condition]
+
+    # How do we interpret the condition's data?
     if isinstance(condition_data, dict):
+        combined_condition = False
         # subject: condition: experiment_id: [stem_0, stem_1]
         # Append experiment id to root
         paths = []
         for experiment_id in condition_data.keys():
             condition_manifest = list(flatten(condition_data[experiment_id]))
+            # All elements should be raw data stems
+            assert all(['.imec' in stem for stem in condition_manifest])
             experiment_root = root / experiment_id
             paths += [
                 get_sglx_style_abs_path(
@@ -134,17 +147,36 @@ def get_sglx_style_datapaths(yaml_path, subject, condition, ext, catgt_data=Fals
                 for stem in condition_manifest
             ]
     else:
-        # subject: condition:[stem_0, stem_1]
         condition_manifest = list(flatten(condition_data))
-        paths = [
-            get_sglx_style_abs_path(stem, ext, root, catgt_data=catgt_data)
-            for stem in condition_manifest
-        ]
+        if all(['.imec' in stem for stem in condition_manifest]):
+            # subject: condition:[stem_0, stem_1]
+            # All elements are raw data stems
+            combined_condition = False
+            paths = [
+                get_sglx_style_abs_path(stem, ext, root, catgt_data=catgt_data)
+                for stem in condition_manifest
+            ]
+        elif all([cond in yaml_data[subject] for cond in condition_manifest]):
+            combined_condition = True
+            # subject: combined_condition: [cond1, cond2]
+            # Recursive loading
+            paths = []
+            for cond in condition_manifest:
+                paths += get_sglx_style_datapaths(
+                    yaml_path, subject, cond, ext, catgt_data=catgt_data,
+                    cat_trigger=cat_trigger, data_root=data_root
+                )
+        else:
+            raise ValueError(f"Incorrect format for {subject}, {condition}")
 
-    # For catGT data make sure all the condition files indeed concatenated
-    if catgt_data:
+    # For catGT data the triggers should have been concatenated
+    if catgt_data and not combined_condition:
         assert len(set(paths)) == 1
-        return list(set(paths))
+        paths = list(set(paths))
+
+    # No duplicates
+    if len(paths) != len(set(paths)):
+        raise ValueError(f"Duplicates in requested paths: {paths}")
 
     return paths
 
