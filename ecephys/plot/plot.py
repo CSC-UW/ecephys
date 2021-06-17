@@ -1,32 +1,22 @@
-import numpy as np
-from kcsd import KCSD1D
-from neurodsp.plts.utils import check_ax
-from neurodsp.spectral.utils import trim_spectrogram
-import matplotlib.pyplot as plt
-import seaborn as sns
+from fractions import gcd
 from pathlib import Path
-from ipywidgets import (
-    BoundedFloatText,
-    BoundedIntText,
-    Checkbox,
-    FloatSlider,
-    HBox,
-    IntSlider,
-    SelectionSlider,
-    Select,
-    fixed,
-    interact,
-    interactive_output,
-    jslink,
-)
 
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
 # from ecephys.data import channel_groups, paths
 from ecephys.scoring import filter_states
 from ecephys.sglx_utils import load_timeseries
+from ecephys.signal.csd import get_kcsd
 from ecephys.signal.sharp_wave_ripples import apply_ripple_filter
 from ecephys.signal.timefrequency import get_perievent_cwtm
 from ecephys.signal.utils import mean_subtract
-from ecephys.signal.csd import get_kcsd
+from ipywidgets import (BoundedFloatText, BoundedIntText, Checkbox,
+                        FloatSlider, HBox, IntSlider, Select, SelectionSlider,
+                        fixed, interact, interactive_output, jslink)
+from kcsd import KCSD1D
+from neurodsp.plts.utils import check_ax
+from neurodsp.spectral.utils import trim_spectrogram
 
 state_colors = {
     "Wake": "palegreen",
@@ -42,6 +32,54 @@ state_colors = {
     "?": "crimson",
     "None": "White",
 }
+
+
+def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_label=None):
+    if clim is None:
+        vmin, vmax = None, None
+    else:
+        vmin, vmax = clim
+
+    f, ax = plt.subplots()
+
+    # Generate a custom diverging colormap
+    cmap = sns.diverging_palette(230, 20, as_cmap=True)
+
+    # Draw the heatmap 
+    xvalues = np.arange(window[0], window[1], binsize)
+    hm = sns.heatmap(
+        psth_array,
+        cmap=cmap,
+        vmin=vmin, vmax=vmax, center=0, robust=True,
+        square=False, linewidths=0.0,
+        cbar_kws={"shrink": .5, "label": cbar_label},
+        yticklabels=ylabels,
+#         xticklabels=xvalues,
+    )
+    # ax.set_yticklabels(rotation=0)
+
+    # Hide y ticks for which label is None
+    yticks = ax.yaxis.get_major_ticks()
+    for i, lbl in enumerate(ylabels):
+        if lbl is None:
+            yticks[i].set_visible(False)
+    # Force horizontal ticks
+    plt.yticks(rotation=0) 
+        
+    # x ticks: Only 0, first and last value
+    xtic_len = gcd(abs(window[0]), window[1])
+    xtic_labels = range(window[0], window[1] + xtic_len, xtic_len)
+    xtic_locs = [(j - window[0]) / binsize for j in xtic_labels]
+    if 0 not in xtic_labels:
+        xtic_labels.append(0)
+        xtic_locs.append(-window[0] / binsize)
+    ax.set_xticks(xtic_locs)
+    ax.set_xticklabels(xtic_labels, rotation=0)
+
+    # vertical line at t=0
+    plt.axvline((-window[0]) / binsize, color='black', linestyle='--', linewidth=2)
+    
+    return f, ax
 
 
 def plot_spectrogram(
@@ -88,7 +126,7 @@ def plot_spectrogram(
 
 
 def plot_hypnogram_overlay(
-    hypnogram, state_colors=state_colors, ax=None, figsize=(18, 3)
+    hypnogram, state_colors=state_colors, ax=None, figsize=(18, 3), alpha=0.3,
 ):
     """Shade plot background using hypnogram state.
 
@@ -107,7 +145,7 @@ def plot_hypnogram_overlay(
         ax.axvspan(
             bout.start_time,
             bout.end_time,
-            alpha=0.3,
+            alpha=alpha,
             color=state_colors[bout.state],
             zorder=1000,
             ec="none",
