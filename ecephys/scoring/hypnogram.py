@@ -48,6 +48,30 @@ def load_visbrain_hypnogram(path):
     return H
 
 
+def load_consecutive_visbrain_hypnograms(paths):
+    """Load multiple consecutive visbrain hypnograms
+
+    Parameters
+    ----------
+    paths: list-like
+        List of paths to the hypnograms.
+
+    Returns:
+    --------
+    H: DataFrame
+        The loaded hypnogram.
+    """
+    hyps = []
+    start_T = 0
+    for path in paths:
+        hyp = load_visbrain_hypnogram(path)
+        hyp['start_time'] = hyp['start_time'] + start_T
+        hyp['end_time'] = hyp['end_time'] + start_T
+        hyps.append(hyp)
+        start_T = hyp['end_time'].max()
+    return pd.concat(hyps)
+
+
 def write_visbrain_hypnogram(H, path):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     H.to_csv(path, columns=["state", "end_time"], sep="\t", index=False)
