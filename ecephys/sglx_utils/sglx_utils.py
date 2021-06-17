@@ -13,6 +13,14 @@ from .external.readSGLX import (
 )
 
 
+def get_meta(binpath):
+    return readMeta(binpath)
+
+
+def get_sf(binpath):
+    return SampRate(get_meta(binpath))
+
+
 def get_xy_coords(binpath, **kwargs):
     """Return AP channel indices and their x and y coordinates."""
     metapath = Path(binpath).with_suffix(".meta")
