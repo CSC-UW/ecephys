@@ -235,3 +235,24 @@ def get_interval_complements(intervals, start_time, end_time):
         complement.append((l, r))
 
     return complement
+
+
+def dataframe_abs(df):
+    "Take the absolute value of all numeric columns in a dataframe."
+    _df = df.copy()
+    for col in df.columns:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            _df[col] = df[col].abs()
+
+
+def get_grouped_ecdf(df, col, group_var):
+    "Get ECDFs in arbitary groups for plotting using sns.lineplot."
+    ecdfs = list()
+    for group_name, dat in df.groupby(group_var):
+        dat_sorted = np.sort(dat[col])
+        ecdf = 1.0 * np.arange(len(dat[col])) / (len(dat[col]) - 1)
+        ecdfs.append(
+            pd.DataFrame({col: dat_sorted, "ecdf": ecdf, group_var: group_name})
+        )
+
+    return pd.concat(ecdfs)

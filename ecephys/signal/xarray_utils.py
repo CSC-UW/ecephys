@@ -68,11 +68,6 @@ def filter_dataset_by_hypnogram(ds, hypnogram):
         correspond to bouts in the hypnogram dropped.
     """
     assert isinstance(hypnogram, DatetimeHypnogram)
-    keep = np.full_like(ds.datetime, False)
-    for bout in hypnogram.itertuples():
-        times_in_bout = (ds.datetime >= bout.start_time) * (
-            ds.datetime <= bout.end_time
-        )
-        keep[times_in_bout] = True
+    keep = hypnogram.covers_time(ds.datetime)
 
     return ds.where(keep).dropna(dim="time")
