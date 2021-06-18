@@ -1,6 +1,7 @@
 import numpy as np
 import xarray as xr
 import pandas as pd
+from pathlib import Path
 
 from .external.readSGLX import (
     makeMemMapRaw,
@@ -29,6 +30,7 @@ def load_timestamps(bin_path, start_time=None, end_time=None):
     time : np.array (n_samples, )
         Time of each sample, in seconds.
     """
+    bin_path = Path(bin_path)
     meta = readMeta(bin_path)
     fs = SampRate(meta)
 
@@ -71,9 +73,9 @@ def load_trigger(bin_path, chans, start_time=0, end_time=np.Inf):
     Returns
     -------
     data : xr.DataArray (n_samples, n_chans)
-        Attrs: units, fs, fileCreateTime, firstSample
+        Attrs: units, fs
     """
-
+    bin_path = Path(bin_path)
     meta = readMeta(bin_path)
     rawData = makeMemMapRaw(bin_path, meta)
     fs = SampRate(meta)
