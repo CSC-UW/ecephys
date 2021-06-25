@@ -65,6 +65,14 @@ class Hypnogram(pd.DataFrame):
 
         return labels
 
+    def covers_time(self, times):
+        covered = np.full_like(times, False, dtype="bool")
+        for bout in self.itertuples():
+            times_in_bout = (times >= bout.start_time) & (times <= bout.end_time)
+            covered[times_in_bout] = True
+
+        return covered
+
     def write(self, path):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.to_csv(
