@@ -147,6 +147,111 @@ class DatetimeHypnogram(Hypnogram):
         )
         return self.iloc[keep]
 
+    def get_consolidated(self, states, frac=0.8, minimum_time="1M"):
+        """Get periods of consolidated sleep, wake, or any arbitrary set of states.
+
+        A period is considered consolidated if more than a given fraction of its duration
+        (e.g. frac=0.8 or 80%) is spent in the state(s) of interest, and the cumulative
+        amount of time spent in the state(s) of interest exceeds `minimum_time`.
+        Additionally, a consolidated period must be maximal, i.e. it cannot be contained by
+        a longer consolidated period.
+
+        Parameters:
+        -----------
+        states: list of str
+            The states of interest.
+        frac: float between 0 and 1
+            The minimum fraction of a given period that must be spent in the states of
+            interest for that period to be considered consolidated.
+        minimum_time: timedelta format string
+            The minimum cumulative time that must be spent in the states of interest for
+            a given period to be considered consolidated.
+
+        Returns:
+        --------
+        matches: list of pd.DataFrame
+            Each DataFrame is a slice of the hypnogram, corresponding to a consolidated
+            period.
+        """
+        # This method would be easy to adapt for FloatHypnogram types.
+        assert (
+            self.start_time.is_monotonic_increasing
+        ), "Hypnogram must be sorted by start_time."
+        minimum_time = pd.to_timedelta(minimum_time)
+        bouts = self.keep_states(states)
+        k = bouts.index.min() - 1
+        matches = list()
+        # i = period start, j = period end, k = end of last consolidated period
+        for i in bouts.index:
+            if i <= k:  # if this period is contained in a longer good one, don't bother
+                continue
+            for j in bouts.index[::-1]:  # check periods in decreasing order of length
+                if j < np.max([i, k]):  # don't both checking subperiods of good periods
+                    break
+                time_in_states = np.max(
+                    [bouts.loc[i:j].duration.sum(), pd.to_timedelta(0, "s")]
+                )
+                if time_in_states < minimum_time:
+                    break  # because all other periods in the loop will also fail
+                total_time = (
+                    self.loc[i:j].end_time.max() - self.loc[i:j].start_time.min()
+                )
+                if (time_in_states / total_time) >= frac:
+                    matches.append(self.loc[i:j])
+                    k = j
+                    break  # don't both checking subperiods of good periods
+        return matches
+
+    def get_gaps(self, tolerance="0s"):
+        """Get all unscored gaps in the hypnogram.
+
+        Parameters:
+        -----------
+        tolterance: timedelta format string
+            Optionally ignore gaps that are less than a given duration.
+
+        Returns:
+        --------
+        gaps: list of dict
+            Each gap detected, with start_time, end_time, and duration.
+        """
+        gaps = list()
+        for i in range(len(self) - 1):
+            current_bout_end = self.iloc[i].end_time
+            next_bout_start = self.iloc[i + 1].start_time
+            gap = next_bout_start - current_bout_end
+            if gap > pd.to_timedelta(tolerance):
+                gaps.append(
+                    dict(
+                        start_time=current_bout_end,
+                        end_time=next_bout_start,
+                        duration=gap,
+                    )
+                )
+
+        return gaps
+
+    def fill_gaps(self, tolerance="0s", fill_state="None"):
+        """Fill all unscored gaps in the hypnogram with a specified state.
+
+        Parameters:
+        -----------
+        tolerance: timedelta format string
+            Optionally ignore gaps that are less than a given duration.
+        fill_state: string
+            The state to fill each gap with.
+
+        Returns:
+        --------
+        hypnogram: DatetimeHypnogram
+            The hypnogram, with gaps filled.
+        """
+        gaps = self.get_gaps(tolerance)
+        for gap in gaps:
+            gap.update({"state": fill_state})
+
+        return self.append(gaps).sort_values("start_time", ignore_index=True)
+
 
 def _infer_bout_start(df, bout):
     """Infer a bout's start time from the previous bout's end time.
