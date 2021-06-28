@@ -24,6 +24,15 @@ class Hypnogram(pd.DataFrame):
         """
         return self[self["state"].isin(states)]
 
+    def drop_states(self, states):
+        """Drop all bouts of the given states.
+
+        Parameters:
+        -----------
+        states: list of str
+        """
+        return self[~self["state"].isin(states)]
+
     def mask_times_by_state(self, times, states):
         """Return a mask that is true where times belong to specific states.
 
@@ -156,7 +165,14 @@ class DatetimeHypnogram(Hypnogram):
         """
         return self[self["duration"] > pd.to_timedelta(duration)]
 
-    def get_consolidated(self, states, frac=0.8, minimum_time="1M"):
+    def get_consolidated(
+        self,
+        states,
+        frac=0.8,
+        minimum_time="0S",
+        minimum_endpoint_bout_duration="0S",
+        maximum_antistate_bout_duration=pd.Timedelta.max,
+    ):
         """Get periods of consolidated sleep, wake, or any arbitrary set of states.
 
         A period is considered consolidated if more than a given fraction of its duration
@@ -175,6 +191,9 @@ class DatetimeHypnogram(Hypnogram):
         minimum_time: timedelta format string
             The minimum cumulative time that must be spent in the states of interest for
             a given period to be considered consolidated.
+        maximum_antistate_bout_duration: timedelta format string
+            Do not allow periods to contain any bouts of unwanted states longer
+            than a given duration.
 
         Returns:
         --------
@@ -187,28 +206,37 @@ class DatetimeHypnogram(Hypnogram):
             self.start_time.is_monotonic_increasing
         ), "Hypnogram must be sorted by start_time."
         minimum_time = pd.to_timedelta(minimum_time)
-        bouts = self.keep_states(states)
-        k = bouts.index.min() - 1
+        maximum_antistate_bout_duration = pd.to_timedelta(
+            maximum_antistate_bout_duration
+        )
+        endpoint_bouts = self.keep_states(states).keep_longer(
+            minimum_endpoint_bout_duration
+        )
+        k = endpoint_bouts.index.min() - 1
         matches = list()
         # i = period start, j = period end, k = end of last consolidated period
-        for i in bouts.index:
-            if i <= k:  # if this period is contained in a longer good one, don't bother
+        for i in endpoint_bouts.index:
+            if i <= k:
                 continue
-            for j in bouts.index[::-1]:  # check periods in decreasing order of length
-                if j < np.max([i, k]):  # don't both checking subperiods of good periods
+            for j in endpoint_bouts.index[::-1]:
+                if j < np.max([i, k]):
                     break
+                isostate_bouts = self.loc[i:j].keep_states(states)
                 time_in_states = np.max(
-                    [bouts.loc[i:j].duration.sum(), pd.to_timedelta(0, "s")]
+                    [isostate_bouts.duration.sum(), pd.to_timedelta(0, "s")]
                 )
                 if time_in_states < minimum_time:
                     break  # because all other periods in the loop will also fail
+                antistate_bouts = self.loc[i:j].drop_states(states)
+                if antistate_bouts.duration.max() > maximum_antistate_bout_duration:
+                    continue
                 total_time = (
                     self.loc[i:j].end_time.max() - self.loc[i:j].start_time.min()
                 )
                 if (time_in_states / total_time) >= frac:
                     matches.append(self.loc[i:j])
                     k = j
-                    break  # don't both checking subperiods of good periods
+                    break  # don't bother checking subperiods of good periods
         return matches
 
     def get_gaps(self, tolerance="0s"):
