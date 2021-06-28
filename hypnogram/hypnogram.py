@@ -123,7 +123,6 @@ class DatetimeHypnogram(Hypnogram):
         cumulative_duration:
             Any valid timedelta specifier, `02:30:10` for 2h, 30m, 10s.
         """
-
         keep = np.cumsum(self.duration[::-1])[::-1] <= pd.to_timedelta(
             cumulative_duration
         )
@@ -146,6 +145,16 @@ class DatetimeHypnogram(Hypnogram):
             pd.DatetimeIndex(self.end_time).indexer_between_time(start_time, end_time),
         )
         return self.iloc[keep]
+
+    def keep_longer(self, duration):
+        """Keep bouts longer than a given duration.
+
+        Parameters:
+        -----------
+        duration:
+            Any valid timedelta specifier, `02:30:10` for 2h, 30m, 10s.
+        """
+        return self[self["duration"] > pd.to_timedelta(duration)]
 
     def get_consolidated(self, states, frac=0.8, minimum_time="1M"):
         """Get periods of consolidated sleep, wake, or any arbitrary set of states.
