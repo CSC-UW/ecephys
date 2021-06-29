@@ -5,6 +5,30 @@ import pandas as pd
 import spikeextractors as se
 
 
+def get_sorting_info(
+    ks_dir
+):
+    # Read params.py
+    d = {}
+    with open(ks_dir/"params.py") as f:
+        for line in f.readlines():
+            (key, val) = line.rstrip('\n').split(' = ')
+            d[key] = val
+    d['sample_rate'] = float(d['sample_rate'])
+    d['n_channels_dat'] = int(d['n_channels_dat'])
+    d['dtype'] = str(d['dtype'].strip("'"))
+    d['hp_filtered'] = bool(d['hp_filtered'])
+    # duration
+    tmp_extr = se.BinDatRecordingExtractor(
+        ks_dir/'temp_wh.dat',
+        d['sample_rate'],
+        d['n_channels_dat'],
+        d['dtype'],
+    )
+    d['duration'] = tmp_extr.get_num_frames() / tmp_extr.get_sampling_frequency()
+    return d
+
+
 def load_sorting_extractor(
     ks_dir, good_only=False, drop_noise=True, depth_interval=None
 ):
