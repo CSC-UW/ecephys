@@ -168,7 +168,7 @@ def derive_first_sample(metapath):
     nFileSamp = int(int(meta['fileSizeBytes'])/(2*nChan))
     startSample = int(meta['firstSample'])
 
-    return startSample + nFileSamp - 1
+    return startSample + nFileSamp
 
 
 def previous_trigger_metapath(metapath):
