@@ -34,6 +34,25 @@ state_colors = {
 }
 
 
+on_off_colors = {
+    'on': 'tomato',
+    'off': 'plum',
+}
+
+
+def plot_spike_train(data, Tmax=None, ax=None, linewidth=0.1):
+    """Spike raster.
+    
+    Args:
+        data (array-like or list of array-like)
+    """
+    if ax is None:
+        f, ax = plt.subplots()
+    
+    ax.eventplot(data, colors='black', linewidth=linewidth)
+    return ax
+
+
 def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_label=None):
     if clim is None:
         vmin, vmax = None, None
@@ -123,6 +142,11 @@ def plot_spectrogram(
 
     if yscale == "log":
         ax.set_ylim(np.min(freqs[freqs > 0]), np.max(freqs))
+
+
+
+def plot_on_off_overlay(on_off_df, state_colors=on_off_colors, **kwargs):
+    plot_hypnogram_overlay(on_off_df, state_colors=state_colors, **kwargs)
 
 
 def plot_hypnogram_overlay(
