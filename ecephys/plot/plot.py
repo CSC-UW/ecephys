@@ -117,6 +117,23 @@ def plot_hypnogram_overlay(
         )
 
     ax.set_xlim(xlim)
+    return ax
+
+
+def plot_consolidated_bouts(hypnogram, consolidated, figsize=(30, 2)):
+    fig, axes = plt.subplots(2, 1, figsize=figsize)
+    plot_hypnogram_overlay(
+        hypnogram,
+        xlim=(hypnogram.start_time.min(), hypnogram.end_time.max()),
+        ax=axes[0],
+    )
+    for period in consolidated:
+        plot_hypnogram_overlay(period, xlim=axes[0].get_xlim(), ax=axes[1])
+
+    axes[0].set(yticks=[])
+    axes[1].set(yticks=[])
+
+    return axes
 
 
 def plot_all_ripples(time, lfps, filtered_lfps, ripple_times):
