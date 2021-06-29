@@ -3,6 +3,7 @@ Utilities for loading TDT data in xarray format.
 
 ## Example usage
 ```
+>>> import tdt_xarray as txr
 >>> from pathlib import Path
 >>> block_path = Path('/path/to/block')
 
