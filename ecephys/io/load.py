@@ -75,7 +75,7 @@ def create_phy_cluster_info(ks_dir):
 def get_cluster_groups(ks_dir):
     """Load cluster group as (nclust, 0) np array.
 
-    Use KSLabel assignment when curated `group` is None.
+    Use KSLabel assignment when curated `group` is None or 'unscored'.
     """
     info = get_cluster_info(ks_dir)
     kslabel = info["KSLabel"]
@@ -85,8 +85,8 @@ def get_cluster_groups(ks_dir):
 
 def _get_cluster_groups(kslabel, curated_group):
     assert len(kslabel) == len(curated_group)
-    use_KSLabel = pd.isna(curated_group).values
-    use_KSLabel[0:3] = False
+    use_KSLabel = (curated_group == 'unsorted') | pd.isna(curated_group)
+    use_KSLabel = use_KSLabel.values
     group = np.empty((len(kslabel),), dtype=object)
     group[use_KSLabel] = kslabel[use_KSLabel]
     group[~use_KSLabel] = curated_group[~use_KSLabel]
