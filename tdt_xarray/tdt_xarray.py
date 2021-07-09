@@ -82,7 +82,7 @@ def stream_store_to_xarray(info, store):
     """
     n_channels, n_samples = store.data.shape
 
-    time = np.arange(0, n_samples) / store.fs
+    time = np.arange(0, n_samples) / store.fs + store.start_time
     timedelta = pd.to_timedelta(time, "s")
     datetime = pd.to_datetime(info.start_date) + timedelta
 
