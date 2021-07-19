@@ -27,6 +27,57 @@ def get_start_time(H, row):
 
     return start_time
 
+def load_csv_hypnogram(path):
+    """Load a csv hypngoram.
+
+    Parameters
+    ----------
+    path: pathlib.Path
+        The path to the hypnogram.
+
+    Returns:
+    --------
+    H: DataFrame
+        The loaded hypnogram.
+    """
+    H = pd.read_csv(path, sep=",")
+    if "start_time" not in H.columns:
+        H["start_time"] = H.apply(lambda row: get_start_time(H, row), axis=1)
+    if "duration" not in H.columns:
+        H["duration"] = H.apply(lambda row: row.end_time - row.start_time, axis=1)
+
+    return H
+
+def load_consecutive_csv_hypnograms(paths, conditions=None):
+    """Load multiple consecutive csv hypnograms
+
+    Parameters
+    ----------
+    paths: list-like
+        List of paths to the hypnograms.
+    conditions: list-like
+        List of paths to the hypnograms, same lengths as paths.
+        If provided, add values to 'condition' column of concatenated hyp
+
+    Returns:
+    --------
+    H: DataFrame
+        The loaded hypnogram.
+    """
+    hyps = []
+    start_T = 0
+    if conditions is not None:
+        assert len(conditions) == len(paths)
+    for i, path in enumerate(paths):
+        hyp = load_csv_hypnogram(path)
+        hyp['start_time'] = hyp['start_time'] + start_T
+        hyp['end_time'] = hyp['end_time'] + start_T
+        if conditions is not None:
+            hyp['condition'] = conditions[i]
+        hyps.append(hyp)
+        start_T = hyp['end_time'].max()
+    return pd.concat(hyps)
+
 
 def load_visbrain_hypnogram(path):
     """Load a Visbrain-formatted hypngoram.
