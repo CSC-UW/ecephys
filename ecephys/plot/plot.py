@@ -25,15 +25,22 @@ state_colors = {
     "Arousal": "palegreen",
     "qWk": "seagreen",
     "M": "darkseagreen",
-    "NREM": "plum",
+    "NREM": "royalblue",
     "N1": "thistle",
     "N2": "plum",
-    "REM": "bisque",
+    "REM": "magenta",
     "Art": "crimson",
     "?": "crimson",
     "IS": "White",
     "Trans": "White",
     "None": "White",
+    "Unsure": "darkorange",
+    "Brief-Arousal": "palegreen",
+    "Slow-During-Wake": "chartreuse",
+    "Transition": "grey", 
+    "Transition-to-NREM": "lightskyblue",
+    "Transition-to-REM": "plum",
+    "Transition-to-Wake": "palegreen"
 }
 
 
@@ -152,7 +159,6 @@ def plot_spectrogram(
 
     if yscale == "log":
         ax.set_ylim(np.min(freqs[freqs > 0]), np.max(freqs))
-
 
 
 def plot_on_off_overlay(on_off_df, state_colors=on_off_colors, **kwargs):
