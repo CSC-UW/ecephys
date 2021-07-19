@@ -43,7 +43,7 @@ on_off_colors = {
 }
 
 
-def plot_spike_train(data, Tmax=None, ax=None, linewidth=0.1):
+def plot_spike_train(data, Tmax=None, ax=None, linewidth=0.1, linelengths=0.95, lineoffsets=1.0, **kwargs):
     """Spike raster.
     
     Args:
@@ -52,7 +52,14 @@ def plot_spike_train(data, Tmax=None, ax=None, linewidth=0.1):
     if ax is None:
         f, ax = plt.subplots()
     
-    ax.eventplot(data, colors='black', linewidth=linewidth)
+    ax.eventplot(
+        data, colors='black',
+        linewidth=linewidth, linelengths=linelengths, lineoffsets=lineoffsets,
+        **kwargs
+    )
+    ax.set_xlim(left=0)
+    if Tmax is not None:
+        ax.set_xlim(right=Tmax)
     return ax
 
 
