@@ -22,6 +22,7 @@ state_colors = {
     "Wake": "palegreen",
     "W": "palegreen",
     "aWk": "lightgreen",
+    "Arousal": "palegreen",
     "qWk": "seagreen",
     "M": "darkseagreen",
     "NREM": "plum",
@@ -30,6 +31,8 @@ state_colors = {
     "REM": "bisque",
     "Art": "crimson",
     "?": "crimson",
+    "IS": "White",
+    "Trans": "White",
     "None": "White",
 }
 
