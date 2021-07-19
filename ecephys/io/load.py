@@ -58,7 +58,7 @@ def get_sorting_info(
 
 
 def load_sorting_extractor(
-    ks_dir, good_only=False, drop_noise=True, depth_interval=None
+    ks_dir, good_only=False, drop_noise=True, depth_interval=None, FR_interval=None
 ):
     # Extractor
     extr = se.KiloSortSortingExtractor(ks_dir)
@@ -69,6 +69,7 @@ def load_sorting_extractor(
         good_only=good_only,
         drop_noise=drop_noise,
         depth_interval=depth_interval,
+        FR_interval=FR_interval,
     )
 
 
@@ -123,7 +124,7 @@ def _get_cluster_groups(kslabel, curated_group):
 
 
 def subset_clusters(
-    extractor, info, good_only=False, drop_noise=True, depth_interval=None
+    extractor, info, good_only=False, drop_noise=True, depth_interval=None, FR_interval=None,
 ):
     """
     Subset a spikeinterface extractor object.
@@ -139,7 +140,7 @@ def subset_clusters(
 
     print(
         f"Subset clusters: good_only={good_only}, "
-        f"drop_noise={drop_noise}, depths={depth_interval}"
+        f"drop_noise={drop_noise}, depths={depth_interval}, FR_interval={FR_interval}"
     )
 
     # Group taking in account manual curation or reverting to automatic KS label otherwise
@@ -163,6 +164,11 @@ def subset_clusters(
         depth_rows = info["depth"].between(*depth_interval)
         print(f"Drop N={len(np.where(~depth_rows)[0])}/{n_clusters} not within depth")
         keep_cluster = keep_cluster & depth_rows
+    
+    if FR_interval is not None:
+        FR_rows = info["fr"].between(*FR_interval)
+        print(f"Drop N={len(np.where(~FR_rows)[0])}/{n_clusters} not within firing rate interval")
+        keep_cluster = keep_cluster & FR_rows
     
     info_subset = info.loc[keep_cluster]
     print(f"Subselect N = {len(info_subset)}/{n_clusters} clusters", end='')
