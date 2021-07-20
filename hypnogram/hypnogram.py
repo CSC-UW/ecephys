@@ -75,12 +75,30 @@ class Hypnogram(pd.DataFrame):
         return labels
 
     def covers_time(self, times):
+        """Given an array of times, return True where that time is covered by
+        the hypnogram."""
         covered = np.full_like(times, False, dtype="bool")
         for bout in self.itertuples():
             times_in_bout = (times >= bout.start_time) & (times <= bout.end_time)
             covered[times_in_bout] = True
 
         return covered
+
+    def fractional_occupancy(self, ignore_gaps=True):
+        """Return a DataFrame with the time spent in each state, as a fraction of
+        the total time covered by the hypnogram.
+
+        Parameters:
+        -----------
+        ignore_gaps: bool
+            If True, unscored gaps do not contribute to total time.
+        """
+        total_time = (
+            self.duration.sum()
+            if ignore_gaps
+            else self.end_time.max() - self.start_time.min()
+        )
+        return self.groupby("state").sum() / total_time
 
     def write(self, path):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
