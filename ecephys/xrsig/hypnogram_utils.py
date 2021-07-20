@@ -1,5 +1,8 @@
 from hypnogram import DatetimeHypnogram
 
+# These functions could use the XRSig accessor instead of requiring
+# datetime to be a dimension.
+
 
 def add_states(dat, hypnogram):
     """Annotate each timepoint in the dataset with the corresponding state label.

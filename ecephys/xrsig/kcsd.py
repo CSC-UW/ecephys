@@ -28,7 +28,11 @@ def get_kcsd(sig, ele_pos, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
     channels = sig.channel.values  # Save for later
     sig = sig.assign_coords({"pos": ("channel", ele_pos)})
     sig = sig.drop_sel(channel=drop_chans, errors="ignore")
-    k = KCSD1D(sig.pos.values.reshape(-1, 1), sig.values.T, **kcsd_kwargs)
+    k = KCSD1D(
+        sig.pos.values.reshape(-1, 1),
+        sig.transpose("channel", "time").values,
+        **kcsd_kwargs
+    )
 
     if do_lcurve:
         print("Performing L-curve parameter estimation...")

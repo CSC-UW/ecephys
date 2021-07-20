@@ -18,7 +18,9 @@ def parallel_spectrogram_welch(sig, **kwargs):
     spg : xr.DataArray (frequency, time, channel)
         Spectrogram of `sig`.
     """
-    freqs, spg_time, spg = tfr.parallel_spectrogram_welch(sig.values, sig.fs, **kwargs)
+    freqs, spg_time, spg = tfr.parallel_spectrogram_welch(
+        sig.transpose("time", "channel").values, sig.fs, **kwargs
+    )
     time = sig.time.values.min() + spg_time
     timedelta = sig.timedelta.values.min() + pd.to_timedelta(spg_time, "s")
     datetime = sig.datetime.values.min() + pd.to_timedelta(spg_time, "s")
