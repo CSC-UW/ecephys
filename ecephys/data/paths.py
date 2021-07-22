@@ -181,11 +181,13 @@ def get_sglx_style_datapaths(yaml_path, subject, condition, ext, catgt_data=Fals
     return paths
 
 
-def get_datapath(yaml_path, subject, condition, file):
-    with open(yaml_path) as fp:
-        yaml_data = yaml.safe_load(fp)
-
-    datapath = Path(yaml_data[subject]["analysis-root"])
+def get_datapath(yaml_path, subject, condition, file, data_root=None):
+    if data_root is None:
+        with open(yaml_path) as fp:
+            yaml_data = yaml.safe_load(fp)
+        datapath = Path(yaml_data[subject]["analysis-root"])
+    else:
+        datapath = data_root
 
     if condition:
         datapath = datapath / condition
