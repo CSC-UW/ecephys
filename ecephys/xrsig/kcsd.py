@@ -1,4 +1,5 @@
 import xarray as xr
+import numpy as np
 from kcsd import KCSD1D
 
 
@@ -44,7 +45,7 @@ def get_kcsd(sig, ele_pos, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
         coords={"pos": k.estm_x, "time": sig.time.values},
     )
 
-    if (k.estm_x == ele_pos).all():
+    if np.allclose(k.estm_x, ele_pos):
         csd = csd.assign_coords({"channel": ("pos", channels)})
 
     return csd.assign_attrs(kcsd=k, fs=sig.fs)
