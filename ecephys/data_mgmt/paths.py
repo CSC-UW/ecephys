@@ -60,6 +60,7 @@ def parse_sglx_stem(stem):
     return (run, gate, trigger, probe)
 
 
+# TODO: Rename this function get_sglx_fname
 def get_sglx_style_filename(run, gate, trigger, probe, ext):
     """Get SpikeGLX-style filename from parts.
     Note that ext is of the form `lf.bin`, not `.lf.bin`.
@@ -67,6 +68,7 @@ def get_sglx_style_filename(run, gate, trigger, probe, ext):
     return f"{run}_{gate}_{trigger}.{probe}.{ext}"
 
 
+# TODO: Rename this function get_sglx_probe_path
 def get_sglx_style_parent_path(run, gate, trigger, probe, root_dir):
     """Get the parent path where an SpikeGLX file would be found, assuming
     folder-per-probe organization.
