@@ -273,28 +273,3 @@ def get_alias_files(doc, experiment_name, alias_name):
     return df[
         parse_trigger_stem(alias["start_file"]) : parse_trigger_stem(alias["end_file"])
     ]
-
-
-def _slice_files_by_name(files, start, end):
-    """Files must be sorted BY STEM (e.g. separated by probe) before using this function,
-    else pd.Index.slice_locs will correctly raise an error."""
-    parses = [parse_sglx_fname(f.name) for f in files]
-    stems = [
-        f"{run}_{gate}_{trigger}" for run, gate, trigger, probe, stream, ftype in parses
-    ]
-    (start, end) = pd.Index(stems).slice_locs(start, end)
-    return files[start:end]
-
-
-def _get_alias_files(doc, experiment_name, alias_name):
-    alias = doc["experiments"][experiment_name]["aliases"][alias_name]
-    experiment_files = get_experiment_files(doc, experiment_name)
-    alias_files_by_probe = {
-        probe: _slice_files_by_name(files, alias["start_file"], alias["end_file"])
-        for probe, files in separate_files_by_probe(experiment_files).items()
-    }
-    return [
-        f
-        for f in experiment_files
-        if f in list(chain.from_iterable(alias_files_by_probe.values()))
-    ]
