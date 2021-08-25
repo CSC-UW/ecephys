@@ -10,7 +10,14 @@ from itertools import chain
 from pathlib import Path
 import pandas as pd
 
-from .file_mgmt import get_gate_files, filelist_to_frame, xs, parse_trigger_stem
+from .file_mgmt import (
+    get_gate_files,
+    filelist_to_frame,
+    loc,
+    parse_trigger_stem,
+    set_index,
+)
+
 
 def _get_gate_directories(session_dir, run_name):
     """Get all gate directories belonging to a single run.
@@ -51,8 +58,10 @@ def _get_run_files(session_dir, run_name):
         )
     )
 
+
 def get_run_files(session_dir, run_name):
     return filelist_to_frame(_get_run_files(session_dir, run_name))
+
 
 def _get_session_files(root_dir, session):
     """Get all SpikeGLX files belonging to a single session.
@@ -75,8 +84,10 @@ def _get_session_files(root_dir, session):
         )
     )
 
+
 def get_session_files(root_dir, session):
     return filelist_to_frame(_get_session_files(root_dir, session))
+
 
 def _get_document_files(doc):
     """Get all SpikeGLX files belonging to a single subject's YAML document.
@@ -97,14 +108,18 @@ def _get_document_files(doc):
         )
     )
 
+
 def get_document_files(doc):
     return filelist_to_frame(_get_document_files(doc))
+
 
 def _get_subject_files(doc):
     return _get_document_files(doc)
 
+
 def get_subject_files(doc):
     return get_document_files(doc)
+
 
 def _get_yamlstream_files(stream):
     """Get SpikeGLX files of belonging to all YAML documents in a YAML stream.
@@ -120,9 +135,11 @@ def _get_yamlstream_files(stream):
     """
     return {doc["subject"]: _get_document_files(doc) for doc in stream}
 
+
 def get_yamlstream_files(stream):
     d = {doc["subject"]: get_document_files(doc) for doc in stream}
     return pd.concat(d.values(), keys=d.keys(), names=["subject"], sort=True)
+
 
 def _get_experiment_files(doc, experiment_name):
     """Get all SpikeGLX files belonging to a single experiment.
@@ -144,8 +161,10 @@ def _get_experiment_files(doc, experiment_name):
         )
     )
 
+
 def get_experiment_files(doc, experiment_name):
     return filelist_to_frame(_get_experiment_files(doc, experiment_name))
+
 
 def get_alias_files(doc, experiment_name, alias_name):
     """Get all SpikeGLX files belonging to a single alias.
@@ -164,9 +183,12 @@ def get_alias_files(doc, experiment_name, alias_name):
     """
     alias = doc["experiments"][experiment_name]["aliases"][alias_name]
     df = get_experiment_files(doc, experiment_name)
+    df = set_index(df).reset_index(
+        level=0
+    )  # Make df sliceable using (run, gate, trigger)
     return df[
         parse_trigger_stem(alias["start_file"]) : parse_trigger_stem(alias["end_file"])
-    ]
+    ].reset_index()
 
 
 def get_subject_document(yaml_stream, subject_name):
@@ -184,4 +206,4 @@ def get_files(yaml_stream, subject, experiment, alias=None, **kwargs):
         if alias
         else get_experiment_files(doc, experiment)
     )
-    return xs(df, **kwargs)
+    return loc(df, **kwargs)

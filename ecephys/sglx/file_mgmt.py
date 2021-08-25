@@ -37,6 +37,12 @@ depend on any organization schema beyond that of official SpikeGLX tools.
 import re
 from itertools import chain
 
+# Non-core imports
+import pandas as pd
+from pandas.api.types import CategoricalDtype
+from .external.readSGLX import readMeta
+
+
 def parse_sglx_fname(fname):
     """Parse recording identifiers from a SpikeGLX style filename stem.
 
@@ -65,7 +71,9 @@ def parse_sglx_fname(fname):
     >>> parse_sglx_fname('3-1-2021_A_g1_t0.imec0.lf.meta')
     ('3-1-2021_A', 'g1', 't0', 'imec0', 'lf', 'meta')
     """
-    x = re.search(r"_g\d+_t\d+\.imec\d+.(ap|lf).(bin|meta)\Z", fname)  # \Z forces match at string end.
+    x = re.search(
+        r"_g\d+_t\d+\.imec\d+.(ap|lf).(bin|meta)\Z", fname
+    )  # \Z forces match at string end.
     run = fname[: x.span()[0]]  # The run name is everything before the match
     gate = re.search(r"g\d+", x.group()).group()
     trigger = re.search(r"t\d+", x.group()).group()
@@ -75,6 +83,7 @@ def parse_sglx_fname(fname):
 
     return (run, gate, trigger, probe, stream, ftype)
 
+
 def parse_trigger_stem(stem):
     x = re.search(r"_g\d+_t\d+\Z", stem)  # \Z forces match at string end.
     run = stem[: x.span()[0]]  # The run name is everything before the match
@@ -83,9 +92,11 @@ def parse_trigger_stem(stem):
 
     return (run, gate, trigger)
 
+
 def _sort_strings_by_integer_suffix(strings):
     """Sort strings such that foo2 < foo10, contrary to default lexical sorting."""
     return sorted(strings, key=lambda string: int(re.split(r"(^[^\d]+)", string)[-1]))
+
 
 def get_trigger_files(probe_dir):
     """Get all SGLX files in a probe directory.
@@ -101,8 +112,16 @@ def get_trigger_files(probe_dir):
         All trigger files in the directory, regardless of lf/ap/bin/meta type,
         with trigger order preserved.
     """
-    matches = [p for p in probe_dir.glob("*_g*_t*.imec[0-9].*.*") if (p.is_file() and re.search(r"_g\d+_t\d+\.imec\d+.(ap|lf).(bin|meta)\Z", p.name))]
+    matches = [
+        p
+        for p in probe_dir.glob("*_g*_t*.imec[0-9].*.*")
+        if (
+            p.is_file()
+            and re.search(r"_g\d+_t\d+\.imec\d+.(ap|lf).(bin|meta)\Z", p.name)
+        )
+    ]
     return sorted(matches)
+
 
 # This function is probably extraneous.
 def get_unique_trigger_stems(probe_dir):
@@ -125,8 +144,11 @@ def get_unique_trigger_stems(probe_dir):
     ['3-1-2021_A_g1_t0', '3-1-2021_A_g1_t1']
     """
     parses = [parse_sglx_fname(f.name) for f in get_trigger_files(probe_dir)]
-    stems = [f"{run}_{gate}_{trigger}" for run, gate, trigger, probe, stream, ftype in parses]
+    stems = [
+        f"{run}_{gate}_{trigger}" for run, gate, trigger, probe, stream, ftype in parses
+    ]
     return sorted(dict.fromkeys(stems))
+
 
 def get_probe_directories(gate_dir, probe_regex=r"imec\d+"):
     """Get all probe directories in a gate directory, with optional filtering.
@@ -144,8 +166,13 @@ def get_probe_directories(gate_dir, probe_regex=r"imec\d+"):
         All matching probe directories in sorted order.
     """
     search_string = r"_g\d+_" + probe_regex + r"\Z"
-    matches = [p for p in gate_dir.glob(f"{gate_dir.name}_imec[0-9]") if (p.is_dir() and re.search(search_string, p.name))]
+    matches = [
+        p
+        for p in gate_dir.glob(f"{gate_dir.name}_imec[0-9]")
+        if (p.is_dir() and re.search(search_string, p.name))
+    ]
     return sorted(matches)
+
 
 def get_gate_files(gate_dir):
     """Get all SGLX files in a gate directory.
@@ -167,6 +194,7 @@ def get_gate_files(gate_dir):
         )
     )
 
+
 def get_gate_directories(run_dir):
     """Get all gate directories in a run directory.
 
@@ -184,8 +212,13 @@ def get_gate_directories(run_dir):
     list of pathlib.Path
         All gate directories in sorted order.
     """
-    matches = [p for p in run_dir.glob(f"{run_dir.name}_g*") if (p.is_dir() and re.search(r"_g\d+\Z", p.name))]
+    matches = [
+        p
+        for p in run_dir.glob(f"{run_dir.name}_g*")
+        if (p.is_dir() and re.search(r"_g\d+\Z", p.name))
+    ]
     return sorted(matches)
+
 
 def get_run_files(run_dir):
     """Get all SGLX files in a run directory.
@@ -206,12 +239,14 @@ def get_run_files(run_dir):
     """
     return list(
         chain.from_iterable(
-            get_gate_files(gate_dir)
-            for gate_dir in get_gate_directories(run_dir)
+            get_gate_files(gate_dir) for gate_dir in get_gate_directories(run_dir)
         )
     )
 
-def filter_files(files, run=None, gate=None, trigger=None, probe=None, stream=None, ftype=None):
+
+def filter_files(
+    files, run=None, gate=None, trigger=None, probe=None, stream=None, ftype=None
+):
     """Filter a list of SGLX files.
 
     Parameters:
@@ -237,6 +272,7 @@ def filter_files(files, run=None, gate=None, trigger=None, probe=None, stream=No
         All matching files, with their original order preserved.
     """
     desired = (run, gate, trigger, probe, stream, ftype)
+
     def keep_file(fname):
         actual = parse_sglx_fname(fname)
         keep = map(lambda x, y: x is None or x == y, desired, actual)
@@ -244,11 +280,15 @@ def filter_files(files, run=None, gate=None, trigger=None, probe=None, stream=No
 
     return [f for f in files if keep_file(f.name)]
 
-def remove_suffixes(files, regex=r"\.imec\d+\.(lf|ap)\.(bin|meta)", remove_duplicates=True):
+
+def remove_suffixes(
+    files, regex=r"\.imec\d+\.(lf|ap)\.(bin|meta)", remove_duplicates=True
+):
     """Remove suffixes from a list of files, to preserve only trigger stems
     and preceding path elements."""
-    path_stems = [f.parent / re.sub(regex, '', f.name) for f in files]
+    path_stems = [f.parent / re.sub(regex, "", f.name) for f in files]
     return list(dict.fromkeys(path_stems)) if remove_duplicates else path_stems
+
 
 def separate_files_by_probe(files):
     """Return a dictionary, keyed by probe, with files separated by probe.
@@ -256,29 +296,29 @@ def separate_files_by_probe(files):
     parses = [parse_sglx_fname(f.name) for f in files]
     probes = [probe for run, gate, trigger, probe, stream, ftype in parses]
     unique_probes = sorted(dict.fromkeys(probes))
-    return {probe: [f for f, p in zip(files, probes) if p == probe] for probe in unique_probes}
+    return {
+        probe: [f for f, p in zip(files, probes) if p == probe]
+        for probe in unique_probes
+    }
+
 
 ###############################################################################
 # The following functions require pandas and other non-core Python packages
 ##############################################################################
-import pandas as pd
-from pandas.api.types import CategoricalDtype
-from .external.readSGLX import readMeta
 
 
-def filelist_to_frame(files, run_order="infer"):
-    """Create a DataFrame that allows for easy sorting, slicing, selection, etc. of
-    files.
+def read_metadata(files):
+    """Takes a list of pathlib.Path"""
+    meta_dict = [readMeta(f) for f in files]
+    return pd.DataFrame(meta_dict).assign(path=files)
+
+
+def _filelist_to_frame(files):
+    """Return a list of files in as a dataframe for easy slicing, selecting, etc.
 
     Parameters:
     -----------
     files: list of pathlib.Path, must be SGLX files
-    run_order: string, list, or None
-        If `infer` (default), assume that the order of appearrance of runs in the filelist reflects
-        the actual (chronological) ordering of runs. This should be true if the data were loaded using
-        any of the functions in this module or in ecephys.sglx.paths.
-        If `list`, use the run ordering provided in the list. List items must be unique.
-        If `None`, simple lexical sorting of run names will be used when sorting and selecting data.
 
     Returns:
     --------
@@ -287,7 +327,7 @@ def filelist_to_frame(files, run_order="infer"):
     runs, gates, triggers, probes, streams, ftypes = zip(
         *[parse_sglx_fname(f.name) for f in files]
     )
-    df = pd.DataFrame(
+    return pd.DataFrame(
         {
             "run": runs,
             "gate": gates,
@@ -299,16 +339,37 @@ def filelist_to_frame(files, run_order="infer"):
         }
     )
 
-    # Now use categorical types where appropriate, to allow for proper sorting
-    # that respects e.g. the order of runs in the yaml spec.
-    if run_order == "infer":
-        run_dtype = CategoricalDtype(df["run"].unique(), ordered=True)
-    elif run_order:
-        run_dtype = CategoricalDtype(run_order, ordered=True)
-    else:
-        run_dtype = CategoricalDtype(df["run"].unique(), ordered=False)
 
-    df["run"] = df["run"].astype(run_dtype)
+def filelist_to_frame(files):
+    """Return a list of files in as a dataframe for easy slicing, selecting, etc.
+    Includes metadata, and orders files by fileCreateTime.
+
+    Parameters:
+    -----------
+    files: list of pathlib.Path, must be SGLX files
+
+    Returns:
+    --------
+    pd.DataFrame with columns [run, gate, trigger, probe, stream, ftype, path].
+    """
+    meta_df = (
+        read_metadata(files)
+        .astype({"fileCreateTime": "datetime64[ns]"})
+        .sort_values("fileCreateTime", ascending=True)
+        .reset_index(drop=True)
+    )
+    files_df = _filelist_to_frame(files)
+    return meta_df.merge(files_df, on="path")
+
+
+def set_index(df):
+    """Set an index with intelligent sorting of identifier strings."""
+    df.astype({"fileCreateTime": "datetime64[ns]"}).sort_values(
+        "fileCreateTime", ascending=True
+    ).reset_index(drop=True)
+
+    # df is already sorted chronologically, so runs will appear in order.
+    df["run"] = df["run"].astype(CategoricalDtype(df["run"].unique(), ordered=True))
 
     # Make sure that e.g. g2 < g10
     for x in ["gate", "trigger", "probe"]:
@@ -318,13 +379,8 @@ def filelist_to_frame(files, run_order="infer"):
             )
         )
 
-    # Stream type is unordered.
-    df["stream"] = df["stream"].astype(
-        CategoricalDtype(df["stream"].unique(), ordered=False)
-    )
-
     return df.set_index(
-        ["run", "gate", "trigger", "probe", "stream", "ftype"]
+        ["fileCreateTime", "run", "gate", "trigger", "probe", "stream", "ftype"]
     ).sort_index()
 
 
@@ -333,7 +389,8 @@ def xs(df, **kwargs):
 
     Examples:
     ---------
-    >>> df = get_document_files(doc)
+    >>> df = filelist_to_frame(files)
+    >>> df = _set_index(df)
     >>> xs(df, stream='lf', ftype='bin')
     >>> df.pipe(xs, stream='lf', ftype='bin')
     """
@@ -343,11 +400,14 @@ def xs(df, **kwargs):
         else df
     )
 
-def read_metadata(files):
-    """Takes a list of pathlib.Path"""
-    meta_dict = [readMeta(f) for f in files]
-    return pd.DataFrame(meta_dict).assign(path=files)
 
-def add_metadata(df):
-    meta_df = read_metadata(df['path'].values)
-    return df.reset_index().merge(meta_df, on='path').set_index(df.index.names).sort_index()
+def loc(df, **kwargs):
+    """Select rows of a DataFrame based on column labels.
+
+    Examples:
+    ---------
+    >>> df = filelist_to_frame(files)
+    >>> loc(df, stream='lf', ftype='bin')
+    >>> df.pipe(loc, stream='lf', ftype='bin')
+    """
+    return df.loc[(df[list(kwargs)] == pd.Series(kwargs)).all(axis=1)]
