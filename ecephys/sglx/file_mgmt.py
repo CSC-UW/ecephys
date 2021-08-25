@@ -75,6 +75,18 @@ def parse_sglx_fname(fname):
 
     return (run, gate, trigger, probe, stream, ftype)
 
+def parse_trigger_stem(stem):
+    x = re.search(r"_g\d+_t\d+\Z", stem)  # \Z forces match at string end.
+    run = stem[: x.span()[0]]  # The run name is everything before the match
+    gate = re.search(r"g\d+", x.group()).group()
+    trigger = re.search(r"t\d+", x.group()).group()
+
+    return (run, gate, trigger)
+
+def _sort_strings_by_integer_suffix(strings):
+    """Sort strings such that foo2 < foo10, contrary to default lexical sorting."""
+    return sorted(strings, key=lambda string: int(re.split(r"(^[^\d]+)", string)[-1]))
+
 def get_trigger_files(probe_dir):
     """Get all SGLX files in a probe directory.
 
@@ -245,3 +257,97 @@ def separate_files_by_probe(files):
     probes = [probe for run, gate, trigger, probe, stream, ftype in parses]
     unique_probes = sorted(dict.fromkeys(probes))
     return {probe: [f for f, p in zip(files, probes) if p == probe] for probe in unique_probes}
+
+###############################################################################
+# The following functions require pandas and other non-core Python packages
+##############################################################################
+import pandas as pd
+from pandas.api.types import CategoricalDtype
+from .external.readSGLX import readMeta
+
+
+def filelist_to_frame(files, run_order="infer"):
+    """Create a DataFrame that allows for easy sorting, slicing, selection, etc. of
+    files.
+
+    Parameters:
+    -----------
+    files: list of pathlib.Path, must be SGLX files
+    run_order: string, list, or None
+        If `infer` (default), assume that the order of appearrance of runs in the filelist reflects
+        the actual (chronological) ordering of runs. This should be true if the data were loaded using
+        any of the functions in this module or in ecephys.sglx.paths.
+        If `list`, use the run ordering provided in the list. List items must be unique.
+        If `None`, simple lexical sorting of run names will be used when sorting and selecting data.
+
+    Returns:
+    --------
+    pd.DataFrame with columns [run, gate, trigger, probe, stream, ftype, path].
+    """
+    runs, gates, triggers, probes, streams, ftypes = zip(
+        *[parse_sglx_fname(f.name) for f in files]
+    )
+    df = pd.DataFrame(
+        {
+            "run": runs,
+            "gate": gates,
+            "trigger": triggers,
+            "probe": probes,
+            "stream": streams,
+            "ftype": ftypes,
+            "path": files,
+        }
+    )
+
+    # Now use categorical types where appropriate, to allow for proper sorting
+    # that respects e.g. the order of runs in the yaml spec.
+    if run_order == "infer":
+        run_dtype = CategoricalDtype(df["run"].unique(), ordered=True)
+    elif run_order:
+        run_dtype = CategoricalDtype(run_order, ordered=True)
+    else:
+        run_dtype = CategoricalDtype(df["run"].unique(), ordered=False)
+
+    df["run"] = df["run"].astype(run_dtype)
+
+    # Make sure that e.g. g2 < g10
+    for x in ["gate", "trigger", "probe"]:
+        df[x] = df[x].astype(
+            CategoricalDtype(
+                _sort_strings_by_integer_suffix(df[x].unique()), ordered=True
+            )
+        )
+
+    # Stream type is unordered.
+    df["stream"] = df["stream"].astype(
+        CategoricalDtype(df["stream"].unique(), ordered=False)
+    )
+
+    return df.set_index(
+        ["run", "gate", "trigger", "probe", "stream", "ftype"]
+    ).sort_index()
+
+
+def xs(df, **kwargs):
+    """Select rows of a MultiIndex DataFrame based on index labels.
+
+    Examples:
+    ---------
+    >>> df = get_document_files(doc)
+    >>> xs(df, stream='lf', ftype='bin')
+    >>> df.pipe(xs, stream='lf', ftype='bin')
+    """
+    return (
+        df.xs(tuple(kwargs.values()), level=tuple(kwargs.keys()), drop_level=False)
+        if kwargs
+        else df
+    )
+
+def read_metadata(files):
+    """Takes a list of pathlib.Path"""
+    meta_dict = [readMeta(f) for f in files]
+    return pd.DataFrame(meta_dict).assign(path=files)
+
+def add_metadata(df):
+    meta_df = read_metadata(df['path'].values)
+    return df.reset_index().merge(meta_df, on='path').set_index(df.index.names).sort_index()
