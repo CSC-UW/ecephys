@@ -93,6 +93,25 @@ def _get_document_files(doc):
     )
 
 
+def _get_subject_files(doc):
+    return _get_document_files(doc)
+
+
+def _get_yamlstream_files(stream):
+    """Get SpikeGLX files of belonging to all YAML documents in a YAML stream.
+
+    Parameters:
+    -----------
+    docs: list of dict
+        The YAML specifications for each subject.
+
+    Returns:
+    --------
+    list of pathlib.Path
+    """
+    return {doc["subject"]: _get_document_files(doc) for doc in stream}
+
+
 def _get_experiment_files(doc, experiment_name):
     """Get all SpikeGLX files belonging to a single experiment.
 
@@ -181,6 +200,22 @@ def filelist_to_frame(files, run_order="infer"):
     ).sort_index()
 
 
+def xs(df, **kwargs):
+    """Select rows of a MultiIndex DataFrame based on index labels.
+
+    Examples:
+    ---------
+    >>> df = get_document_files(doc)
+    >>> xs(df, stream='lf', ftype='bin')
+    >>> df.pipe(xs, stream='lf', ftype='bin')
+    """
+    return (
+        df.xs(tuple(kwargs.values()), level=tuple(kwargs.keys()), drop_level=False)
+        if kwargs
+        else df
+    )
+
+
 def get_run_files(session_dir, run_name):
     """Get all SpikeGLX files belonging to a single run.
 
@@ -228,6 +263,26 @@ def get_document_files(doc):
     return filelist_to_frame(_get_document_files(doc))
 
 
+def get_subject_files(doc):
+    return get_document_files(doc)
+
+
+def get_yamlstream_files(stream):
+    """Get SpikeGLX files of belonging to all YAML documents in a YAML stream.
+
+    Parameters:
+    -----------
+    docs: list of dict
+        The YAML specifications for each subject.
+
+    Returns:
+    --------
+    pd.DataFrame
+    """
+    d = {doc["subject"]: get_document_files(doc) for doc in stream}
+    return pd.concat(d.values(), keys=d.keys(), names=["subject"], sort=True)
+
+
 def get_experiment_files(doc, experiment_name):
     """Get all SpikeGLX files belonging to a single experiment.
 
@@ -273,3 +328,21 @@ def get_alias_files(doc, experiment_name, alias_name):
     return df[
         parse_trigger_stem(alias["start_file"]) : parse_trigger_stem(alias["end_file"])
     ]
+
+
+def _get_subject_document(yaml_stream, subject_name):
+    """Get a subject's YAML document from a YAML stream."""
+    matches = [doc for doc in yaml_stream if doc["subject"] == subject_name]
+    assert len(matches) == 1, f"Exactly 1 YAML document should match {subject_name}"
+    return matches[0]
+
+
+def get_files(yaml_stream, subject, experiment, alias=None, **kwargs):
+    """Get all SpikeGLX files matching selection criteria."""
+    doc = _get_subject_document(yaml_stream, subject)
+    df = (
+        get_alias_files(doc, experiment, alias)
+        if alias
+        else get_experiment_files(doc, experiment)
+    )
+    return xs(df, **kwargs)
