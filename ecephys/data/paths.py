@@ -105,8 +105,8 @@ def get_sglx_style_datapaths(yaml_path, subject, condition, ext, catgt_data=Fals
     Kwargs:
         catgt_data: bool
             Path to corresponding catGT-processed concatenated file.
-            catGT file is saved in the analysis directory, uses `cat`
-            as the trigger index, and has `catgt_` prepended to the
+            catGT file is saved in <root>/<condition>/<exp_id>/catgt_<run_dir>/<probe_dir>,
+            uses `cat` as the trigger index, and has `catgt_` prepended to the
             run directory.
         cat_trigger: bool
             Replace trigger id with 'cat' to designate data issued from concatenated files.
@@ -139,7 +139,10 @@ def get_sglx_style_datapaths(yaml_path, subject, condition, ext, catgt_data=Fals
             condition_manifest = list(flatten(condition_data[experiment_id]))
             # All elements should be raw data stems
             assert all(['.imec' in stem for stem in condition_manifest])
-            experiment_root = root / experiment_id
+            if catgt_data:
+                experiment_root = root / condition / experiment_id
+            else:
+                experiment_root = root / experiment_id
             paths += [
                 get_sglx_style_abs_path(
                     stem, ext, experiment_root, catgt_data=catgt_data
@@ -152,6 +155,8 @@ def get_sglx_style_datapaths(yaml_path, subject, condition, ext, catgt_data=Fals
             # subject: condition:[stem_0, stem_1]
             # All elements are raw data stems
             combined_condition = False
+            if catgt_data:
+                raise NotImplementedError
             paths = [
                 get_sglx_style_abs_path(stem, ext, root, catgt_data=catgt_data)
                 for stem in condition_manifest
