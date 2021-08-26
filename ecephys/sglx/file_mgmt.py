@@ -84,15 +84,6 @@ def parse_sglx_fname(fname):
     return (run, gate, trigger, probe, stream, ftype)
 
 
-def parse_trigger_stem(stem):
-    x = re.search(r"_g\d+_t\d+\Z", stem)  # \Z forces match at string end.
-    run = stem[: x.span()[0]]  # The run name is everything before the match
-    gate = re.search(r"g\d+", x.group()).group()
-    trigger = re.search(r"t\d+", x.group()).group()
-
-    return (run, gate, trigger)
-
-
 def _sort_strings_by_integer_suffix(strings):
     """Sort strings such that foo2 < foo10, contrary to default lexical sorting."""
     return sorted(strings, key=lambda string: int(re.split(r"(^[^\d]+)", string)[-1]))
@@ -124,7 +115,7 @@ def get_trigger_files(probe_dir):
 
 
 # This function is probably extraneous.
-def get_unique_trigger_stems(probe_dir):
+def _get_unique_trigger_stems(probe_dir):
     """Get all unique trigger stems in a probe directory.
 
     Parameters:
@@ -150,26 +141,23 @@ def get_unique_trigger_stems(probe_dir):
     return sorted(dict.fromkeys(stems))
 
 
-def get_probe_directories(gate_dir, probe_regex=r"imec\d+"):
-    """Get all probe directories in a gate directory, with optional filtering.
+def get_probe_directories(gate_dir):
+    """Get all probe directories in a gate directory.
 
     Parameters:
     -----------
     gate_dir: pathlib.Path
         Path to SGLX gate directory.
-    probe_regex: regex string
-        Optionally restrict results to probes matching the regex string.
 
     Returns
     -------
     list of pathlib.Path
         All matching probe directories in sorted order.
     """
-    search_string = r"_g\d+_" + probe_regex + r"\Z"
     matches = [
         p
         for p in gate_dir.glob(f"{gate_dir.name}_imec[0-9]")
-        if (p.is_dir() and re.search(search_string, p.name))
+        if (p.is_dir() and re.search(r"_g\d+_imec\d+\Z", p.name))
     ]
     return sorted(matches)
 

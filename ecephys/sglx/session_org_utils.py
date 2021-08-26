@@ -14,7 +14,6 @@ from .file_mgmt import (
     get_gate_files,
     filelist_to_frame,
     loc,
-    parse_trigger_stem,
     set_index,
 )
 
@@ -164,6 +163,15 @@ def _get_experiment_files(doc, experiment_name):
 
 def get_experiment_files(doc, experiment_name):
     return filelist_to_frame(_get_experiment_files(doc, experiment_name))
+
+
+def parse_trigger_stem(stem):
+    x = re.search(r"_g\d+_t\d+\Z", stem)  # \Z forces match at string end.
+    run = stem[: x.span()[0]]  # The run name is everything before the match
+    gate = re.search(r"g\d+", x.group()).group()
+    trigger = re.search(r"t\d+", x.group()).group()
+
+    return (run, gate, trigger)
 
 
 def get_alias_files(doc, experiment_name, alias_name):
