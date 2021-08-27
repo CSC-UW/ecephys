@@ -54,6 +54,12 @@ def get_cluster_info(ks_dir):
         warnings.warn("No `cluster_info.tsv` file in ks dir. Generating it using phy.")
         create_phy_cluster_info(ks_dir)
     info = pd.read_csv(cluster_info_path, sep="\t")
+    # Make sure we loaded the metrics.csv
+    if (ks_dir / "metrics.csv").exists() and not 'isi_viol' in info.columns:
+        import warnings
+        warnings.warn("Regenerate `cluster_info.tsv` file in ks dir to include metrics.csv.")
+        create_phy_cluster_info(ks_dir)
+        info = pd.read_csv(cluster_info_path, sep="\t")
     return info
 
 
