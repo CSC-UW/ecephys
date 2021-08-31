@@ -1,6 +1,4 @@
 import numpy as np
-import pandas as pd
-import xarray as xr
 from scipy.signal import spectrogram, cwt, morlet2
 from neurodsp.spectral.checks import check_spg_settings
 from neurodsp.spectral.utils import trim_spectrogram
@@ -11,7 +9,7 @@ from ecephys.utils import ncols, all_arrays_equal
 from ecephys.signal.utils import get_perievent_time, get_perievent_data
 
 
-def _compute_spectrogram_welch(
+def compute_spectrogram_welch(
     sig,
     fs,
     window="hann",
@@ -68,7 +66,7 @@ def _compute_spectrogram_welch(
     return freqs, spg_times, spg
 
 
-def _parallel_spectrogram_welch(sig, fs, **kwargs):
+def parallel_spectrogram_welch(sig, fs, **kwargs):
     """Apply `_compute_spectrogram_welch` to each channel in parallel.
 
     Parameters
@@ -91,7 +89,7 @@ def _parallel_spectrogram_welch(sig, fs, **kwargs):
     """
     assert ncols(sig) > 1, "Parallel spectrogram intended for multichannel data only."
 
-    worker = partial(_compute_spectrogram_welch, fs=fs, **kwargs)
+    worker = partial(compute_spectrogram_welch, fs=fs, **kwargs)
     jobs = [x for x in sig.T]
 
     n_chans = ncols(sig)
@@ -110,40 +108,7 @@ def _parallel_spectrogram_welch(sig, fs, **kwargs):
     return freqs, spg_times, spg
 
 
-def parallel_spectrogram_welch(sig, **kwargs):
-    """Compute a spectrogram for each channel in parallel.
-
-    Parameters
-    ----------
-    sig: xr.DataArray (time, channel)
-        Required attr: (fs, the sampling rate)
-    **kwargs: optional
-        Keyword arguments passed to `_compute_spectrogram_welch`.
-
-    Returns:
-    --------
-    spg : xr.DataArray (frequency, time, channel)
-        Spectrogram of `sig`.
-    """
-    freqs, spg_time, spg = _parallel_spectrogram_welch(sig.values, sig.fs, **kwargs)
-    time = sig.time.values.min() + spg_time
-    timedelta = sig.timedelta.values.min() + pd.to_timedelta(spg_time, "s")
-    datetime = sig.datetime.values.min() + pd.to_timedelta(spg_time, "s")
-    return xr.DataArray(
-        spg,
-        dims=("frequency", "time", "channel"),
-        coords={
-            "frequency": freqs,
-            "time": time,
-            "channel": sig.channel.values,
-            "timedelta": ("time", timedelta),
-            "datetime": ("time", datetime),
-        },
-        attrs={"units": f"{sig.units}^2/Hz"},
-    )
-
-
-def _get_bandpower(freqs, spg_times, spg, f_range, t_range=None):
+def get_bandpower(freqs, spg_times, spg, f_range, t_range=None):
     """Get band-limited power from a spectrogram.
 
     Parameters
@@ -161,27 +126,6 @@ def _get_bandpower(freqs, spg_times, spg, f_range, t_range=None):
     """
     freqs, spg_times, spg = trim_spectrogram(freqs, spg_times, spg, f_range, t_range)
     bandpower = np.sum(spg, axis=0)
-
-    return bandpower
-
-
-def get_bandpower(spg, f_range):
-    """Get band-limited power from a spectrogram.
-
-    Parameters
-    ----------
-    spg: xr.DataArray (frequency, time, [channel])
-        Spectrogram data.
-    f_range: (float, float)
-        Frequency range to restrict to, as [f_low, f_high].
-
-    Returns:
-    --------
-    bandpower: xr.DataArray (time, [channel])
-        Sum of the power in `f_range` at each point in time.
-    """
-    bandpower = spg.sel(frequency=slice(*f_range)).sum(dim="frequency")
-    bandpower.attrs["f_range"] = f_range
 
     return bandpower
 
