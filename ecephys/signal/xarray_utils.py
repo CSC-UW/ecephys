@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from hypnogram import DatetimeHypnogram
+import xarray as xr
 
 
 def rebase_time(sig, in_place=True):
@@ -30,7 +31,7 @@ def add_states_to_dataset(ds, hypnogram):
     return ds.assign_coords(state=("time", states))
 
 
-def filter_dataset_by_state(ds, hypnogram, states):
+def filter_dataset_by_state(ds, hypnogram, states, dim='channel'):
     """Select only timepoints corresponding to desired states.
 
     Parameters:
@@ -47,6 +48,8 @@ def filter_dataset_by_state(ds, hypnogram, states):
         A dataset with the same dimensions as `ds`, and all values that do not
         correspond to `states` dropped.
     """
+    if type(ds) == xr.core.dataarray.DataArray:
+        ds = ds.to_dataset(dim=dim)
     assert isinstance(hypnogram, DatetimeHypnogram)
     labels = hypnogram.get_states(ds.datetime)
     return ds.where(np.isin(labels, states)).dropna(dim="time")

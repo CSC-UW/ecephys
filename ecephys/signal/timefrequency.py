@@ -48,7 +48,6 @@ def _compute_spectrogram_welch(
         Frequency range to restrict to, as [f_low, f_high].
     t_range: list of [float, float]
         Time range to restrict to, as [t_low, t_high].
-
     Returns
     -------
     freqs : 1d array

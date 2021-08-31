@@ -38,10 +38,11 @@ def _plot_spectrogram_with_bandpower(spg, bp, hyp, title=None, figsize=(15, 5)):
 
     bp = ux.get_smoothed_da(bp)
     sns.lineplot(x=bp.datetime, y=bp, color="black", ax=bp_ax)
-    bp_ax.set(xlabel=None, ylim=(0,350), ylabel='Percent of BL NREM Delta Mean', xticks=[], xmargin=0)
-    eplt.plot_hypnogram_overlay(
-        hyp, xlim=bp_ax.get_xlim(), state_colors=state_colors, ax=bp_ax
-    )
+    bp_ax.set(xlabel=None, ylabel='Raw Delta Power', xticks=[], xmargin=0)
+    if hyp is not None:
+        eplt.plot_hypnogram_overlay(
+            hyp, xlim=bp_ax.get_xlim(), state_colors=state_colors, ax=bp_ax
+        )
 
     eplt.plot_spectrogram(
         spg.frequency, spg.datetime, spg, yscale="log", f_range=(0, 50), ax=spg_ax
@@ -54,8 +55,8 @@ def _plot_spectrogram_with_bandpower(spg, bp, hyp, title=None, figsize=(15, 5)):
 
 
 def plot_spectrogram_with_bandpower(spg, bp, hyp, channel, start_time, end_time, title=None):
-    start = hyp.start_time.min() + pd.to_timedelta(start_time)
-    end = hyp.start_time.min() + pd.to_timedelta(end_time)
+    #start = hyp.start_time.min() + pd.to_timedelta(start_time)
+    #end = hyp.start_time.min() + pd.to_timedelta(end_time)
     b, s = _plot_spectrogram_with_bandpower(
         spg.sel(channel=channel, time=slice(start_time, end_time)),
         bp.sel(channel=channel, time=slice(start_time, end_time)),
