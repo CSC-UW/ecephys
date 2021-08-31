@@ -98,7 +98,7 @@ class Hypnogram(pd.DataFrame):
             if ignore_gaps
             else self.end_time.max() - self.start_time.min()
         )
-        return self.groupby("state").sum() / total_time
+        return self.groupby("state").duration.sum() / total_time
 
     def write(self, path):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
