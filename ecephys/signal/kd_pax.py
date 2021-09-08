@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 ANALYSIS_ROOT_DIRECTORY = Path(
-    "/Volumes/paxilline/Data/paxilline_project_materials/PAX_6/PAX_6_analysis_data/"
+    "N:\Data\paxilline_project_materials\PAX_6\PAX_6_analysis_data"
 )
 
 BANDS = {
@@ -27,14 +27,14 @@ def assert_fname(fname):
 
 
 def save_raw_data(sig, fname):
-    assert_fname(fname)
+    #assert_fname(fname)
     path = ANALYSIS_ROOT_DIRECTORY / (fname + ".nc")
     sig.to_netcdf(path)
     sig.close()
 
 
 def load_raw_data(fname):
-    assert_fname(fname)
+    #assert_fname(fname)
     path = ANALYSIS_ROOT_DIRECTORY / (fname + ".nc")
     return xr.load_dataarray(path).swap_dims({"time": "datetime"})
 
@@ -61,13 +61,13 @@ def load_hypnograms(subject, experiment, condition, scoring_start_time):
 
 
 def save_hypnogram(hypnogram, fname):
-    assert_fname(fname)
+    #assert_fname(fname)
     hypnogram_path = ANALYSIS_ROOT_DIRECTORY / (fname + ".hypnogram.tsv")
     hypnogram.write(hypnogram_path)
 
 
 def load_hypnogram(fname):
-    assert_fname(fname)
+    #assert_fname(fname)
     hypnogram_path = ANALYSIS_ROOT_DIRECTORY / (fname + ".hypnogram.tsv")
     return hg.load_datetime_hypnogram(hypnogram_path)
 
@@ -79,15 +79,15 @@ def get_spectrogram(sig):
 
 
 def save_spectrogram(spg, fname):
-    assert_fname(fname)
-    spg_path = ANALYSIS_ROOT_DIRECTORY / (fname + ".spg.nc")
+    #assert_fname(fname)
+    spg_path = ANALYSIS_ROOT_DIRECTORY / (fname + ".nc")
     spg.to_netcdf(spg_path)
     spg.close()
 
 
 def load_spectrogram(fname):
-    assert_fname(fname)
-    spg_path = ANALYSIS_ROOT_DIRECTORY / (fname + ".spg.nc")
+    #assert_fname(fname)
+    spg_path = ANALYSIS_ROOT_DIRECTORY / (fname + ".nc")
     return xr.load_dataarray(spg_path)
 
 
@@ -148,10 +148,10 @@ def get_state_psd(spg, hyp, state):
     return get_state_spectrogram(spg, hyp, state).median(dim="datetime")
 
 
-def get_condition_psd(fname, state):
-    hyp = load_hypnogram(fname)
+def get_condition_psd(spg_name, hyp_name, state):
+    hyp = load_hypnogram(hyp_name)
     #spg = load_spectrogram(fname)
-    spg = load_spectrogram(fname).swap_dims({'time': 'datetime'})
+    spg = load_spectrogram(spg_name).swap_dims({'time': 'datetime'})
     return get_state_psd(spg, hyp, state)
 
 
@@ -169,7 +169,7 @@ def compare_psd(
         col="channel",
         kind="line",
         aspect=(16 / 9),
-        height=5,
+        height=3,
         ci=None,
     )
     g.set(xscale=scale, yscale=scale)

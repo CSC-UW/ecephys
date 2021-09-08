@@ -5,45 +5,16 @@ import xarray as xr
 import yaml
 from pathlib import Path
 import hypnogram as hp
-import ecephys.signal.timefrequency as tfr
 import xarray as xr
 import matplotlib.pyplot as plt
 import seaborn as sns
 import ecephys.plot as eplt
-import ecephys.utils.xarray as ux
-import ecephys.signal.xarray_utils as ecx
+import ecephys.xrsig as xrsig
+from scipy.stats import mode
+from ripple_detection.core import gaussian_smooth
 
 
-def load_hypnos(yaml_path, subject, experiment, condition, ext='.txt', scoring_start_time=None):
-    with open(yaml_path) as fp:
-        yaml_data = yaml.safe_load(fp)
-    root = Path(yaml_data[subject]['hypno-root'])
-    hypnos = yaml_data[subject][experiment][condition]
-    
-    
-    hypnogram_paths = []
-    for hyp in hypnos:
-        hyp = hyp+ext
-        ppath = root / hyp
-        hypnogram_paths += [ppath]
-    
-    hypnograms = [hp.load_visbrain_hypnogram(path) for path in hypnogram_paths]
-    hypnogram_duration = 7200.0
-    hypnogram_offsets = np.arange(0, len(hypnograms)) * hypnogram_duration
-    
-    for hypnogram, offset in zip(hypnograms, hypnogram_offsets):
-        hypnogram['start_time'] = pd.to_timedelta(hypnogram['start_time'] + offset, 's')
-        hypnogram['end_time'] = pd.to_timedelta(hypnogram['end_time'] + offset, 's')
-        hypnogram['duration'] = pd.to_timedelta(hypnogram['duration'], 's')
-        
-    hypnogram = pd.concat(hypnograms).reset_index(drop=True)
-    
-    if scoring_start_time:
-        hypnogram['start_time'] = hypnogram['start_time'] + scoring_start_time
-        hypnogram['end_time'] = hypnogram['end_time'] + scoring_start_time
-    
-    return hp.DatetimeHypnogram(hypnogram)
-
+##Functions for loading TDT SEV-stores, and visbrain hypnograms:
 def load_hypnograms(subject, experiment, condition, scoring_start_time):
     hypnograms_yaml_file = "N:\Data\paxilline_project_materials\pax-hypno-paths.yaml"
 
@@ -63,71 +34,6 @@ def load_hypnograms(subject, experiment, condition, scoring_start_time):
     ]
 
     return pd.concat(hypnograms).reset_index(drop=True)
-
-
-def fetch_data(data_type='spg', spg_array=True, path=''):
-
-    """ Loads spectrogram, hypnograms, or bandpower datasets
-    """
-
-    if spg_array==True: 
-        spg_array = xr.load_dataarray(path)
-        return spg_array
-    elif data_type=='spg': 
-        spg = xr.load_dataarray(path).to_dataset('channel')
-        return spg
-    elif data_type=='hyp':
-        hyp = hp.load_datetime_hypnogram(path)
-        return hyp
-    elif data_type=='bp':
-        bp = xr.load_dataset(path)
-        return bp
-    else: 
-        return print('Choose a valid data type - spg, hyp, or bp')
-
-
-def get_spextrogram(sig, window_length=4, overlap=1, **kwargs):
-    kwargs['nperseg'] = int(window_length * sig.fs) # window length in number of samples
-    kwargs['noverlap'] = int(overlap * sig.fs) # overlap in number of samples
-    spg = tfr.parallel_spectrogram_welch(sig, **kwargs)
-    return spg
-
-
-def get_bp_set(spg, bands):
-    if type(spg) == xr.core.dataset.Dataset:
-        spg = spg.to_array(dim='channel')
-    
-    bp_ds = xr.Dataset(
-    {
-        "delta": tfr.get_bandpower(spg, bands['delta']),
-        "theta": tfr.get_bandpower(spg, bands['theta']),
-        "beta": tfr.get_bandpower(spg, bands['beta']),
-        "low_gamma": tfr.get_bandpower(spg, bands['low_gamma']),
-        "high_gamma": tfr.get_bandpower(spg, bands['high_gamma']),
-    }
-)
-    return bp_ds
-
-
-
-def get_ss_bp_set(spg, hypno, states, bands, t1=None, t2=None):
-    """ returns a bandpower dataset where all timechunks and corresponding datapoints are dropped"""
-    if type(spg) == xr.core.dataarray.DataArray:
-        spg = spg.to_dataset(dim='channel')
-    ss_spg = ecx.filter_dataset_by_state(spg, hypno, states)
-    ss_da = ss_spg.to_array(dim='channel')
-    bp_ds = xr.Dataset(
-    {
-        "delta": tfr.get_bandpower(ss_da, bands['delta']),
-        "theta": tfr.get_bandpower(ss_da, bands['theta']),
-        "beta": tfr.get_bandpower(ss_da, bands['beta']),
-        "low_gamma": tfr.get_bandpower(ss_da, bands['low_gamma']),
-        "high_gamma": tfr.get_bandpower(ss_da, bands['high_gamma']),
-    }
-)
-    if t2 is not None: 
-        bp_ds = bp_ds.isel(time=slice(t1, t2))
-    return bp_ds
 
 def sev_to_xarray(info, store):
     """Convert a single stream store to xarray format.
@@ -170,8 +76,125 @@ def sev_to_xarray(info, store):
     return data
 
 def load_sev_store(path, t1=0, t2=0, channel=None, store=''):
+
     data = tdt.read_block(path, channel=channel, store=store, t1=t1, t2=t2)
     store = data.streams[store]
     info = data.info
     datax = sev_to_xarray(info, store)
     return datax
+
+#Functions used for working with xset-style dictionaries which contain all relevant information for a given experiment
+def get_key_list(dict):
+    list = []
+    for key in dict.keys():
+        list.append(key) 
+    return list
+
+def save_xset(ds, analysis_root):
+    """saves each component of an experimental 
+    dataset dictionary (i.e. xr.arrays of the raw data and of the spectrograms), 
+    as its own separate .nc file. All can be loaded back in as an experimental dataset dictionary
+    using fetch_xset
+    """
+    keys = get_key_list(ds)
+    for key in keys:
+        path = analysis_root / (ds['name'] + key + ".nc") 
+        ds[key].to_netcdf(path)
+    print('Remember to save key list in order to fetch the data again')
+
+def fetch_xset(exp, key_list, analysis_root):
+    #exp is a string, key list is a list of strings
+    dataset = {}
+    dataset['name'] = exp
+    for key in key_list: 
+        path = analysis_root / (exp + key + ".nc")
+        try:
+            dataset[key] = xr.load_dataarray(path)
+        except: 
+            dataset[key] = xr.load_dataset(path)
+    return dataset
+
+def get_data_spg(block_path, store='', t1=0, t2=0, channel=None):
+    data = kd.load_sev_store(block_path, t1=t1, t2=t2, channel=channel, store=store)
+    spg = kd.get_spextrogram(data)
+    print('Remember to save all data in xset-style dictionary, and to add experiment name key (key = "name") before using save_xset')
+    return data, spg
+
+
+## Spectrogram Utils
+def get_spextrogram(sig, window_length=4, overlap=1, **kwargs):
+    kwargs['nperseg'] = int(window_length * sig.fs) # window length in number of samples
+    kwargs['noverlap'] = int(overlap * sig.fs) # overlap in number of samples
+    spg = xrsig.parallel_spectrogram_welch(sig, **kwargs)
+    return spg
+
+def get_bp_set(spg, bands):
+    if type(spg) == xr.core.dataset.Dataset:
+        spg = spg.to_array(dim='channel')
+    
+    bp_ds = xr.Dataset(
+    {
+        "delta": get_bandpower(spg, bands['delta']),
+        "theta": get_bandpower(spg, bands['theta']),
+        "beta": get_bandpower(spg, bands['beta']),
+        "low_gamma": get_bandpower(spg, bands['low_gamma']),
+        "high_gamma": get_bandpower(spg, bands['high_gamma']),
+    })
+    return bp_ds
+
+def get_ss_spg(spg, hypno, states, bands, t1=None, t2=None):
+    """ returns a bandpower dataset where all timechunks and corresponding datapoints are dropped"""
+    if type(spg) == xr.core.dataarray.DataArray:
+        spg = spg.to_dataset(dim='channel')
+    ss_spg = filter_dataset_by_state(spg, hypno, states)
+    ss_da = ss_spg.to_array(dim='channel')
+    bp_ds = xr.Dataset(
+    {
+        "delta": get_bandpower(ss_da, bands['delta']),
+        "theta": get_bandpower(ss_da, bands['theta']),
+        "beta": get_bandpower(ss_da, bands['beta']),
+        "low_gamma": get_bandpower(ss_da, bands['low_gamma']),
+        "high_gamma": get_bandpower(ss_da, bands['high_gamma']),
+    })
+    if t2 is not None: 
+        bp_ds = bp_ds.isel(time=slice(t1, t2))
+    return ss_da, bp_ds
+
+def get_bandpower(spg, f_range):
+    """Get band-limited power from a spectrogram.
+    Parameters
+    ----------
+    spg: xr.DataArray (frequency, time, [channel])
+        Spectrogram data.
+    f_range: (float, float)
+        Frequency range to restrict to, as [f_low, f_high].
+    Returns:
+    --------
+    bandpower: xr.DataArray (time, [channel])
+        Sum of the power in `f_range` at each point in time.
+    """
+    bandpower = spg.sel(frequency=slice(*f_range)).sum(dim="frequency")
+    bandpower.attrs["f_range"] = f_range
+
+    return bandpower
+
+
+#Misc utils for dealing with xarray structures: 
+def estimate_fs(da):
+    sample_period = mode(np.diff(da.datetime.values)).mode[0]
+    assert isinstance(sample_period, np.timedelta64)
+    sample_period = sample_period / pd.to_timedelta(1, "s")
+    return 1 / sample_period
+
+def get_smoothed_da(da, smoothing_sigma=10, in_place=False):
+    if not in_place:
+        da = da.copy()
+    da.values = gaussian_smooth(da, smoothing_sigma, estimate_fs(da))
+    return da
+
+def get_smoothed_ds(ds, smoothing_sigma=10, in_place=False):
+    if not in_place:
+        ds = ds.copy()
+    for da_name, da in ds.items():
+        ds[da_name] = get_smoothed_da(da, smoothing_sigma, in_place)
+    return ds

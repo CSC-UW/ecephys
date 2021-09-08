@@ -10,8 +10,8 @@ import xarray as xr
 import matplotlib.pyplot as plt
 import seaborn as sns
 import ecephys.plot as eplt
-import ecephys.utils.xarray as ux
-import ecephys.signal.xarray_utils as ecx
+import ecephys.xrsig as xrsig
+import ecephys.signal.kd_utils as kd
 
 
 #stole this function from Graham's 'compare_bandpower_timeseries' notebook. Any changes KD makes are noted with comments.
@@ -28,7 +28,7 @@ state_colors = {
     "Unsure": "white",
 }
 
-def _plot_spectrogram_with_bandpower(spg, bp, hyp, title=None, figsize=(15, 5)):
+def _plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, title=None, figsize=(15, 5)):
     fig, (bp_ax, spg_ax) = plt.subplots(
         ncols=1,
         nrows=2,
@@ -36,16 +36,17 @@ def _plot_spectrogram_with_bandpower(spg, bp, hyp, title=None, figsize=(15, 5)):
         gridspec_kw=dict(width_ratios=[1], height_ratios=[1, 1]),
     )
 
-    bp = ux.get_smoothed_da(bp)
-    sns.lineplot(x=bp.datetime, y=bp, color="black", ax=bp_ax)
-    bp_ax.set(xlabel=None, ylabel='Raw Delta Power', xticks=[], xmargin=0)
+    bp = kd.get_bp_set(spg, band_definition)[band]
+    bp = kd.get_smoothed_da(bp, smoothing_sigma=12)
+    sns.lineplot(x=bp.time, y=bp, color="black", ax=bp_ax)
+    bp_ax.set(xlabel=None, ylabel='Raw '+band.capitalize()+' Power', xticks=[], xmargin=0)
     if hyp is not None:
         eplt.plot_hypnogram_overlay(
             hyp, xlim=bp_ax.get_xlim(), state_colors=state_colors, ax=bp_ax
         )
 
     eplt.plot_spectrogram(
-        spg.frequency, spg.datetime, spg, yscale="log", f_range=(0, 50), ax=spg_ax
+        spg.frequency, spg.time, spg, yscale="log", f_range=(0, 50), ax=spg_ax
     )
 
     if title:
@@ -54,12 +55,13 @@ def _plot_spectrogram_with_bandpower(spg, bp, hyp, title=None, figsize=(15, 5)):
     return bp_ax, spg_ax
 
 
-def plot_spectrogram_with_bandpower(spg, bp, hyp, channel, start_time, end_time, title=None):
+def plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, channel, start_time, end_time, title=None):
     #start = hyp.start_time.min() + pd.to_timedelta(start_time)
     #end = hyp.start_time.min() + pd.to_timedelta(end_time)
     b, s = _plot_spectrogram_with_bandpower(
         spg.sel(channel=channel, time=slice(start_time, end_time)),
-        bp.sel(channel=channel, time=slice(start_time, end_time)),
+        band_definition,
+        band,
         hyp,
         title=title,
     )
@@ -98,16 +100,16 @@ def plot_main_pax(s, p, sbl, pbl, band='delta', t1=None, t2=None):
     return ax
 
 
-def plot_swa_r2bl(s, sbl, p, pbl, channel=1, ss=12, title = ''):
+def plot_swa_r2bl(s, p, sbl, pbl, channel=1, ss=12, title = ''):
     """Takes state-specfifc bandpower sets"""
     s=s.sel(channel=channel)
     p=p.sel(channel=channel)
     sbl=sbl.sel(channel=channel)
     pbl=pbl.sel(channel=channel)
     srel = s.delta / sbl.delta.mean(dim='time') * 100
-    srels = ux.get_smoothed_da(srel, smoothing_sigma=ss)
+    srels = kd.get_smoothed_da(srel, smoothing_sigma=ss)
     prel = p.delta / pbl.delta.mean(dim='time') * 100
-    prels = ux.get_smoothed_da(prel, smoothing_sigma=ss)
+    prels = kd.get_smoothed_da(prel, smoothing_sigma=ss)
     sal = srels.to_dataframe().assign(condition='Saline')
     sal.reset_index(inplace=True)
     pax = prels.to_dataframe().assign(condition='Paxilline')
