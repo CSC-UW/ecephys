@@ -290,6 +290,26 @@ def separate_files_by_probe(files):
     }
 
 
+def validate_sglx_path(path):
+    """Check that file name and path obey SpikeGLX folder-per-probe naming
+    conventions. Raise a ValuError if they do not, otherwise return the
+    validated parts."""
+    try:
+        (run, gate, trigger, probe, stream, ftype) = parse_sglx_fname(path.name)
+    except AttributeError:
+        raise ValueError("Invalid file name.")
+
+    try:
+        probe_dir = path.parent
+        gate_dir = probe_dir.parent
+        assert probe_dir.name == f"{run}_{gate}_{probe}"
+        assert gate_dir.name == f"{run}_{gate}"
+    except AssertionError:
+        raise ValueError("Invalid path.")
+
+    return gate_dir, probe_dir.name, path.name
+
+
 ###############################################################################
 # The following functions require pandas and other non-core Python packages
 ##############################################################################

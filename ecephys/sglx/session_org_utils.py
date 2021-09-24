@@ -1,16 +1,30 @@
-"""These functions assume session-style experiment specification and organization of SpikeGLX data.
+"""
+These functions assume session-style experiment specification and organization of SpikeGLX data.
 This system would be very easy to extend so that each recording session can be on e.g. a different drive,
 by simply moving the raw-data-root field into each session (and probably renaming it).
 
 Functions beginning with underscores generally return lists and dictionaries,
-while functions without are generally wrappers that return DataFrames. """
+while functions without are generally wrappers that return DataFrames.
 
+Session style organization looks like this:
+- subject_dir/ (e.g. ANPIX11-Adrian/)
+    - session_dir/ (e.g. 8-27-2021/)
+        - SpikeGLX/ (aka "session_sglx_dir")
+            - gate_dir/ (example: 8-27-2021_g0/)
+            ...
+            - gate_dir/ (example: 8-27-2021_Z_g0)
+
+
+Later, it might make sense to add a layer to this hierarchy, such that it goes
+subject_dir > session_dir > SpikeGLX > run_dir > gate_dir.
+"""
 import re
 from itertools import chain
 from pathlib import Path
 import pandas as pd
 
 from .file_mgmt import (
+    validate_sglx_path,
     get_gate_files,
     filelist_to_frame,
     loc,
@@ -18,13 +32,27 @@ from .file_mgmt import (
 )
 
 
-def _get_gate_directories(session_dir, run_name):
-    """Get all gate directories belonging to a single run.
+def _get_session_style_path_parts(path):
+    gate_dir, probe_dirname, fname = validate_sglx_path(path)
+    session_sglx_dir = gate_dir.parent
+    session_dir = session_sglx_dir.parent
+    subject_dir = session_dir.parent
+    return (
+        subject_dir,
+        session_dir.name,
+        session_sglx_dir.name,
+        gate_dir.name,
+        probe_dirname,
+        fname,
+    )
+
+
+def _get_gate_directories(session_sglx_dir):
+    """Get all gate directories belonging to a single session.
 
     Parameters:
     -----------
-    session_dir: pathlib.Path
-    run_name: string
+    session_sglx_dir: pathlib.Path
 
     Returns:
     --------
@@ -32,19 +60,18 @@ def _get_gate_directories(session_dir, run_name):
     """
     matches = [
         p
-        for p in session_dir.glob(f"{run_name}_g*")
+        for p in session_sglx_dir.glob(f"*_g*")
         if (p.is_dir() and re.search(r"_g\d+\Z", p.name))
     ]
     return sorted(matches)
 
 
-def _get_run_files(session_dir, run_name):
-    """Get all SpikeGLX files belonging to a single run.
+def _get_session_files(session_sglx_dir):
+    """Get all SpikeGLX files belonging to a single session.
 
     Parameters:
     -----------
-    session_dir: pathlib.Path
-    run_name: string
+    session_sglx_dir: pathlib.Path
 
     Returns:
     --------
@@ -53,39 +80,13 @@ def _get_run_files(session_dir, run_name):
     return list(
         chain.from_iterable(
             get_gate_files(gate_dir)
-            for gate_dir in _get_gate_directories(session_dir, run_name)
+            for gate_dir in _get_gate_directories(session_sglx_dir)
         )
     )
 
 
-def get_run_files(session_dir, run_name):
-    return filelist_to_frame(_get_run_files(session_dir, run_name))
-
-
-def _get_session_files(root_dir, session):
-    """Get all SpikeGLX files belonging to a single session.
-
-    Parameters:
-    -----------
-    root_dir: pathlib.Path
-        The path to the root raw data directory.
-    session: dict
-        The YAML specification for this session.
-
-    Returns:
-    --------
-    list of pathlib.Path
-    """
-    return list(
-        chain.from_iterable(
-            _get_run_files(root_dir / session["directory"], run_name)
-            for run_name in session["SpikeGLX-runs"]
-        )
-    )
-
-
-def get_session_files(root_dir, session):
-    return filelist_to_frame(_get_session_files(root_dir, session))
+def get_session_files(session_sglx_dir):
+    return filelist_to_frame(_get_session_files(session_sglx_dir))
 
 
 def _get_document_files(doc):
@@ -102,8 +103,8 @@ def _get_document_files(doc):
     """
     return list(
         chain.from_iterable(
-            _get_session_files(Path(doc["raw-data-root"]), session)
-            for session in doc["recording-sessions"]
+            _get_session_files(Path(doc["raw_data_directory"], session, "SpikeGLX"))
+            for session in doc["recording_sessions"]
         )
     )
 
@@ -155,8 +156,8 @@ def _get_experiment_files(doc, experiment_name):
     """
     return list(
         chain.from_iterable(
-            _get_session_files(Path(doc["raw-data-root"]), session)
-            for session in doc["experiments"][experiment_name]["recording-sessions"]
+            _get_session_files(Path(doc["raw_data_directory"], session, "SpikeGLX"))
+            for session in doc["experiments"][experiment_name]["recording_sessions"]
         )
     )
 
