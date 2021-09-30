@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import spikeextractors as se
 
+from . import select
+
 
 def get_sorting_info(
     ks_dir
@@ -27,22 +29,6 @@ def get_sorting_info(
     )
     d['duration'] = tmp_extr.get_num_frames() / tmp_extr.get_sampling_frequency()
     return d
-
-
-def load_sorting_extractor(
-    ks_dir, good_only=False, drop_noise=True, depth_interval=None, FR_interval=None
-):
-    # Extractor
-    extr = se.KiloSortSortingExtractor(ks_dir)
-    print(f"N clusters (all)={len(extr.get_unit_ids())}")
-    return subset_clusters(
-        extr,
-        get_cluster_info(ks_dir),
-        good_only=good_only,
-        drop_noise=drop_noise,
-        depth_interval=depth_interval,
-        FR_interval=FR_interval,
-    )
 
 
 def get_cluster_info(ks_dir):
@@ -78,7 +64,6 @@ def create_phy_cluster_info(ks_dir):
     controller._save_cluster_info()
 
 
-
 def get_cluster_groups(ks_dir):
     """Load cluster group as (nclust, 0) np array.
 
@@ -87,74 +72,33 @@ def get_cluster_groups(ks_dir):
     info = get_cluster_info(ks_dir)
     kslabel = info["KSLabel"]
     curated_group = info["group"]
-    return _get_cluster_groups(kslabel, curated_group)
+    return select._get_cluster_groups(kslabel, curated_group)
 
 
-def _get_cluster_groups(kslabel, curated_group):
-    assert len(kslabel) == len(curated_group)
-    use_KSLabel = (curated_group == 'unsorted') | pd.isna(curated_group)
-    use_KSLabel = use_KSLabel.values
-    group = np.empty((len(kslabel),), dtype=object)
-    group[use_KSLabel] = kslabel[use_KSLabel]
-    group[~use_KSLabel] = curated_group[~use_KSLabel]
-    group[np.where(group == 'nan')[0]] = np.nan
-    return group
-
-
-def subset_clusters(
-    extractor, info, good_only=False, drop_noise=True, depth_interval=None, FR_interval=None,
+def load_sorting_extractor(
+    ks_dir, good_only=False, drop_noise=True, selection_intervals=None,
 ):
     """
-    Subset a spikeinterface extractor object.
+    Return spikeinterface subextractor object. Subset clusters of interest.
 
     Args:
-        extractor (spikeextractors.sortingextractor)
-        info (pd.DataFrame): As loaded from `cluster_info.tsv`.
+        ks_dir (str or pathlib.Path): Kilosort directory
+
+    Kwargs:
+        good_only (bool): Subselect `cluster_group == 'good'`.
+            We use KSLabel assignment when curated `group` is None or 'unscored'
+        drop_noise (bool): Subselect `cluster_group != 'noise'`
+        selection_intervals (None or dict): Dictionary of {<col_name>: (<value_min>, <value_max>)} used
+            to subset clusters based on depth, firing rate, metrics value, etc
+            All keys should be columns of `cluster_info.tsv` or `metrics.csv`, and the values should be numrical.
     """
-    for col in ["cluster_id", "KSLabel", "group"]:
-        assert col in info.columns
-    assert len(info) == len(extractor.get_unit_ids())
-    assert set(info["cluster_id"]) == set(extractor.get_unit_ids())
-
-    print(
-        f"Subset clusters: good_only={good_only}, "
-        f"drop_noise={drop_noise}, depths={depth_interval}, FR_interval={FR_interval}"
+    # Extractor
+    extr = se.KiloSortSortingExtractor(ks_dir)
+    print(f"N clusters (all)={len(extr.get_unit_ids())}")
+    return select.subset_clusters(
+        extr,
+        get_cluster_info(ks_dir),
+        good_only=good_only,
+        drop_noise=drop_noise,
+        selection_intervals=selection_intervals,
     )
-
-    # Group taking in account manual curation or reverting to automatic KS label otherwise
-    curated_group = _get_cluster_groups(info["KSLabel"], info["group"])
-
-    n_clusters = len(info)
-    keep_cluster = np.ones((n_clusters,), dtype=bool)
-    if drop_noise:
-        not_noise_rows = curated_group != "noise"
-        print(f"Drop N={len(np.where(~not_noise_rows)[0])}/{n_clusters} noise clusters")
-        keep_cluster = keep_cluster & not_noise_rows
-
-    if good_only:
-        good_rows = curated_group == "good"
-        print(
-            f"Drop N={len(np.where(~good_rows)[0])}/{n_clusters} not 'good' clusters"
-        )
-        keep_cluster = keep_cluster & good_rows
-
-    if depth_interval is not None:
-        depth_rows = info["depth"].between(*depth_interval)
-        print(f"Drop N={len(np.where(~depth_rows)[0])}/{n_clusters} not within depth")
-        keep_cluster = keep_cluster & depth_rows
-    
-    if FR_interval is not None:
-        FR_rows = info["fr"].between(*FR_interval)
-        print(f"Drop N={len(np.where(~FR_rows)[0])}/{n_clusters} not within firing rate interval")
-        keep_cluster = keep_cluster & FR_rows
-    
-    info_subset = info.loc[keep_cluster]
-    print(f"Subselect N = {len(info_subset)}/{n_clusters} clusters", end='')
-    subextractor = se.SubSortingExtractor(
-        extractor, unit_ids=list(info_subset["cluster_id"])
-    )
-    assert set(info_subset["cluster_id"]) == set(subextractor.get_unit_ids())
-    assert len(info_subset["cluster_id"]) == len(subextractor.get_unit_ids())
-    print('done')
-
-    return subextractor
