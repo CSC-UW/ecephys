@@ -5,6 +5,16 @@ import pandas as pd
 import spikeextractors as se
 
 
+def get_spike_times(extr, cluster_id):
+    return extr.frame_to_time(extr.get_unit_spike_train(unit_id=cluster_id))
+
+
+def get_spike_times_list(extr, cluster_ids):
+    return [
+        get_spike_times(extr, cluster_id) for cluster_id in cluster_ids
+    ]
+
+
 def subset_spike_times_list(
     spike_times_list, bouts_df,
 ):
