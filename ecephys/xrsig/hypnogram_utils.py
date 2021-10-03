@@ -33,9 +33,12 @@ def keep_states(dat, hypnogram, states):
         The states to retain.
     """
     assert isinstance(hypnogram, DatetimeHypnogram)
-    assert "datetime" in dat.dims, "Data must contain datetime dimension."
+    try:
+        assert "datetime" in dat.dims, "Data must contain datetime dimension."
+    except:
+        dat = dat.swap_dims({"time": "datetime"})
     keep = hypnogram.keep_states(states).covers_time(dat.datetime)
-    return dat.sel(datetime=keep)
+    return dat.sel(datetime=keep).swap_dims({'datetime': 'time'})
 
 
 def keep_hypnogram_contents(dat, hypnogram):

@@ -172,5 +172,5 @@ def compare_psd(
         height=3,
         ci=None,
     )
-    g.set(xscale=scale, yscale=scale)
+    g.set(xscale=scale, yscale=scale, ylabel='SWA as % of BL')
     return g

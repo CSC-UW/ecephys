@@ -56,8 +56,6 @@ def _plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, title=None
 
 
 def plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, channel, start_time, end_time, title=None):
-    #start = hyp.start_time.min() + pd.to_timedelta(start_time)
-    #end = hyp.start_time.min() + pd.to_timedelta(end_time)
     b, s = _plot_spectrogram_with_bandpower(
         spg.sel(channel=channel, time=slice(start_time, end_time)),
         band_definition,
@@ -100,15 +98,15 @@ def plot_main_pax(s, p, sbl, pbl, band='delta', t1=None, t2=None):
     return ax
 
 
-def plot_swa_r2bl(s, p, sbl, pbl, channel=1, ss=12, title = ''):
+def plot_swa_r2bl(s, p, sbl, pbl, band, channel=1, ss=12, title = ''):
     """Takes state-specfifc bandpower sets"""
     s=s.sel(channel=channel)
     p=p.sel(channel=channel)
     sbl=sbl.sel(channel=channel)
     pbl=pbl.sel(channel=channel)
-    srel = s.delta / sbl.delta.mean(dim='time') * 100
+    srel = s[band] / sbl[band].mean(dim='time') * 100
     srels = kd.get_smoothed_da(srel, smoothing_sigma=ss)
-    prel = p.delta / pbl.delta.mean(dim='time') * 100
+    prel = p[band] / pbl[band].mean(dim='time') * 100
     prels = kd.get_smoothed_da(prel, smoothing_sigma=ss)
     sal = srels.to_dataframe().assign(condition='Saline')
     sal.reset_index(inplace=True)
@@ -121,8 +119,70 @@ def plot_swa_r2bl(s, p, sbl, pbl, channel=1, ss=12, title = ''):
     sp = pd.concat([sal, pax])
     
     f, ax = plt.subplots(figsize=(18, 6))
-    sns.lineplot(x='rel_time', y='delta', hue='condition', data=sp, palette=["darkorchid", "goldenrod"], dashes=False, ax=ax)
+    sns.lineplot(x='rel_time', y=band, hue='condition', data=sp, palette=["darkorchid", "goldenrod"], dashes=False, ax=ax)
     ax.set_title(title)
-    ax.set_ylabel('Delta Power (0.5-4Hz) as % of Baseline')
+    ax.set_ylabel(band+' Power as % of Baseline')
     ax.set_xlabel("Time (ignore the raw values)")
     return ax
+
+
+def compare_psd(
+    psd1, psd2, state, keys=["condition1", "condition2"], key_name="condition", scale="log"
+):
+    df = pd.concat(
+        [psd1.to_dataframe("power"), psd2.to_dataframe("power")], keys=keys
+    ).rename_axis(index={None: key_name})
+    g = sns.relplot(
+        data=df,
+        x="frequency",
+        y="power",
+        hue=key_name,
+        col="channel",
+        kind="line",
+        aspect=(16 / 9),
+        height=3,
+        ci=None,
+    )
+    g.set(xscale=scale, yscale=scale, ylabel='Power, '+state[0]+' PSD')
+    return g
+
+def _plot_spectrogram_with_bp_rel2bl(spg_exp, spg_bl, band, bp_def, hyp, title=None, figsize=(15, 5)):
+    fig, (bp_ax, spg_ax) = plt.subplots(
+        ncols=1,
+        nrows=2,
+        figsize=figsize,
+        gridspec_kw=dict(width_ratios=[1], height_ratios=[1, 1]),
+    )
+
+    exp_bp = kd.get_bp_set(spg_exp, bp_def)
+    bl_bp = kd.get_bp_set(spg_bl, bp_def)
+    exp_pob = (exp_bp[band]/bl_bp[band].median(dim='time'))*100
+    exp_pob = kd.get_smoothed_da(exp_pob, smoothing_sigma=12)
+    sns.lineplot(x=exp_pob.datetime, y=exp_pob, color="black", ax=bp_ax)
+    bp_ax.set(xlabel=None, ylabel=band.capitalize()+' Power as % of BL', xticks=[], xmargin=0)
+    if hyp is not None:
+        eplt.plot_hypnogram_overlay(
+            hyp, xlim=bp_ax.get_xlim(), state_colors=state_colors, ax=bp_ax
+        )
+
+    eplt.plot_spectrogram(
+        spg_exp.frequency, spg_exp.datetime, spg_exp, yscale="log", f_range=(0, 50), ax=spg_ax
+    )
+
+    if title:
+        fig.suptitle(title)
+    plt.tight_layout(h_pad=0.0)
+    return bp_ax, spg_ax
+
+
+def plot_spectrogram_with_bp_rel2bl(spg_exp, spg_bl, band, bp_def, hyp, channel, start_time, end_time, title=None):
+    b, s = _plot_spectrogram_with_bp_rel2bl(
+        spg_exp.sel(channel=channel, time=slice(start_time, end_time)),
+        spg_bl.sel(channel=channel, time=slice(start_time, end_time)),
+        band,
+        bp_def,
+        hyp,
+        title=title,
+    )
+    return b, s
+

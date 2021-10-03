@@ -62,3 +62,19 @@ def fetch_data(data_type='spg', spg_array=False, path=''):
         return bp
     else: 
         return print('Choose a valid data type - spg, hyp, or bp')
+
+def get_ss_spg(spg, hypno, states, bands, t1=None, t2=None):
+    """ returns a spectrogram corresponding only to the desired states specified by a matching hypnogram """
+    ss_spg = filter_dataset_by_state(spg, hypno, states)
+    ss_da = ss_spg.to_array(dim='channel')
+    bp_ds = xr.Dataset(
+    {
+        "delta": get_bandpower(ss_da, bands['delta']),
+        "theta": get_bandpower(ss_da, bands['theta']),
+        "beta": get_bandpower(ss_da, bands['beta']),
+        "low_gamma": get_bandpower(ss_da, bands['low_gamma']),
+        "high_gamma": get_bandpower(ss_da, bands['high_gamma']),
+    })
+    if t2 is not None: 
+        bp_ds = bp_ds.isel(time=slice(t1, t2))
+    return ss_da, bp_ds
