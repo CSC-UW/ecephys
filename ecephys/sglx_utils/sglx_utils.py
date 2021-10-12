@@ -13,6 +13,11 @@ from .external.readSGLX import (
 )
 
 
+def get_meta_path(binpath):
+    metaName = binpath.stem + ".meta"
+    return Path(binpath).parent / metaName
+
+
 def get_meta(binpath):
     return readMeta(binpath)
 
