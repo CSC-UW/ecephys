@@ -192,8 +192,8 @@ def get_alias_files(doc, experiment_name, alias_name):
     """
     alias = doc["experiments"][experiment_name]["aliases"][alias_name]
     df = get_experiment_files(doc, experiment_name)
-    df = set_index(df).reset_index(
-        level=0
+    df = (
+        set_index(df).reset_index(level=0).sort_index()
     )  # Make df sliceable using (run, gate, trigger)
     return df[
         parse_trigger_stem(alias["start_file"]) : parse_trigger_stem(alias["end_file"])
