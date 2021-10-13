@@ -1,4 +1,4 @@
-from fractions import gcd
+from math import gcd
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -70,6 +70,43 @@ def plot_spike_train(data, Tmax=None, ax=None, linewidth=0.1, linelengths=0.95, 
     return ax
 
 
+def plot_psth_hist(psth_array, window, binsize, ylabel=None, ylim=None):
+    f, ax = plt.subplots()
+    sns.despine(f)
+
+    # xvalues = np.linspace(window[0], window[1], len(psth_array))  # Excelude end
+    xpos = np.arange(len(psth_array))
+    plt.bar(
+        xpos,
+        psth_array,
+        color="black",
+        width=1.0, facecolor='black', edgecolor='black',
+    )
+
+    plt.ylim(ylim)
+
+    # y ticks: Only integers
+    from matplotlib.ticker import MaxNLocator
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+
+    # x ticks: Only 0, first and last value and muiltiple of gcd in between
+    xtic_len = gcd(abs(window[0]), window[1])
+    xtic_labels = range(window[0], window[1] + xtic_len, xtic_len)
+    xtic_locs = [(j - window[0]) / binsize for j in xtic_labels]
+    if 0 not in xtic_labels:
+        xtic_labels.append(0)
+        xtic_locs.append(-window[0] / binsize)
+    ax.set_xticks(xtic_locs)
+    ax.set_xticklabels(xtic_labels, rotation=0)
+
+    plt.xlabel('Time (msec)')
+
+    # vertical line at t=0
+    plt.axvline((-window[0]) / binsize, color='red', linestyle='--', linewidth=2)
+
+    return f, ax
+    
+
 def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_label=None):
     if clim is None:
         vmin, vmax = None, None
@@ -82,7 +119,7 @@ def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_labe
     cmap = sns.diverging_palette(230, 20, as_cmap=True)
 
     # Draw the heatmap 
-    xvalues = np.arange(window[0], window[1], binsize)
+    # xvalues = np.arange(window[0], window[1], binsize)
     hm = sns.heatmap(
         psth_array,
         cmap=cmap,
