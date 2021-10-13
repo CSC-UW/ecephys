@@ -4,15 +4,23 @@ import numpy as np
 import pandas as pd
 import spikeextractors as se
 
+from ..utils import flatten
+
 
 def get_spike_times(extr, cluster_id):
     return extr.frame_to_time(extr.get_unit_spike_train(unit_id=cluster_id))
 
 
-def get_spike_times_list(extr, cluster_ids):
+def get_spike_times_list(extr, cluster_ids=None):
+    if cluster_ids is None:
+        cluster_ids = extr.get_unit_ids()
     return [
         get_spike_times(extr, cluster_id) for cluster_id in cluster_ids
     ]
+
+
+def pool_spike_times_list(spike_times_list):
+    return sorted(flatten(spike_times_list))
 
 
 def subset_spike_times_list(
