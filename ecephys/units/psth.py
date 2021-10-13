@@ -42,8 +42,8 @@ def get_normed_data(data, normalize, window=None, binsize=None):
         if window[0] > 0 or window[1] < 0:
             raise ValueError(f"Can't z-score by baseline for window {window}")
         # Baseline is bins < 0
-        n_baseline_idx = int(abs(window[0]) / binsize)
-        print(n_baseline_idx)
+        # n_baseline_idx = int(abs(window[0]) / binsize)
+        n_baseline_idx = int(abs(window[0]) / binsize) - 1  # Exclude t=0 bin
         baseline_mean = np.tile(
             np.mean(data[:, 0:n_baseline_idx], axis=1),
             (data.shape[1], 1)
@@ -57,6 +57,20 @@ def get_normed_data(data, normalize, window=None, binsize=None):
         res = np.zeros(data.shape)  # 0 if std = 0
         return np.divide(
             data - baseline_mean, baseline_std, where=baseline_std!=0, out=res
+        )
+    elif normalize == 'baseline_norm':
+        print("Normalize by baseline average (no z-score)")
+        if window[0] > 0 or window[1] < 0:
+            raise ValueError(f"Can't norm by baseline for window {window}")
+        # Baseline is bins < 0
+        n_baseline_idx = int(abs(window[0]) / binsize) - 1  # Exclude t=0 bin
+        baseline_mean = np.tile(
+            np.mean(data[:, 0:n_baseline_idx], axis=1),
+            (data.shape[1], 1)
+        ).transpose()  # nunits x nbins, repeat mean across 1st column
+        res = np.zeros(data.shape)  # 0 if mean = 0
+        return np.divide(
+            data, baseline_mean, where=baseline_mean!=0, out=res
         )
     else:
         raise ValueError('Invalid value for `normalize` kwarg')
