@@ -64,19 +64,30 @@ def create_phy_cluster_info(ks_dir):
     controller._save_cluster_info()
 
 
-def get_cluster_groups(ks_dir):
+def get_cluster_groups(ks_dir, cluster_group_overrides=None):
     """Load cluster group as (nclust, 0) np array.
 
     Use KSLabel assignment when curated `group` is None or 'unscored'.
+
+    Kwargs:
+        cluster_group_overrides (None or dict): Dictionary of {<group>: <cluster_list>} used to
+            override the groups saved in phy.
     """
     info = get_cluster_info(ks_dir)
     kslabel = info["KSLabel"]
     curated_group = info["group"]
-    return select._get_cluster_groups(kslabel, curated_group)
+    return select._get_cluster_groups(
+        kslabel,
+        curated_group,
+        info['cluster_id'],
+        cluster_group_overrides=cluster_group_overrides,
+    )
 
 
 def load_sorting_extractor(
-    ks_dir, good_only=False, drop_noise=True, selection_intervals=None,
+    ks_dir, 
+    selected_groups=None, good_only=False, drop_noise=True, selection_intervals=None,
+    cluster_group_overrides=None,
 ):
     """
     Return spikeinterface subextractor object. Subset clusters of interest.
@@ -85,12 +96,15 @@ def load_sorting_extractor(
         ks_dir (str or pathlib.Path): Kilosort directory
 
     Kwargs:
+        selected_groups (list or None): List of subselected cluster groups. Affected by `drop_noise` and `good_only` overrides.
         good_only (bool): Subselect `cluster_group == 'good'`.
             We use KSLabel assignment when curated `group` is None or 'unscored'
         drop_noise (bool): Subselect `cluster_group != 'noise'`
         selection_intervals (None or dict): Dictionary of {<col_name>: (<value_min>, <value_max>)} used
             to subset clusters based on depth, firing rate, metrics value, etc
             All keys should be columns of `cluster_info.tsv` or `metrics.csv`, and the values should be numrical.
+        cluster_group_overrides (None or dict): Dictionary of {<group>: <cluster_list>} used to
+            override the groups saved in phy.
     """
     # Extractor
     extr = se.KiloSortSortingExtractor(ks_dir)
@@ -98,7 +112,9 @@ def load_sorting_extractor(
     return select.subset_clusters(
         extr,
         get_cluster_info(ks_dir),
+        selected_groups=selected_groups,
         good_only=good_only,
         drop_noise=drop_noise,
         selection_intervals=selection_intervals,
+        cluster_group_overrides=cluster_group_overrides,
     )
