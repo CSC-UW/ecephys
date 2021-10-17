@@ -12,6 +12,8 @@ import seaborn as sns
 import ecephys.plot as eplt
 import ecephys.xrsig as xrsig
 import ecephys.signal.kd_utils as kd
+import neurodsp.plts.utils as dspu
+import neurodsp.spectral as dsps
 
 
 #stole this function from Graham's 'compare_bandpower_timeseries' notebook. Any changes KD makes are noted with comments.
@@ -186,3 +188,28 @@ def plot_spectrogram_with_bp_rel2bl(spg_exp, spg_bl, band, bp_def, hyp, channel,
     )
     return b, s
 
+def plot_spectrogram_kd(
+    freqs,
+    spg_times,
+    spg,
+    f_range=None,
+    t_range=None,
+    yscale="linear",
+    figsize=(18, 6),
+    vmin=None,
+    vmax=None,
+    title = 'Title',
+    ax=None,
+):
+    freqs, spg_times, spg = dsps.trim_spectrogram(freqs, spg_times, spg, f_range, t_range)
+
+    ax = dspu.check_ax(ax, figsize=figsize)
+    im = ax.pcolormesh(spg_times, freqs, np.log10(spg), cmap='nipy_spectral', vmin=vmin, vmax=vmax, alpha=0.5, shading="gouraud")
+    ax.figure.colorbar(im)
+    ax.set_yscale(yscale)
+    ax.set_ylabel("Frequency [Hz]")
+    ax.set_xlabel("Time [sec]")
+    ax.set_title(title)
+
+    if yscale == "log":
+        ax.set_ylim(np.min(freqs[freqs > 0]), np.max(freqs))
