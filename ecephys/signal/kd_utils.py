@@ -14,10 +14,10 @@ import ecephys.xrsig.hypnogram_utils as xrhyp
 import ecephys.signal.kd_plotting as kp
 from scipy.stats import mode
 from ripple_detection.core import gaussian_smooth
-
+import tdt_xarray as tx
 
 ##Functions for loading TDT SEV-stores, and visbrain hypnograms:
-def load_hypnograms(subject, experiment, condition, scoring_start_time, hypnograms_yaml_file="N:\Data\paxilline_project_materials\pax-hypno-paths.yaml"):
+def load_hypnograms(subject, experiment, condition, scoring_start_time, hypnograms_yaml_file="/Volumes/paxilline/Data/paxilline_project_materials/pax-hypno-paths.yaml"):
     
     with open(hypnograms_yaml_file) as fp:
         yaml_data = yaml.safe_load(fp)
@@ -76,6 +76,54 @@ def sev_to_xarray(info, store):
 
     return data
 
+def tev_to_xarray(info, store):
+    """Convert a single stream store to xarray format.
+
+    Paramters:
+    ----------
+    info: tdt.StructType
+        The `info` field of a tdt `blk` struct, as returned by `_load_stream_store`.
+    store: tdt.StructType
+        The store field of a tdt `blk.streams` struct, as returned by `_load_stream_store`.
+
+    Returns:
+    --------
+    data: xr.DataArray (n_samples, n_channels)
+        Values: The data, in microvolts.
+        Attrs: units, fs
+        Name: The store name
+    """
+    n_channels, n_samples = store.data.shape
+
+    time = np.arange(0, n_samples) / store.fs + store.start_time
+    timedelta = pd.to_timedelta(time, "s")
+    datetime = pd.to_datetime(info.start_date) + timedelta
+
+    volts_to_microvolts = 1e6
+    data = xr.DataArray(
+        store.data.T * volts_to_microvolts,
+        dims=("time", "channel"),
+        coords={
+            "time": time,
+            "channel": store.channel,
+            "timedelta": ("time", timedelta),
+            "datetime": ("time", datetime),
+        },
+        name=store.name,
+    )
+    data.attrs["units"] = "uV"
+    data.attrs["fs"] = store.fs
+
+    return data
+
+def load_tev_store(path, t1=0, t2=0, channel=None, store=''):
+
+    data = tdt.read_block(path, channel=channel, store=store, t1=t1, t2=t2)
+    store = data.streams[store]
+    info = data.info
+    datax = tev_to_xarray(info, store)
+    return datax
+
 def load_sev_store(path, t1=0, t2=0, channel=None, store=''):
 
     data = tdt.read_block(path, channel=channel, store=store, t1=t1, t2=t2)
@@ -128,8 +176,11 @@ def fetch_xset(exp, key_list, analysis_root):
     dataset['name'] = exp
     return dataset
 
-def get_data_spg(block_path, store='', t1=0, t2=0, channel=None):
-    data = load_sev_store(block_path, t1=t1, t2=t2, channel=channel, store=store)
+def get_data_spg(block_path, store='', t1=0, t2=0, channel=None, sev=True):
+    if sev == True:
+        data = load_sev_store(block_path, t1=t1, t2=t2, channel=channel, store=store)
+    else:
+        data = load_tev_store(block_path, t1=t1, t2=t2, channel=channel, store=store)
     spg = get_spextrogram(data)
     print('Remember to save all data in xset-style dictionary, and to add experiment name key (key = "name") before using save_xset')
     return data, spg
@@ -196,6 +247,30 @@ def get_ss_spg_bp(spg, hyp, state, bands):
     spg = spg.sel(datetime=hyp.keep_states(state).covers_time(spg.datetime)).dropna(dim='datetime')
     bp = get_bp_set(spg, bands)
     return spg.swap_dims({'datetime': 'time'}), bp.swap_dims({'datetime': 'time'})
+
+def get_ss_bp(spg, hyp, state, bands):
+    """Need datetime dimension"""
+    try:
+        spg = spg.swap_dims({'time': 'datetime'})
+    except:
+        pass
+    spg = spg.sel(datetime=hyp.keep_states(state).covers_time(spg.datetime)).dropna(dim='datetime')
+    bp = get_bp_set(spg, bands)
+    return bp.swap_dims({'datetime': 'time'})
+
+
+def get_ss_spg(spg, hyp, state, dt=True):
+    """Need datetime dimension"""
+    try:
+        spg = spg.swap_dims({'time': 'datetime'})
+    except:
+        pass
+    spg = spg.sel(datetime=hyp.keep_states(state).covers_time(spg.datetime)).dropna(dim='datetime')
+    if dt == True:
+        return spg
+    else:
+        return spg.swap_dims({'datetime': 'time'})
+
 
 def get_ss_psd(spg, hyp, state, median=True):
     if median==True:
