@@ -238,6 +238,18 @@ def get_bp_set(spg, bands):
     })
     return bp_ds
 
+def get_bp_set2(spg, bands):
+    if type(spg) == xr.core.dataset.Dataset:
+        spg = spg.to_array(dim='channel')
+    
+    bp_ds = xr.Dataset({})
+    bp_vars = {}
+    keys = get_key_list(bands)
+    for k in keys:
+        bp_vars[k] = get_bandpower(spg, bands[k])
+    bp_set = bp_ds.assign(**bp_vars)
+    return bp_set
+
 def get_ss_spg_bp(spg, hyp, state, bands):
     """Need datetime dimension"""
     try:

@@ -27,6 +27,7 @@ state_colors = {
     "REM": "magenta",
     "Transition": "grey",
     "Art": "crimson",
+    "Wake-art": "crimson",
     "Unsure": "white",
 }
 
@@ -39,7 +40,7 @@ def _plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, title=None
     )
 
     bp = kd.get_bp_set(spg, band_definition)[band]
-    bp = kd.get_smoothed_da(bp, smoothing_sigma=12)
+    bp = kd.get_smoothed_da(bp, smoothing_sigma=14)
     sns.lineplot(x=bp.time, y=bp, color="black", ax=bp_ax)
     bp_ax.set(xlabel=None, ylabel='Raw '+band.capitalize()+' Power', xticks=[], xmargin=0)
     if hyp is not None:
@@ -213,3 +214,23 @@ def plot_spectrogram_kd(
 
     if yscale == "log":
         ax.set_ylim(np.min(freqs[freqs > 0]), np.max(freqs))
+
+
+def plot_bp_set(spg, bands, hyp, channel, start_time, end_time, ss=12, figsize=(15,5), title=None):
+    spg = spg.sel(channel=channel, time=slice(start_time, end_time))
+    bp_set = kd.get_bp_set2(spg, bands)
+    bp_set = kd.get_smoothed_ds(bp_set, smoothing_sigma=ss)
+    ax_index = np.arange(0, len(bands))
+    keys = kd.get_key_list(bands)
+
+    fig, axes = plt.subplots(ncols=1, nrows=len(bands), figsize=figsize)
+
+    for i, k in zip(ax_index, keys):
+        fr = bp_set[k].f_range
+        fr_str = '('+str(fr[0]) + ' -> ' +str(fr[1])+' Hz)'
+        ax = sns.lineplot(x=bp_set[k].time, y=bp_set[k], ax=axes[i])
+        ax.set_ylabel('Raw '+k.capitalize()+' Power')
+        ax.set_title(k.capitalize()+' Bandpower '+fr_str)
+    fig.suptitle(title)
+    fig.tight_layout(pad=1)
+    return fig, axes

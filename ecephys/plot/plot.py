@@ -40,6 +40,7 @@ state_colors = {
     "IS": "burlywood",
     "REM": "bisque",
     "Art": "crimson",
+    "Wake-art": "crimson",
     "?": "crimson",
     "None": "white",
     "Drug": "grey",
@@ -104,7 +105,6 @@ def plot_hypnogram_overlay(
     xlim = ax.get_xlim() if (ax and not xlim) else xlim
 
     ax = check_ax(ax, figsize=figsize)
-
     for bout in hypnogram.itertuples():
         ax.axvspan(
             bout.start_time,
