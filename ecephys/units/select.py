@@ -21,21 +21,20 @@ def get_selection_intervals_str(selection_intervals):
     return output_string.replace('.','_')
 
 
-def _get_cluster_groups(kslabel, curated_group, cluster_ids, cluster_group_overrides=None):
-    """Cluster group. Revert to KSLabel if group is None or 'unsorted'. Allow overrides.
+def _get_cluster_groups(curated_group, cluster_ids, cluster_group_overrides=None):
+    """Cluster group. Allow overrides. "NaN" values are replaced with 'unsorted'
     
     Kwargs:
         cluster_group_overrides (None or dict): Dictionary of {<group>: <cluster_list>} used to
             override the groups saved in phy
     """
-    assert len(kslabel) == len(curated_group)
-    assert len(kslabel) == len(cluster_ids)
-    use_KSLabel = (curated_group == 'unsorted') | pd.isna(curated_group)
-    use_KSLabel = use_KSLabel.values
-    group = np.empty((len(kslabel),), dtype=object)
-    group[use_KSLabel] = kslabel[use_KSLabel]
-    group[~use_KSLabel] = curated_group[~use_KSLabel]
-    group[np.where(group == 'nan')[0]] = np.nan
+    assert len(curated_group) == len(cluster_ids)
+    set_unsorted = (curated_group == 'unsorted') | pd.isna(curated_group) | (curated_group == 'nan')
+    set_unsorted = set_unsorted.values
+    group = np.empty((len(cluster_ids),), dtype=object)
+    group[set_unsorted] = 'unsorted'
+    group[~set_unsorted] = curated_group[~set_unsorted]
+    assert not any(pd.isna(group))
     if cluster_group_overrides is not None:
         for override_group, override_list in cluster_group_overrides.items():
             print(f"Overriding cluster group from phy with group `{override_group}` for N={len(override_list)} clusters")
@@ -81,11 +80,11 @@ def subset_cluster_info(
         selection_intervals = SELECTION_INTERVALS_DF
     validate_selection_intervals(info, selection_intervals)
 
-    for col in ["cluster_id", "KSLabel", "group"]:
+    for col in ["cluster_id", "group"]:
         assert col in info.columns
     
     # Group taking in account manual curation or reverting to automatic KS label otherwise
-    curated_group = _get_cluster_groups(info["KSLabel"], info["group"], info['cluster_id'], cluster_group_overrides=cluster_group_overrides)
+    curated_group = _get_cluster_groups(info["group"], info['cluster_id'], cluster_group_overrides=cluster_group_overrides)
 
     all_groups = list(set(list(np.unique(curated_group)) + list(cluster_group_overrides.keys())))
     if drop_noise:

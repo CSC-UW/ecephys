@@ -41,7 +41,7 @@ def get_cluster_info(ks_dir):
         create_phy_cluster_info(ks_dir)
     info = pd.read_csv(cluster_info_path, sep="\t")
     # Make sure we loaded the metrics.csv
-    if (ks_dir / "metrics.csv").exists() and not 'isi_viol' in info.columns:
+    if (ks_dir / "metrics.csv").exists() and not any(['isi_viol' in c for c in info.columns]):  # Check that one of the cols is "isi_viol*"
         import warnings
         warnings.warn("Regenerate `cluster_info.tsv` file in ks dir to include metrics.csv.")
         create_phy_cluster_info(ks_dir)
@@ -74,11 +74,8 @@ def get_cluster_groups(ks_dir, cluster_group_overrides=None):
             override the groups saved in phy.
     """
     info = get_cluster_info(ks_dir)
-    kslabel = info["KSLabel"]
-    curated_group = info["group"]
     return select._get_cluster_groups(
-        kslabel,
-        curated_group,
+        info['group'],
         info['cluster_id'],
         cluster_group_overrides=cluster_group_overrides,
     )
