@@ -17,9 +17,8 @@ SELECTION_INTERVALS_DF = {
 def get_selection_intervals_str(selection_intervals):
     if selection_intervals is None:
         return None
-    return '_'.join(
-        sorted([f'{k}={v1}-{v2}' for k, (v1, v2) in selection_intervals.items()])
-    )
+    output_string = '_'.join(sorted([f'{k}={v1}-{v2}' for k, (v1, v2) in selection_intervals.items()]))
+    return output_string.replace('.','_')
 
 
 def _get_cluster_groups(kslabel, curated_group, cluster_ids, cluster_group_overrides=None):
