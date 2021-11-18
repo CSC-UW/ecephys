@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from ..data.paths import get_datapath
+from ..data_mgmt.paths import get_datapath
 from ..utils import unnest_df, zscore_to_value, add_attrs, load_df_h5
 from ..scoring import mask_times, filter_states
 from ripple_detection.core import (

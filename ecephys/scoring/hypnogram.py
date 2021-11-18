@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-from ..data.paths import get_datapath
+from ..data_mgmt.paths import get_datapath
 
 
 def get_start_time(H, row):
