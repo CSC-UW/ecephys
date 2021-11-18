@@ -1,8 +1,8 @@
 from pathlib import Path
 import os
 import matlab.engine
-import ...sglx_utils
-import ...sglx_utils.external.SGLXMetaToCoords
+import ...sglx
+import ...sglx.external.SGLXMetaToCoords
 
 """Run JRClust."""
 

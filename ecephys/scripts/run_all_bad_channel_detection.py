@@ -5,7 +5,7 @@ import numpy as np
 
 import yaml
 from ecephys.utils.path_utils import get_run_specs
-from ecephys.sglx_utils import get_xy_coords
+from ecephys.sglx import get_xy_coords
 from ecephys.signal.bad_channels import get_good_channels
 from ecephys_spike_sorting.scripts.utils import SpikeGLX_utils
 
