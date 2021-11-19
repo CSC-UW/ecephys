@@ -60,139 +60,58 @@ def parse_sglx_stem(stem):
     return (run, gate, trigger, probe)
 
 
-def get_sglx_style_filename(run, gate, trigger, probe, ext, catgt_data=False):
+# TODO: Rename this function get_sglx_fname
+def get_sglx_style_filename(run, gate, trigger, probe, ext):
     """Get SpikeGLX-style filename from parts.
     Note that ext is of the form `lf.bin`, not `.lf.bin`.
     """
-    trig = trigger if not catgt_data else "tcat"
-    return f"{run}_{gate}_{trig}.{probe}.{ext}"
+    return f"{run}_{gate}_{trigger}.{probe}.{ext}"
 
 
-def get_sglx_style_parent_path(run, gate, trigger, probe, root_dir, catgt_data=False):
+# TODO: Rename this function get_sglx_probe_path
+def get_sglx_style_parent_path(run, gate, trigger, probe, root_dir):
     """Get the parent path where an SpikeGLX file would be found, assuming
     folder-per-probe organization.
     """
     probe_dir = f"{run}_{gate}_{probe}"
-    run_dir = f"{run}_{gate}" if not catgt_data else f"catgt_{run}_{gate}"
+    run_dir = f"{run}_{gate}"
     return root_dir / run_dir / probe_dir
 
 
-def get_sglx_style_abs_path(stem, ext, root, catgt_data=False):
+def get_sglx_style_abs_path(stem, ext, root):
     """Get the absolute path where a SpikeGLX filew ould be found, assuming
     folder-per-probe organization.
 
-    CatGT saves data with `catgt_` prepended to the run directory and `cat`
-    as trigger idx
+    root: pathlib.Path
+        The absolute path to the directory containing the SGLX run directories.
     """
     run, gate, trigger, probe = parse_sglx_stem(stem)
-    fname = get_sglx_style_filename(
-        run, gate, trigger, probe, ext, catgt_data=catgt_data
-    )
-    parent = get_sglx_style_parent_path(
-        run, gate, trigger, probe, root, catgt_data=catgt_data
-    )
+    fname = get_sglx_style_filename(run, gate, trigger, probe, ext)
+    parent = get_sglx_style_parent_path(run, gate, trigger, probe, root)
     return parent / fname
 
 
-def get_sglx_style_datapaths(yaml_path, subject, condition, ext, catgt_data=False, cat_trigger=False,
-                             data_root=None):
+def get_sglx_style_datapaths(yaml_path, subject, experiment, condition, ext):
     """Get all datapaths, assuming a properly formatted YAML file an folder-per-probe
-    organization.
-
-    The data for each condition is loaded in one of three ways:
-
-    
-    Kwargs:
-        catgt_data: bool
-            Path to corresponding catGT-processed concatenated file.
-            catGT file is saved in <root>/<condition>/<exp_id>/catgt_<run_dir>/<probe_dir>,
-            uses `cat` as the trigger index, and has `catgt_` prepended to the
-            run directory.
-        cat_trigger: bool
-            Replace trigger id with 'cat' to designate data issued from concatenated files.
-        data-root: str
-            Force root path
-    """
+    organization."""
     with open(yaml_path) as fp:
         yaml_data = yaml.safe_load(fp)
 
-    data_file = any([
-        ext in data_ext
-        for data_ext in ["lf.bin", "lf.meta", "ap.bin", "ap.meta"]
-    ]) 
-    if data_root is not None:
-        root = Path(data_root)
-    elif data_file and not catgt_data:
-        root = Path(yaml_data[subject]["raw-data-root"])
+    if (ext == "lf.bin") or (ext == "ap.bin"):
+        root = Path(yaml_data[subject][experiment]["raw-data-root"])
     else:
-        root = Path(yaml_data[subject]["analysis-root"])
+        root = Path(yaml_data[subject][experiment]["analysis-root"])
 
-    condition_data = yaml_data[subject][condition]
+    condition_manifest = list(flatten(yaml_data[subject][experiment][condition]))
 
-    # How do we interpret the condition's data?
-    if isinstance(condition_data, dict):
-        combined_condition = False
-        # subject: condition: experiment_id: [stem_0, stem_1]
-        # Append experiment id to root
-        paths = []
-        for experiment_id in condition_data.keys():
-            condition_manifest = list(flatten(condition_data[experiment_id]))
-            # All elements should be raw data stems
-            assert all(['.imec' in stem for stem in condition_manifest])
-            if catgt_data:
-                experiment_root = root / condition / experiment_id
-            else:
-                experiment_root = root / experiment_id
-            paths += [
-                get_sglx_style_abs_path(
-                    stem, ext, experiment_root, catgt_data=catgt_data
-                )
-                for stem in condition_manifest
-            ]
-    else:
-        condition_manifest = list(flatten(condition_data))
-        if all(['.imec' in stem for stem in condition_manifest]):
-            # subject: condition:[stem_0, stem_1]
-            # All elements are raw data stems
-            combined_condition = False
-            if catgt_data:
-                raise NotImplementedError
-            paths = [
-                get_sglx_style_abs_path(stem, ext, root, catgt_data=catgt_data)
-                for stem in condition_manifest
-            ]
-        elif all([cond in yaml_data[subject] for cond in condition_manifest]):
-            combined_condition = True
-            # subject: combined_condition: [cond1, cond2]
-            # Recursive loading
-            paths = []
-            for cond in condition_manifest:
-                paths += get_sglx_style_datapaths(
-                    yaml_path, subject, cond, ext, catgt_data=catgt_data,
-                    cat_trigger=cat_trigger, data_root=data_root
-                )
-        else:
-            raise ValueError(f"Incorrect format for {subject}, {condition}")
-
-    # For catGT data the triggers should have been concatenated
-    if catgt_data and not combined_condition:
-        assert len(set(paths)) == 1
-        paths = list(set(paths))
-
-    # No duplicates
-    if len(paths) != len(set(paths)):
-        raise ValueError(f"Duplicates in requested paths: {paths}")
-
-    return paths
+    return [get_sglx_style_abs_path(stem, ext, root) for stem in condition_manifest]
 
 
-def get_datapath(yaml_path, subject, condition, file, data_root=None):
-    if data_root is None:
-        with open(yaml_path) as fp:
-            yaml_data = yaml.safe_load(fp)
-        datapath = Path(yaml_data[subject]["analysis-root"])
-    else:
-        datapath = data_root
+def get_datapath(yaml_path, file, subject, experiment, condition=None):
+    with open(yaml_path) as fp:
+        yaml_data = yaml.safe_load(fp)
+
+    datapath = Path(yaml_data[subject][experiment]["analysis-root"])
 
     if condition:
         datapath = datapath / condition
