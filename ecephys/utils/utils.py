@@ -1,12 +1,9 @@
-import os
-import shutil
-from collections.abc import Iterable
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 from scipy.stats import median_abs_deviation
 
+from pathlib import Path
+from collections.abc import Iterable
 
 # https://stackoverflow.com/questions/2158395/flatten-an-irregular-list-of-lists
 def flatten(l):
@@ -35,6 +32,16 @@ def all_arrays_equal(iterator):
         iterator = iter(iterator)
         first = next(iterator)
         return all(np.array_equal(first, rest) for rest in iterator)
+    except StopIteration:
+        return True
+
+
+def all_equal(iterator):
+    """Check if all items in an un-nested array are equal."""
+    try:
+        iterator = iter(iterator)
+        first = next(iterator)
+        return all(first == rest for rest in iterator)
     except StopIteration:
         return True
 
@@ -122,11 +129,20 @@ def load_df_h5(path):
     return add_attrs(df, **metadata)
 
 
-def find_nearest(array, value):
-    """ https://stackoverflow.com/questions/2566412 """
+def find_nearest(array, value, tie_select='first'):
+    """Index of element in array nearest to value.
+    
+    Return either first or last value if ties"""
     array = np.asarray(array)
-    idx = (np.abs(array - value)).argmin()
-    return array[idx]
+    a = np.abs(array - value)
+    if tie_select == 'first':
+        return a.argmin()
+    elif tie_select == 'last':
+        # reverse array to find last occurence
+        b = a[::-1]
+        return len(b) - np.argmin(b) - 1
+    else:
+        raise ValueError()
 
 
 def add_attrs(obj, **kwargs):
@@ -231,23 +247,22 @@ def get_interval_complements(intervals, start_time, end_time):
     return complement
 
 
-def find_nearest(array, value, tie_select='first'):
-    """Index of element in array nearest to value.
-    
-    Return either first or last value if ties"""
-    array = np.asarray(array)
-    a = np.abs(array - value)
-    if tie_select == 'first':
-        return a.argmin()
-    elif tie_select == 'last':
-        # reverse array to find last occurence
-        b = a[::-1]
-        return len(b) - np.argmin(b) - 1
-    else:
-        raise ValueError()
+def dataframe_abs(df):
+    "Take the absolute value of all numeric columns in a dataframe."
+    _df = df.copy()
+    for col in df.columns:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            _df[col] = df[col].abs()
 
 
-# Avoid PermissionError with shutil.copytree on NAS smb share
-def system_copy(src, dst):
-    import subprocess
-    subprocess.call(['cp', '-r', str(src), str(dst)])
+def get_grouped_ecdf(df, col, group_var):
+    "Get ECDFs in arbitary groups for plotting using sns.lineplot."
+    ecdfs = list()
+    for group_name, dat in df.groupby(group_var):
+        dat_sorted = np.sort(dat[col])
+        ecdf = 1.0 * np.arange(len(dat[col])) / (len(dat[col]) - 1)
+        ecdfs.append(
+            pd.DataFrame({col: dat_sorted, "ecdf": ecdf, group_var: group_name})
+        )
+
+    return pd.concat(ecdfs)
