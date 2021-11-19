@@ -68,7 +68,7 @@ def compute_spectrogram_welch(
 
 
 def parallel_spectrogram_welch(sig, fs, **kwargs):
-    """Apply `compute_spectrogram_welch` to each channel in parallel.
+    """Apply `_compute_spectrogram_welch` to each channel in parallel.
 
     Parameters
     ----------
@@ -77,7 +77,7 @@ def parallel_spectrogram_welch(sig, fs, **kwargs):
     fs: float
         The sampling frequency of the data.
     **kwargs: optional
-        Keyword arguments passed to `compute_spectrogram_welch`.
+        Keyword arguments passed to `_compute_spectrogram_welch`.
 
     Returns:
     --------
