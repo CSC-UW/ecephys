@@ -4,9 +4,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-# from ecephys.data import channel_groups, paths
-from ecephys.scoring import filter_states
-from ecephys.sglx import load_timeseries
 from ecephys.signal.csd import get_kcsd
 from ecephys.signal.sharp_wave_ripples import apply_ripple_filter
 from ecephys.signal.timefrequency import get_perievent_cwtm
@@ -17,30 +14,25 @@ from ipywidgets import (BoundedFloatText, BoundedIntText, Checkbox,
 from kcsd import KCSD1D
 from neurodsp.plts.utils import check_ax
 from neurodsp.spectral.utils import trim_spectrogram
+from sglxarray import load_trigger
 
 state_colors = {
     "Wake": "palegreen",
     "W": "palegreen",
-    "aWk": "lightgreen",
     "Arousal": "palegreen",
+    "aWk": "lightgreen",
     "qWk": "seagreen",
     "M": "darkseagreen",
-    "NREM": "royalblue",
+    "Trans": "gainsboro",
+    "NREM": "plum",
     "N1": "thistle",
     "N2": "plum",
-    "REM": "magenta",
+    "IS": "burlywood",
+    "REM": "bisque",
     "Art": "crimson",
     "?": "crimson",
-    "IS": "White",
-    "Trans": "White",
-    "None": "White",
-    "Unsure": "darkorange",
-    "Brief-Arousal": "palegreen",
-    "Slow-During-Wake": "chartreuse",
-    "Transition": "grey", 
-    "Transition-to-NREM": "lightskyblue",
-    "Transition-to-REM": "plum",
-    "Transition-to-Wake": "palegreen"
+    "None": "white",
+    "Drug": "grey",
 }
 
 
@@ -203,7 +195,7 @@ def plot_on_off_overlay(on_off_df, state_colors=on_off_colors, **kwargs):
 
 
 def plot_hypnogram_overlay(
-    hypnogram, state_colors=state_colors, ax=None, figsize=(18, 3), alpha=0.3,
+    hypnogram, state_colors=state_colors, ax=None, xlim=None, figsize=(18, 3), alpha=0.3,
 ):
     """Shade plot background using hypnogram state.
 
@@ -214,7 +206,7 @@ def plot_hypnogram_overlay(
     ax: matplotlib.Axes, optional
         An axes upon which to plot.
     """
-    xlim = ax.get_xlim() if ax else (None, None)
+    xlim = ax.get_xlim() if (ax and not xlim) else xlim
 
     ax = check_ax(ax, figsize=figsize)
 
@@ -229,6 +221,23 @@ def plot_hypnogram_overlay(
         )
 
     ax.set_xlim(xlim)
+    return ax
+
+
+def plot_consolidated_bouts(hypnogram, consolidated, figsize=(30, 2)):
+    fig, axes = plt.subplots(2, 1, figsize=figsize)
+    plot_hypnogram_overlay(
+        hypnogram,
+        xlim=(hypnogram.start_time.min(), hypnogram.end_time.max()),
+        ax=axes[0],
+    )
+    for period in consolidated:
+        plot_hypnogram_overlay(period, xlim=axes[0].get_xlim(), ax=axes[1])
+
+    axes[0].set(yticks=[])
+    axes[1].set(yticks=[])
+
+    return axes
 
 
 def plot_all_ripples(time, lfps, filtered_lfps, ripple_times):
@@ -522,7 +531,7 @@ def _lazy_ripple_explorer(
 
     # Load the peri-event data
     all_chans = channel_groups.full[subject]
-    (time, sig, fs) = load_timeseries(
+    (time, sig, fs) = load_trigger(
         Path(paths.lfp_bin[condition][subject]),
         all_chans,
         start_time=window_start_time,
@@ -711,7 +720,7 @@ def _lazy_spw_explorer(
 
     # Load the peri-event data
     all_chans = channel_groups.full[subject]
-    (time, lfps, fs) = load_timeseries(
+    (time, lfps, fs) = load_trigger(
         paths.get_datapath(subject=subject, condition=condition, data="lf.bin"),
         all_chans,
         start_time=window_start_time,
