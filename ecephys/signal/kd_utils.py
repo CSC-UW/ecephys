@@ -60,17 +60,31 @@ def sev_to_xarray(info, store):
     datetime = pd.to_datetime(info.start_date) + timedelta
 
     volts_to_microvolts = 1e6
-    data = xr.DataArray(
-        store.data.T * volts_to_microvolts,
-        dims=("time", "channel"),
-        coords={
-            "time": time,
-            "channel": store.channels,
-            "timedelta": ("time", timedelta),
-            "datetime": ("time", datetime),
-        },
-        name=store.name,
-    )
+    # had to add this try-except because stupid TDT defines 'channels' for EEG/LFP, but 'channel' for EMG. 
+    try:
+        data = xr.DataArray(
+            store.data.T * volts_to_microvolts,
+            dims=("time", "channel"),
+            coords={
+                "time": time,
+                "channel": store.channels,
+                "timedelta": ("time", timedelta),
+                "datetime": ("time", datetime),
+            },
+            name=store.name,
+        )
+    except:
+        data = xr.DataArray(
+            store.data.T * volts_to_microvolts,
+            dims=("time", "channel"),
+            coords={
+                "time": time,
+                "channel": store.channel,
+                "timedelta": ("time", timedelta),
+                "datetime": ("time", datetime),
+            },
+            name=store.name,
+        )
     data.attrs["units"] = "uV"
     data.attrs["fs"] = store.fs
 
@@ -176,13 +190,18 @@ def fetch_xset(exp, key_list, analysis_root):
     dataset['name'] = exp
     return dataset
 
-def get_data_spg(block_path, store='', t1=0, t2=0, channel=None, sev=True):
+def get_data_spg(block_path, store='', t1=0, t2=0, channel=None, sev=True, window_length=4, overlap=1, pandas=False):
     if sev == True:
         data = load_sev_store(block_path, t1=t1, t2=t2, channel=channel, store=store)
     else:
         data = load_tev_store(block_path, t1=t1, t2=t2, channel=channel, store=store)
-    spg = get_spextrogram(data)
+    spg = get_spextrogram(data, window_length=window_length, overlap=overlap)
     print('Remember to save all data in xset-style dictionary, and to add experiment name key (key = "name") before using save_xset')
+    data = data.swap_dims({'time': 'datetime'})
+    spg = spg.swap_dims({'time': 'datetime'})
+    if pandas == True: 
+        data = data.to_dataframe().drop(labels=['time', 'timedelta'], axis=1)
+        spg = spg.to_dataframe(name='Power').drop(labels=['time', 'timedelta'], axis=1)
     return data, spg
 
 
@@ -238,7 +257,7 @@ def get_bp_set(spg, bands):
     })
     return bp_ds
 
-def get_bp_set2(spg, bands):
+def get_bp_set2(spg, bands, pandas=False):
     if type(spg) == xr.core.dataset.Dataset:
         spg = spg.to_array(dim='channel')
     
@@ -248,7 +267,11 @@ def get_bp_set2(spg, bands):
     for k in keys:
         bp_vars[k] = get_bandpower(spg, bands[k])
     bp_set = bp_ds.assign(**bp_vars)
-    return bp_set
+    if pandas == True:
+        bp_set = bp_set.to_dataframe().drop(labels=['time', 'timedelta'], axis=1)
+        return bp_set
+    else:
+        return bp_set
 
 def get_ss_spg_bp(spg, hyp, state, bands):
     """Need datetime dimension"""
