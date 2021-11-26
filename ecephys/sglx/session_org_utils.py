@@ -24,6 +24,7 @@ from pathlib import Path
 import pandas as pd
 
 from .file_mgmt import (
+    filter_files,
     validate_sglx_path,
     get_gate_files,
     filelist_to_frame,
@@ -66,27 +67,32 @@ def _get_gate_directories(session_sglx_dir):
     return sorted(matches)
 
 
-def _get_session_files(session_sglx_dir):
+def _get_session_files(session_sglx_dir, stream=None):
     """Get all SpikeGLX files belonging to a single session.
+    Optionally filter by stream (e.g. ap/lf), because these
+    streams may be stored in different locations.
 
     Parameters:
     -----------
     session_sglx_dir: pathlib.Path
+    stream: 'ap', 'lf', or None (default: None)
+        If stream is specified, ignore files not of the specified type.
 
     Returns:
     --------
     list of pathlib.Path
     """
-    return list(
+    session_files = list(
         chain.from_iterable(
             get_gate_files(gate_dir)
             for gate_dir in _get_gate_directories(session_sglx_dir)
         )
     )
+    return filter_files(session_files, stream=stream)
 
 
-def get_session_files(session_sglx_dir):
-    return filelist_to_frame(_get_session_files(session_sglx_dir))
+def get_session_files(session_sglx_dir, stream=None):
+    return filelist_to_frame(_get_session_files(session_sglx_dir, stream))
 
 
 def _get_document_files(doc):
@@ -103,7 +109,10 @@ def _get_document_files(doc):
     """
     return list(
         chain.from_iterable(
-            _get_session_files(Path(doc["raw_data_directory"], session, "SpikeGLX"))
+            (
+                _get_session_files(Path(session["ap"]), stream="ap")
+                + _get_session_files(Path(session["lf"]), stream="lf")
+            )
             for session in doc["recording_sessions"]
         )
     )
@@ -141,6 +150,23 @@ def get_yamlstream_files(stream):
     return pd.concat(d.values(), keys=d.keys(), names=["subject"], sort=True)
 
 
+def _get_experiment_sessions(doc, experiment_name):
+    """Get the sessions for a given experiment.
+
+    Parameters:
+    -----------
+    doc: dict
+        The YAML specification for this subject.
+    experiment_name: string
+
+    Returns:
+    --------
+    list of dicts
+    """
+    ids = doc["experiments"][experiment_name]["recording_session_ids"]
+    return [session for session in doc["recording_sessions"] if session["id"] in ids]
+
+
 def _get_experiment_files(doc, experiment_name):
     """Get all SpikeGLX files belonging to a single experiment.
 
@@ -156,8 +182,11 @@ def _get_experiment_files(doc, experiment_name):
     """
     return list(
         chain.from_iterable(
-            _get_session_files(Path(doc["raw_data_directory"], session, "SpikeGLX"))
-            for session in doc["experiments"][experiment_name]["recording_sessions"]
+            (
+                _get_session_files(Path(session["ap"]), stream="ap")
+                + _get_session_files(Path(session["lf"]), stream="lf")
+            )
+            for session in _get_experiment_sessions(doc, experiment_name)
         )
     )
 
