@@ -37,8 +37,10 @@ def _get_session_style_path_parts(path):
     session_sglx_dir = gate_dir.parent
     session_dir = session_sglx_dir.parent
     subject_dir = session_dir.parent
+    root_dir = subject_dir.parent
     return (
-        subject_dir,
+        root_dir,
+        subject_dir.name,
         session_dir.name,
         session_sglx_dir.name,
         gate_dir.name,
