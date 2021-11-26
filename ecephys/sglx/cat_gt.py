@@ -17,6 +17,10 @@ def get_catGT_command(catGT_path, wine_path=None, **kwargs):
         The gate index of the data you wish to operate on.
     t: formats as str
         The trigger index or indices you wish to operate on. E.g. if you wish to concatenate t0 through t6, '0,6'.
+    gtlist: formats as str
+        For CatGT>=2.5, this option overrides the -g= and -t= options so that you can specify a separate t-range for each g-index. Specify the list like this::
+            -gtlist={g0,t0a,t0b}{g1,t1a,t1b}... (include the curly braces).
+        if specified, -g and -t should NOT be kwargs.
     lf: bool, optional
         If true, operate on LFP data. Defaults to `False`
     ap: bool, optional
@@ -65,8 +69,18 @@ def get_catGT_command(catGT_path, wine_path=None, **kwargs):
 
     cmd_parts.append(f"-dir={kwargs.pop('dir')}")
     cmd_parts.append(f"-run={kwargs.pop('run')}")
-    cmd_parts.append(f"-g={kwargs.pop('g')}")
-    cmd_parts.append(f"-t={kwargs.pop('t')}")
+
+    # CatGT >= 2.4 accepts gtlist option
+    assert (
+        'gtlist' in kwargs.keys()
+    ) or (
+        'g' in kwargs.keys() and 't' in kwargs.keys()
+    )
+    if 'gtlist' in kwargs.keys():
+        cmd_parts.append(f"-gtlist={kwargs.pop('gtlist')}")
+    else:
+        cmd_parts.append(f"-g={kwargs.pop('g')}")
+        cmd_parts.append(f"-t={kwargs.pop('t')}")
 
     for opt, val in kwargs.items():
         if type(val) == bool:
