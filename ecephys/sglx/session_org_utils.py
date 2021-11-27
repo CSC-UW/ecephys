@@ -67,35 +67,48 @@ def _get_gate_directories(session_sglx_dir):
     return sorted(matches)
 
 
-def _get_session_files(session_sglx_dir, stream=None):
-    """Get all SpikeGLX files belonging to a single session.
-    Optionally filter by stream (e.g. ap/lf), because these
-    streams may be stored in different locations.
+def _get_session_files_from_single_location(session_sglx_dir):
+    """Get all SpikeGLX files belonging to a single session directory.
 
     Parameters:
     -----------
     session_sglx_dir: pathlib.Path
-    stream: 'ap', 'lf', or None (default: None)
-        If stream is specified, ignore files not of the specified type.
 
     Returns:
     --------
     list of pathlib.Path
     """
-    session_files = list(
+    return list(
         chain.from_iterable(
             get_gate_files(gate_dir)
             for gate_dir in _get_gate_directories(session_sglx_dir)
         )
     )
-    return filter_files(session_files, stream=stream)
 
+def get_session_files_from_single_location(session_sglx_dir):
+    return filelist_to_frame(_get_session_files_from_single_location(session_sglx_dir))
 
-def get_session_files(session_sglx_dir, stream=None):
-    return filelist_to_frame(_get_session_files(session_sglx_dir, stream))
+def _get_session_files_from_multiple_locations(session):
+    """Get all SpikeGLX files belonging to a single session.
+    The AP and LF files may be stored in separate locations.
 
+    Parameters:
+    -----------
+    session: dict
+        From sessions.yaml, must have fields 'ap' and 'lf' pointing to respective data locations.
 
-def _get_document_files(doc):
+    Returns:
+    --------
+    list of pathlib.Path
+    """
+    ap_files = filter_files(_get_session_files_from_single_location(Path(session["ap"])), stream="ap")
+    lf_files = filter_files(_get_session_files_from_single_location(Path(session["lf"])), stream="lf")
+    return ap_files + lf_files
+
+def get_session_files_from_multiple_locations(session):
+    return filelist_to_frame(_get_session_files_from_multiple_locations(session))
+
+def _get_subject_files(sessions):
     """Get all SpikeGLX files belonging to a single subject's YAML document.
 
     Parameters:
@@ -109,72 +122,50 @@ def _get_document_files(doc):
     """
     return list(
         chain.from_iterable(
-            (
-                _get_session_files(Path(session["ap"]), stream="ap")
-                + _get_session_files(Path(session["lf"]), stream="lf")
-            )
-            for session in doc["recording_sessions"]
+            _get_session_files_from_multiple_locations(session)
+            for session in sessions
         )
     )
 
 
-def get_document_files(doc):
-    return filelist_to_frame(_get_document_files(doc))
+def get_subject_files(sessions):
+    return filelist_to_frame(_get_subject_files(sessions))
 
 
-def _get_subject_files(doc):
-    return _get_document_files(doc)
-
-
-def get_subject_files(doc):
-    return get_document_files(doc)
-
-
-def _get_yamlstream_files(stream):
+def _get_sessions_yamlstream_files(stream):
     """Get SpikeGLX files of belonging to all YAML documents in a YAML stream.
 
     Parameters:
     -----------
-    docs: list of dict
+    stream: list of dict
         The YAML specifications for each subject.
 
     Returns:
     --------
-    list of pathlib.Path
+    dict of list of pathlib.Path, keyed by subject.
     """
-    return {doc["subject"]: _get_document_files(doc) for doc in stream}
+    return {doc["subject"]: _get_subject_files(doc["recording_sessions"]) for doc in stream}
 
 
 def get_yamlstream_files(stream):
-    d = {doc["subject"]: get_document_files(doc) for doc in stream}
+    d = {doc["subject"]: get_subject_files(doc["recording_sessions"]) for doc in stream}
     return pd.concat(d.values(), keys=d.keys(), names=["subject"], sort=True)
 
+##### Functions up to here deal with sessions.yaml, not experiments_and_aliases.yaml
 
-def _get_experiment_sessions(doc, experiment_name):
-    """Get the sessions for a given experiment.
+def _get_experiment_sessions(sessions, experiment):
+    # TODO: Document
+    return [session for session in sessions if session["id"] in experiment["recording_session_ids"]]
 
-    Parameters:
-    -----------
-    doc: dict
-        The YAML specification for this subject.
-    experiment_name: string
-
-    Returns:
-    --------
-    list of dicts
-    """
-    ids = doc["experiments"][experiment_name]["recording_session_ids"]
-    return [session for session in doc["recording_sessions"] if session["id"] in ids]
-
-
-def _get_experiment_files(doc, experiment_name):
+def _get_experiment_files(sessions, experiment):
     """Get all SpikeGLX files belonging to a single experiment.
 
     Parameters:
     -----------
-    doc: dict
-        The YAML specification for this subject.
-    experiment_name: string
+    sessions: list of dict
+        The YAML specification of sessions for this subject.
+    experiment: dict
+        The YAML specification of this experiment for this subject.
 
     Returns:
     --------
@@ -182,19 +173,18 @@ def _get_experiment_files(doc, experiment_name):
     """
     return list(
         chain.from_iterable(
-            (
-                _get_session_files(Path(session["ap"]), stream="ap")
-                + _get_session_files(Path(session["lf"]), stream="lf")
-            )
-            for session in _get_experiment_sessions(doc, experiment_name)
+            _get_session_files_from_multiple_locations(session)
+            for session in _get_experiment_sessions(sessions, experiment)
         )
     )
 
 
-def get_experiment_files(doc, experiment_name):
-    return filelist_to_frame(_get_experiment_files(doc, experiment_name))
+def get_experiment_files(sessions, experiment):
+    return filelist_to_frame(_get_experiment_files(sessions, experiment))
 
 
+# TODO: This function seems like it belongs in file_mgmt.py, since it does not
+# rely on sessions.yaml or experiments_and_aliases.yaml
 def parse_trigger_stem(stem):
     x = re.search(r"_g\d+_t\d+\Z", stem)  # \Z forces match at string end.
     run = stem[: x.span()[0]]  # The run name is everything before the match
@@ -204,23 +194,24 @@ def parse_trigger_stem(stem):
     return (run, gate, trigger)
 
 
-def get_alias_files(doc, experiment_name, alias_name):
+def get_alias_files(sessions, experiment, alias):
     """Get all SpikeGLX files belonging to a single alias.
 
     Parameters:
     -----------
-    doc: dict
-        The YAML specification for this subject.
-    experiment_name: string
-    alias_name: string
+    sessions: list of dict
+        The YAML specification of sessions for this subject.
+    experiment: dict
+        The YAML specification of this experiment for this subject.
+    alias: dict
+        The YAML specification of this alias, for this experiment, for this subject.
 
     Returns:
     --------
     pd.DataFrame:
         All files in the alias, in sorted order, inclusive of both start_file and end_file.
     """
-    alias = doc["experiments"][experiment_name]["aliases"][alias_name]
-    df = get_experiment_files(doc, experiment_name)
+    df = get_experiment_files(sessions, experiment)
     df = (
         set_index(df).reset_index(level=0).sort_index()
     )  # Make df sliceable using (run, gate, trigger)
@@ -228,20 +219,25 @@ def get_alias_files(doc, experiment_name, alias_name):
         parse_trigger_stem(alias["start_file"]) : parse_trigger_stem(alias["end_file"])
     ].reset_index()
 
-
+# TODO: This function could go with the sessions.yaml functions and be imported by the
+# experiments_and_aliases.yaml functions.
 def get_subject_document(yaml_stream, subject_name):
     """Get a subject's YAML document from a YAML stream."""
     matches = [doc for doc in yaml_stream if doc["subject"] == subject_name]
     assert len(matches) == 1, f"Exactly 1 YAML document should match {subject_name}"
     return matches[0]
 
-
-def get_files(yaml_stream, subject, experiment, alias=None, **kwargs):
+def get_files(sessions_stream, experiments_stream, subject_name, experiment_name, alias_name=None, **kwargs):
     """Get all SpikeGLX files matching selection criteria."""
-    doc = get_subject_document(yaml_stream, subject)
+    sessions_doc = get_subject_document(sessions_stream, subject_name)
+    experiments_doc = get_subject_document(experiments_stream, subject_name)
+
+    sessions = sessions_doc['recording_sessions']
+    experiment = experiments_doc['experiments'][experiment_name]
+
     df = (
-        get_alias_files(doc, experiment, alias)
-        if alias
-        else get_experiment_files(doc, experiment)
+        get_alias_files(sessions, experiment, experiment['aliases'][alias_name])
+        if alias_name
+        else get_experiment_files(sessions, experiment)
     )
     return loc(df, **kwargs)
