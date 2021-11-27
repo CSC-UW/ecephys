@@ -1,7 +1,5 @@
 """
 These functions assume session-style experiment specification and organization of SpikeGLX data.
-This system would be very easy to extend so that each recording session can be on e.g. a different drive,
-by simply moving the raw-data-root field into each session (and probably renaming it).
 
 Functions beginning with underscores generally return lists and dictionaries,
 while functions without are generally wrappers that return DataFrames.
@@ -154,7 +152,19 @@ def get_yamlstream_files(stream):
 ##### Functions up to here deal with sessions.yaml, not experiments_and_aliases.yaml
 
 def _get_experiment_sessions(sessions, experiment):
-    # TODO: Document
+    """Get the subset of sessions needed by an experiment.
+
+    Parameters:
+    -----------
+    sessions: list of dict
+        The YAML specification of sessions for this subject.
+    experiment: dict
+        The YAML specification of this experiment for this subject.
+
+    Returns:
+    --------
+    list of dict
+    """
     return [session for session in sessions if session["id"] in experiment["recording_session_ids"]]
 
 def _get_experiment_files(sessions, experiment):
