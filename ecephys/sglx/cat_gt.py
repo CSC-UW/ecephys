@@ -1,3 +1,105 @@
+import subprocess
+import numpy as np
+
+SYNC_CHANNEL = 384  # Applied to all
+
+
+CATGT_PARAMS_MANDATORY_KEYS = [
+    'gblcar', 'gfix', 'ap', 'lf'
+]  # 'gtlist', 'prb' are added programmatically
+
+
+CATGT_PARAMS_RESERVED_KEYS = [
+    'gtlist', 'g', 't', 'prb', 
+]
+
+
+def run_catgt(raw_files, catgt_params, catgt_path, src_dir, tgt_dir, dry_run=True):
+    """Run CatGT>=2.4.
+    
+    Args:
+        raw_files (pd.DataFrame): Frame as returned from sglx.session_org_utils.get_files.
+            Should be in chronological order and contain a single run & probe.
+        catgt_params (dict): CatGT params dict. The following keys are programmatically derived::
+            ['gtlist', 'run', 'SY']
+        catgt_path (str or pathlib.Path): Path to CatGT's `runit.sh`
+
+    """
+
+    # Expected params
+    assert all([k in catgt_params.keys() for k in CATGT_PARAMS_MANDATORY_KEYS])
+    assert all([k not in catgt_params.keys() for k in CATGT_PARAMS_RESERVED_KEYS])
+
+    assert len(raw_files)  # Files were found
+
+    assert len(set(raw_files.probe)) == 1  # Single probe
+    probe_i = raw_files.probe.values[0].split('imec')[1]
+
+    assert len(set(raw_files.run)) == 1  # Single run
+    run_id = raw_files.run.values[0]
+
+    assert len(set(raw_files.acqApLfSy)) == 1 # TODO Properly check SYNC channel
+    assert raw_files.acqApLfSy.values[0] == '384,384,1'
+    sync_channel = SYNC_CHANNEL
+    assert sync_channel == 384
+
+    assert catgt_params['ap']
+    assert not catgt_params['lf']
+
+    gtlist = parse_gtlist(raw_files.gate.values, raw_files.trigger.values)
+    catgt_params['gtlist'] = gtlist
+
+    cmd = get_catGT_command(
+        catGT_path=catgt_path,
+        dir=str(src_dir),
+        dest=str(tgt_dir),
+        run=run_id,
+        prb=str(probe_i),
+        SY=f"{probe_i},{sync_channel},6,500",
+        prb_fld=True,
+        out_prb_fld=True,
+        **catgt_params,
+    )
+
+    print(f"Running {cmd}")
+    if dry_run:
+        print("Dry run: doing nothing")
+        return
+    else:
+        tgt_dir.mkdir(parents=True, exist_ok=True)
+        _ = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+
+    return
+
+
+def parse_gtlist(g_list, t_list):
+    """Return {ga,tstart_a,tend_a}{...}{gn,tstart_end,tend_end}"""
+
+    assert len(g_list) == len(t_list)
+
+    g_i_array = np.array([
+        gstring.split('g')[1]
+        for gstring in g_list
+    ], dtype=int) # eg [0, 1]
+    t_i_array = np.array([
+        tstring.split('t')[1]
+        for tstring in t_list
+    ], dtype=int)  # eg [1, 2, 0, 1]
+
+    gtlist = ''
+    unique_g_idx = sorted(np.unique(g_i_array))
+
+    for g in unique_g_idx:
+        g_t_idx = sorted(t_i_array[np.where(g_i_array == g)[0]])
+        assert len(g_t_idx) == len(set(g_t_idx))  # no repeats
+        t_start = g_t_idx[0]
+        t_end = g_t_idx[-1]
+        assert len(g_t_idx) == len(range(t_start, t_end + 1))  # no gaps
+        gtlist += '{' + f'g{g},t{t_start},t{t_end}' + '}'
+    
+    return gtlist
+
+
 def get_catGT_command(catGT_path, wine_path=None, **kwargs):
     """Build up a CatGT command of the form:
         CatGT -dir=data_dir -run=run_name -g=g -t=ta,tb <which streams> [ options ]
