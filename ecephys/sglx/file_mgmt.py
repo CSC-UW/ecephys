@@ -44,7 +44,7 @@ from .external.readSGLX import readMeta
 
 
 def parse_sglx_fname(fname):
-    """Parse recording identifiers from a SpikeGLX style filename stem.
+    """Parse recording identifiers from a SpikeGLX style filename.
 
     Parameters
     ---------

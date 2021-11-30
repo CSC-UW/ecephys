@@ -53,13 +53,17 @@ INSTALL_REQUIRES = [
     "neurodsp",
     "ripple_detection",
     "scipy",
+    "numpy",
+    "pandas",
     "xarray",
+    "matplotlib",
     "seaborn",
     "pyyaml",
+    "black",
     "kcsd @ git+https://github.com/Neuroinflab/kCSD-python@master#egg=kcsd",
     "emg_from_lfp @ git+https://github.com/CSC-UW/emg_from_lfp@master#egg=emg_from_lfp",
     "hypnogram @ git+https://github.com/CSC-UW/hypnogram.git@master#egg=hypnogram",
-    "sglxarray @ git+https://github.com/CSC-UW/sglxarray.git@master#egg=sglxarray",
+    "sglxarray @ git+https://github.com/CSC-UW/sglxarray.git@main#egg=sglxarray",
 ]
 
 PYTHON_REQUIRES = ">= 3.7"
