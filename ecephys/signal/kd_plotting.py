@@ -31,7 +31,7 @@ state_colors = {
     "Unsure": "white",
 }
 
-def _plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, title=None, figsize=(15, 5)):
+def _plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, title=None, figsize=(20, 5)):
     fig, (bp_ax, spg_ax) = plt.subplots(
         ncols=1,
         nrows=2,
@@ -41,7 +41,7 @@ def _plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, title=None
 
     bp = kd.get_bp_set(spg, band_definition)[band]
     bp = kd.get_smoothed_da(bp, smoothing_sigma=14)
-    sns.lineplot(x=bp.time, y=bp, color="black", ax=bp_ax)
+    sns.lineplot(x=bp.datetime, y=bp, color="black", ax=bp_ax)
     bp_ax.set(xlabel=None, ylabel='Raw '+band.capitalize()+' Power', xticks=[], xmargin=0)
     if hyp is not None:
         eplt.plot_hypnogram_overlay(
@@ -49,7 +49,7 @@ def _plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, title=None
         )
 
     eplt.plot_spectrogram(
-        spg.frequency, spg.time, spg, yscale="log", f_range=(0, 50), ax=spg_ax
+        spg.frequency, spg.datetime, spg, yscale="log", f_range=(0, 50), ax=spg_ax
     )
 
     if title:
@@ -58,13 +58,14 @@ def _plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, title=None
     return bp_ax, spg_ax
 
 
-def plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, channel, start_time, end_time, title=None):
+def plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, channel, start_time, end_time, title=None, figsize=(20,5)):
     b, s = _plot_spectrogram_with_bandpower(
-        spg.sel(channel=channel, time=slice(start_time, end_time)),
+        spg.sel(channel=channel, datetime=slice(start_time, end_time)),
         band_definition,
         band,
         hyp,
         title=title,
+        figsize=figsize
     )
     return b, s
 
