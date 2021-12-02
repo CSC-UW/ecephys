@@ -1,4 +1,5 @@
 import pandas as pd
+import xarray as xr
 
 
 def rebase_time(sig, in_place=True):
@@ -22,3 +23,14 @@ def dtdim(dat):
         raise ValueError(
             "Exactly one of `time` or `timedelta` must be present as a dimension."
         )
+
+
+def load_and_concatenate_datasets(paths):
+    datasets = list()
+    for path in paths:
+        try:
+            datasets.append(xr.load_dataset(path))
+        except FileNotFoundError:
+            pass
+
+    return rebase_time(xr.concat(datasets, dim="time"))
