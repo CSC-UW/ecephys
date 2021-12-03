@@ -25,10 +25,13 @@ def run_catgt(raw_files, catgt_params, catgt_path, src_dir, tgt_dir, dry_run=Tru
         catgt_path (str or pathlib.Path): Path to CatGT's `runit.sh`
 
     """
+    catgt_params = catgt_params.copy()
 
     # Expected params
-    assert all([k in catgt_params.keys() for k in CATGT_PARAMS_MANDATORY_KEYS])
-    assert all([k not in catgt_params.keys() for k in CATGT_PARAMS_RESERVED_KEYS])
+    assert all([k in catgt_params.keys() for k in CATGT_PARAMS_MANDATORY_KEYS]), \
+        f'Missing key in {catgt_params.keys()}. The following are mandatory: {CATGT_PARAMS_MANDATORY_KEYS}'
+    assert all([k not in catgt_params.keys() for k in CATGT_PARAMS_RESERVED_KEYS]), \
+        f'Unexpected key in {catgt_params.keys()}. The following are reserved: {CATGT_PARAMS_RESERVED_KEYS}'
 
     assert len(raw_files)  # Files were found
 
