@@ -266,3 +266,9 @@ def get_grouped_ecdf(df, col, group_var):
         )
 
     return pd.concat(ecdfs)
+
+# Avoid PermissionError with shutil.copytree on NAS smb share
+# TODO: Move to wisc-specific
+def system_copy(src, dst):
+    import subprocess
+    subprocess.call(['cp', '-r', str(src), str(dst)])
