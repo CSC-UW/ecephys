@@ -3,7 +3,7 @@ from os.path import join as pjoin
 # Format expected by setup.py and doc/source/conf.py: string of form "X.Y.Z"
 _version_major = 0
 _version_minor = 0
-_version_micro = 1  # use '' for first of series, number for 1 and above
+_version_micro = 2  # use '' for first of series, number for 1 and above
 _version_extra = "dev"
 # _version_extra = ''  # Uncomment this for full releases
 
@@ -49,15 +49,26 @@ MINOR = _version_minor
 MICRO = _version_micro
 VERSION = __version__
 PACKAGE_DATA = {"ecephys": [pjoin("data", "*")]}
+EXTRAS_REQUIRE = {
+    "tables": [
+        "tables",
+    ]
+}
 INSTALL_REQUIRES = [
     "neurodsp",
     "ripple_detection",
     "scipy",
+    "numpy",
+    "pandas",
     "xarray",
+    "matplotlib",
     "seaborn",
     "pyyaml",
+    "black",
     "kcsd @ git+https://github.com/Neuroinflab/kCSD-python@master#egg=kcsd",
     "emg_from_lfp @ git+https://github.com/CSC-UW/emg_from_lfp@master#egg=emg_from_lfp",
+    "hypnogram @ git+https://github.com/CSC-UW/hypnogram.git@master#egg=hypnogram",
+    "sglxarray @ git+https://github.com/CSC-UW/sglxarray.git@main#egg=sglxarray",
 ]
 
 PYTHON_REQUIRES = ">= 3.7"

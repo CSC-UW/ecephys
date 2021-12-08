@@ -4,65 +4,73 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-# from ecephys.data import channel_groups, paths
-from ecephys.scoring import filter_states
-from ecephys.sglx_utils import load_timeseries
-from ecephys.signal.csd import get_kcsd
+from ecephys.xrsig import get_kcsd
 from ecephys.signal.sharp_wave_ripples import apply_ripple_filter
 from ecephys.signal.timefrequency import get_perievent_cwtm
 from ecephys.signal.utils import mean_subtract
-from ipywidgets import (BoundedFloatText, BoundedIntText, Checkbox,
-                        FloatSlider, HBox, IntSlider, Select, SelectionSlider,
-                        fixed, interact, interactive_output, jslink)
+from ipywidgets import (
+    BoundedFloatText,
+    BoundedIntText,
+    Checkbox,
+    FloatSlider,
+    HBox,
+    IntSlider,
+    Select,
+    SelectionSlider,
+    fixed,
+    interact,
+    interactive_output,
+    jslink,
+)
 from kcsd import KCSD1D
 from neurodsp.plts.utils import check_ax
 from neurodsp.spectral.utils import trim_spectrogram
+from sglxarray import load_trigger
 
 state_colors = {
     "Wake": "palegreen",
     "W": "palegreen",
-    "aWk": "lightgreen",
     "Arousal": "palegreen",
+    "aWk": "lightgreen",
     "qWk": "seagreen",
     "M": "darkseagreen",
-    "NREM": "royalblue",
+    "Trans": "gainsboro",
+    "NREM": "plum",
     "N1": "thistle",
     "N2": "plum",
-    "REM": "magenta",
+    "IS": "burlywood",
+    "REM": "bisque",
     "Art": "crimson",
     "?": "crimson",
-    "IS": "White",
-    "Trans": "White",
-    "None": "White",
-    "Unsure": "darkorange",
-    "Brief-Arousal": "palegreen",
-    "Slow-During-Wake": "chartreuse",
-    "Transition": "grey", 
-    "Transition-to-NREM": "lightskyblue",
-    "Transition-to-REM": "plum",
-    "Transition-to-Wake": "palegreen"
+    "None": "white",
+    "Drug": "grey",
 }
 
 
 on_off_colors = {
-    'on': 'tomato',
-    'off': 'plum',
+    "on": "tomato",
+    "off": "plum",
 }
 
 
-def plot_spike_train(data, Tmax=None, ax=None, linewidth=0.1, linelengths=0.95, lineoffsets=1.0, **kwargs):
+def plot_spike_train(
+    data, Tmax=None, ax=None, linewidth=0.1, linelengths=0.95, lineoffsets=1.0, **kwargs
+):
     """Spike raster.
-    
+
     Args:
         data (array-like or list of array-like)
     """
     if ax is None:
         f, ax = plt.subplots()
-    
+
     ax.eventplot(
-        data, colors='black',
-        linewidth=linewidth, linelengths=linelengths, lineoffsets=lineoffsets,
-        **kwargs
+        data,
+        colors="black",
+        linewidth=linewidth,
+        linelengths=linelengths,
+        lineoffsets=lineoffsets,
+        **kwargs,
     )
     ax.set_xlim(left=0)
     if Tmax is not None:
@@ -80,13 +88,16 @@ def plot_psth_hist(psth_array, window, binsize, ylabel=None, ylim=None):
         xpos,
         psth_array,
         color="black",
-        width=1.0, facecolor='black', edgecolor='black',
+        width=1.0,
+        facecolor="black",
+        edgecolor="black",
     )
 
     plt.ylim(ylim)
 
     # y ticks: Only integers
     from matplotlib.ticker import MaxNLocator
+
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
 
     # x ticks: Only 0, first and last value and muiltiple of gcd in between
@@ -99,13 +110,13 @@ def plot_psth_hist(psth_array, window, binsize, ylabel=None, ylim=None):
     ax.set_xticks(xtic_locs)
     ax.set_xticklabels(xtic_labels, rotation=0)
 
-    plt.xlabel('Time (msec)')
+    plt.xlabel("Time (msec)")
 
     # vertical line at t=0
-    plt.axvline((-window[0]) / binsize, color='red', linestyle='--', linewidth=2)
+    plt.axvline((-window[0]) / binsize, color="red", linestyle="--", linewidth=2)
 
     return f, ax
-    
+
 
 def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_label=None):
     if clim is None:
@@ -118,16 +129,20 @@ def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_labe
     # Generate a custom diverging colormap
     cmap = sns.diverging_palette(230, 20, as_cmap=True)
 
-    # Draw the heatmap 
+    # Draw the heatmap
     # xvalues = np.arange(window[0], window[1], binsize)
     hm = sns.heatmap(
         psth_array,
         cmap=cmap,
-        vmin=vmin, vmax=vmax, center=0, robust=True,
-        square=False, linewidths=0.0,
-        cbar_kws={"shrink": .5, "label": cbar_label},
+        vmin=vmin,
+        vmax=vmax,
+        center=0,
+        robust=True,
+        square=False,
+        linewidths=0.0,
+        cbar_kws={"shrink": 0.5, "label": cbar_label},
         yticklabels=ylabels,
-#         xticklabels=xvalues,
+        #         xticklabels=xvalues,
     )
     # ax.set_yticklabels(rotation=0)
 
@@ -137,8 +152,8 @@ def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_labe
         if lbl is None:
             yticks[i].set_visible(False)
     # Force horizontal ticks
-    plt.yticks(rotation=0) 
-        
+    plt.yticks(rotation=0)
+
     # x ticks: Only 0, first and last value
     xtic_len = gcd(abs(window[0]), window[1])
     xtic_labels = range(window[0], window[1] + xtic_len, xtic_len)
@@ -150,8 +165,8 @@ def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_labe
     ax.set_xticklabels(xtic_labels, rotation=0)
 
     # vertical line at t=0
-    plt.axvline((-window[0]) / binsize, color='black', linestyle='--', linewidth=2)
-    
+    plt.axvline((-window[0]) / binsize, color="black", linestyle="--", linewidth=2)
+
     return f, ax
 
 
@@ -203,7 +218,12 @@ def plot_on_off_overlay(on_off_df, state_colors=on_off_colors, **kwargs):
 
 
 def plot_hypnogram_overlay(
-    hypnogram, state_colors=state_colors, ax=None, figsize=(18, 3), alpha=0.3,
+    hypnogram,
+    state_colors=state_colors,
+    ax=None,
+    xlim=None,
+    figsize=(18, 3),
+    alpha=0.3,
 ):
     """Shade plot background using hypnogram state.
 
@@ -214,7 +234,7 @@ def plot_hypnogram_overlay(
     ax: matplotlib.Axes, optional
         An axes upon which to plot.
     """
-    xlim = ax.get_xlim() if ax else (None, None)
+    xlim = ax.get_xlim() if (ax and not xlim) else xlim
 
     ax = check_ax(ax, figsize=figsize)
 
@@ -229,6 +249,23 @@ def plot_hypnogram_overlay(
         )
 
     ax.set_xlim(xlim)
+    return ax
+
+
+def plot_consolidated_bouts(hypnogram, consolidated, figsize=(30, 2)):
+    fig, axes = plt.subplots(2, 1, figsize=figsize)
+    plot_hypnogram_overlay(
+        hypnogram,
+        xlim=(hypnogram.start_time.min(), hypnogram.end_time.max()),
+        ax=axes[0],
+    )
+    for period in consolidated:
+        plot_hypnogram_overlay(period, xlim=axes[0].get_xlim(), ax=axes[1])
+
+    axes[0].set(yticks=[])
+    axes[1].set(yticks=[])
+
+    return axes
 
 
 def plot_all_ripples(time, lfps, filtered_lfps, ripple_times):
@@ -522,7 +559,7 @@ def _lazy_ripple_explorer(
 
     # Load the peri-event data
     all_chans = channel_groups.full[subject]
-    (time, sig, fs) = load_timeseries(
+    (time, sig, fs) = load_trigger(
         Path(paths.lfp_bin[condition][subject]),
         all_chans,
         start_time=window_start_time,
@@ -711,7 +748,7 @@ def _lazy_spw_explorer(
 
     # Load the peri-event data
     all_chans = channel_groups.full[subject]
-    (time, lfps, fs) = load_timeseries(
+    (time, lfps, fs) = load_trigger(
         paths.get_datapath(subject=subject, condition=condition, data="lf.bin"),
         all_chans,
         start_time=window_start_time,

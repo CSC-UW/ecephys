@@ -1,8 +1,7 @@
 import numpy as np
 import pandas as pd
-from ..data.paths import get_datapath
+from ..data_mgmt.paths import get_datapath
 from ..utils import unnest_df, zscore_to_value, add_attrs, load_df_h5
-from ..scoring import mask_times, filter_states
 from ripple_detection.core import (
     exclude_close_events,
     exclude_movement,
@@ -17,32 +16,6 @@ from scipy.stats import zscore
 
 # Based on Eric Denovellis' ripple detection package [1].
 # [1] https://github.com/Eden-Kramer-Lab/ripple_detection
-
-
-def make_speed_vector(H, states, times):
-    """Create a fictitious speed vector such that the animal is stationary during
-    the states during which you want to detect ripples, and moving above the detection
-    threshold at all other times.
-
-    Parameters
-    ----------
-    H: pandas.DataFrame
-        Hypnogram, with 'state', 'start_time', and 'end_time' fields.
-    states: list of str
-        States during which you want to detect ripples.
-    times: (n_samples), float
-        Time of each LFP sample used for detection.
-
-    Returns
-    -------
-    speed: (n_samples,)
-        Each timepoint is 0 if the animal was in one of the states provided,
-        else np.inf.
-    """
-    speed = np.full_like(times, np.inf)
-    speed[mask_times(H, states, times)] = 0
-
-    return speed
 
 
 def apply_ripple_filter(sig, fs):
