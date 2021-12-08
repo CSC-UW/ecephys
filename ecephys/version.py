@@ -49,6 +49,11 @@ MINOR = _version_minor
 MICRO = _version_micro
 VERSION = __version__
 PACKAGE_DATA = {"ecephys": [pjoin("data", "*")]}
+EXTRAS_REQUIRE = {
+    "tables": [
+        "tables",
+    ]
+}
 INSTALL_REQUIRES = [
     "neurodsp",
     "ripple_detection",

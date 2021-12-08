@@ -129,15 +129,15 @@ def load_df_h5(path):
     return add_attrs(df, **metadata)
 
 
-def find_nearest(array, value, tie_select='first'):
+def find_nearest(array, value, tie_select="first"):
     """Index of element in array nearest to value.
-    
+
     Return either first or last value if ties"""
     array = np.asarray(array)
     a = np.abs(array - value)
-    if tie_select == 'first':
+    if tie_select == "first":
         return a.argmin()
-    elif tie_select == 'last':
+    elif tie_select == "last":
         # reverse array to find last occurence
         b = a[::-1]
         return len(b) - np.argmin(b) - 1
@@ -267,8 +267,15 @@ def get_grouped_ecdf(df, col, group_var):
 
     return pd.concat(ecdfs)
 
+
 # Avoid PermissionError with shutil.copytree on NAS smb share
 # TODO: Move to wisc-specific
 def system_copy(src, dst):
+    """Copy using `cp -r src dst` system call."""
     import subprocess
     subprocess.call(['cp', '-r', str(src), str(dst)])
+
+
+def remove_duplicates(l):
+    """Given a list l, remove duplicate items while preserving order."""
+    return list(dict.fromkeys(l))

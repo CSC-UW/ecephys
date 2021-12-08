@@ -1,7 +1,16 @@
-## ecephys
+# ecephys
 Python tools for extracellular electrophysiology.
 
-### Interactive plotting with Matplotlib in a JupyterLab notebook.
+## Installation
+`tables` is required by `pandas` for writing HDF5 stores, and itself requires an installation of HDF5, which can be a pain.
+Either the user (i.e. you) has to do this, or you can let `conda` do it for you (`conda install -c conda-forge pytables`).
+For this reason, if installing with pip, `tables` is an extra (i.e. `pip install ecephys[tables]`).
+
+
+## Contributing
+If you wish to make any changes (e.g. add documentation, tests, continuous integration, etc.), please follow the [Shablona](https://github.com/uwescience/shablona) template.
+
+## Interactive plotting with Matplotlib in a JupyterLab notebook.
 This is not specific to the `ecephys` module per se, but you may need to do this to plot some results.
 ```
 conda create -n ecephys python=3.7
@@ -18,6 +27,3 @@ Now install this package.
 cd path/to/cloned/ecephys/repo
 pip install -e .
 ```
-
-### Contributing
-If you wish to make any changes (e.g. add documentation, tests, continuous integration, etc.), please follow the [Shablona](https://github.com/uwescience/shablona) template.
