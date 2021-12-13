@@ -49,7 +49,7 @@ def _plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, title=None
         )
 
     eplt.plot_spectrogram(
-        spg.frequency, spg.datetime, spg, yscale="log", f_range=(0, 50), ax=spg_ax
+        spg.frequency, spg.datetime, spg.values, yscale="log", f_range=(0, 50), ax=spg_ax
     )
 
     if title:

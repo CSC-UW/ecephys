@@ -370,3 +370,10 @@ def get_smoothed_ds(ds, smoothing_sigma=10, in_place=False):
 def get_frac_oc(hyps, hyp_keys):
     df = pd.concat([hyp.fractional_occupancy().to_frame() for hyp in hyps], keys=hyp_keys).unstack()*100
     return df
+
+def x2df(xr, name=None, cols_2_drop=['time', 'timedelta']):
+    if name is not None:
+        df = xr.to_dataframe(name='Power').drop(labels=cols_2_drop, axis=1)
+    else: 
+        df = xr.to_dataframe().drop(labels=cols_2_drop, axis=1) 
+    return df
