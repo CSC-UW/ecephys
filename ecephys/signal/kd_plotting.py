@@ -16,8 +16,8 @@ import neurodsp.plts.utils as dspu
 import neurodsp.spectral as dsps
 
 
-#stole this function from Graham's 'compare_bandpower_timeseries' notebook. Any changes KD makes are noted with comments.
-state_colors = {
+
+hypno_colors = {
     "Wake": "forestgreen",
     "Brief-Arousal": "chartreuse",
     "Transition-to-NREM": "lightskyblue",
@@ -31,43 +31,92 @@ state_colors = {
     "Unsure": "white",
 }
 
-def _plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, title=None, figsize=(20, 5)):
-    fig, (bp_ax, spg_ax) = plt.subplots(
-        ncols=1,
-        nrows=2,
-        figsize=figsize,
-        gridspec_kw=dict(width_ratios=[1], height_ratios=[1, 1]),
-    )
+def quick_lineplot(data):
+    f, ax = plt.subplots(figsize=(35, 10))
+    ax = sns.lineplot(x=data.datetime, y=data.values, ax=ax)
+    return ax
 
-    bp = kd.get_bp_set(spg, band_definition)[band]
-    bp = kd.get_smoothed_da(bp, smoothing_sigma=14)
-    sns.lineplot(x=bp.datetime, y=bp, color="black", ax=bp_ax)
-    bp_ax.set(xlabel=None, ylabel='Raw '+band.capitalize()+' Power', xticks=[], xmargin=0)
-    if hyp is not None:
-        eplt.plot_hypnogram_overlay(
-            hyp, xlim=bp_ax.get_xlim(), state_colors=state_colors, ax=bp_ax
+def shade_hypno_for_me(
+    hypnogram, ax=None, xlim=None
+):
+    """Shade plot background using hypnogram state.
+
+    Parameters
+    ----------
+    hypnogram: pandas.DataFrame
+        Hypnogram with with state, start_time, end_time columns.
+    ax: matplotlib.Axes, optional
+        An axes upon which to plot.
+    """
+    xlim = ax.get_xlim() if (ax and not xlim) else xlim
+
+    ax = dspu.check_ax(ax)
+    for bout in hypnogram.itertuples():
+        ax.axvspan(
+            bout.start_time,
+            bout.end_time,
+            alpha=0.3,
+            color=hypno_colors[bout.state],
+            zorder=1000,
+            ec="none",
         )
 
-    eplt.plot_spectrogram(
-        spg.frequency, spg.datetime, spg.values, yscale="log", f_range=(0, 50), ax=spg_ax
-    )
+    ax.set_xlim(xlim)
+    return ax
 
-    if title:
-        fig.suptitle(title)
-    plt.tight_layout(h_pad=0.0)
-    return bp_ax, spg_ax
+def plot_shaded_bp(spg, chan, bp_def, band, hyp, ax):
+    bp_set = kd.get_bp_set2(spg, bp_def)
+    
+    bp = bp_set[band].sel(channel=chan)    
+    bp = kd.get_smoothed_da(bp, smoothing_sigma=14)
+    
+    ax = sns.lineplot(x=bp.datetime, y=bp, ax=ax)
+    shade_hypno_for_me(hypnogram=hyp, ax=ax)
 
+    ax.set(xlabel=None, ylabel='Raw '+band.capitalize()+' Power', xticks=[], xmargin=0)
+    return ax
 
-def plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, channel, start_time, end_time, title=None, figsize=(20,5)):
-    b, s = _plot_spectrogram_with_bandpower(
-        spg.sel(channel=channel, datetime=slice(start_time, end_time)),
-        band_definition,
-        band,
-        hyp,
-        title=title,
-        figsize=figsize
-    )
-    return b, s
+def spectro_plotter(
+    spg,
+    chan,
+    f_range=slice(0, 50),
+    t_range=None,
+    yscale="linear",
+    figsize=(35, 10),
+    vmin=None,
+    vmax=None,
+    title = 'Title',
+    ax=None,
+    ):
+    try:
+        #spg = spg.swap_dims({'datetime': 'time'})
+        spg = spg.sel(channel=chan, frequency=f_range)
+    except IndexError:
+        print('Already had time dimension - passing index error')
+    
+
+    freqs = spg.frequency
+    spg_times = spg.datetime.values
+    #freqs, spg_times, spg = dsps.trim_spectrogram(freqs, spg_times, spg, f_range, t_range)
+
+    ax = dspu.check_ax(ax, figsize=figsize)
+    im = ax.pcolormesh(spg_times, freqs, np.log10(spg), cmap='nipy_spectral', vmin=vmin, vmax=vmax, alpha=0.5, shading="gouraud")
+    #ax.figure.colorbar(im)
+    ax.set_yscale(yscale)
+    ax.set_ylabel("Frequency [Hz]")
+    ax.set_xlabel("Time [sec]")
+    ax.set_title(title)
+
+    if yscale == "log":
+        ax.set_ylim(np.min(freqs[freqs > 0]), np.max(freqs))
+    return ax
+
+def plot_bp_and_spectro(spg, chan, hyp, bp_def, band):
+    f, (bx, sx) = plt.subplots(nrows=2, ncols=1, figsize=(35, 10), sharex=True)
+    bx = plot_shaded_bp(spg, chan, bp_def, band, hyp, ax=bx)
+    sx = spectro_plotter(spg, chan, ax=sx)
+    return bx, sx
+
 
 
 def plot_main_pax(s, p, sbl, pbl, band='delta', t1=None, t2=None):
@@ -150,33 +199,6 @@ def compare_psd(
     g.set(xscale=scale, yscale=scale, ylabel='Power, '+state[0]+' PSD')
     return g
 
-def plot_spectrogram_kd(
-    freqs,
-    spg_times,
-    spg,
-    f_range=None,
-    t_range=None,
-    yscale="linear",
-    figsize=(18, 6),
-    vmin=None,
-    vmax=None,
-    title = 'Title',
-    ax=None,
-    ):
-    freqs, spg_times, spg = dsps.trim_spectrogram(freqs, spg_times, spg, f_range, t_range)
-
-    ax = dspu.check_ax(ax, figsize=figsize)
-    im = ax.pcolormesh(spg_times, freqs, np.log10(spg), cmap='nipy_spectral', vmin=vmin, vmax=vmax, alpha=0.5, shading="gouraud")
-    ax.figure.colorbar(im)
-    ax.set_yscale(yscale)
-    ax.set_ylabel("Frequency [Hz]")
-    ax.set_xlabel("Time [sec]")
-    ax.set_title(title)
-
-    if yscale == "log":
-        ax.set_ylim(np.min(freqs[freqs > 0]), np.max(freqs))
-    return ax
-
 
 def plot_bp_set(spg, bands, hyp, channel, start_time, end_time, ss=12, figsize=(14,7), title=None):
     spg = spg.sel(channel=channel, datetime=slice(start_time, end_time))
@@ -200,7 +222,8 @@ def plot_bp_set(spg, bands, hyp, channel, start_time, end_time, ss=12, figsize=(
 
 
 
-## BORDERLINE WORTH KEEPING: 
+## OLD FUNCTIONS BORDERLINE WORTH KEEPING:
+
 def _plot_spectrogram_with_bp_rel2bl(spg_exp, spg_bl, band, bp_def, hyp, title=None, figsize=(15, 5)):
     fig, (bp_ax, spg_ax) = plt.subplots(
         ncols=1,
@@ -239,3 +262,68 @@ def plot_spectrogram_with_bp_rel2bl(spg_exp, spg_bl, band, bp_def, hyp, channel,
         title=title,
     )
     return b, s
+
+def _plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, title=None, figsize=(20, 5)):
+    fig, (bp_ax, spg_ax) = plt.subplots(
+        ncols=1,
+        nrows=2,
+        figsize=figsize,
+        gridspec_kw=dict(width_ratios=[1], height_ratios=[1, 1]),
+    )
+
+    bp = kd.get_bp_set(spg, band_definition)[band]
+    bp = kd.get_smoothed_da(bp, smoothing_sigma=14)
+    sns.lineplot(x=bp.datetime, y=bp, color="black", ax=bp_ax)
+    bp_ax.set(xlabel=None, ylabel='Raw '+band.capitalize()+' Power', xticks=[], xmargin=0)
+    if hyp is not None:
+        eplt.plot_hypnogram_overlay(
+            hyp, xlim=bp_ax.get_xlim(), state_colors=state_colors, ax=bp_ax
+        )
+
+    eplt.plot_spectrogram(
+        spg.frequency, spg.datetime, spg.values, yscale="log", f_range=(0, 50), ax=spg_ax
+    )
+
+    if title:
+        fig.suptitle(title)
+    plt.tight_layout(h_pad=0.0)
+    return bp_ax, spg_ax
+
+
+def plot_spectrogram_with_bandpower(spg, band_definition, band, hyp, channel, start_time, end_time, title=None, figsize=(20,5)):
+    b, s = _plot_spectrogram_with_bandpower(
+        spg.sel(channel=channel, datetime=slice(start_time, end_time)),
+        band_definition,
+        band,
+        hyp,
+        title=title,
+        figsize=figsize
+    )
+    return b, s
+
+def plot_spectrogram_kd(
+    freqs,
+    spg_times,
+    spg,
+    f_range=None,
+    t_range=None,
+    yscale="linear",
+    figsize=(18, 6),
+    vmin=None,
+    vmax=None,
+    title = 'Title',
+    ax=None,
+    ):
+    freqs, spg_times, spg = dsps.trim_spectrogram(freqs, spg_times, spg, f_range, t_range)
+
+    ax = dspu.check_ax(ax, figsize=figsize)
+    im = ax.pcolormesh(spg_times, freqs, np.log10(spg), cmap='nipy_spectral', vmin=vmin, vmax=vmax, alpha=0.5, shading="gouraud")
+    ax.figure.colorbar(im)
+    ax.set_yscale(yscale)
+    ax.set_ylabel("Frequency [Hz]")
+    ax.set_xlabel("Time [sec]")
+    ax.set_title(title)
+
+    if yscale == "log":
+        ax.set_ylim(np.min(freqs[freqs > 0]), np.max(freqs))
+    return ax
