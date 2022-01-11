@@ -136,7 +136,7 @@ def threshold_by_zscore(
         zscored_data,
         time,
         detection_threshold_zscore,
-        detection_boundary_threshold,
+        boundary_threshold_zscore,
         minimum_duration,
     )
 
