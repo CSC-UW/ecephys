@@ -5,6 +5,7 @@ from ripple_detection.core import (
     _extend_segment,
     segment_boolean_series,
 )
+from ..utils import zscore_to_value
 
 
 def extend_detection_threshold_to_boundaries(
@@ -103,6 +104,94 @@ def threshold_by_zscore(
         boundary_threshold_zscore,
         minimum_duration,
     )
+
+
+def detect_by_value(
+    data, time, detection_threshold, boundary_threshold, minimum_duration=0.005
+):
+    """Find start and end times of events, done by thresholding the detection signal.
+
+    Parameters
+    ----------
+    data: array_like, shape (n_time,)
+    time : array_like, shape (n_time,)
+    minimum_duration : float, optional
+        Minimum time the data has to stay above threshold to be
+        considered an event. The default is given assuming time is in
+        units of seconds.
+    detection_threshold : float, optional
+        Value the data must exceed to be considered an event.
+    boundary_threshold : float, optional
+        Value the data must drop below to define the event start or end time.
+
+    Returns
+    -------
+    events : pandas DataFrame
+    """
+
+    candidate_event_times = threshold_by_value(
+        data,
+        time,
+        detection_threshold=detection_threshold,
+        boundary_threshold=boundary_threshold,
+        minimum_duration=minimum_duration,
+    )
+
+    index = pd.Index(np.arange(len(candidate_event_times)), name="event")
+    events = pd.DataFrame(
+        candidate_event_times, columns=["start_time", "end_time"], index=index
+    )
+
+    events.attrs["detection_threshold"] = detection_threshold
+    events.attrs["boundary_threshold"] = boundary_threshold
+    events.attrs["minimum_duration"] = minimum_duration
+
+    return events
+
+
+def detect_by_zscore(
+    data,
+    time,
+    detection_threshold_zscore=2.5,
+    boundary_threshold_zscore=1,
+    minimum_duration=0.005,
+):
+    """Find start and end times of events, done by thresholding the detection signal.
+
+     Parameters
+     ----------
+    data: array_like, shape (n_time,)
+    time : array_like, shape (n_time,)
+    minimum_duration : float, optional
+        Minimum time the data has to stay above threshold to be
+        considered an event. The default is given assuming time is in
+        units of seconds.
+    detection_threshold_zscore : float, optional
+        Number of standard deviations the data must exceed to
+        be considered an event.
+    boundary_threshold_zscore : float, optional
+        Number of standard deviations the data must drop
+        below to define the event start or end time.
+
+    Returns
+    -------
+    events : pandas DataFrame
+    """
+    detection_threshold = zscore_to_value(data, detection_threshold_zscore)
+    boundary_threshold = zscore_to_value(data, boundary_threshold_zscore)
+
+    events = detect_by_value(
+        data,
+        time,
+        detection_threshold=detection_threshold,
+        boundary_threshold=boundary_threshold,
+        minimum_duration=minimum_duration,
+    )
+
+    events.attrs["detection_threshold_zscore"] = detection_threshold_zscore
+    events.attrs["boundary_threshold_zscore"] = boundary_threshold_zscore
+
+    return events
 
 
 # ========== Are any of the following functions still used? ==========
