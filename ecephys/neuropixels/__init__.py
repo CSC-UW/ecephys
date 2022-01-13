@@ -1,0 +1,1 @@
+ELECTRODE_PITCH = 0.020  # 20 um
