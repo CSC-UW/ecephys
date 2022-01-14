@@ -1,3 +1,6 @@
+from . import event_detection as evt
+
+
 def get_detection_series(csd, coarse_detection_chans):
     n_fine_detection_chans = 5
     _csd = (
@@ -35,3 +38,51 @@ def get_coarse_detection_chans(peak_channel, n_coarse_detection_chans, csd_chans
     assert last < len(csd_chans), "Cannot detect SPWs outside the bounds of your CSD."
 
     return csd_chans[first:last]
+
+
+def detect_by_value(
+    csd,
+    initial_peak_channel,
+    n_coarse_detection_chans,
+    detection_threshold,
+    boundary_threshold,
+    minimum_duration=0.005,
+):
+    csd = csd.swap_dims({"pos": "channel"})
+    cdc = get_coarse_detection_chans(
+        initial_peak_channel, n_coarse_detection_chans, csd.channel.values.tolist()
+    )
+    ser = get_detection_series(csd, cdc)
+
+    spws = evt.detect_by_value(
+        ser.values,
+        ser.time.values,
+        detection_threshold,
+        boundary_threshold,
+        minimum_duration,
+    )
+    return get_peak_info(ser, spws)
+
+
+def detect_by_zscore(
+    csd,
+    initial_peak_channel,
+    n_coarse_detection_chans,
+    detection_threshold=2.5,
+    boundary_threshold=1.5,
+    minimum_duration=0.005,
+):
+    csd = csd.swap_dims({"pos": "channel"})
+    cdc = get_coarse_detection_chans(
+        initial_peak_channel, n_coarse_detection_chans, csd.channel.values.tolist()
+    )
+    ser = get_detection_series(csd, cdc)
+
+    spws = evt.detect_by_zscore(
+        ser.values,
+        ser.time.values,
+        detection_threshold,
+        boundary_threshold,
+        minimum_duration,
+    )
+    return get_peak_info(ser, spws)
