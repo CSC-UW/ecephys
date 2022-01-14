@@ -1,8 +1,9 @@
 from . import event_detection as evt
 
 
-def get_detection_series(csd, coarse_detection_chans):
-    n_fine_detection_chans = 5
+def get_detection_series(
+    csd, coarse_detection_chans=slice(None), n_fine_detection_chans=5
+):
     _csd = (
         csd.sel(channel=coarse_detection_chans)
         .rolling(channel=n_fine_detection_chans, center=True)
