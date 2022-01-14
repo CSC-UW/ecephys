@@ -47,6 +47,10 @@ def get_kcsd(sig, ele_pos, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
         dims=("pos", "time"),
         coords={"pos": k.estm_x, "time": sig.time.values},
     )
+    if "timedelta" in sig.coords:
+        csd = csd.assign_coords({"timedelta": ("time", sig.timedelta.values)})
+    if "datetime" in sig.coords:
+        csd = csd.assign_coords({"datetime": ("time", sig.datetime.values)})
 
     if np.allclose(k.estm_x, ele_pos):
         csd = csd.assign_coords({"channel": ("pos", channels)})
