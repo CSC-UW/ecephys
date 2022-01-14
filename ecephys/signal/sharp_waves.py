@@ -62,6 +62,10 @@ def detect_by_value(
         boundary_threshold,
         minimum_duration,
     )
+    spws.attrs["initial_peak_channel"] = initial_peak_channel
+    spws.attrs["n_coarse_detection_chans"] = n_coarse_detection_chans
+    if "datetime" in ser.coords:
+        spws.attrs["t0"] = ser.datetime.values.min()
     return get_peak_info(ser, spws)
 
 
@@ -86,4 +90,8 @@ def detect_by_zscore(
         boundary_threshold,
         minimum_duration,
     )
+    spws.attrs["initial_peak_channel"] = initial_peak_channel
+    spws.attrs["n_coarse_detection_chans"] = n_coarse_detection_chans
+    if "datetime" in ser.coords:
+        spws.attrs["t0"] = ser.datetime.values.min()
     return get_peak_info(ser, spws)
