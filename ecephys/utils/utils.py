@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import median_abs_deviation
-
 from pathlib import Path
 from collections.abc import Iterable
+from functools import reduce
 
 # https://stackoverflow.com/questions/2158395/flatten-an-irregular-list-of-lists
 def flatten(l):
@@ -273,9 +273,24 @@ def get_grouped_ecdf(df, col, group_var):
 def system_copy(src, dst):
     """Copy using `cp -r src dst` system call."""
     import subprocess
-    subprocess.call(['cp', '-r', str(src), str(dst)])
+
+    subprocess.call(["cp", "-r", str(src), str(dst)])
 
 
 def remove_duplicates(l):
     """Given a list l, remove duplicate items while preserving order."""
     return list(dict.fromkeys(l))
+
+
+def item_intersection(l):
+    """Give a list of dictionaries l, keep only the intersection of the key-value pairs.
+
+    Examples
+    ========
+    foo = dict(a=1, b=2, c=3)
+    bar = dict(a=10, b=2, c=8)
+    baz = dict(a=10, b=2, c=3)
+    item_intersection([foo, bar, baz])
+    >> {'b': 2}
+    """
+    return reduce(lambda x, y: dict(x.items() & y.items()), l)
