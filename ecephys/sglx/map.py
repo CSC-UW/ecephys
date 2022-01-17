@@ -49,3 +49,13 @@ class Map:
 
     def plot_electrodes(self):
         XYCoord10({}, self.imro.ele.values, True)
+
+
+class LongColMap(Map):
+    def __init__(self):
+        super().__init__("LongCol_1shank")
+
+
+class CheckPatMap(Map):
+    def __init__(self):
+        super().__init__("CheckPat_1shank")
