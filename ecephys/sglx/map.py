@@ -1,3 +1,4 @@
+import numpy as np
 from .map_io import load_cmp, load_imro
 from .external.SGLXMetaToCoords import XYCoord10
 
@@ -47,8 +48,16 @@ class Map:
     def y(self):
         return self.lf_map.y.values
 
+    @property
+    def coords(self):
+        return np.dstack((self.x, self.y)).squeeze()
+
     def plot_electrodes(self):
         XYCoord10({}, self.imro.ele.values, True)
+
+    def chans2coords(self, chans):
+        df = self.lf_map.set_index("chan_id").loc[chans]
+        return np.dstack((df.x.values, df.y.values)).squeeze()
 
 
 class LongColMap(Map):
