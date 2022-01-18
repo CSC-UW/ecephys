@@ -1,9 +1,65 @@
 import numpy as np
 import pandas as pd
+from pandas.api.types import is_datetime64_ns_dtype
 from scipy.stats import median_abs_deviation
 from pathlib import Path
 from collections.abc import Iterable
 from functools import reduce
+
+
+# -------------------- Filesystem utilities --------------------
+
+# Avoid PermissionError with shutil.copytree on NAS smb share
+# TODO: Move to wisc-specific
+def system_copy(src, dst):
+    """Copy using `cp -r src dst` system call."""
+    import subprocess
+
+    subprocess.call(["cp", "-r", str(src), str(dst)])
+
+
+# -------------------- Pattern utilities --------------------
+
+
+def if_none(x, default):
+    if x is None:
+        return x
+    else:
+        return default
+
+
+# -------------------- Stats & Math utilities --------------------
+
+
+def next_power_of_2(x):
+    """Return the smallest power of 2 greater than or equal to x."""
+    return 1 << (np.int(x) - 1).bit_length()
+
+
+def discard_outliers(x):
+    mad = median_abs_deviation(x)
+    threshold = np.median(x) + 6 * mad
+    return x[x <= threshold]
+
+
+def replace_outliers(x, fill_value=np.nan):
+    mad = median_abs_deviation(x)
+    threshold = np.median(x) + 6 * mad
+    x[x > threshold] = fill_value
+    return x
+
+
+def zscore_to_value(data, z):
+    return z * data.std() + data.mean()
+
+
+# -------------------- List utilities --------------------
+
+
+def remove_duplicates(l):
+    """Given a list l, remove duplicate items while preserving order."""
+    return list(dict.fromkeys(l))
+
 
 # https://stackoverflow.com/questions/2158395/flatten-an-irregular-list-of-lists
 def flatten(l):
@@ -14,44 +70,24 @@ def flatten(l):
             yield el
 
 
-def if_none(x, default):
-    if x is None:
-        return x
-    else:
-        return default
+# -------------------- Dict utilities --------------------
 
 
-def next_power_of_2(x):
-    """Return the smallest power of 2 greater than or equal to x."""
-    return 1 << (np.int(x) - 1).bit_length()
+def item_intersection(l):
+    """Give a list of dictionaries l, keep only the intersection of the key-value pairs.
+
+    Examples
+    ========
+    foo = dict(a=1, b=2, c=3)
+    bar = dict(a=10, b=2, c=8)
+    baz = dict(a=10, b=2, c=3)
+    item_intersection([foo, bar, baz])
+    >> {'b': 2}
+    """
+    return reduce(lambda x, y: dict(x.items() & y.items()), l)
 
 
-def all_arrays_equal(iterator):
-    """Check if all arrays in the iterator are equal."""
-    try:
-        iterator = iter(iterator)
-        first = next(iterator)
-        return all(np.array_equal(first, rest) for rest in iterator)
-    except StopIteration:
-        return True
-
-
-def all_equal(iterator):
-    """Check if all items in an un-nested array are equal."""
-    try:
-        iterator = iter(iterator)
-        first = next(iterator)
-        return all(first == rest for rest in iterator)
-    except StopIteration:
-        return True
-
-
-def nrows(x):
-    return x.shape[0]
-
-
-def ncols(x):
-    return x.shape[1]
+# -------------------- DataFrame utilities --------------------
 
 
 def unnest_df(df, col, reset_index=False):
@@ -129,6 +165,65 @@ def load_df_h5(path):
     return add_attrs(df, **metadata)
 
 
+def add_attrs(obj, **kwargs):
+    for key in kwargs:
+        obj.attrs[key] = kwargs[key]
+
+    return obj
+
+
+def dataframe_abs(df):
+    "Take the absolute value of all numeric columns in a dataframe."
+    _df = df.copy()
+    for col in df.columns:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            _df[col] = df[col].abs()
+
+
+def get_grouped_ecdf(df, col, group_var):
+    "Get ECDFs in arbitary groups for plotting using sns.lineplot."
+    ecdfs = list()
+    for group_name, dat in df.groupby(group_var):
+        dat_sorted = np.sort(dat[col])
+        ecdf = 1.0 * np.arange(len(dat[col])) / (len(dat[col]) - 1)
+        ecdfs.append(
+            pd.DataFrame({col: dat_sorted, "ecdf": ecdf, group_var: group_name})
+        )
+
+    return pd.concat(ecdfs)
+
+
+def dt_series_to_seconds(dt_series, t0=None):
+    assert is_datetime64_ns_dtype(dt_series), "dt_series must be datetime64[ns] series"
+    if t0 is None:
+        t0 = dt_series.min()
+    assert isinstance(t0, pd.Timestamp), "t0 must be datetime64[ns]"
+
+    return (dt_series - t0).dt.total_seconds().values
+
+
+def get_epocs(df, col, t):
+    edges = np.where(np.diff(df[col]))
+    left_edges = np.insert(edges, 0, -1) + 1
+    right_edges = np.append(edges, len(df) - 1)
+    epocs = pd.DataFrame(
+        {
+            f"start_{t}": df.iloc[left_edges][t].values,
+            f"end_{t}": df.iloc[right_edges][t].values,
+            col: df.iloc[left_edges][col].values,
+        }
+    ).set_index([f"start_{t}", f"end_{t}"])
+
+    for left, right, val in zip(left_edges, right_edges, epocs[col]):
+        epoc = df.iloc[left:right]
+        assert all(epoc[col].values == val), f"{col} should not change during an epoch."
+
+    return epocs
+
+
+# -------------------- Array utilities --------------------
+
+
 def find_nearest(array, value, tie_select="first"):
     """Index of element in array nearest to value.
 
@@ -145,28 +240,134 @@ def find_nearest(array, value, tie_select="first"):
         raise ValueError()
 
 
-def add_attrs(obj, **kwargs):
-    for key in kwargs:
-        obj.attrs[key] = kwargs[key]
-
-    return obj
-
-
-def discard_outliers(x):
-    mad = median_abs_deviation(x)
-    threshold = np.median(x) + 6 * mad
-    return x[x <= threshold]
+def round_to_values(arr, values):
+    "Round each value in arr to the nearest value in values."
+    f = np.vectorize(lambda x: find_nearest(values, x))
+    idx = np.apply_along_axis(f, 0, arr)
+    return values[idx]
 
 
-def replace_outliers(x, fill_value=np.nan):
-    mad = median_abs_deviation(x)
-    threshold = np.median(x) + 6 * mad
-    x[x > threshold] = fill_value
-    return x
+def array_where(a1, a2):
+    """Get indices into a2 of each element in a1"""
+    return np.apply_along_axis(np.vectorize(lambda x: np.where(a2 == x)[0]), 0, a1)
 
 
-def zscore_to_value(data, z):
-    return z * data.std() + data.mean()
+def all_arrays_equal(iterator):
+    """Check if all arrays in the iterator are equal."""
+    try:
+        iterator = iter(iterator)
+        first = next(iterator)
+        return all(np.array_equal(first, rest) for rest in iterator)
+    except StopIteration:
+        return True
+
+
+def all_equal(iterator):
+    """Check if all items in an un-nested array are equal."""
+    try:
+        iterator = iter(iterator)
+        first = next(iterator)
+        return all(first == rest for rest in iterator)
+    except StopIteration:
+        return True
+
+
+def shift_array(arr, num, fill_value=np.nan):
+    """Shift arr by num places (can be postive, negative, or zero),
+    filling places where values are shifted out with a set value. Fast!"""
+    # Does not shift in place. Allocates new array for result.
+    result = np.empty_like(arr)
+    if num > 0:
+        result[:num] = fill_value
+        result[num:] = arr[:-num]
+    elif num < 0:
+        result[num:] = fill_value
+        result[:num] = arr[-num:]
+    else:
+        result[:] = arr
+    return result
+
+
+def nrows(x):
+    return x.shape[0]
+
+
+def ncols(x):
+    return x.shape[1]
+
+
+# -------------------- 2D array utils --------------------
+
+
+def roll_cols(M, rolls):
+    """Roll columns of a 2D matrix independently."""
+    # Rolls, rather than shifts
+    # Does not roll in place
+    rows, cols = np.ogrid[: M.shape[0], : M.shape[1]]
+    rolls[rolls < 0] += M.shape[0]
+    rows = rows - rolls[np.newaxis, :]
+    return M[rows, cols]
+
+
+def roll_rows(M, rolls):
+    """Roll rows of a 2D matrix independently."""
+    # Rolls, rather than shifts
+    # Does not roll in place
+    rows, cols = np.ogrid[: M.shape[0], : M.shape[1]]
+    rolls[rolls < 0] += M.shape[1]
+    cols = cols - rolls[:, np.newaxis]
+    return M[rows, cols]
+
+
+# TODO remove this function?
+def shift_matrix(M, shifts, axis):
+    """Shift rows or columns of a 2D matrix independently."""
+    # This takes at least 35 mins for a a 384ch 2hr lfp. Useless.
+    # axis=0 shifts rows, positive shifts move rows right (towards higher indices)
+    # axis=1 shifts cols, positive shifts move rows down (towards higher indices)
+    # Does not shift in place
+    f = lambda i: shift_array(M.take(i, axis=axis), shifts[i])
+    idx = np.arange(M.shape[axis])
+    return np.stack([f(i) for i in idx], axis=axis)
+
+
+def shift_cols(M, rolls, fill_value=np.nan):
+    rows, cols = np.ogrid[: M.shape[0], : M.shape[1]]
+    pos = np.zeros_like(rolls)
+    neg = np.zeros_like(rolls)
+
+    pos[rolls > 0] = rolls[rolls > 0]
+    neg[rolls < 0] = rolls[rolls < 0]
+
+    rolls[rolls < 0] += M.shape[0]
+
+    posM = rows + pos[np.newaxis, :] - M.shape[0]
+    negM = rows + neg[np.newaxis, :]
+    rows = rows - rolls[np.newaxis, :]
+
+    M[(posM >= 0) | (negM < 0)] = fill_value
+    return M[rows, cols]
+
+
+def shift_rows(M, rolls, fill_value=np.nan):
+    rows, cols = np.ogrid[: M.shape[0], : M.shape[1]]
+    pos = np.zeros_like(rolls)
+    neg = np.zeros_like(rolls)
+
+    pos[rolls > 0] = rolls[rolls > 0]
+    neg[rolls < 0] = rolls[rolls < 0]
+
+    rolls[rolls < 0] += M.shape[1]
+
+    posM = cols + pos[:, np.newaxis] - M.shape[1]
+    negM = cols + neg[:, np.newaxis]
+    cols = cols - rolls[:, np.newaxis]
+
+    M[(posM >= 0) | (negM < 0)] = fill_value
+    return M[rows, cols]
+
+
+# -------------------- Generic algorithms --------------------
 
 
 def get_disjoint_interval_intersections(arr1, arr2):
@@ -245,52 +446,3 @@ def get_interval_complements(intervals, start_time, end_time):
         complement.append((l, r))
 
     return complement
-
-
-def dataframe_abs(df):
-    "Take the absolute value of all numeric columns in a dataframe."
-    _df = df.copy()
-    for col in df.columns:
-        if pd.api.types.is_numeric_dtype(df[col]):
-            _df[col] = df[col].abs()
-
-
-def get_grouped_ecdf(df, col, group_var):
-    "Get ECDFs in arbitary groups for plotting using sns.lineplot."
-    ecdfs = list()
-    for group_name, dat in df.groupby(group_var):
-        dat_sorted = np.sort(dat[col])
-        ecdf = 1.0 * np.arange(len(dat[col])) / (len(dat[col]) - 1)
-        ecdfs.append(
-            pd.DataFrame({col: dat_sorted, "ecdf": ecdf, group_var: group_name})
-        )
-
-    return pd.concat(ecdfs)
-
-
-# Avoid PermissionError with shutil.copytree on NAS smb share
-# TODO: Move to wisc-specific
-def system_copy(src, dst):
-    """Copy using `cp -r src dst` system call."""
-    import subprocess
-
-    subprocess.call(["cp", "-r", str(src), str(dst)])
-
-
-def remove_duplicates(l):
-    """Given a list l, remove duplicate items while preserving order."""
-    return list(dict.fromkeys(l))
-
-
-def item_intersection(l):
-    """Give a list of dictionaries l, keep only the intersection of the key-value pairs.
-
-    Examples
-    ========
-    foo = dict(a=1, b=2, c=3)
-    bar = dict(a=10, b=2, c=8)
-    baz = dict(a=10, b=2, c=3)
-    item_intersection([foo, bar, baz])
-    >> {'b': 2}
-    """
-    return reduce(lambda x, y: dict(x.items() & y.items()), l)

@@ -1,4 +1,7 @@
+import pandas as pd
 from . import event_detection as evt
+from ..utils import dt_series_to_seconds, round_to_values, all_arrays_equal, get_epocs
+from statsmodels.nonparametric.smoothers_lowess import lowess
 
 
 def get_detection_series(
@@ -95,3 +98,41 @@ def detect_by_zscore(
     if "datetime" in ser.coords:
         spws.attrs["t0"] = ser.datetime.values.min()
     return get_peak_info(ser, spws)
+
+
+def _estimate_drift(t, pos, **kwargs):
+    out = lowess(pos, t, **kwargs)
+    return out[:, 0], out[:, 1]
+
+
+def estimate_drift(spws, imec_map, frac=1 / 48, it=3):
+    um_per_mm = 1000
+    peak_times = dt_series_to_seconds(spws.peak_time)
+    peak_ycoords = imec_map.chans2coords(spws.peak_channel)[:, 1] / um_per_mm
+    t, y = _estimate_drift(peak_times, peak_ycoords, frac=frac, it=it)
+    nearest_y = round_to_values(y, imec_map.y / um_per_mm)
+    t0_chan = imec_map.lf_map.set_index("y").loc[nearest_y[0] * um_per_mm]
+    nearest_chans = imec_map.lf_map.set_index("y").loc[nearest_y * um_per_mm]
+    nearest_ids = nearest_chans.chan_id.values
+    usr_order_shift = nearest_chans.usr_order.values - t0_chan.usr_order
+
+    return pd.DataFrame(
+        {
+            "dt": spws.peak_time.values,
+            "t": t,
+            "y": y,
+            "nearest_y": nearest_y,
+            "nearest_id": nearest_ids,
+            "shifts": usr_order_shift,
+        }
+    )
+
+
+def get_drift_epocs(drift):
+    cols = ["nearest_y", "nearest_id", "shifts"]
+    dfs = list(get_epocs(drift, col, "dt") for col in cols)
+    assert all_arrays_equal(
+        df.index for df in dfs
+    ), "Different columns yielded different epochs."
+
+    return pd.concat(dfs, axis=1)
