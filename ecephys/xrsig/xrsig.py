@@ -1,5 +1,6 @@
 import pandas as pd
 import xarray as xr
+import numpy as np
 
 
 def rebase_time(sig, in_place=True):
@@ -23,6 +24,11 @@ def dtdim(dat):
         raise ValueError(
             "Exactly one of `time` or `timedelta` must be present as a dimension."
         )
+
+
+def rereference(sig, ref_chans, func=np.mean):
+    ref = sig.sel(channel=ref_chans).reduce(func, dim="channel", keepdims=True)
+    return sig - ref.values
 
 
 def load_and_concatenate_datasets(paths):
