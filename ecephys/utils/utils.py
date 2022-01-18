@@ -331,41 +331,41 @@ def shift_matrix(M, shifts, axis):
     return np.stack([f(i) for i in idx], axis=axis)
 
 
-def shift_cols(M, rolls, fill_value=np.nan):
+def shift_cols(M, shifts, fill_value=np.nan):
     """Shift columns of a 2D matrix independently."""
     rows, cols = np.ogrid[: M.shape[0], : M.shape[1]]
-    pos = np.zeros_like(rolls)
-    neg = np.zeros_like(rolls)
+    pos = np.zeros_like(shifts)
+    neg = np.zeros_like(shifts)
 
-    pos[rolls > 0] = rolls[rolls > 0]
-    neg[rolls < 0] = rolls[rolls < 0]
+    pos[shifts > 0] = shifts[shifts > 0]
+    neg[shifts < 0] = shifts[shifts < 0]
 
-    rolls[rolls < 0] += M.shape[0]
+    shifts[shifts < 0] += M.shape[0]
 
     posM = rows + pos[np.newaxis, :] - M.shape[0]
     negM = rows + neg[np.newaxis, :]
-    rows = rows - rolls[np.newaxis, :]
+    rows = rows - shifts[np.newaxis, :]
 
     M[(posM >= 0) | (negM < 0)] = fill_value
     return M[rows, cols]
 
 
-def shift_rows(M, rolls, fill_value=np.nan):
+def shift_rows(M, shifts, fill_value=np.nan):
     """Shift rows of a 2D matrix independently."""
     # This takes about 6.5 minutes for a 384ch 2hr lfp.
     # It is surprisingly not that memory or CPU intensive.
     rows, cols = np.ogrid[: M.shape[0], : M.shape[1]]
-    pos = np.zeros_like(rolls)
-    neg = np.zeros_like(rolls)
+    pos = np.zeros_like(shifts)
+    neg = np.zeros_like(shifts)
 
-    pos[rolls > 0] = rolls[rolls > 0]
-    neg[rolls < 0] = rolls[rolls < 0]
+    pos[shifts > 0] = shifts[shifts > 0]
+    neg[shifts < 0] = shifts[shifts < 0]
 
-    rolls[rolls < 0] += M.shape[1]
+    shifts[shifts < 0] += M.shape[1]
 
     posM = cols + pos[:, np.newaxis] - M.shape[1]
     negM = cols + neg[:, np.newaxis]
-    cols = cols - rolls[:, np.newaxis]
+    cols = cols - shifts[:, np.newaxis]
 
     M[(posM >= 0) | (negM < 0)] = fill_value
     return M[rows, cols]
