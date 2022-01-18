@@ -1,7 +1,10 @@
 import pandas as pd
+import numpy as np
 from . import event_detection as evt
 from ..utils import dt_series_to_seconds, round_to_values, all_arrays_equal, get_epocs
 from statsmodels.nonparametric.smoothers_lowess import lowess
+
+# -------------------- Detection related functions --------------------
 
 
 def get_detection_series(
@@ -100,6 +103,9 @@ def detect_by_zscore(
     return get_peak_info(ser, spws)
 
 
+# -------------------- Drift related functions --------------------
+
+
 def _estimate_drift(t, pos, **kwargs):
     out = lowess(pos, t, **kwargs)
     return out[:, 0], out[:, 1]
@@ -136,3 +142,15 @@ def get_drift_epocs(drift):
     ), "Different columns yielded different epochs."
 
     return pd.concat(dfs, axis=1)
+
+
+def get_shift_timeseries(epocs, times):
+    shifts = np.full(len(times), np.nan)
+    for epoc in epocs.reset_index().itertuples():
+        times_in_epoc = (times >= epoc.start_dt) & (times <= epoc.end_dt)
+        shifts[times_in_epoc] = epoc.shifts
+
+    mask = np.isnan(shifts)
+    shifts[mask] = np.interp(np.flatnonzero(mask), np.flatnonzero(~mask), shifts[~mask])
+
+    return shifts.astype(np.int64)
