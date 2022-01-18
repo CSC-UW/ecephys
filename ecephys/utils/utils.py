@@ -223,6 +223,15 @@ def get_epocs(df, col, t):
 
 # -------------------- Array utilities --------------------
 
+# Get rid of this
+def nrows(x):
+    return x.shape[0]
+
+
+# Get rid of this
+def ncols(x):
+    return x.shape[1]
+
 
 def find_nearest(array, value, tie_select="first"):
     """Index of element in array nearest to value.
@@ -288,12 +297,19 @@ def shift_array(arr, num, fill_value=np.nan):
     return result
 
 
-def nrows(x):
-    return x.shape[0]
+def get_values_around(arr, val, num):
+    """Get num values from arr, centered on the unique occurence of val."""
+    assert num % 2, "Must get an odd number of channels."
+    result = np.argwhere(arr == val)
+    assert result.size == 1, "arr should contain val exactly once."
+    idx = result[0].squeeze()
+    first = idx - num // 2
+    last = idx + num // 2 + 1
 
+    assert first >= 0, "Requested values outside the bounds of your array."
+    assert last < len(arr), "Requested values outside the bounds of your array."
 
-def ncols(x):
-    return x.shape[1]
+    return arr[first:last]
 
 
 # -------------------- 2D array utils --------------------
