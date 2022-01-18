@@ -351,7 +351,12 @@ def shift_cols(M, shifts, fill_value=np.nan):
 
 
 def shift_rows(M, shifts, fill_value=np.nan):
-    """Shift rows of a 2D matrix independently."""
+    """Shift rows of a 2D matrix independently,
+    replacing shifted-out values with NaN."""
+    # Shifts is an np.int64 array, where shifts[i] is the number
+    # of shifts to apply to row i. Negative numbers inddicate shifts
+    # towards lower indices, positive numbers towards higher indices.
+    #
     # This takes about 6.5 minutes for a 384ch 2hr lfp.
     # It is surprisingly not that memory or CPU intensive.
     rows, cols = np.ogrid[: M.shape[0], : M.shape[1]]
