@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from ecephys.xrsig import get_kcsd
-from ecephys.signal.sharp_wave_ripples import apply_ripple_filter
+from ecephys.signal.ripples import apply_ripple_filter
 from ecephys.signal.timefrequency import get_perievent_cwtm
 from ecephys.signal.utils import mean_subtract
 from ipywidgets import (
