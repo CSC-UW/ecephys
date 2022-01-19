@@ -1,6 +1,7 @@
 import numpy as np
 from .map_io import load_cmp, load_imro
 from .external.SGLXMetaToCoords import XYCoord10
+from ..utils import all_equal
 
 
 class Map:
@@ -51,6 +52,12 @@ class Map:
     @property
     def coords(self):
         return np.dstack((self.x, self.y)).squeeze()
+
+    @property
+    def pitch(self):
+        vals = np.diff(self.y)
+        assert all_equal(vals), "Electrode pitch is not uniform."
+        return vals[0]
 
     def plot_electrodes(self):
         XYCoord10({}, self.imro.ele.values, True)
