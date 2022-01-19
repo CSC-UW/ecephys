@@ -15,6 +15,7 @@ def get_kcsd(sig, ele_pos, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
         The data on which to compute a 1D KCSD.
     ele_pos: (n_channels,)
         The positions, in mm, of each electrode in `sig`.
+        These positions MUST be in mm for the kcsd package.
     drop_chans: list
         Channels (as they appear in `sig`) to exclude when estimating the CSD.
     do_lcurve: Boolean
