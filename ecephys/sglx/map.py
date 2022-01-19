@@ -59,6 +59,9 @@ class Map:
         df = self.lf_map.set_index("chan_id").loc[chans]
         return np.dstack((df.x.values, df.y.values)).squeeze()
 
+    def y2chans(self, y):
+        return self.lf_map.set_index("y").loc[y]
+
 
 class LongColMap(Map):
     def __init__(self):
