@@ -269,7 +269,7 @@ def plot_channel_coords(chans, x, y, figsize=(4, 30)):
     ax.set_xlim([0, 70])
 
 
-def _lfp_explorer(
+def lfp_explorer(
     time,
     lfps,
     ax,
@@ -322,7 +322,7 @@ def _lfp_explorer(
     ax.set_ylabel("Channel")
 
 
-def lfp_explorer(time, lfps, chan_labels=None, figsize=(20, 8)):
+def interactive_lfp_explorer(time, lfps, chan_labels=None, figsize=(20, 8)):
     # Create interactive widgets for controlling plot parameters
     window_length = FloatSlider(
         min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
@@ -371,7 +371,7 @@ def lfp_explorer(time, lfps, chan_labels=None, figsize=(20, 8)):
     # Plot and display
     _, ax = plt.subplots(figsize=figsize)
     out = interactive_output(
-        _lfp_explorer,
+        lfp_explorer,
         {
             "time": fixed(time),
             "lfps": fixed(lfps),
@@ -390,7 +390,7 @@ def lfp_explorer(time, lfps, chan_labels=None, figsize=(20, 8)):
     display(ui, out)
 
 
-def _colormesh_timeseries_explorer(
+def colormesh_explorer(
     time,
     sig,
     ax,
@@ -429,7 +429,7 @@ def _colormesh_timeseries_explorer(
         ax.invert_yaxis()
 
 
-def colormesh_timeseries_explorer(time, sig, y=None, figsize=(20, 8)):
+def interactive_colormesh_explorer(time, sig, y=None, figsize=(20, 8)):
     # Create interactive widgets for controlling plot parameters
     window_length = FloatSlider(
         min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
@@ -474,7 +474,7 @@ def colormesh_timeseries_explorer(time, sig, y=None, figsize=(20, 8)):
     # Plot and display
     _, ax = plt.subplots(figsize=figsize)
     out = interactive_output(
-        _colormesh_timeseries_explorer,
+        colormesh_explorer,
         {
             "time": fixed(time),
             "sig": fixed(sig),

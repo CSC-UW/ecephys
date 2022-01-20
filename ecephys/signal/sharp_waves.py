@@ -1,7 +1,13 @@
 import pandas as pd
 import numpy as np
 from . import event_detection as evt
-from ..utils import dt_series_to_seconds, round_to_values, all_arrays_equal, get_epocs
+from ..utils import (
+    dt_series_to_seconds,
+    round_to_values,
+    all_arrays_equal,
+    get_epocs,
+    load_df_h5,
+)
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
 # -------------------- Plotting related imports --------------------
@@ -18,8 +24,22 @@ from ipywidgets import (
     interactive_output,
 )
 from neurodsp.plts.utils import check_ax
-from ..plot import _lfp_explorer, _colormesh_timeseries_explorer
+from ..plot import lfp_explorer, colormesh_explorer
 from sglxarray import load_trigger
+from ..xrsig import get_kcsd
+
+
+def load_spws(path, use_datetime=True):
+    spws = load_df_h5(path)
+
+    if use_datetime:
+        t0 = pd.to_datetime(spws.attrs["t0"])
+        spws["start_time"] = t0 + pd.to_timedelta(spws["start_time"], "s")
+        spws["end_time"] = t0 + pd.to_timedelta(spws["end_time"], "s")
+        spws["peak_time"] = t0 + pd.to_timedelta(spws["peak_time"], "s")
+
+    return spws
+
 
 # -------------------- Detection related functions --------------------
 
@@ -183,39 +203,39 @@ def _spw_explorer(
     spws,
     axes,
     window_length=1,
-    spw_number=1,
+    event_number=0,
 ):
 
     for ax in axes:
         ax.cla()
 
     # Compute peri-event window
-    spw = spws.loc[spw_number]
-    window_start_time = spw.midpoint - window_length / 2
-    window_end_time = spw.midpoint + window_length / 2
+    spw = spws.loc[event_number]
+    window_start_time = spw.peak_time - window_length / 2
+    window_end_time = spw.peak_time + window_length / 2
 
     window_mask = np.logical_and(time >= window_start_time, time <= window_end_time)
     hpc_lfps = hpc_lfps[window_mask]
     hpc_csd = hpc_csd[window_mask]
     time = time[window_mask]
 
-    # Plot raw LFPs
-    _lfp_explorer(time, hpc_lfps, axes[0])
-
     # Plot CSD
-    _colormesh_timeseries_explorer(time, hpc_csd.T, ax=axes[1])
-    axes[1].set_xlim(axes[0].get_xlim())
-    axes[1].set_xlabel("Time [sec]")
-    axes[1].set_ylabel("Depth (mm)")
+    colormesh_explorer(time, hpc_csd, ax=axes[0])
 
-    # Highlight each ripple
+    # Plot raw LFPs
+    lfp_explorer(time, hpc_lfps, axes[1])
+    axes[1].set_xlim(axes[0].get_xlim())
+    axes[0].set_xlabel("Time [sec]")
+    axes[0].set_ylabel("Depth (mm)")
+
+    # Highlight each spw
     for spw in spws.itertuples():
         if (spw.start_time >= window_start_time) and (spw.end_time <= window_end_time):
             axes[0].axvspan(
-                spw.start_time, spw.end_time, alpha=0.3, color="red", zorder=1000
+                spw.start_time, spw.end_time, alpha=0.1, color="lightgrey", zorder=1000
             )
             axes[1].axvspan(
-                spw.start_time, spw.end_time, alpha=0.3, color="red", zorder=1000
+                spw.start_time, spw.end_time, alpha=0.1, color="lightgrey", zorder=1000
             )
 
 
@@ -268,7 +288,7 @@ def _lazy_spw_explorer(
     # Plot raw LFPs
     lfp_ax.set_facecolor("none")
     if show_lfps:
-        _lfp_explorer(
+        lfp_explorer(
             time, lfps, lfp_ax, chan_labels=chan_labels, vspace=vspace, zero_mean=True
         )
         lfp_ax.margins(y=0)
@@ -289,7 +309,7 @@ def _lazy_spw_explorer(
     csd_ax.set_zorder(lfp_ax.get_zorder() - 1)
     csd_ax.set_xlabel("Time [sec]")
     if show_csd:
-        _colormesh_timeseries_explorer(time, csd.T, csd_ax, y=k.estm_x, flip_dv=True)
+        colormesh_explorer(time, csd.T, csd_ax, y=k.estm_x, flip_dv=True)
         csd_ax.set_ylabel("Depth (mm)")
 
     # Plot location of detection channels on CSD axes
