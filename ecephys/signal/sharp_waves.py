@@ -195,8 +195,10 @@ def get_shift_timeseries(epocs, times):
 
 # -------------------- Plotting functions --------------------
 
-
-def _spw_explorer(
+# Intended for use with single trigger files.
+# If channels can be restricted to a smaller number (e.g. just the detection channels),
+# then this can probably all be done in memory on the server for a whole experiment.
+def spw_explorer_np(
     time,
     hpc_lfps,
     hpc_csd,
@@ -239,14 +241,62 @@ def _spw_explorer(
             )
 
 
-def _lazy_spw_explorer(
+def spw_explorer_xr(
+    lfp,
+    csd,
+    chans,
     spws,
-    metadata,
-    subject,
-    condition,
+    axes,
+    plot_duration=1,
+    event_number=0,
+):
+
+    for ax in axes:
+        ax.cla()
+
+    # Compute peri-event window
+    spw = spws.loc[event_number]
+    plot_start_time = spw.peak_time - plot_duration / 2
+    plot_end_time = spw.peak_time + plot_duration / 2
+
+    _lfp = lfp.sel(time=slice(plot_start_time, plot_end_time), channel=chans)
+    _csd = csd.swap_dims({"pos": "channel"}).sel(
+        time=slice(plot_start_time, plot_end_time), channel=chans
+    )
+
+    # Plot CSD
+    colormesh_explorer(
+        _csd.time.values, _csd.values.T, y=_csd.pos.values, ax=axes[0], flip_dv=True
+    )
+
+    # Plot raw LFPs
+    lfp_explorer(
+        _lfp.time.values, _lfp.values, chan_labels=_lfp.channel.values, ax=axes[1]
+    )
+    axes[1].set_xlim(axes[0].get_xlim())
+    axes[0].set_xlabel("Time [sec]")
+    axes[0].set_ylabel("Depth (mm)")
+
+    # Highlight each spw
+    for spw in spws.itertuples():
+        if (spw.start_time >= plot_start_time) and (spw.end_time <= plot_end_time):
+            axes[0].axvspan(
+                spw.start_time, spw.end_time, alpha=0.1, color="lightgrey", zorder=1000
+            )
+            axes[1].axvspan(
+                spw.start_time, spw.end_time, alpha=0.1, color="lightgrey", zorder=1000
+            )
+
+
+# Only works for single trigger files
+# I don't think lazy loading is even necessary now that we have the server.
+def lazy_spw_explorer(
+    spws,
+    lfp_path,
+    csd_params,
     axes,
     window_length=1,
-    spw_number=1,
+    event_number=0,
     n_plot_chans=None,
     i_chan=0,
     vspace=300,
@@ -258,89 +308,71 @@ def _lazy_spw_explorer(
     csd_ax.cla()
 
     # Compute peri-event window
-    spw = spws.loc[spw_number]
-    window_start_time = spw.midpoint - window_length / 2
-    window_end_time = spw.midpoint + window_length / 2
+    spw = spws.loc[event_number]
+    window_start_time = spw.peak_time - window_length / 2
+    window_end_time = spw.peak_time + window_length / 2
 
     # Load the peri-event data
-    all_chans = channel_groups.full[subject]
-    (time, lfps, fs) = load_trigger(
-        paths.get_datapath(subject=subject, condition=condition, data="lf.bin"),
-        all_chans,
+    lfp = load_trigger(
+        lfp_path,
+        csd_params["csd_channels"],
         start_time=window_start_time,
         end_time=window_end_time,
     )
 
-    # Select subset of data used for detection
-    idx_detection_chans = np.isin(all_chans, metadata["csd_chans"])
-    lfps = lfps[:, idx_detection_chans]
-    chan_labels = all_chans[idx_detection_chans]
-
     # Select further subset of data selected for plotting
-    n_data_chans = lfps.shape[1]
+    n_data_chans = lfp.channel.size
     n_plot_chans = n_data_chans if n_plot_chans is None else n_plot_chans
     if (i_chan + n_plot_chans) > n_data_chans:
         i_chan = n_data_chans - n_plot_chans
 
-    lfps = lfps[:, i_chan : i_chan + n_plot_chans]
-    chan_labels = chan_labels[i_chan : i_chan + n_plot_chans]
+    lfps = lfp.values[:, i_chan : i_chan + n_plot_chans]
+    chan_labels = lfp.channel.values[i_chan : i_chan + n_plot_chans]
 
     # Plot raw LFPs
     lfp_ax.set_facecolor("none")
     if show_lfps:
         lfp_explorer(
-            time, lfps, lfp_ax, chan_labels=chan_labels, vspace=vspace, zero_mean=True
+            lfp.time.values,
+            lfps,
+            lfp_ax,
+            chan_labels=chan_labels,
+            vspace=vspace,
+            zero_mean=True,
         )
         lfp_ax.margins(y=0)
 
     # Compute CSD
     if show_csd:
-        k = get_kcsd(
-            lfps,
+        csd = get_kcsd(
+            lfp,
+            np.asarray(csd_params["ele_pos"]).squeeze(),
+            drop_chans=csd_params["channels_omitted_from_csd_estimation"],
             do_lcurve=False,
-            intersite_distance=metadata["intersite_distance"],
-            gdx=metadata["gdx"],
-            lambd=metadata["lambd"],
-            R_init=metadata["R"],
+            gdx=csd_params["gdx"],
+            R_init=csd_params["R"],
+            lambd=csd_params["lambd"],
         )
-        csd = k.values("CSD")
 
     # Plot CSD
     csd_ax.set_zorder(lfp_ax.get_zorder() - 1)
     csd_ax.set_xlabel("Time [sec]")
     if show_csd:
-        colormesh_explorer(time, csd.T, csd_ax, y=k.estm_x, flip_dv=True)
+        colormesh_explorer(csd.time.values, csd.values.T, csd_ax)
         csd_ax.set_ylabel("Depth (mm)")
 
-    # Plot location of detection channels on CSD axes
-    show_detection_chans = False
-    if show_detection_chans:
-        sr_chan_mask = np.isin(metadata["csd_chans"], metadata["detection_chans"])
-        csd_ax.axhline(
-            np.max(metadata["electrode_positions"][sr_chan_mask]),
-            color="r",
-            alpha=0.5,
-            linestyle=":",
-        )
-        csd_ax.axhline(
-            np.min(metadata["electrode_positions"][sr_chan_mask]),
-            color="r",
-            alpha=0.5,
-            linestyle=":",
-        )
-
-    # Highlight each ripple
+    # Highlight each spw
     for spw in spws.itertuples():
         if (spw.start_time >= window_start_time) and (spw.end_time <= window_end_time):
-            lfp_ax.axvspan(
-                spw.start_time, spw.end_time, alpha=0.1, color="red", zorder=1000
+            axes[0].axvspan(
+                spw.start_time, spw.end_time, alpha=0.1, color="lightgrey", zorder=1000
             )
-            csd_ax.axvspan(
-                spw.start_time, spw.end_time, fill=False, linestyle=":", zorder=1000
+            axes[1].axvspan(
+                spw.start_time, spw.end_time, alpha=0.1, color="lightgrey", zorder=1000
             )
 
 
-def lazy_spw_explorer(spws, metadata, subject, condition, figsize=(20, 8)):
+def interactive_lazy_spw_explorer(spws, metadata, subject, condition, figsize=(20, 8)):
     """
     Examples
     --------
@@ -387,7 +419,7 @@ def lazy_spw_explorer(spws, metadata, subject, condition, figsize=(20, 8)):
     _, ax = plt.subplots(figsize=figsize)
     (lfp_ax, csd_ax) = (ax, ax.twinx())
     out = interactive_output(
-        _lazy_spw_explorer,
+        lazy_spw_explorer,
         {
             "spws": fixed(spws),
             "metadata": fixed(metadata),

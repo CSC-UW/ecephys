@@ -3,6 +3,7 @@ import xarray as xr
 import numpy as np
 
 
+# Is this needed anymore, now that it exists in sglxarray?
 def rebase_time(sig, in_place=True):
     """Rebase time and timedelta coordinates so that t=0 corresponds to the beginning
     of the datetime dimension."""
