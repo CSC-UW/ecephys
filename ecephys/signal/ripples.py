@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from scipy.signal import filtfilt
 from ripple_detection.core import (
     ripple_bandpass_filter,
@@ -7,6 +8,7 @@ from ripple_detection.core import (
     gaussian_smooth,
     get_envelope,
 )
+
 
 # Based on Eric Denovellis' ripple detection package [1].
 # [1] https://github.com/Eden-Kramer-Lab/ripple_detection
