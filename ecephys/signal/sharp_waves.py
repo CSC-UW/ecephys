@@ -1,3 +1,4 @@
+from ecephys.utils.utils import all_equal, get_values_around
 import pandas as pd
 import numpy as np
 from . import event_detection as evt
@@ -198,94 +199,145 @@ def get_shift_timeseries(epocs, times):
 # Intended for use with single trigger files.
 # If channels can be restricted to a smaller number (e.g. just the detection channels),
 # then this can probably all be done in memory on the server for a whole experiment.
-def spw_explorer_np(
-    time,
-    hpc_lfps,
-    hpc_csd,
-    spws,
-    axes,
-    window_length=1,
-    event_number=0,
-):
-
-    for ax in axes:
-        ax.cla()
-
-    # Compute peri-event window
-    spw = spws.loc[event_number]
-    window_start_time = spw.peak_time - window_length / 2
-    window_end_time = spw.peak_time + window_length / 2
-
-    window_mask = np.logical_and(time >= window_start_time, time <= window_end_time)
-    hpc_lfps = hpc_lfps[window_mask]
-    hpc_csd = hpc_csd[window_mask]
-    time = time[window_mask]
-
-    # Plot CSD
-    colormesh_explorer(time, hpc_csd, ax=axes[0])
-
-    # Plot raw LFPs
-    lfp_explorer(time, hpc_lfps, axes[1])
-    axes[1].set_xlim(axes[0].get_xlim())
-    axes[0].set_xlabel("Time [sec]")
-    axes[0].set_ylabel("Depth (mm)")
-
-    # Highlight each spw
-    for spw in spws.itertuples():
-        if (spw.start_time >= window_start_time) and (spw.end_time <= window_end_time):
-            axes[0].axvspan(
-                spw.start_time, spw.end_time, alpha=0.1, color="lightgrey", zorder=1000
-            )
-            axes[1].axvspan(
-                spw.start_time, spw.end_time, alpha=0.1, color="lightgrey", zorder=1000
-            )
-
-
 def spw_explorer_xr(
     lfp,
     csd,
-    chans,
     spws,
     axes,
     plot_duration=1,
     event_number=0,
+    center_chan=None,
+    n_chans=5,
+    vspace=300,
+    show_lfps=True,
+    show_csd=True,
 ):
 
-    for ax in axes:
-        ax.cla()
+    lfp_ax, csd_ax = axes
+    lfp_ax.cla()
+    csd_ax.cla()
 
     # Compute peri-event window
     spw = spws.loc[event_number]
     plot_start_time = spw.peak_time - plot_duration / 2
     plot_end_time = spw.peak_time + plot_duration / 2
 
+    center_chan = spw.peak_channel if center_chan is None else center_chan
+    chans = get_values_around(lfp.channel.values, center_chan, n_chans)
+
     _lfp = lfp.sel(time=slice(plot_start_time, plot_end_time), channel=chans)
     _csd = csd.swap_dims({"pos": "channel"}).sel(
         time=slice(plot_start_time, plot_end_time), channel=chans
     )
 
-    # Plot CSD
-    colormesh_explorer(
-        _csd.time.values, _csd.values.T, y=_csd.pos.values, ax=axes[0], flip_dv=True
-    )
+    # Plot LFP
+    lfp_ax.set_facecolor("none")
+    if show_lfps:
+        lfp_explorer(
+            _lfp.time.values,
+            _lfp.values,
+            chan_labels=_lfp.channel.values,
+            vspace=vspace,
+            zero_mean=True,
+            ax=lfp_ax,
+        )
+        lfp_ax.margins(y=0)
+        lfp_ax.set_xlabel("Time [sec]")
 
-    # Plot raw LFPs
-    lfp_explorer(
-        _lfp.time.values, _lfp.values, chan_labels=_lfp.channel.values, ax=axes[1]
-    )
-    axes[1].set_xlim(axes[0].get_xlim())
-    axes[0].set_xlabel("Time [sec]")
-    axes[0].set_ylabel("Depth (mm)")
+    # Plot CSD
+    csd_ax.set_zorder(lfp_ax.get_zorder() - 1)
+    if show_csd:
+        colormesh_explorer(
+            _csd.time.values, _csd.values.T, y=_csd.pos.values, ax=csd_ax, flip_dv=True
+        )
+        csd_ax.set_ylabel("Depth (mm)")
+        csd_ax.set_xlabel("Time [sec]")
 
     # Highlight each spw
     for spw in spws.itertuples():
         if (spw.start_time >= plot_start_time) and (spw.end_time <= plot_end_time):
-            axes[0].axvspan(
-                spw.start_time, spw.end_time, alpha=0.1, color="lightgrey", zorder=1000
+            # lfp_ax.axvspan(
+            #    spw.start_time,
+            #    spw.end_time,
+            #    fill=False,
+            #    linestyle=(0, (5, 10)),
+            #    color="red",
+            #    zorder=1000,
+            # )
+            lfp_ax.annotate(
+                "",
+                xy=(spw.start_time, 0),
+                xycoords=("data", "axes fraction"),
+                xytext=(spw.end_time, 0),
+                arrowprops=dict(arrowstyle="|-|", color="red", alpha=0.5),
             )
-            axes[1].axvspan(
-                spw.start_time, spw.end_time, alpha=0.1, color="lightgrey", zorder=1000
+            lfp_ax.annotate(
+                "",
+                xy=(spw.start_time, 1),
+                xycoords=("data", "axes fraction"),
+                xytext=(spw.end_time, 1),
+                arrowprops=dict(arrowstyle="|-|", color="red", alpha=0.5),
             )
+
+
+def interactive_spw_explorer(lfp, csd, spws, figsize=(20, 8)):
+    assert all(
+        lfp.channel.values == csd.channel.values
+    ), "LFP and CSD channels must match."
+
+    # Create interactive widgets for controlling plot parameters
+    plot_duration = FloatSlider(
+        min=0.25, max=4.0, step=0.25, value=1.0, description="Sec"
+    )
+    event_number = SelectionSlider(
+        options=spws.index.values, value=spws.index.values[0], description="SPW #"
+    )
+    center_chan = SelectionSlider(
+        options=lfp.channel.values,
+        value=spws.iloc[0].peak_channel,
+        description="Center Ch.",
+    )
+    n_chans = BoundedIntText(
+        min=1, max=lfp.channel.size, step=2, value=15, description="nCh."
+    )
+    vspace = BoundedIntText(min=0, max=1000000, value=300, description="Spacing")
+    show_lfps = Checkbox(value=True, description="LFP")
+    show_csd = Checkbox(value=True, description="CSD")
+
+    # Lay control widgets out horizontally
+    ui = HBox(
+        [
+            plot_duration,
+            event_number,
+            center_chan,
+            n_chans,
+            vspace,
+            show_lfps,
+            show_csd,
+        ]
+    )
+
+    # Plot and display
+    _, ax = plt.subplots(figsize=figsize)
+    (lfp_ax, csd_ax) = (ax, ax.twinx())
+    out = interactive_output(
+        spw_explorer_xr,
+        {
+            "lfp": fixed(lfp),
+            "csd": fixed(csd),
+            "spws": fixed(spws),
+            "axes": fixed((lfp_ax, csd_ax)),
+            "plot_duration": plot_duration,
+            "event_number": event_number,
+            "center_chan": center_chan,
+            "n_chans": n_chans,
+            "vspace": vspace,
+            "show_lfps": show_lfps,
+            "show_csd": show_csd,
+        },
+    )
+
+    display(ui, out)
 
 
 # Only works for single trigger files
@@ -372,6 +424,7 @@ def lazy_spw_explorer(
             )
 
 
+# Likely deprecated
 def interactive_lazy_spw_explorer(spws, metadata, subject, condition, figsize=(20, 8)):
     """
     Examples
