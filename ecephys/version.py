@@ -52,7 +52,11 @@ PACKAGE_DATA = {"ecephys": [pjoin("data", "*")]}
 EXTRAS_REQUIRE = {
     "tables": [
         "tables",
-    ]
+    ],
+    "interactive": [
+        "ipywidgets",
+        "ipympl",
+    ],
 }
 INSTALL_REQUIRES = [
     "neurodsp",
