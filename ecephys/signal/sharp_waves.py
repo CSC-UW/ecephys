@@ -248,7 +248,7 @@ def spw_explorer_xr(
     csd_ax.set_zorder(lfp_ax.get_zorder() - 1)
     if show_csd:
         colormesh_explorer(
-            _csd.time.values, _csd.values.T, y=_csd.pos.values, ax=csd_ax, flip_dv=True
+            _csd.time.values, _csd.values.T, y=_csd.pos.values, ax=csd_ax, flip_ud=True
         )
         csd_ax.set_ylabel("Depth (mm)")
         csd_ax.set_xlabel("Time [sec]")
