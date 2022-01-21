@@ -137,9 +137,9 @@ class ImecMap:
         map_name: string (optional)
             The name of the map, simply for convenience and bookeeping.
         """
-        self._map_name = map_name
         self._imro = imro
         self._cmp = cmp
+        self._map_name = map_name
 
     def __repr__(self):
         return self._map_name
@@ -221,7 +221,7 @@ class ImecMap:
         """
         imro = read_imro_file(check_library(map_name + ".imro"))
         cmp = read_cmp_file(check_library(map_name + ".imec.cmp"))
-        return cls(map_name, imro, cmp)
+        return cls(imro, cmp, map_name)
 
     @classmethod
     def from_meta(cls, bin_file):
@@ -233,7 +233,7 @@ class ImecMap:
         imro = parse_imroTbl(meta["imroTbl"])
         cmp = parse_snsChanMap(meta["snsChanMap"])
         map_name = PurePath(meta["imRoFile"].stem)
-        return cls(map_name, imro, cmp)
+        return cls(imro, cmp, map_name)
 
     @classmethod
     def LongCol(cls):
