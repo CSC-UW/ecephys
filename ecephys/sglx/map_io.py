@@ -1,4 +1,5 @@
 import os
+from tkinter import W
 import pandas as pd
 from io import StringIO
 from .external.SGLXMetaToCoords import XYCoord10
@@ -7,10 +8,23 @@ SUBPACKAGE_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
 
 def get_file(filename):
+    """Get a file from the ecephys/sglx/external/maps/ directory."""
     return os.path.join(SUBPACKAGE_DIRECTORY, "external", "maps", filename)
 
 
 def load_cmp(fname):
+    """Parse, check, and load a channel map file to a DataFrame.
+    See SGLX documentation for explanations of DataFrame columns.
+
+    Parameters
+    ===========
+    fname: string
+        The name of the file to load, as it appears in the ecephys map directory.
+
+    Examples:
+    =========
+    df = load_cmp('LongCol_1shank.imec.cmp')
+    """
     assert fname.endswith(".imec.cmp"), "Unexpected filename."
     cmp_file = get_file(fname)
     with open(cmp_file, "r") as f:
@@ -30,6 +44,17 @@ def load_cmp(fname):
 
 
 def load_imro(fname):
+    """Parse, check, and load an IMRO file to a DataFrame.
+    See SGLX documentation for explanations of DataFrame columns.
+
+    Parameters
+    ===========
+    fname: string
+        The name of the file to load, as it appears in the ecephys map directory.
+    Examples:
+    =========
+    df = load_imro('LongCol_1shank.imro')
+    """
     assert fname.endswith(".imro"), "Unexpected filename."
     imro_file = get_file(fname)
     with open(imro_file, "r") as f:
