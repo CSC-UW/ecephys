@@ -259,6 +259,7 @@ def plot_consolidated_bouts(hypnogram, consolidated, figsize=(30, 2)):
     return axes
 
 
+# Is this function still relevant?
 def plot_channel_coords(chans, x, y, figsize=(4, 30)):
     fig, ax = plt.subplots(figsize=figsize)
     ax.scatter(x, y, marker=".")
@@ -282,6 +283,33 @@ def lfp_explorer(
     zero_mean=True,
     flip_dv=False,
 ):
+    """Plot a static image of selected LFPs.
+
+    Parameters
+    ==========
+    time: (n_time,)
+        LFP timestamps
+    lfps: (n_time, n_chans)
+    ax: matplotlib.Axes
+        Axis object on which to plot.
+    chan_labels: (n_chans,) np.array
+        chan_labels[i] is the label of lfp[:, i]
+    window_length: float > 0
+        Duration to plot, in the same units as `time`
+    window_start: float
+        Time of the the start of the plot, in units of `time`
+    n_plot_chans: int
+        The number of channels to plot
+    i_chan: int
+        Index of the first channel to plot (e.g. plot lfps[:, i_chan : i_chan + n_plot_chans]
+    vspace: float
+        Spacing between LFP traces, in units of lfps (e.g. uV)
+    zero_mean: bool
+        Whether to zero-mean each channel before plotting
+    flip_dv: bool
+        Whether to flip the dorsal-ventral axis when plotting.
+    """
+
     ax.cla()
 
     window_start = window_start or np.min(time)
@@ -323,6 +351,12 @@ def lfp_explorer(
 
 
 def interactive_lfp_explorer(time, lfps, chan_labels=None, figsize=(20, 8)):
+    """Browse LFPs using an interactive GUI
+
+    Parameters:
+    ===========
+    See `lfp_explorer`.
+    """
     # Create interactive widgets for controlling plot parameters
     window_length = FloatSlider(
         min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
@@ -397,11 +431,36 @@ def colormesh_explorer(
     y=None,
     window_length=None,
     window_start=None,
-    n_plot_rows=None,
-    i_row=0,
+    n_y=None,
+    i_y=0,
     zero_mean=False,
-    flip_dv=False,
+    flip_ud=False,
 ):
+    """Plot a static colormesh (e.g. a spectrogram or a CSD).
+
+    Parameters
+    ==========
+    time: (n_time,)
+        LFP timestamps
+    sig: (n_time, n_y)
+        The data to plot
+    ax: matplotlib.Axes
+        Axis object on which to plot.
+    y = (n_y,)
+        y[i] labels sig[:, i]. Might be a depth, frequency, etc.
+    window_length: float > 0
+        Duration to plot, in the same units as `time`
+    window_start: float
+        Time of the the start of the plot, in units of `time`
+    n_y: int
+        The number of y-axis values to plot.
+    i_y: int
+        Index of the first y-axis values to plot (e.g. plot sig[:, i_y : i_y + n_y]
+    zero_mean: bool
+        Whether to zero-mean each y-axis element before plotting
+    flip_dv: bool
+        Whether to flip the y axis when plotting.
+    """
     ax.cla()
 
     window_length = window_length or (np.max(time) - np.min(time))
@@ -411,13 +470,13 @@ def colormesh_explorer(
 
     n_data_rows = sig.shape[1]
     y = y if y is not None else np.linspace(0, 1, n_data_rows)
-    n_plot_rows = n_plot_rows if n_plot_rows is not None else n_data_rows
-    if (i_row + n_plot_rows) > n_data_rows:
-        i_row = n_data_rows - n_plot_rows
+    n_y = n_y if n_y is not None else n_data_rows
+    if (i_y + n_y) > n_data_rows:
+        i_y = n_data_rows - n_y
 
-    sig = sig[selected_samples, i_row : i_row + n_plot_rows]
+    sig = sig[selected_samples, i_y : i_y + n_y]
     time = time[selected_samples]
-    y = y[i_row : i_row + n_plot_rows]
+    y = y[i_y : i_y + n_y]
 
     if zero_mean:
         sig = mean_subtract(sig)
@@ -425,11 +484,17 @@ def colormesh_explorer(
     ax.pcolormesh(time, y, sig.T, shading="gouraud")
     ax.set_xlim([window_start, window_end])
     ax.set_xlabel("Time [sec]")
-    if flip_dv:
+    if flip_ud:
         ax.invert_yaxis()
 
 
 def interactive_colormesh_explorer(time, sig, y=None, figsize=(20, 8)):
+    """Browse a colormesh (e.g. Spectrogram or CSD) using an interactive GUI
+
+    Parameters:
+    ===========
+    See `colormesh_explorer`.
+    """
     # Create interactive widgets for controlling plot parameters
     window_length = FloatSlider(
         min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
@@ -451,12 +516,12 @@ def interactive_colormesh_explorer(time, sig, y=None, figsize=(20, 8)):
     jslink(
         (window_start, "value"), (_window_start, "value")
     )  # Allow control from either widget for easy navigation
-    n_plot_rows = IntSlider(
+    n_y = IntSlider(
         min=1, max=sig.shape[1], step=1, value=sig.shape[1], description="nRows"
     )
-    i_row = IntSlider(min=0, max=(sig.shape[1] - 1), step=1, value=1, description="Row")
+    i_y = IntSlider(min=0, max=(sig.shape[1] - 1), step=1, value=1, description="Row")
     zero_mean = Checkbox(False, description="Zero-mean")
-    flip_dv = Checkbox(False, description="D/V")
+    flip_ud = Checkbox(False, description="U/D")
 
     # Lay control widgets out horizontally
     ui = HBox(
@@ -464,10 +529,10 @@ def interactive_colormesh_explorer(time, sig, y=None, figsize=(20, 8)):
             window_length,
             _window_start,
             window_start,
-            n_plot_rows,
-            i_row,
+            n_y,
+            i_y,
             zero_mean,
-            flip_dv,
+            flip_ud,
         ]
     )
 
@@ -482,10 +547,10 @@ def interactive_colormesh_explorer(time, sig, y=None, figsize=(20, 8)):
             "y": fixed(y),
             "window_length": window_length,
             "window_start": window_start,
-            "n_plot_rows": n_plot_rows,
-            "i_row": i_row,
+            "n_y": n_y,
+            "i_y": i_y,
             "zero_mean": zero_mean,
-            "flip_dv": flip_dv,
+            "flip_ud": flip_ud,
         },
     )
 
