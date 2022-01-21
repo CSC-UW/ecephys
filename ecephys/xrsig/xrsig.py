@@ -28,6 +28,8 @@ def dtdim(dat):
 
 
 def rereference(sig, ref_chans, func=np.mean):
+    """Re-reference a signal to a function of specific channels."""
+    # Example: For common avg. ref., ref_chans == sig.channel
     ref = sig.sel(channel=ref_chans).reduce(func, dim="channel", keepdims=True)
     return sig - ref.values
 
