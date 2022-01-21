@@ -31,6 +31,16 @@ from ..xrsig import get_kcsd
 
 
 def load_spws(path, use_datetime=True):
+    """Load SPWs from disk to DataFrame.
+
+    Parameters
+    ==========
+    path:
+        Full path to the HDF5 file containg SPW data for one SGLX trigger file.
+    use_datetime: bool
+        If True, load all time fields as pandas Datetime objects.
+        If False, load all time fields as seconds (type: float) from trigger file start.
+    """
     spws = load_df_h5(path)
 
     if use_datetime:
@@ -48,6 +58,25 @@ def load_spws(path, use_datetime=True):
 def get_detection_series(
     csd, coarse_detection_chans=slice(None), n_fine_detection_chans=5
 ):
+    """Get the single timeseries to be threshold for SPW detection.
+
+    Parameters
+    ==========
+    csd: (time, channel) DataArray
+        Current source density.
+    coarse_detection_chans: DataArray.sel indexer
+        Channels used for SPW detection.
+        Default: Use all channels present in the CSD.
+    n_file_detection_chans: int
+        The (preferably odd) number of neighboring channels to average over
+        when producing CSD estimates for each channel.
+
+    Returns:
+    ========
+    (time,) DataArray
+        The minima, at each time, of the locally smoothed CSD.
+        The channel of each minimum is preserved.
+    """
     _csd = (
         csd.sel(channel=coarse_detection_chans)
         .rolling(channel=n_fine_detection_chans, center=True)
@@ -58,6 +87,16 @@ def get_detection_series(
 
 
 def get_peak_info(sig, spws):
+    """Get properties of each SPW peak.
+
+    Parameters
+    ==========
+    sig: (time,) DataArray
+        The signal to extract peak amplitudes, times, and channels from.
+        Probably the series used for SPW detection.
+    spws: DataFrame
+        The SPWs, with each SPW's start and end times.
+    """
     spws = spws.copy()
 
     def _get_peak_info(spw):
@@ -71,6 +110,19 @@ def get_peak_info(sig, spws):
 
 
 def get_coarse_detection_chans(peak_channel, n_coarse_detection_chans, csd_chans):
+    """Given a channel around which to detect SPWs, get the neighboring channels.
+    Checks to make sure that you have CSD estimates for all those channels.
+
+    Parameters:
+    ===========
+    peak_channel: int
+        The channel around which to detect SPWs.
+    n_coarse_detection_chans: int
+        An odd integer, indiciating the number of neighboring channels (inclusive)
+        to use for detecting SPWs.
+    csd_chans: np.array
+        The channels for which you have CSD estimates.
+    """
     assert (
         n_coarse_detection_chans % 2
     ), "Must use an odd number of of detection channels."
@@ -93,6 +145,24 @@ def detect_by_value(
     boundary_threshold,
     minimum_duration=0.005,
 ):
+    """Detect SPWs using thresholds whose absolute values are provided.
+    Return SPWs as a DataFrame.
+
+    Parameters
+    ==========
+    csd: (time, channels) DataArray
+        The CSD to use for detection.
+    initial_peak_channel: int
+        A channel around which to start detecting SPWs at t0.
+    n_coarse_detection_chans: int
+        The odd number of neighboring channels on which to detect SPWs
+    detection_threshold: float
+        If the detection series exceeds this value, a sharp wave is detected.
+    boundary_threshold: float
+        The start and end times of each SPW are defined by when the detection series drops below this value.
+    minimum_duration: float
+        The time that a SPW must exceed the detection threshold.
+    """
     csd = csd.swap_dims({"pos": "channel"})
     cdc = get_coarse_detection_chans(
         initial_peak_channel, n_coarse_detection_chans, csd.channel.values.tolist()
@@ -121,6 +191,7 @@ def detect_by_zscore(
     boundary_threshold=1.5,
     minimum_duration=0.005,
 ):
+    """See `detect_by_value`, but using zscores."""
     csd = csd.swap_dims({"pos": "channel"})
     cdc = get_coarse_detection_chans(
         initial_peak_channel, n_coarse_detection_chans, csd.channel.values.tolist()
@@ -145,11 +216,40 @@ def detect_by_zscore(
 
 
 def _estimate_drift(t, pos, **kwargs):
+    """Estimate vertical drift of a landmark over time.
+
+    See: https://www.statsmodels.org/dev/generated/statsmodels.nonparametric.smoothers_lowess.lowess.html
+
+    Parameters:
+    ===========
+    t: (n_t,) float
+        The time of each position estimate.
+    pos: (n_t,) float
+        The vertical position of the landmark at each time in `t`.
+
+    Returns:
+    ========
+    time, estm: ((n_time,), (n_time,))
+        The estimated true position of the landmark at each timepoint.
+        Usually, time == t
+    """
     out = lowess(pos, t, **kwargs)
     return out[:, 0], out[:, 1]
 
 
 def estimate_drift(spws, imec_map, frac=1 / 48, it=3):
+    """Estimate drift using SPW peak locations over time.
+
+    spws: DataFrame
+        SPWs to use for estimation.
+    imec_map: sglx.Map
+        The imec map used in the recording from which SPWs were detected.
+    frac: float between (0, 1)
+        The fraction of data used when estimating each position.
+    it: int
+        The number of residual based reweightings to perform during LOWESS estimation.
+        Computation time is a linear function of this valuable, but estimate quality is not.
+    """
     um_per_mm = 1000
     peak_times = dt_series_to_seconds(spws.peak_time)
     peak_ycoords = imec_map.chans2coords(spws.peak_channel)[:, 1] / um_per_mm
@@ -173,6 +273,7 @@ def estimate_drift(spws, imec_map, frac=1 / 48, it=3):
 
 
 def get_drift_epocs(drift):
+    """Get epocs during which drift amount is estimated to be less than the spacing between electrodes."""
     cols = ["nearest_y", "nearest_id", "shifts"]
     dfs = list(get_epocs(drift, col, "dt") for col in cols)
     assert all_arrays_equal(
@@ -183,6 +284,7 @@ def get_drift_epocs(drift):
 
 
 def get_shift_timeseries(epocs, times):
+    """Get the shifts that must be applied to the raw data to correct for estimated drift."""
     shifts = np.full(len(times), np.nan)
     for epoc in epocs.reset_index().itertuples():
         times_in_epoc = (times >= epoc.start_dt) & (times <= epoc.end_dt)
@@ -212,6 +314,7 @@ def spw_explorer_xr(
     show_lfps=True,
     show_csd=True,
 ):
+    """Plot a static image of an SPW, with both LFP and CSD."""
 
     lfp_ax, csd_ax = axes
     lfp_ax.cla()
@@ -256,14 +359,6 @@ def spw_explorer_xr(
     # Highlight each spw
     for spw in spws.itertuples():
         if (spw.start_time >= plot_start_time) and (spw.end_time <= plot_end_time):
-            # lfp_ax.axvspan(
-            #    spw.start_time,
-            #    spw.end_time,
-            #    fill=False,
-            #    linestyle=(0, (5, 10)),
-            #    color="red",
-            #    zorder=1000,
-            # )
             lfp_ax.annotate(
                 "",
                 xy=(spw.start_time, 0),
@@ -281,6 +376,7 @@ def spw_explorer_xr(
 
 
 def interactive_spw_explorer(lfp, csd, spws, figsize=(20, 8)):
+    """Use ipywidgets and ipympl to create a GUI for plotting SPWs."""
     assert all(
         lfp.channel.values == csd.channel.values
     ), "LFP and CSD channels must match."
@@ -355,6 +451,9 @@ def lazy_spw_explorer(
     show_lfps=True,
     show_csd=True,
 ):
+    """Like spw_explorer_xr, but loads data lazily from disk, rather than requiring it
+    all to be in memory before calling the function. Useful for weak PCs and laptops, but
+    slower."""
     lfp_ax, csd_ax = axes
     lfp_ax.cla()
     csd_ax.cla()
@@ -426,12 +525,6 @@ def lazy_spw_explorer(
 
 # Likely deprecated
 def interactive_lazy_spw_explorer(spws, metadata, subject, condition, figsize=(20, 8)):
-    """
-    Examples
-    --------
-    %matplotlib widget
-    lazy_spw_explorer(spws, metadata, subject, condition)
-    """
     # Create interactive widgets for controlling plot parameters
     window_length = FloatSlider(
         min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
@@ -492,6 +585,7 @@ def interactive_lazy_spw_explorer(spws, metadata, subject, condition, figsize=(2
     display(ui, out)
 
 
+# Is this function still used?
 def plot_spw_density(spws, binwidth=10, ax=None, figsize=(20, 4)):
     ax = check_ax(ax, figsize=figsize)
     g = sns.histplot(
