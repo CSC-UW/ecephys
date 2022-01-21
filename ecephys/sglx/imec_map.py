@@ -38,8 +38,8 @@ def parse_imroTbl(imroTbl_string):
         delim_whitespace=True,
         names=["chan_id", "bank", "ref_id", "ap_gain", "lf_gain", "ap_highpass"],
     )
-    imro["ele"] = imro.bank.values * n_chans + imro.chan_id.values
-    imro["x"], imro["y"] = XYCoord10({}, imro.ele.values, False)
+    imro["site"] = imro.bank.values * n_chans + imro.chan_id.values
+    imro["x"], imro["y"] = XYCoord10({}, imro.site.values, False)
     return imro
 
 
@@ -203,7 +203,7 @@ class ImecMap:
 
     def plot_electrodes(self):
         """Plot the locations of all channels and electrodes."""
-        XYCoord10({}, self.imro.ele.values, True)
+        XYCoord10({}, self.imro.site.values, True)
 
     def chans2coords(self, chans):
         """Convert channel IDs to their coordinates"""
