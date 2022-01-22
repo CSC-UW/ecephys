@@ -89,7 +89,7 @@ def load_trigger(bin_path, chans=None, start_time=0, end_time=np.Inf):
     validate_probe_type(meta)
 
     im = ImecMap.from_meta(meta)
-    chans = m.chans if None else chans
+    chans = im.chans if chans is None else chans
 
     rawData = makeMemMapRaw(bin_path, meta)
 

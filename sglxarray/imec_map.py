@@ -164,7 +164,7 @@ class ImecMap:
         self.stream_type = stream_type
 
     def __repr__(self):
-        return self._name
+        return self.name
 
     @property
     def imro(self):
@@ -212,12 +212,12 @@ class ImecMap:
             raise NotImplementedError(
                 f"Property undefined for stream type: {self._stream_type}. Try setting a stream type."
             )
-        return self.get_stream(self.__stream_type)
+        return self.get_stream(self._stream_type)
 
     @property
     def chans(self):
         """Get the channel IDs in user order, as displayed in SGLX."""
-        return self.stream.values
+        return self.stream.chan_id.values
 
     @property
     def x(self):
@@ -269,7 +269,7 @@ class ImecMap:
         validate_probe_type(meta)
         imro = parse_imroTbl(meta["imroTbl"])
         cmp = parse_snsChanMap(meta["snsChanMap"])
-        map_name = PurePath(meta["imRoFile"].stem)
+        map_name = PurePath(meta["imRoFile"]).stem
         nAP, nLF, nSY = ChannelCountsIM(meta)
         assert bool(nAP) != bool(nLF), "AP and LF channels should not both be present."
         stream_type = "LF" if bool(nLF) else "AP"

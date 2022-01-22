@@ -1,5 +1,4 @@
 import sglxarray
-import numpy as np
 from pathlib import Path
 
 SUBPACKAGE_DIRECTORY = Path(__file__).resolve().parent
@@ -12,6 +11,4 @@ def example_data_path():
 
 def example_data():
     p = example_data_path()
-    chans = np.arange(0, 384)
-
-    return sglxarray.load_trigger(p, chans)
+    return sglxarray.load_trigger(p)
