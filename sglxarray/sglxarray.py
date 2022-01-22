@@ -51,6 +51,8 @@ def _time_to_micros(time_obj):
 
 
 def _get_first_and_last_samples(meta, firstSample=0, lastSample=np.Inf):
+    """Take requested start/end sample numbers, and
+    return the closest actual start/end sample numbers."""
     # Calculate file's start and end samples
     nFileChan = int(meta["nSavedChans"])
     nFileSamp = int(int(meta["fileSizeBytes"]) / (2 * nFileChan))
