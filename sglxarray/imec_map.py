@@ -8,6 +8,16 @@ from pathlib import PurePath, Path
 SUBPACKAGE_DIRECTORY = Path(__file__).resolve().parent
 
 
+def _all_equal(iterator):
+    """Check if all items in an un-nested array are equal."""
+    try:
+        iterator = iter(iterator)
+        first = next(iterator)
+        return all(first == rest for rest in iterator)
+    except StopIteration:
+        return True
+
+
 def validate_probe_type(meta):
     if ("imDatPrb_type" not in meta) or (int(meta["imDatPrb_type"]) != 0):
         raise NotImplementedError(
@@ -171,7 +181,7 @@ class ImecMap:
         """Get the map's stream type."""
         return self._stream_type
 
-    @property
+    @stream_type.setter
     def stream_type(self, stream_type):
         """Set the map's stream type."""
         assert stream_type in [None, "LF", "AP"], f"Invalid stream type: {stream_type}"
@@ -228,7 +238,7 @@ class ImecMap:
     def pitch(self):
         """Get the vertical spacing between electrode sites, in microns"""
         vals = np.diff(self.y)
-        assert self.all_equal(vals), "Electrode pitch is not uniform."
+        assert _all_equal(vals), "Electrode pitch is not uniform."
         return vals[0]
 
     def plot_electrodes(self):
@@ -288,13 +298,3 @@ class ImecMap:
     @classmethod
     def Tetrode(cls):
         return cls.from_library("Tetrode_1shank")
-
-    @staticmethod()
-    def all_equal(iterator):
-        """Check if all items in an un-nested array are equal."""
-        try:
-            iterator = iter(iterator)
-            first = next(iterator)
-            return all(first == rest for rest in iterator)
-        except StopIteration:
-            return True
