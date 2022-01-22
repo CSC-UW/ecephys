@@ -1,12 +1,18 @@
 import numpy as np
 import pandas as pd
 from io import StringIO
-from .sglxarray import validate_probe_type
 from .external.SGLXMetaToCoords import XYCoord10
 from .external.readSGLX import readMeta, ChannelCountsIM
 from pathlib import PurePath, Path
 
 SUBPACKAGE_DIRECTORY = Path(__file__).resolve().parent
+
+
+def validate_probe_type(meta):
+    if ("imDatPrb_type" not in meta) or (int(meta["imDatPrb_type"]) != 0):
+        raise NotImplementedError(
+            "This module has only been tested with Neuropixel 1.0 probes."
+        )
 
 
 def check_library(fname):
