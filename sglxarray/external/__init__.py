@@ -1,2 +1,2 @@
 from . import readSGLX
-from .. import SGLXMetaToCoords
+from . import SGLXMetaToCoords
