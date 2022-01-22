@@ -3,12 +3,20 @@ import xarray as xr
 import pandas as pd
 from pathlib import Path
 
+from .imec_map import ImecMap
 from .external.readSGLX import (
     makeMemMapRaw,
     readMeta,
     SampRate,
     GainCorrectIM,
 )
+
+
+def validate_probe_type(meta):
+    if ("imDatPrb_type" not in meta) or (int(meta["imDatPrb_type"]) != 0):
+        raise NotImplementedError(
+            "This module has only been tested with Neuropixel 1.0 probes."
+        )
 
 
 def load_timestamps(bin_path, start_time=None, end_time=None):
@@ -32,6 +40,7 @@ def load_timestamps(bin_path, start_time=None, end_time=None):
     """
     bin_path = Path(bin_path)
     meta = readMeta(bin_path)
+    validate_probe_type(meta)
     fs = SampRate(meta)
 
     # Calculate desire start and end samples
@@ -54,7 +63,7 @@ def load_timestamps(bin_path, start_time=None, end_time=None):
     return time
 
 
-def load_trigger(bin_path, chans, start_time=0, end_time=np.Inf):
+def load_trigger(bin_path, chans=None, start_time=0, end_time=np.Inf):
     """Load SpikeGLX timeseries data.
 
     Parameters
@@ -77,8 +86,12 @@ def load_trigger(bin_path, chans, start_time=0, end_time=np.Inf):
     """
     bin_path = Path(bin_path)
     meta = readMeta(bin_path)
+    validate_probe_type(meta)
+
+    im = ImecMap.from_meta(meta)
+    chans = m.chans if None else chans
+
     rawData = makeMemMapRaw(bin_path, meta)
-    fs = SampRate(meta)
 
     # Calculate file's start and end samples
     nFileChan = int(meta["nSavedChans"])
@@ -86,6 +99,7 @@ def load_trigger(bin_path, chans, start_time=0, end_time=np.Inf):
     (firstFileSamp, lastFileSamp) = (0, nFileSamp - 1)
 
     # Get the requested start and end samples
+    fs = SampRate(meta)
     firstRequestedSamp = fs * start_time
     lastRequestedSamp = fs * end_time
 
@@ -118,7 +132,7 @@ def load_trigger(bin_path, chans, start_time=0, end_time=np.Inf):
             "timedelta": ("time", timedelta),
             "datetime": ("time", datetime),
         },
-        attrs={"units": sig_units, "fs": fs},
+        attrs={"units": sig_units, "fs": fs, "ImecMap": im},
     )
 
     return data

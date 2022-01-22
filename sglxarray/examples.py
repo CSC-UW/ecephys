@@ -2,11 +2,12 @@ import sglxarray
 import numpy as np
 from pathlib import Path
 
-data_path = Path(sglxarray.__path__[0]) / "data"
+SUBPACKAGE_DIRECTORY = Path(__file__).resolve().parent
+DATA_DIRECTORY = SUBPACKAGE_DIRECTORY / "data"
 
 
 def example_data_path():
-    return data_path / "example-data.exported.imec0.lf.bin"
+    return DATA_DIRECTORY / "example-data.exported.imec0.lf.bin"
 
 
 def example_data():
