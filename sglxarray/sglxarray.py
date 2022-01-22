@@ -131,6 +131,8 @@ def load_trigger(bin_path, chans=None, start_time=0, end_time=np.Inf):
             "channel": chans,
             "timedelta": ("time", timedelta),
             "datetime": ("time", datetime),
+            "x": ("channel", im.chans2coords(chans)[:, 0]),
+            "y": ("channel", im.chans2coords(chans)[:, 1]),
         },
         attrs={"units": sig_units, "fs": fs, "ImecMap": im},
     )
