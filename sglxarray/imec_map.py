@@ -195,7 +195,7 @@ class ImecMap:
     @property
     def full(self):
         """Get a combined representaion of both the IMRO and channel map."""
-        return self.imro.merge(self.neural_cmp).sort_values("usr_order")
+        return self.imro.merge(self.neural_cmp).sort_values(["y", "usr_order"])
 
     def get_stream(self, stream_type):
         """Get just the LFP or AP portion of the map."""
@@ -239,7 +239,7 @@ class ImecMap:
         """Get the vertical spacing between electrode sites, in microns"""
         vals = np.diff(self.y)
         assert _all_equal(vals), "Electrode pitch is not uniform."
-        return vals[0]
+        return np.absolute(vals[0])
 
     def plot_electrodes(self):
         """Plot the locations of all channels and electrodes."""
@@ -255,7 +255,7 @@ class ImecMap:
         return self.stream.set_index("y").loc[y]
 
     def yrange2chans(self, y_lo, y_hi):
-        """Get all channels that fall between two y coordinates."""
+        """Get all channels that fall between two y coordinates"""
         return self.stream.set_index("y").loc[y_lo:y_hi]
 
     @classmethod
