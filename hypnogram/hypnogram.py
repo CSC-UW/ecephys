@@ -115,7 +115,7 @@ class FloatHypnogram(Hypnogram):
         return FloatHypnogram
 
     def write_visbrain(self, path):
-        path(path).parent.mkdir(parents=True, exist_ok=True)
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.to_csv(path, columns=["state", "end_time"], sep="\t", index=False)
 
     def as_datetime(self, start_datetime):
@@ -130,6 +130,14 @@ class DatetimeHypnogram(Hypnogram):
     @property
     def _constructor(self):
         return DatetimeHypnogram
+
+    def as_float(self):
+        df = self.copy()
+        start_datetime = df.start_time.min()
+        df["start_time"] = (df.start_time - start_datetime) / pd.to_timedelta("1s")
+        df["end_time"] = (df.end_time - start_datetime) / pd.to_timedelta("1s")
+        df["duration"] = df.duration / pd.to_timedelta("1s")
+        return FloatHypnogram(df)
 
     def keep_first(self, cumulative_duration):
         """Keep hypnogram bouts until a cumulative duration is reached.
