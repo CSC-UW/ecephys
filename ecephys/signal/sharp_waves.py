@@ -30,6 +30,7 @@ from sglxarray import load_trigger
 from ..xrsig import get_kcsd
 
 
+# Is this still necessary? Are SPWs now saved using automatically? If not, why not?
 def load_spws(path, use_datetime=True):
     """Load SPWs from disk to DataFrame.
 
@@ -255,8 +256,8 @@ def estimate_drift(spws, imec_map, frac=1 / 48, it=3):
     peak_ycoords = imec_map.chans2coords(spws.peak_channel)[:, 1] / um_per_mm
     t, y = _estimate_drift(peak_times, peak_ycoords, frac=frac, it=it)
     nearest_y = round_to_values(y, imec_map.y / um_per_mm)
-    t0_chan = imec_map.lf_map.set_index("y").loc[nearest_y[0] * um_per_mm]
-    nearest_chans = imec_map.lf_map.set_index("y").loc[nearest_y * um_per_mm]
+    t0_chan = imec_map.y2chans(nearest_y[0] * um_per_mm)
+    nearest_chans = imec_map.y2chans(nearest_y * um_per_mm)
     nearest_ids = nearest_chans.chan_id.values
     usr_order_shift = nearest_chans.usr_order.values - t0_chan.usr_order
 

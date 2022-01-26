@@ -6,16 +6,14 @@ import seaborn as sns
 from scipy.signal import find_peaks
 
 
-def get_kcsd(sig, ele_pos, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
+def get_kcsd(sig, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
     """If signal units are in uV, then CSD units are in nA/mm.
 
     Paramters:
     ----------
     sig: xr.DataArray (time, channel)
         The data on which to compute a 1D KCSD.
-    ele_pos: (n_channels,)
-        The positions, in mm, of each electrode in `sig`.
-        These positions MUST be in mm for the kcsd package.
+        Must have a y coordinate on the channel dimension, with units in um.
     drop_chans: list
         Channels (as they appear in `sig`) to exclude when estimating the CSD.
     do_lcurve: Boolean
@@ -30,13 +28,15 @@ def get_kcsd(sig, ele_pos, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
         exactly to electrode positions, a `channel` coordinate on the `pos` dimension
         will give corresponding channels for each estimate.
     """
-    channels = sig.channel.values  # Save for later
-    sig = sig.assign_coords({"pos": ("channel", ele_pos)})
+    um_per_mm = 1000  # Convert um to mm for KCSD package.
+    chans_before_drop = (
+        sig.channel.values
+    )  # Save for later, because KCSD will still give us estimates at dropped channels.
+    ele_pos_before_drop = sig.y.values / um_per_mm
     sig = sig.drop_sel(channel=drop_chans, errors="ignore")
+    ele_pos = sig.y.values / um_per_mm
     k = KCSD1D(
-        sig.pos.values.reshape(-1, 1),
-        sig.transpose("channel", "time").values,
-        **kcsd_kwargs
+        ele_pos.reshape(-1, 1), sig.transpose("channel", "time").values, **kcsd_kwargs
     )
 
     if do_lcurve:
@@ -53,8 +53,8 @@ def get_kcsd(sig, ele_pos, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
     if "datetime" in sig.coords:
         csd = csd.assign_coords({"datetime": ("time", sig.datetime.values)})
 
-    if np.allclose(k.estm_x, ele_pos):
-        csd = csd.assign_coords({"channel": ("pos", channels)})
+    if np.allclose(k.estm_x, ele_pos_before_drop):
+        csd = csd.assign_coords({"channel": ("pos", chans_before_drop)})
 
     return csd.assign_attrs(kcsd=k, fs=sig.fs)
 
