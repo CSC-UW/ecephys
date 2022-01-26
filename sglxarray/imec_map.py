@@ -254,6 +254,10 @@ class ImecMap:
         """Convert y coordinates probe space in microns to the corresponding channel IDs."""
         return self.stream.set_index("y").loc[y]
 
+    def yrange2chans(self, y_lo, y_hi):
+        """Get all channels that fall between two y coordinates."""
+        return self.stream.set_index("y").loc[y_lo:y_hi]
+
     @classmethod
     def from_library(cls, map_name, stream_type=None):
         """Create an ImecMap object from the standard library.
