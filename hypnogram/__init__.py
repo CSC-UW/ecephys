@@ -1,2 +1,2 @@
-from .hypnogram import *  # noqa
+from .hypnogram import *
 from . import examples
