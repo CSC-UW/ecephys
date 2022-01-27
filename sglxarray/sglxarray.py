@@ -81,6 +81,10 @@ def _get_timestamps(meta, firstSample=0, lastSample=np.Inf):
     return time, timedelta, datetime
 
 
+def get_timestamps(bin_path):
+    return _get_timestamps(readMeta(Path(bin_path)))
+
+
 def _to_seconds(t, meta):
     """Convert any time into seconds from the start of the file.
     See `start_time` and `end_time` arguments to `load_trigger` for
