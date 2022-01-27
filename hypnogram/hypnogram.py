@@ -116,7 +116,9 @@ class FloatHypnogram(Hypnogram):
 
     def write_visbrain(self, path):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self.to_csv(path, columns=["state", "end_time"], sep="\t", index=False)
+        self.to_csv(
+            path, columns=["state", "end_time"], sep="\t", index=False, header=False
+        )
 
     def as_datetime(self, start_datetime):
         df = self.copy()
