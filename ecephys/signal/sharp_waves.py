@@ -1,15 +1,17 @@
-from ecephys.utils.utils import all_equal, get_values_around
 import pandas as pd
 import numpy as np
+from pathlib import Path
+from statsmodels.nonparametric.smoothers_lowess import lowess
 from . import event_detection as evt
 from ..utils import (
     dt_series_to_seconds,
     round_to_values,
     all_arrays_equal,
     get_epocs,
+    get_values_around,
     load_df_h5,
+    read_pandas_netcdf,
 )
-from statsmodels.nonparametric.smoothers_lowess import lowess
 
 # -------------------- Plotting related imports --------------------
 import matplotlib.pyplot as plt
@@ -25,12 +27,11 @@ from ipywidgets import (
     interactive_output,
 )
 from neurodsp.plts.utils import check_ax
-from ..plot import lfp_explorer, colormesh_explorer
 from sglxarray import load_trigger
+from ..plot import lfp_explorer, colormesh_explorer
 from ..xrsig import get_kcsd
 
 
-# Is this still necessary? Are SPWs now saved using automatically? If not, why not?
 def load_spws(path, use_datetime=True):
     """Load SPWs from disk to DataFrame.
 
@@ -42,7 +43,13 @@ def load_spws(path, use_datetime=True):
         If True, load all time fields as pandas Datetime objects.
         If False, load all time fields as seconds (type: float) from trigger file start.
     """
-    spws = load_df_h5(path)
+    filetype = Path(path).suffix
+    if filetype == ".nc":
+        spws = read_pandas_netcdf(path)
+    elif filetype == ".h5":
+        spws = load_df_h5(path)
+    else:
+        raise ValueError("Expected file of type .nc or .h5")
 
     if use_datetime:
         t0 = pd.to_datetime(spws.attrs["t0"])

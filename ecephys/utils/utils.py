@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import xarray as xr
 from pandas.api.types import is_datetime64_ns_dtype
 from scipy.stats import median_abs_deviation
 from pathlib import Path
@@ -87,7 +88,32 @@ def item_intersection(l):
     return reduce(lambda x, y: dict(x.items() & y.items()), l)
 
 
-# -------------------- DataFrame utilities --------------------
+# -------------------- Xarray utilities --------------------
+
+
+def save_xarray(xr_obj, path):
+    assert isinstance(xr_obj, xr.DataArray) or isinstance(xr_obj, xr.Dataset)
+    Path(path).parent.mkdir(
+        parents=True, exist_ok=True
+    )  # Create parent directories if needed.
+    xr_obj.to_netcdf(path)
+    xr_obj.close()
+
+
+# -------------------- Pandas utilities --------------------
+
+
+def store_pandas_netcdf(pd_obj, path):
+    xr_obj = pd_obj.to_xarray()
+    xr_obj.attrs = pd_obj.attrs
+    save_xarray(xr_obj, path)
+
+
+def read_pandas_netcdf(path):
+    xr_obj = xr.load_dataset(path)
+    pd_obj = xr_obj.to_pandas()
+    pd_obj.attrs = xr_obj.attrs
+    return pd_obj
 
 
 def unnest_df(df, col, reset_index=False):
