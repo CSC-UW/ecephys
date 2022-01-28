@@ -92,6 +92,7 @@ def item_intersection(l):
 
 
 def save_xarray(xr_obj, path):
+    """Save an Xarray object to NetCDF, which preserves obj.attrs"""
     assert isinstance(xr_obj, xr.DataArray) or isinstance(xr_obj, xr.Dataset)
     Path(path).parent.mkdir(
         parents=True, exist_ok=True
@@ -104,12 +105,14 @@ def save_xarray(xr_obj, path):
 
 
 def store_pandas_netcdf(pd_obj, path):
+    """Save a pandas object, including attrs, to a NetCDF file."""
     xr_obj = pd_obj.to_xarray()
     xr_obj.attrs = pd_obj.attrs
     save_xarray(xr_obj, path)
 
 
 def read_pandas_netcdf(path):
+    """Load a NetCDF file whose contents can be interpreted as a pandas object."""
     xr_obj = xr.load_dataset(path)
     pd_obj = xr_obj.to_pandas()
     pd_obj.attrs = xr_obj.attrs
