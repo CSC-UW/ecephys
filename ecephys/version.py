@@ -57,6 +57,9 @@ EXTRAS_REQUIRE = {
         "ipywidgets",
         "ipympl",
     ],
+    "spikesorting": [
+        "spikeinterface @ git+https://github.com/CSC-UW/spikeinterface@master#egg=spikeinterface",
+    ],
 }
 INSTALL_REQUIRES = [
     "neurodsp",
@@ -70,11 +73,10 @@ INSTALL_REQUIRES = [
     "pyyaml",
     "black",
     "statsmodels",
-    "spikeinterface @ git+https://github.com/CSC-UW/spikeinterface@master#egg=spikeinterface",
     "kcsd @ git+https://github.com/Neuroinflab/kCSD-python@master#egg=kcsd",
     "emg_from_lfp @ git+https://github.com/CSC-UW/emg_from_lfp@master#egg=emg_from_lfp",
     "hypnogram @ git+https://github.com/CSC-UW/hypnogram.git@master#egg=hypnogram",
     "sglxarray @ git+https://github.com/CSC-UW/sglxarray.git@main#egg=sglxarray",
 ]
 
-PYTHON_REQUIRES = ">= 3.7"
+PYTHON_REQUIRES = ">= 3.10"
