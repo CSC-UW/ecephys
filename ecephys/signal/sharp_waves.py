@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from pandas.api.types import is_float_dtype
 from statsmodels.nonparametric.smoothers_lowess import lowess
 from . import event_detection as evt
 from ..utils import (
@@ -32,16 +33,14 @@ from ..plot import lfp_explorer, colormesh_explorer
 from ..xrsig import get_kcsd
 
 
-def load_spws(path, use_datetime=True):
+# This function is only really only appropriate for file-level SPWs, not alias-level SPWS, which lack a t0 field. Fix this.
+def load_spws_and_convert_to_datetime(path):
     """Load SPWs from disk to DataFrame.
 
     Parameters
     ==========
     path:
         Full path to the HDF5 file containg SPW data for one SGLX trigger file.
-    use_datetime: bool
-        If True, load all time fields as pandas Datetime objects.
-        If False, load all time fields as seconds (type: float) from trigger file start.
     """
     filetype = Path(path).suffix
     if filetype == ".nc":
@@ -51,11 +50,15 @@ def load_spws(path, use_datetime=True):
     else:
         raise ValueError("Expected file of type .nc or .h5")
 
-    if use_datetime:
-        t0 = pd.to_datetime(spws.attrs["t0"])
-        spws["start_time"] = t0 + pd.to_timedelta(spws["start_time"], "s")
-        spws["end_time"] = t0 + pd.to_timedelta(spws["end_time"], "s")
-        spws["peak_time"] = t0 + pd.to_timedelta(spws["peak_time"], "s")
+    assert "t0" in spws.attrs, "No `t0` field present for conversion to datetime."
+    assert is_float_dtype(spws.start_time), "Expected float times. Already datetimes?"
+    assert is_float_dtype(spws.end_time), "Expected float times. Already datetimes?"
+    assert is_float_dtype(spws.peak_time), "Expected float times. Already datetimes?"
+
+    t0 = pd.to_datetime(spws.attrs["t0"])
+    spws["start_time"] = t0 + pd.to_timedelta(spws["start_time"], "s")
+    spws["end_time"] = t0 + pd.to_timedelta(spws["end_time"], "s")
+    spws["peak_time"] = t0 + pd.to_timedelta(spws["peak_time"], "s")
 
     return spws
 
@@ -187,7 +190,7 @@ def detect_by_value(
     spws.attrs["initial_peak_channel"] = initial_peak_channel
     spws.attrs["n_coarse_detection_chans"] = n_coarse_detection_chans
     if "datetime" in ser.coords:
-        spws.attrs["t0"] = ser.datetime.values.min()
+        spws.attrs["t0"] = np.datetime_as_string(ser.datetime.values.min())
     return get_peak_info(ser, spws)
 
 
@@ -216,7 +219,7 @@ def detect_by_zscore(
     spws.attrs["initial_peak_channel"] = initial_peak_channel
     spws.attrs["n_coarse_detection_chans"] = n_coarse_detection_chans
     if "datetime" in ser.coords:
-        spws.attrs["t0"] = ser.datetime.values.min()
+        spws.attrs["t0"] = np.datetime_as_string(ser.datetime.values.min())
     return get_peak_info(ser, spws)
 
 
