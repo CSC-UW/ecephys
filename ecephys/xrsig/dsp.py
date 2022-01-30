@@ -30,9 +30,11 @@ def parallel_spectrogram_welch(sig, **kwargs):
         coords={
             "frequency": freqs,
             "time": time,
-            "channel": sig.channel.values,
             "timedelta": ("time", timedelta),
             "datetime": ("time", datetime),
+            "channel": sig.channel.values,
+            "x": ("channel", sig.x.values),
+            "y": ("channel", sig.y.values),
         },
         attrs={"units": f"{sig.units}^2/Hz"},
     )
