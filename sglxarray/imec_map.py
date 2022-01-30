@@ -237,7 +237,7 @@ class ImecMap:
     @property
     def pitch(self):
         """Get the vertical spacing between electrode sites, in microns"""
-        vals = np.diff(self.y)
+        vals = np.diff(np.unique(self.y))
         assert _all_equal(vals), "Electrode pitch is not uniform."
         return np.absolute(vals[0])
 
