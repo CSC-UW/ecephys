@@ -1,6 +1,7 @@
 import xarray as xr
 import numpy as np
 from kcsd import KCSD1D
+from kcsd import utility_functions as kcsd_utils
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.signal import find_peaks
@@ -34,10 +35,11 @@ def get_kcsd(sig, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
     )  # Save for later, because KCSD will still give us estimates at dropped channels.
     ele_pos_before_drop = sig.y.values / um_per_mm
     sig = sig.drop_sel(channel=drop_chans, errors="ignore")
+    sig = sig.groupby("y").first()
+    sig = sig.transpose("y", "time")
     ele_pos = sig.y.values / um_per_mm
-    k = KCSD1D(
-        ele_pos.reshape(-1, 1), sig.transpose("channel", "time").values, **kcsd_kwargs
-    )
+
+    k = KCSD1D(ele_pos.reshape(-1, 1), sig.values, **kcsd_kwargs)
 
     if do_lcurve:
         print("Performing L-curve parameter estimation...")
@@ -53,7 +55,9 @@ def get_kcsd(sig, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
     if "datetime" in sig.coords:
         csd = csd.assign_coords({"datetime": ("time", sig.datetime.values)})
 
-    if np.allclose(k.estm_x, ele_pos_before_drop):
+    if (k.estm_x.size == ele_pos_before_drop.size) and np.allclose(
+        k.estm_x, ele_pos_before_drop
+    ):
         csd = csd.assign_coords({"channel": ("pos", chans_before_drop)})
 
     return csd.assign_attrs(kcsd=k, fs=sig.fs)
