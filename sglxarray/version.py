@@ -46,6 +46,6 @@ MAJOR = _version_major
 MINOR = _version_minor
 MICRO = _version_micro
 VERSION = __version__
-PACKAGE_DATA = {"sglxarray": [pjoin("data", "*")]}
+PACKAGE_DATA = {"sglxarray": [pjoin("data", "*"), pjoin("external", "maps", "*")]}
 REQUIRES = ["numpy", "pandas", "xarray"]
 PYTHON_REQUIRES = ">= 3.7"
