@@ -6,10 +6,10 @@ data_path = op.join(hg.__path__[0], "data")
 
 
 def float_hypnogram():
-    p = op.join(data_path, "3-17-2020_g0_t0.imec0.hypnogram.txt")
+    p = op.join(data_path, "visbrain_hypnogram.txt")
     return hg.load_visbrain_hypnogram(p)
 
 
 def datetime_hypnogram():
-    p = op.join(data_path, "3-17-2020_g0_t0.imec0.hypnogram.tsv")
+    p = op.join(data_path, "datetime_hypnogram.tsv")
     return hg.load_datetime_hypnogram(p)

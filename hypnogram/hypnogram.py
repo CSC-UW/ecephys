@@ -362,6 +362,48 @@ def load_spike2_hypnogram(path):
     return FloatHypnogram(df)
 
 
+def load_sleepsign_hypnogram(path):
+    """Load a SleepSign hypnogram, exported using the `trend` function."""
+    df = pd.read_table(
+        path,
+        skiprows=19,
+        usecols=[0, 1, 2],
+        names=["start_time", "epoch", "state"],
+        parse_dates=["start_time"],
+        index_col="epoch",
+    )
+    # Make sure that the data starts with epoch 0.
+    assert (
+        df.index.values[0] == 0
+    ), "First epoch found is not #0. Unexpected number of header lines in file?"
+
+    # The datetimes in the first column are meaningless. Convert them to floats.
+    df["start_time"] = (df.start_time - df.start_time[0]) / pd.to_timedelta(1, "s")
+
+    # Make sure all epochs are the same length, so that we can safely infer the file's end time.
+    def _all_equal(iterator):
+        """Check if all items in an un-nested array are equal."""
+        try:
+            iterator = iter(iterator)
+            first = next(iterator)
+            return all(first == rest for rest in iterator)
+        except StopIteration:
+            return True
+
+    epoch_lengths = df.start_time.diff().values[1:]
+    assert _all_equal(epoch_lengths), "Epochs are not all the same length."
+    epoch_length = epoch_lengths[0]
+
+    # Infer the epoch end times, and compute epoch durations
+    df["end_time"] = df.start_time + epoch_length
+    df["duration"] = df.apply(lambda row: row.end_time - row.start_time, axis=1)
+    assert all(df.duration == epoch_length)
+
+    # Reorder columns and return
+    df = df[["state", "start_time", "end_time", "duration"]]
+    return FloatHypnogram(df)
+
+
 def load_datetime_hypnogram(path):
     """Load a hypnogram whose entries are valid datetime strings."""
     df = pd.read_csv(path, sep="\t")
