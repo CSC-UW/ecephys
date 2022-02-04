@@ -14,9 +14,7 @@ def load_store_names(block_path):
 def load_channel_lists(block_path):
     """Get the list of channels associated with each stream store."""
     hdr = tdt.read_block(block_path, headers=True)
-    return {
-        store.name: list(np.unique(store.chan)) for key, store in hdr.stores.items()
-    }
+    return {store.name: list(np.unique(store.chan)) for key, store in hdr.stores.items() if hasattr(store, 'chan')}
 
 
 def _load_stream_store(block_path, store_name, chans=None, start_time=0, end_time=0):
@@ -80,7 +78,7 @@ def stream_store_to_xarray(info, store):
         Attrs: units, fs
         Name: The store name
     """
-    n_channels, n_samples = store.data.shape
+    n_channels, n_samples = np.atleast_2d(store.data).shape
 
     time = np.arange(0, n_samples) / store.fs + store.start_time
     timedelta = pd.to_timedelta(time, "s")
@@ -88,7 +86,7 @@ def stream_store_to_xarray(info, store):
 
     volts_to_microvolts = 1e6
     data = xr.DataArray(
-        store.data.T * volts_to_microvolts,
+        np.atleast_2d(store.data).T * volts_to_microvolts,
         dims=("time", "channel"),
         coords={
             "time": time,
