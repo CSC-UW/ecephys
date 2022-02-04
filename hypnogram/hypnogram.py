@@ -1,7 +1,12 @@
+from multiprocessing.sharedctypes import Value
 import numpy as np
 import pandas as pd
+import datetime
+import warnings
 from pathlib import Path
-
+from pandas.core.dtypes.common import (
+    is_datetime64_any_dtype,
+)
 
 class Hypnogram(pd.DataFrame):
     def __init__(self, *args, **kwargs):
@@ -165,8 +170,9 @@ class DatetimeHypnogram(Hypnogram):
         )
         return self.loc[keep]
 
-    def keep_between(self, start_time, end_time):
+    def keep_between_time(self, start_time, end_time):
         """Keep all hypnogram bouts that fall between two times of day.
+        Analagous to `pandas.DataFrame.between_time`.
 
         Paramters:
         ----------
@@ -175,6 +181,7 @@ class DatetimeHypnogram(Hypnogram):
         end_time:
             The ending hour, e.g. '14:00:00' for 2PM.
         """
+        start_time, end_time = _check_time(start_time), _check_time(end_time)
         keep = np.intersect1d(
             pd.DatetimeIndex(self.start_time).indexer_between_time(
                 start_time, end_time
@@ -182,6 +189,20 @@ class DatetimeHypnogram(Hypnogram):
             pd.DatetimeIndex(self.end_time).indexer_between_time(start_time, end_time),
         )
         return self.iloc[keep]
+
+    def keep_between_datetime(self, start_time, end_time):
+        """Keep all hypnogram bouts that fall between two datetimes.
+
+        Paramters:
+        ----------
+        start_time: datetime, or str
+            The starting time, either as a datetime object or as a datetime string, e.g. '2021-12-30T22:00:01'
+        end_time:
+            The ending time, either as a datetime object or as a datetime string, e.g. '2021-12-30T22:00:01'
+        """
+        start_time, end_time = _check_datetime(start_time), _check_datetime(end_time)
+        keep = (self.start_time >= start_time) & (self.end_time <= end_time)
+        return self.loc[keep]
 
     def keep_longer(self, duration):
         """Keep bouts longer than a given duration.
@@ -468,3 +489,32 @@ def get_separated_wake_hypnogram(qwk_intervals, awk_intervals):
 
     df = pd.concat([qwk, awk]).sort_values(by=["start_time"]).reset_index()
     return Hypnogram(df)
+
+def _check_datetime(dt):
+    """Check that something is a valid datetime."""
+    if is_datetime64_any_dtype(dt) or isinstance(dt, pd.Timestamp):
+        return dt
+
+    # Because pd.to_datetime will accept strings that don't contain a date, we have to check ourselves.
+    if isinstance(dt, str):
+        try:
+            pd.core.tools.times.to_time(dt)
+            warnings.warn(f"{dt} doesn't appear to include a date. Maybe you wanted `keep_between_time`?")
+        except ValueError:
+            pass
+        return pd.to_datetime(dt)
+
+    raise ValueError("Unexpected datetime type.")
+
+def _check_time(t):
+    """Check that something is a valid time of day (e.g. 10:00:00, without a date)."""
+    if isinstance(t, datetime.time):
+        return t
+
+    if isinstance(t, str):
+        try:
+            return pd.core.tools.times.to_time(t)
+        except ValueError:
+            raise ValueError(f"{t} could not be converted to a dateless time of day. Maybe you wanted `keep_between_datetime`?")
+
+    raise ValueError("Unexpected time of day type.")
