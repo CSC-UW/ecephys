@@ -100,6 +100,33 @@ class Hypnogram(pd.DataFrame):
         )
         return self.groupby("state").duration.sum() / total_time
 
+    def reconcile(self, other, how="self"):
+        """Reconcile this hypnogram with another, per `reconcile_hypnograms`.
+
+        Parameters:
+        -----------
+        other: Hypnogram
+        how: str ('sel' or 'other')
+            If 'self', resolve any conflicts in favor of this hypnogram.
+            If 'other', resolve any conflicts in favor of `other`.
+            Default: 'self'
+
+        Returns:
+        --------
+        Hypnogram
+        """
+        assert type(self) == type(
+            other
+        ), "Cannot reconcile hypnograms of different types."
+        if how == "self":
+            return reconcile_hypnograms(self, other)
+        elif how == "other":
+            return reconcile_hypnograms(other, self)
+        else:
+            raise ValueError(
+                f"Argument `how` should be either 'sel' or 'other'. Got {how}."
+            )
+
     def write(self, path):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.to_csv(
@@ -468,3 +495,82 @@ def get_separated_wake_hypnogram(qwk_intervals, awk_intervals):
 
     df = pd.concat([qwk, awk]).sort_values(by=["start_time"]).reset_index()
     return Hypnogram(df)
+
+
+def reconcile_hypnograms(h1, h2):
+    """Combine two hypnograms such that any conflicts are resolved in favor of h1."""
+    for index, row in h1.iterrows():
+        # If h2 contains any interval exactly equivalent to this one, drop it.
+        identical_intervals = (h2.start_time == row.start_time) & (
+            h2.end_time == row.end_time
+        )
+        if any(identical_intervals):
+            assert (
+                sum(identical_intervals) == 1
+            ), "More than one interval in h2 is identical to an interval found in 1. Is h2 well formed?"
+            h2 = h2[~identical_intervals]
+
+        # If h2 contains any intervals wholly contained by this one, drop them.
+        sub_intervals = (h2.start_time >= row.start_time) & (
+            h2.end_time <= row.end_time
+        )
+        if any(sub_intervals):
+            h2 = h2[~sub_intervals]
+
+        # If h2 contains any interval that whole contains this one, split it into preceeding (left) and succeeding (right) intervals.
+        super_intervals = (h2.start_time <= row.start_time) & (
+            h2.end_time >= row.end_time
+        )
+        if any(super_intervals):
+            assert (
+                sum(super_intervals) == 1
+            ), "More than one interval in h2 wholly contains an interval found in h1. Is h2 well formed?"
+            super_interval = h2[super_intervals]
+            left_interval = super_interval.copy()
+            left_interval.end_time = row.start_time
+            left_interval.duration = left_interval.end_time - left_interval.start_time
+            right_interval = super_interval.copy()
+            right_interval.start_time = row.end_time
+            right_interval.duration = (
+                right_interval.end_time - right_interval.start_time
+            )
+            h2 = h2[~super_intervals]
+            h2 = (
+                h2.append([left_interval, right_interval])
+                .sort_values("start_time")
+                .reset_index(drop=True)
+            )
+
+        # If h2 contains any interval that overlaps the start of this interval, truncate it.
+        left_intervals = (
+            (h2.start_time < row.start_time)
+            & (h2.end_time > row.start_time)
+            & (h2.end_time < row.end_time)
+        )
+        if any(left_intervals):
+            assert (
+                sum(left_intervals) == 1
+            ), "More than one interval in h2 overlaps the start of an interval found in h1. Is h2 well formed?"
+            left_interval = h2[left_intervals]
+            left_interval.end_time = row.start_time
+            left_interval.duration = left_interval.end_time - left_interval.start_time
+            h2[left_intervals] = left_interval
+
+        # If h2 contains any interval that overlaps the endof this interval, adjust its start time.
+        right_intervals = (
+            (h2.start_time > row.start_time)
+            & (h2.start_time < row.end_time)
+            & (h2.end_time > row.end_time)
+        )
+        if any(right_intervals):
+            assert (
+                sum(right_intervals) == 1
+            ), "More than one interval in h2 overlaps the end of an interval found in h1. Is h2 well formed?"
+            right_interval = h2[right_intervals]
+            right_interval.start_time = row.end_time
+            right_interval.duration = (
+                right_interval.end_time - right_interval.start_time
+            )
+            h2[right_intervals] = right_interval
+
+    return h2.append(h1).sort_values("start_time").reset_index(drop=True)
