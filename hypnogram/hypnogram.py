@@ -11,10 +11,13 @@ from pandas.core.dtypes.common import (
 class Hypnogram(pd.DataFrame):
     def __init__(self, *args, **kwargs):
         super(Hypnogram, self).__init__(*args, **kwargs)
+        self._validate()
 
     def _validate(self):
         if not {"state", "start_time", "end_time", "duration"}.issubset(self):
-            raise AttributeError()
+            raise AttributeError(
+                "Required columns `state`, `start_time`, `end_time`, and `duration` are not present."
+            )
 
     @property
     def _constructor(self):
@@ -454,14 +457,18 @@ def load_sleepsign_hypnogram(path):
 
 def load_datetime_hypnogram(path):
     """Load a hypnogram whose entries are valid datetime strings."""
-    df = pd.read_csv(path, sep="\t")
+    try:
+        df = pd.read_csv(path, sep="\t")
+    except pd.errors.EmptyDataError:
+        return None
+
     df["start_time"] = pd.to_datetime(df["start_time"])
     df["end_time"] = pd.to_datetime(df["end_time"])
     df["duration"] = pd.to_timedelta(df["duration"])
     return DatetimeHypnogram(df)
 
 
-def get_empty_hypnogram(end_time):
+def get_dummy_hypnogram(end_time):
     """Return an empty, unscored hypnogram.
 
     Parameters
