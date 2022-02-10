@@ -2,7 +2,6 @@ import pandas as pd
 import xarray as xr
 import numpy as np
 
-
 # Is this needed anymore, now that it exists in sglxarray?
 def rebase_time(sig, in_place=True):
     """Rebase time and timedelta coordinates so that t=0 corresponds to the beginning
@@ -43,3 +42,10 @@ def load_and_concatenate_datasets(paths):
             pass
 
     return rebase_time(xr.concat(datasets, dim="time"))
+
+def get_dim_coords(da, dim_name):
+    """Get all the coordinates corresponding to one dimension, as a dict that can be assigned to a new xarray object using `assign_coords`."""
+    if dim_name:
+        return {coord_name: coord_obj for coord_name, coord_obj in da.coords.items() if dim_name in coord_obj[coord_name].dims}
+    else:
+        return {coord_name: coord_obj for coord_name, coord_obj in da.coords.items() if coord_obj[coord_name].dims == ()}
