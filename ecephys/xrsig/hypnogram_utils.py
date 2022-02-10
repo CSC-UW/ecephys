@@ -3,6 +3,9 @@ from hypnogram import DatetimeHypnogram
 # These functions could use the XRSig accessor instead of requiring
 # datetime to be a dimension.
 
+# These functions could also use use index masking instead of requiring
+# datetime to be a dimension. For example: dat.isel(time=keep).
+
 
 def add_states(dat, hypnogram):
     """Annotate each timepoint in the dataset with the corresponding state label.
