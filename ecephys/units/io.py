@@ -1,8 +1,7 @@
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
-import spikeextractors as se
+import spikeinterface.extractors as se
 
 from . import select
 
@@ -51,7 +50,7 @@ def get_cluster_info(ks_dir):
 
 def create_phy_cluster_info(ks_dir):
     """Create `cluster_info.tsv` in kilosort dir.
-    
+
     Same effect as running `phy template-gui <ks_dir>/params.py` and hitting save
     in the GUI."""
     from phy.apps.template import TemplateController
@@ -82,7 +81,7 @@ def get_cluster_groups(ks_dir, cluster_group_overrides=None):
 
 
 def load_sorting_extractor(
-    ks_dir, 
+    ks_dir,
     selected_groups=None, good_only=False, drop_noise=True, selection_intervals=None,
     cluster_group_overrides=None,
 ):

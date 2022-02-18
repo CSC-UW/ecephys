@@ -1,8 +1,6 @@
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
-import spikeextractors as se
+import spikeinterface.extractors as se
 
 
 SELECTION_INTERVALS_DF = {
@@ -17,36 +15,49 @@ SELECTION_INTERVALS_DF = {
 def get_selection_intervals_str(selection_intervals):
     if selection_intervals is None:
         return None
-    output_string = '_'.join(sorted([f'{k}={v1}-{v2}' for k, (v1, v2) in selection_intervals.items()]))
-    return output_string.replace('.','_')
+    output_string = "_".join(
+        sorted([f"{k}={v1}-{v2}" for k, (v1, v2) in selection_intervals.items()])
+    )
+    return output_string.replace(".", "_")
 
 
 def _get_cluster_groups(curated_group, cluster_ids, cluster_group_overrides=None):
     """Cluster group. Allow overrides. "NaN" values are replaced with 'unsorted'
-    
+
     Kwargs:
         cluster_group_overrides (None or dict): Dictionary of {<group>: <cluster_list>} used to
             override the groups saved in phy
     """
     assert len(curated_group) == len(cluster_ids)
-    set_unsorted = (curated_group == 'unsorted') | pd.isna(curated_group) | (curated_group == 'nan')
+    set_unsorted = (
+        (curated_group == "unsorted")
+        | pd.isna(curated_group)
+        | (curated_group == "nan")
+    )
     set_unsorted = set_unsorted.values
     group = np.empty((len(cluster_ids),), dtype=object)
-    group[set_unsorted] = 'unsorted'
+    group[set_unsorted] = "unsorted"
     group[~set_unsorted] = curated_group[~set_unsorted]
     assert not any(pd.isna(group))
     if cluster_group_overrides is not None:
         for override_group, override_list in cluster_group_overrides.items():
-            print(f"Overriding cluster group from phy with group `{override_group}` for N={len(override_list)} clusters")
+            print(
+                f"Overriding cluster group from phy with group `{override_group}` for N={len(override_list)} clusters"
+            )
             for cluster_id in override_list:
                 idx = np.where(cluster_ids.values == cluster_id)[0]
                 if not len(idx):
-                    raise ValueError(f"Unrecognized cluster_id in `{override_group}` group override list: {cluster_id}")
+                    raise ValueError(
+                        f"Unrecognized cluster_id in `{override_group}` group override list: {cluster_id}"
+                    )
                 assert len(idx) == 1
                 idx = idx[0]
-                if 'noise' in override_group and group[idx] != 'noise':
+                if "noise" in override_group and group[idx] != "noise":
                     import warnings
-                    warnings.warn(f"cluster `{cluster_id}`: Overriding group `{group[idx]}` with group `{override_group}`")
+
+                    warnings.warn(
+                        f"cluster `{cluster_id}`: Overriding group `{group[idx]}` with group `{override_group}`"
+                    )
                 group[idx] = override_group
     return group
 
@@ -82,23 +93,29 @@ def subset_cluster_info(
 
     for col in ["cluster_id", "group"]:
         assert col in info.columns
-    
-    # Group taking in account manual curation or reverting to automatic KS label otherwise
-    curated_group = _get_cluster_groups(info["group"], info['cluster_id'], cluster_group_overrides=cluster_group_overrides)
 
-    all_groups = list(set(list(np.unique(curated_group)) + list(cluster_group_overrides.keys())))
+    # Group taking in account manual curation or reverting to automatic KS label otherwise
+    curated_group = _get_cluster_groups(
+        info["group"],
+        info["cluster_id"],
+        cluster_group_overrides=cluster_group_overrides,
+    )
+
+    all_groups = list(
+        set(list(np.unique(curated_group)) + list(cluster_group_overrides.keys()))
+    )
     if drop_noise:
-        assert selected_groups is None or 'noise' not in selected_groups
+        assert selected_groups is None or "noise" not in selected_groups
     if selected_groups is not None:
         final_selected_groups = selected_groups
     else:
         final_selected_groups = all_groups
     if drop_noise:
-        final_selected_groups = [g for g in final_selected_groups if g != 'noise']
+        final_selected_groups = [g for g in final_selected_groups if g != "noise"]
     if good_only:
         assert selected_groups is None
-        final_selected_groups = ['good']
-        
+        final_selected_groups = ["good"]
+
     print(
         f"Subset clusters: \n"
         f"selected_groups={selected_groups}, good_only={good_only}, drop_noise={drop_noise} -> Return the following groups `{final_selected_groups}`\n"
@@ -127,11 +144,13 @@ def subset_cluster_info(
 
     for info_col, interval in selection_intervals.items():
         select_rows = info[info_col].between(*interval)
-        print(f" -> Info column = `{info_col}`: Drop N={len(np.where(~select_rows)[0])}/{n_clusters} not within interval = `{interval}")
+        print(
+            f" -> Info column = `{info_col}`: Drop N={len(np.where(~select_rows)[0])}/{n_clusters} not within interval = `{interval}"
+        )
         keep_cluster = keep_cluster & select_rows
 
     info_subset = info.loc[keep_cluster].copy()
-    print(f"Subselect N = {len(info_subset)}/{n_clusters} clusters", end='')
+    print(f"Subselect N = {len(info_subset)}/{n_clusters} clusters", end="")
     return info_subset
 
 
@@ -186,8 +205,11 @@ def validate_selection_intervals(info, selection_intervals):
         if k not in info.columns:
             raise ValueError(f"Unrecognized key `selection_intervals`: {k}")
         if any([not isinstance(v, (float, int)) for v in [v1, v2]]):
-            raise ValueError(f"Incompatible values for key `{k}` in `selection_intervals` `{selection_intervals}. \n Expecting numerical values.")
+            raise ValueError(
+                f"Incompatible values for key `{k}` in `selection_intervals` `{selection_intervals}. \n Expecting numerical values."
+            )
         from pandas.api.types import is_numeric_dtype
+
         if not is_numeric_dtype(info[k].dtype):
             raise ValueError(
                 f"Non-numerical dtype in `cluster_info.tsv` for the following `selection_intervals` key: {k}"
