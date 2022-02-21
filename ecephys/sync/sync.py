@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from warnings import warn
 from sklearn.linear_model import LinearRegression
+from ..sglx.external.readSGLX import readMeta, SampRate, makeMemMapRaw, ExtractDigital
 
 
 def plot_pulses(onset_times, offset_times, nPulsesToPlot=20):
@@ -63,10 +64,81 @@ def fit_times(x, y, visualize=True):
     return model
 
 
+def remap_times(x_like, model):
+    """Given a model returned by `fit_times`, remap a vector of times from the timespace of X to the timespace of Y.
+
+    Note that x_like only has to have the same timebase/reference frame as X!
+    For example, if X was a sync barcode recorded alongside camera frame TTLS on DAQ-X,
+    and Y was the same sync barcode recorded alongside neural signals on DAQ-Y,
+    this function could be used to convert camera frame times into the neural timebase.
+    """
+    return model.predict(x_like.reshape((-1, 1)))
+
+
+def binarize(x, threshold):
+    "Turn a non-binary vector (e.g. timeseries) into a binarized one."
+    return np.where(x > threshold, 1, 0)
+
+
+def get_rising_edges_from_binary_signal(x):
+    """Assumes x is binarized"""
+    return np.squeeze(np.where(np.diff(x, prepend=np.nan) == 1))
+
+
+def get_falling_edges_from_binary_signal(x):
+    """Assumes x is binarized"""
+    return np.squeeze(np.where(np.diff(x, prepend=np.nan) == -1))
+
+
+##### e3vision specific functions #####
+def get_e3v_pulse_width_threshold_from_fps(fps):
+    """Calculate threshold for detecting frames written to disk from the camera's framerate.
+
+    Cameras have a 10% duty cycle when streaming but not writing to disk, and a 50% duty cycle when writing to disk.
+    So if you are recording at 15 fps, these pulse widths are 1/15 * 0.1 and 1/15 * 0.5, respectively.
+    We use the average of the two as the threshold.
+
+    See: https://docs.white-matter.com/docs/e3vision/system-details/hardware/hub/
+
+    Returns
+    -------
+    threshold: (float)
+        The minimum pulse width for frames written to disk, in seconds.
+    """
+    frame_duration = 1 / fps
+    acq_width = 0.1 * frame_duration
+    rec_width = 0.5 * frame_duration
+    return (acq_width + rec_width) / 2
+
+
+def get_frame_times_from_e3v(rising, falling, fps):
+    """Get frame start times from frame capture pulse edges."""
+    check_edges(rising, falling)
+    threshold = get_e3v_pulse_width_threshold_from_fps(fps)
+    pulse_width = falling - rising
+    saved_frames = np.where(pulse_width > threshold)
+    return rising[saved_frames]
+
+
+# MUCH slower than the version above, which assumes certain constraints on the input edges.
+# So slow, in fact, that it is probably better to spend time enforcing those conditions.
+# This function is probably safe to delete.
+def _get_frame_times_from_e3v(rising_edges, falling_edges, fps):
+    threshold = get_e3v_pulse_width_threshold_from_fps(fps)
+    frame_start_edges = list()
+    for pulse_on in rising_edges:
+        pulse_off = falling_edges[falling_edges > pulse_on].min()
+        pulse_width = pulse_off - pulse_on
+        if pulse_width > threshold:
+            frame_start_edges.append(pulse_on)
+
+    return np.asarray(frame_start_edges)
+
+
 ##### ABF specific functions #####
 
 
-def extract_ttl_abf(abf_path):
+def extract_ttl_from_abf(abf_path):
     abf = pyabf.ABF(abf_path)
 
     TTL_IN = 2
@@ -78,7 +150,7 @@ def extract_ttl_abf(abf_path):
     return ttl_sig, time
 
 
-def get_rising_edges_abf(data, ttl_threshold, time=None):
+def get_rising_edges_from_abf(data, ttl_threshold, time=None):
     rising_edges = (
         np.flatnonzero((data[:-1] < ttl_threshold) & (data[1:] > ttl_threshold)) + 1
     )
@@ -87,7 +159,7 @@ def get_rising_edges_abf(data, ttl_threshold, time=None):
     return rising_edges
 
 
-def get_falling_edges_abf(data, ttl_threshold, time=None):
+def get_falling_edges_from_abf(data, ttl_threshold, time=None):
     falling_edges = (
         np.flatnonzero((data[:-1] > ttl_threshold) & (data[1:] < ttl_threshold)) + 1
     )
@@ -96,10 +168,10 @@ def get_falling_edges_abf(data, ttl_threshold, time=None):
     return falling_edges
 
 
-def extract_ttl_edges_abf(abf_path, ttl_threshold, time=None):
-    data, time = extract_ttl_abf(abf_path)
-    rising = get_rising_edges_abf(data, ttl_threshold, time)
-    falling = get_falling_edges_abf(data, ttl_threshold, time)
+def extract_ttl_edges_from_abf(abf_path, ttl_threshold, time=None):
+    data, time = extract_ttl_from_abf(abf_path)
+    rising = get_rising_edges_from_abf(data, ttl_threshold, time)
+    falling = get_falling_edges_from_abf(data, ttl_threshold, time)
     check_edges(rising, falling)
     return rising, falling
 
@@ -107,7 +179,7 @@ def extract_ttl_edges_abf(abf_path, ttl_threshold, time=None):
 ##### TDT specific functions #####
 
 
-def load_tdt_epoc_store(block_path, store_name, start_time=0, end_time=0):
+def load_epoc_store_from_tdt(block_path, store_name, start_time=0, end_time=0):
     """Load a single epoc store from disk.
 
     Parameters:
@@ -148,7 +220,7 @@ def load_tdt_epoc_store(block_path, store_name, start_time=0, end_time=0):
     return blk.info, blk.epocs[store_name]
 
 
-def get_rising_edges_tdt(onset_times):
+def get_rising_edges_from_tdt(onset_times):
     """Assumes onset times follow TDT convention:
 
     Onsets are the first samples where a value is high after being low.
@@ -157,7 +229,7 @@ def get_rising_edges_tdt(onset_times):
     return onset_times[np.where(onset_times > 0)]
 
 
-def get_falling_edges_tdt(offset_times):
+def get_falling_edges_from_tdt(offset_times):
     """Assumes offset times follow TDT convention:
 
     Offsets are the first samples where a value is low after being high.
@@ -166,8 +238,8 @@ def get_falling_edges_tdt(offset_times):
     return offset_times[np.where(offset_times < np.Inf)]
 
 
-def extract_ttl_edges_tdt(block_path, store_name):
-    _, store = load_tdt_epoc_store(block_path, store_name)
+def extract_ttl_edges_from_tdt(block_path, store_name):
+    _, store = load_epoc_store_from_tdt(block_path, store_name)
     # Sometimes TDT calls the last offset Inf even when it was not the last sample.
     # Breaking their own convention... maddening
     if (store.onset.size == store.offset.size) and (store.offset[-1] == np.inf):
@@ -176,7 +248,39 @@ def extract_ttl_edges_tdt(block_path, store_name):
         )
         store.onset = store.onset[:-1]
         store.offset = store.offset[:-1]
-    rising = get_rising_edges_tdt(store.onset)
-    falling = get_falling_edges_tdt(store.offset)
+    rising = get_rising_edges_from_tdt(store.onset)
+    falling = get_falling_edges_from_tdt(store.offset)
     check_edges(rising, falling)
     return rising, falling
+
+
+##### SpikeGLX specific functions #####
+# TODO: Pull these from CSC-UW/barcode_sync/counter_barcode_sync.ipynb, NOT e.g. e3vision_sync.ipynb
+# TODO: Incorporate some of these into sglxarray
+
+
+def load_sync_channel_from_sglx(bin_path):
+    """Load the sync channel from the specified binary file.
+    The SpikeGLX metadata file must be present in the same directory as the binary file."""
+    meta = readMeta(bin_path)
+    rawData = makeMemMapRaw(bin_path, meta)
+    fs = SampRate(meta)
+
+    # Read the entire file
+    firstSamp = 0
+    lastSamp = rawData.shape[1] - 1
+
+    # Get timestamps of each sample
+    time = np.arange(firstSamp, lastSamp + 1)
+    time = time / fs  # timestamps in seconds from start of file
+
+    # Which digital word to read.
+    # For imec, there is only 1 digital word, dw = 0.
+    # For NI, digital lines 0-15 are in word 0, lines 16-31 are in word 1, etc.
+    dw = 0
+    # Which lines within the digital word, zero-based
+    # Note that the SYNC line for PXI 3B is stored in line 6.
+    dLineList = [6]
+    sync = np.squeeze(ExtractDigital(rawData, firstSamp, lastSamp, dw, dLineList, meta))
+
+    return sync, time
