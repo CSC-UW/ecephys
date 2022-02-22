@@ -70,7 +70,6 @@ INSTALL_REQUIRES = [
     "pyyaml",
     "black",
     "statsmodels",
-    "pyabf",
     "tdt",
     "scikit-learn",
     "spikeinterface",  #  @ git+https://github.com/CSC-UW/spikeinterface.git@master#egg=spikeinterface

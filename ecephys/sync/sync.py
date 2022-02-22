@@ -1,4 +1,3 @@
-import pyabf
 import tdt
 import numpy as np
 import matplotlib.pyplot as plt
@@ -133,47 +132,6 @@ def _get_frame_times_from_e3v(rising_edges, falling_edges, fps):
             frame_start_edges.append(pulse_on)
 
     return np.asarray(frame_start_edges)
-
-
-##### ABF specific functions #####
-
-
-def extract_ttl_from_abf(abf_path):
-    abf = pyabf.ABF(abf_path)
-
-    TTL_IN = 2
-    assert abf.adcNames[TTL_IN] == "TTL_IN"
-    assert abf.adcUnits[TTL_IN] == "V"
-    ttl_sig = abf.data[TTL_IN, :]  # in volts
-    time = abf.getAllXs()  # in seconds
-
-    return ttl_sig, time
-
-
-def get_rising_edges_from_abf(data, ttl_threshold, time=None):
-    rising_edges = (
-        np.flatnonzero((data[:-1] < ttl_threshold) & (data[1:] > ttl_threshold)) + 1
-    )
-    if time is not None:
-        rising_edges = time[rising_edges]
-    return rising_edges
-
-
-def get_falling_edges_from_abf(data, ttl_threshold, time=None):
-    falling_edges = (
-        np.flatnonzero((data[:-1] > ttl_threshold) & (data[1:] < ttl_threshold)) + 1
-    )
-    if time is not None:
-        falling_edges = time[falling_edges]
-    return falling_edges
-
-
-def extract_ttl_edges_from_abf(abf_path, ttl_threshold, time=None):
-    data, time = extract_ttl_from_abf(abf_path)
-    rising = get_rising_edges_from_abf(data, ttl_threshold, time)
-    falling = get_falling_edges_from_abf(data, ttl_threshold, time)
-    check_edges(rising, falling)
-    return rising, falling
 
 
 ##### TDT specific functions #####
