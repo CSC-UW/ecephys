@@ -7,23 +7,7 @@ Either the user (i.e. you) has to do this, or you can let `conda` do it for you 
 For this reason, if installing with pip, `tables` is an extra (i.e. `pip install ecephys[tables]`).
 > NB: HDF5 files should no longer be necessary. Everything once saved as HDF5 is now saved as NetCDF, provided through Xarray.
 
+`phy` is required by a single function, but its dependencies are restrictive, so it is not included as a requirement. You will need to figure out how to deal with this if you plan to load spike sorting results (ask me).
+
 ## Contributing
 If you wish to make any changes (e.g. add documentation, tests, continuous integration, etc.), please follow the [Shablona](https://github.com/uwescience/shablona) template.
-
-## Interactive plotting with Matplotlib in a JupyterLab notebook.
-This is not specific to the `ecephys` module per se, but you may need to do this to plot some results.
-```
-conda create -n ecephys python=3.7
-conda activate ecephys
-conda install -c conda-forge jupyterlab
-conda install -c conda-forge ipympl
-conda install -c conda-forge nodejs
-jupyter labextenstion install @jupyter-widgets/jupyterlab-manager
-jupyter lab build
-```
-
-Now install this package.
-```
-cd path/to/cloned/ecephys/repo
-pip install -e .
-```

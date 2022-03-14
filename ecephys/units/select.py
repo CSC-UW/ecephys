@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from sklearn import cluster
 import spikeinterface.extractors as se
 
 
@@ -101,9 +102,10 @@ def subset_cluster_info(
         cluster_group_overrides=cluster_group_overrides,
     )
 
-    all_groups = list(
-        set(list(np.unique(curated_group)) + list(cluster_group_overrides.keys()))
-    )
+    all_groups = list(set(curated_group))
+    if cluster_group_overrides is not None:
+        all_groups = all_groups + list(cluster_group_overrides)
+
     if drop_noise:
         assert selected_groups is None or "noise" not in selected_groups
     if selected_groups is not None:
@@ -154,6 +156,7 @@ def subset_cluster_info(
     return info_subset
 
 
+# TODO: This doesn't return an extractor anymore, but rather a sorting?
 def subset_clusters(
     extractor,
     info,
@@ -190,12 +193,15 @@ def subset_clusters(
         cluster_group_overrides=cluster_group_overrides,
     )
 
-    subextractor = se.SubSortingExtractor(
-        extractor, unit_ids=list(info_subset["cluster_id"])
-    )
-    assert sorted(info_subset["cluster_id"]) == sorted(subextractor.get_unit_ids())
+    # subextractor = se.SubSortingExtractor(
+    #    extractor, unit_ids=list(info_subset["cluster_id"])
+    # )
+    # assert sorted(info_subset["cluster_id"]) == sorted(subextractor.get_unit_ids())
+    # return subextractor
 
-    return subextractor
+    sub_sorting = extractor.select_units(list(info_subset["cluster_id"]))
+    assert sorted(info_subset["cluster_id"]) == sorted(sub_sorting.get_unit_ids())
+    return sub_sorting
 
 
 def validate_selection_intervals(info, selection_intervals):
