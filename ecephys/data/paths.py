@@ -142,7 +142,7 @@ def get_sglx_style_datapaths(yaml_path, subject, condition, ext, catgt_data=Fals
             if catgt_data:
                 experiment_root = root / condition / experiment_id
             else:
-                experiment_root = root / experiment_id
+                experiment_root = root / experiment_id / 'SpikeGLX'
             paths += [
                 get_sglx_style_abs_path(
                     stem, ext, experiment_root, catgt_data=catgt_data
