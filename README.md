@@ -4,7 +4,6 @@ In use at the [Center for Sleep and Consciousness (CSC-UW)](https://centerforsle
 Tested with Neuropixel 1.0 probes only.
 
 ## Basic usage
-See [example usage](example.ipynb), and refer to function docstrings for more info.
 
 ### Loading binary data
 ![QuickStart](https://user-images.githubusercontent.com/4753005/159067426-b5818765-7b11-414e-8f01-f3126a899376.png)  
