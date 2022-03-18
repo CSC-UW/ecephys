@@ -5,3 +5,4 @@ Tested with Neuropixel 1.0 probes only.
 
 ## Additional information
 See [example usage](example.ipynb), and refer to function docstrings for more info.
+I do have functions for loading digital channels recorded with Multifunction I/O cards, let me know if you need me to integrate them urgently. 
