@@ -47,5 +47,6 @@ MINOR = _version_minor
 MICRO = _version_micro
 VERSION = __version__
 PACKAGE_DATA = {"sglxarray": [pjoin("data", "*"), pjoin("external", "maps", "*")]}
-REQUIRES = ["numpy", "pandas", "xarray"]
+EXTRAS_REQUIRE = {"dev": ["ipykernel", "notebook", "black"]}
+INSTALL_REQUIRES = ["numpy", "pandas", "scipy", "xarray", "matplotlib"]
 PYTHON_REQUIRES = ">= 3.7"

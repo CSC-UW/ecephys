@@ -3,6 +3,8 @@
 Source: https://billkarsh.github.io/SpikeGLX/Support/SpikeGLX_Datafile_Tools.zip
 Date: 6-18-2021
 
+Modified: Graham Findlay, 03-18-2022
+
 Requires python 3
 
 The main() function at the bottom of this file can run from an
@@ -19,10 +21,7 @@ much easier!
 
 """
 import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
-from tkinter import Tk
-from tkinter import filedialog
 
 
 # Parse ini file returning a dictionary whose keys are the metadata
@@ -297,83 +296,3 @@ def ExtractDigital(rawData, firstSamp, lastSamp, dwReq, dLineList, meta):
         targI = byteN * 8 + (7 - bitN)
         digArray[i, :] = bitWiseData[targI, :]
     return digArray
-
-
-# Sample calling program to get a file from the user,
-# read metadata fetch sample rate, voltage conversion
-# values for this file and channel, and plot a small range
-# of voltages from a single channel.
-# Note that this code merely demonstrates indexing into the
-# data file, without any optimization for efficiency.
-#
-def main():
-
-    # Get file from user
-    root = Tk()  # create the Tkinter widget
-    root.withdraw()  # hide the Tkinter root window
-
-    # Windows specific; forces the window to appear in front
-    root.attributes("-topmost", True)
-
-    binFullPath = Path(filedialog.askopenfilename(title="Select binary file"))
-    root.destroy()  # destroy the Tkinter widget
-
-    # Other parameters about what data to read
-    tStart = 0
-    tEnd = 1
-    dataType = "A"  # 'A' for analog, 'D' for digital data
-
-    # For analog channels: zero-based index of a channel to extract,
-    # gain correct and plot (plots first channel only)
-    chanList = [10]
-
-    # For a digital channel: zero based index of the digital word in
-    # the saved file. For imec data there is never more than one digital word.
-    dw = 0
-
-    # Zero-based Line indices to read from the digital word and plot.
-    # For 3B2 imec data: the sync pulse is stored in line 6.
-    dLineList = [0, 1, 6]
-
-    # Read in metadata; returns a dictionary with string for values
-    meta = readMeta(binFullPath)
-
-    # parameters common to NI and imec data
-    sRate = SampRate(meta)
-    firstSamp = int(sRate * tStart)
-    lastSamp = int(sRate * tEnd)
-    # array of times for plot
-    tDat = np.arange(firstSamp, lastSamp + 1)
-    tDat = 1000 * tDat / sRate  # plot time axis in msec
-
-    rawData = makeMemMapRaw(binFullPath, meta)
-
-    if dataType == "A":
-        selectData = rawData[chanList, firstSamp : lastSamp + 1]
-        if meta["typeThis"] == "imec":
-            # apply gain correction and convert to uV
-            convData = 1e6 * GainCorrectIM(selectData, chanList, meta)
-        else:
-            MN, MA, XA, DW = ChannelCountsNI(meta)
-            # print("NI channel counts: %d, %d, %d, %d" % (MN, MA, XA, DW))
-            # apply gain correction and convert to mV
-            convData = 1e3 * GainCorrectNI(selectData, chanList, meta)
-
-        # Plot the first of the extracted channels
-        fig, ax = plt.subplots()
-        ax.plot(tDat, convData[0, :])
-        plt.show()
-
-    else:
-        digArray = ExtractDigital(rawData, firstSamp, lastSamp, dw, dLineList, meta)
-
-        # Plot the first of the extracted channels
-        fig, ax = plt.subplots()
-
-        for i in range(0, len(dLineList)):
-            ax.plot(tDat, digArray[i, :])
-        plt.show()
-
-
-if __name__ == "__main__":
-    main()

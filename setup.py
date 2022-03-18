@@ -32,10 +32,10 @@ opts = dict(
     version=VERSION,
     packages=PACKAGES,
     package_data=PACKAGE_DATA,
-    install_requires=REQUIRES,
+    install_requires=INSTALL_REQUIRES,
+    extras_require=EXTRAS_REQUIRE,
     python_requires=PYTHON_REQUIRES,
     setup_requires=SETUP_REQUIRES,
-    requires=REQUIRES,
 )
 
 
