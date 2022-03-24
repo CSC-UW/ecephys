@@ -6,15 +6,27 @@ from collections.abc import Iterable
 
 
 def load_store_names(block_path):
-    """Get the names of each stream store in the block."""
+    """Get the names of each store in the block."""
     hdr = tdt.read_block(block_path, headers=True)
     return [store.name for key, store in hdr.stores.items()]
+
+
+def load_stream_names(block_path):
+    """Get the names of each stream store in the block."""
+    hdr = tdt.read_block(block_path, headers=True)
+    return [
+        store.name for key, store in hdr.stores.items() if store.type_str == "streams"
+    ]
 
 
 def load_channel_lists(block_path):
     """Get the list of channels associated with each stream store."""
     hdr = tdt.read_block(block_path, headers=True)
-    return {store.name: list(np.unique(store.chan)) for key, store in hdr.stores.items() if hasattr(store, 'chan')}
+    return {
+        store.name: list(np.unique(store.chan))
+        for key, store in hdr.stores.items()
+        if hasattr(store, "chan")
+    }
 
 
 def _load_stream_store(block_path, store_name, chans=None, start_time=0, end_time=0):
@@ -131,9 +143,9 @@ def load_stream_store(*args, **kwargs):
     return stream_store_to_xarray(info, store)
 
 
-def load_block(block_path, start_time=0, end_time=0):
+def load_all_streams(block_path, start_time=0, end_time=0):
     """Load all stream stores in a block."""
-    store_names = load_store_names(block_path)
+    store_names = load_stream_names(block_path)
     store_data = dict()
     for name in store_names:
         store_data[name] = load_stream_store(
