@@ -3,7 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from warnings import warn
 from sklearn.linear_model import LinearRegression
+from difflib import SequenceMatcher
 from ..sglx.external.readSGLX import readMeta, SampRate, makeMemMapRaw, ExtractDigital
+from ..sglx import load_nidq_analog
+from .external.barcodes import extract_barcodes_from_times
+from .h5sync import H5Sync
 
 
 def plot_pulses(onset_times, offset_times, nPulsesToPlot=20):
@@ -28,7 +32,7 @@ def plot_pulses(onset_times, offset_times, nPulsesToPlot=20):
     plt.step(edge_times[:nPulsesToPlot], sync_levels[:nPulsesToPlot], where="post")
 
 
-def visualize_mapping(x, y, model, nPulsesToPlot=10):
+def visualize_mapping(x, y, model, nPulsesToPlot=10, xname="X", yname="Y"):
     """Visualize remapped sync pulse times from x in y's time space, to verify correctness.
     Black lines = Pulse times measured by y.
     Red lines = Pulse times measured by x and remapped to y's time space."""
@@ -37,6 +41,9 @@ def visualize_mapping(x, y, model, nPulsesToPlot=10):
     plt.figure(num=None, figsize=(30, 6), dpi=80, facecolor="w", edgecolor="k")
     plt.vlines(y[:nPulsesToPlot], 0, 1, colors="black")
     plt.vlines(y_pred[:nPulsesToPlot], 0, 1, linestyle="dotted", colors="red")
+    plt.title(
+        f"Black: Events measured by {xname} \n Red: Events remapped from {xname} to {yname}'s time space."
+    )
 
 
 def check_edges(rising, falling):
@@ -46,7 +53,7 @@ def check_edges(rising, falling):
     assert all(np.less(rising, falling)), "Falling edges occur before rising edges."
 
 
-def fit_times(x, y, visualize=True):
+def fit_times(x, y, visualize=True, xname="X", yname="Y"):
     """Using event times shared by both systems, fit the X's measured times to Y's measured times."""
     x = x.reshape((-1, 1))
     model = LinearRegression().fit(x, y)
@@ -58,7 +65,7 @@ def fit_times(x, y, visualize=True):
     print("(assumes `x` and `y` are provided in seconds)")
 
     if visualize:
-        visualize_mapping(x, y, model)
+        visualize_mapping(x, y, model, xname=xname, yname=yname)
 
     return model
 
@@ -87,6 +94,16 @@ def get_rising_edges_from_binary_signal(x):
 def get_falling_edges_from_binary_signal(x):
     """Assumes x is binarized"""
     return np.squeeze(np.where(np.diff(x, prepend=np.nan) == -1))
+
+
+def get_shared_sequence(a, b):
+    """Find the longest sequence of elements shared by both a and b."""
+    s = SequenceMatcher(None, a, b)
+    match = s.find_longest_match(alo=0, ahi=len(a), blo=0, bhi=len(b))
+    shared = a[match.a : match.a + match.size]
+    a_slice = slice(match.a, match.a + match.size)
+    b_slice = slice(match.b, match.b + match.size)
+    return shared, a_slice, b_slice
 
 
 ##### e3vision specific functions #####
@@ -242,3 +259,99 @@ def load_sync_channel_from_sglx(bin_path):
     sync = np.squeeze(ExtractDigital(rawData, firstSamp, lastSamp, dw, dLineList, meta))
 
     return sync, time
+
+
+def get_sglx_barcodes(bin_path, bar_duration=0.029):
+    """Get SpikeGLX barcodes and times
+
+    Returns
+    --------
+    (barcode_start_times, barcode_values)
+    """
+    sglx_barcode_in, sglx_times = load_sync_channel_from_sglx(bin_path)
+
+    sglx_rising_edge_samples = get_rising_edges_from_binary_signal(sglx_barcode_in)
+    sglx_falling_edge_samples = get_falling_edges_from_binary_signal(sglx_barcode_in)
+
+    sglx_rising_edge_times = sglx_times[sglx_rising_edge_samples]
+    sglx_falling_edge_times = sglx_times[sglx_falling_edge_samples]
+
+    return extract_barcodes_from_times(
+        sglx_rising_edge_times, sglx_falling_edge_times, bar_duration=bar_duration
+    )
+
+
+def _get_nidq_barcodes(bin_path, sync_channel):
+    sig = load_nidq_analog(bin_path, channels=[sync_channel])
+    return get_nidq_barcodes(sig)
+
+
+def get_nidq_barcodes(sig, bar_duration=0.029, threshold=4000):
+    nidq_barcode_in = binarize(sig.values, threshold=threshold)
+
+    nidq_rising_edge_samples = get_rising_edges_from_binary_signal(nidq_barcode_in)
+    nidq_falling_edge_samples = get_falling_edges_from_binary_signal(nidq_barcode_in)
+
+    nidq_rising_edge_times = sig.time.values[nidq_rising_edge_samples]
+    nidq_falling_edge_times = sig.time.values[nidq_falling_edge_samples]
+
+    return extract_barcodes_from_times(
+        nidq_rising_edge_times, nidq_falling_edge_times, bar_duration=bar_duration
+    )
+
+
+##### HDF5 specific functions #####
+
+
+def get_hdf5_barcodes(hdf5_path, bar_duration=0.029):
+    """Get SpikeGLX barcodes and times
+
+    Returns
+    --------
+    (barcode_start_times, barcode_values)
+    """
+    h5 = H5Sync(hdf5_path)
+
+    h5_rising_edge_times = h5.get_rising_edges("barcode", "sec")
+    h5_falling_edge_times = h5.get_falling_edges("barcode", "sec")
+
+    return extract_barcodes_from_times(
+        h5_rising_edge_times, h5_falling_edge_times, bar_duration=bar_duration
+    )
+
+
+##### System-to-system functions #####
+
+
+def get_hdf5_to_sglx_model(sglx_bin_path, hdf5_path):
+    """Use barcodes to align streams."""
+    sglx_barcode_start_times, sglx_barcode_values = get_sglx_barcodes(sglx_bin_path)
+    hdf5_barcode_start_times, hdf5_barcode_values = get_hdf5_barcodes(hdf5_path)
+    shared_barcode_values, sglx_slice, hdf5_slice = get_shared_sequence(
+        sglx_barcode_values, hdf5_barcode_values
+    )
+    print("Longest barcode sequence common to both systems:\n", shared_barcode_values)
+    return fit_times(
+        x=hdf5_barcode_start_times[hdf5_slice],
+        y=sglx_barcode_start_times[sglx_slice],
+        xname="HDF5",
+        yname="SGLX",
+    )
+
+
+def get_nidq_to_sglx_model(sglx_bin_path, nidq_bin_path, nidq_sync_channel=0):
+    """Use barcodes to align streams."""
+    sglx_barcode_start_times, sglx_barcode_values = get_sglx_barcodes(sglx_bin_path)
+    nidq_barcode_start_times, nidq_barcode_values = _get_nidq_barcodes(
+        nidq_bin_path, nidq_sync_channel
+    )
+    shared_barcode_values, sglx_slice, nidq_slice = get_shared_sequence(
+        sglx_barcode_values, nidq_barcode_values
+    )
+    print("Longest barcode sequence common to both systems:\n", shared_barcode_values)
+    return fit_times(
+        x=nidq_barcode_start_times[nidq_slice],
+        y=sglx_barcode_start_times[sglx_slice],
+        xname="NIDQ",
+        yname="SGLX",
+    )
