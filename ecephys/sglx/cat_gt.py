@@ -98,7 +98,7 @@ def parse_gtlist(g_list, t_list):
         t_start = g_t_idx[0]
         t_end = g_t_idx[-1]
         assert len(g_t_idx) == len(range(t_start, t_end + 1))  # no gaps
-        gtlist += '{' + f'g{g},t{t_start},t{t_end}' + '}'
+        gtlist += '{' + f'{g},{t_start},{t_end}' + '}'
     
     return gtlist
 
