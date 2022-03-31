@@ -4,10 +4,13 @@ import matplotlib.pyplot as plt
 from warnings import warn
 from sklearn.linear_model import LinearRegression
 from difflib import SequenceMatcher
+from brainbox.core import Bunch
 from ..sglx.external.readSGLX import readMeta, SampRate, makeMemMapRaw, ExtractDigital
 from ..sglx import load_nidq_analog
 from .external.barcodes import extract_barcodes_from_times
 from .h5sync import H5Sync
+
+# TODO: System-specific packages should be in system-specific repos (e.g. tdt_xarray, sglxarray, acute, etc.)
 
 
 def plot_pulses(onset_times, offset_times, nPulsesToPlot=20):
@@ -281,12 +284,9 @@ def get_sglx_barcodes(bin_path, bar_duration=0.029):
     )
 
 
-def _get_nidq_barcodes(bin_path, sync_channel):
+def get_nidq_barcodes(bin_path, sync_channel, bar_duration=0.029, threshold=4000):
     sig = load_nidq_analog(bin_path, channels=[sync_channel])
-    return get_nidq_barcodes(sig)
 
-
-def get_nidq_barcodes(sig, bar_duration=0.029, threshold=4000):
     nidq_barcode_in = binarize(sig.values, threshold=threshold)
 
     nidq_rising_edge_samples = get_rising_edges_from_binary_signal(nidq_barcode_in)
@@ -298,6 +298,7 @@ def get_nidq_barcodes(sig, bar_duration=0.029, threshold=4000):
     return extract_barcodes_from_times(
         nidq_rising_edge_times, nidq_falling_edge_times, bar_duration=bar_duration
     )
+    return get_nidq_barcodes(sig)
 
 
 ##### HDF5 specific functions #####
@@ -323,35 +324,39 @@ def get_hdf5_barcodes(hdf5_path, bar_duration=0.029):
 ##### System-to-system functions #####
 
 
-def get_hdf5_to_sglx_model(sglx_bin_path, hdf5_path):
+def get_sync_model(
+    sysX_times, sysX_values, sysY_times, sysY_values, sysX_name="X", sysY_name="Y"
+):
     """Use barcodes to align streams."""
-    sglx_barcode_start_times, sglx_barcode_values = get_sglx_barcodes(sglx_bin_path)
-    hdf5_barcode_start_times, hdf5_barcode_values = get_hdf5_barcodes(hdf5_path)
-    shared_barcode_values, sglx_slice, hdf5_slice = get_shared_sequence(
-        sglx_barcode_values, hdf5_barcode_values
+    shared_values, sysY_slice, sysX_slice = get_shared_sequence(
+        sysY_values, sysX_values
     )
-    print("Longest barcode sequence common to both systems:\n", shared_barcode_values)
+    print(
+        "Length of longest barcode sequence common to both systems:\n",
+        len(shared_values),
+    )
     return fit_times(
-        x=hdf5_barcode_start_times[hdf5_slice],
-        y=sglx_barcode_start_times[sglx_slice],
-        xname="HDF5",
-        yname="SGLX",
+        x=sysX_times[sysX_slice],
+        y=sysY_times[sysY_slice],
+        xname="sysX_name",
+        yname="sysY_name",
     )
 
 
-def get_nidq_to_sglx_model(sglx_bin_path, nidq_bin_path, nidq_sync_channel=0):
-    """Use barcodes to align streams."""
-    sglx_barcode_start_times, sglx_barcode_values = get_sglx_barcodes(sglx_bin_path)
-    nidq_barcode_start_times, nidq_barcode_values = _get_nidq_barcodes(
-        nidq_bin_path, nidq_sync_channel
+# TODO: This should be in the acute package.
+def get_sync_models(sglx_bin_path, hdf5_path, nidq_bin_path, nidq_sync_channel):
+    b = Bunch()
+    b.sglx_file = sglx_bin_path
+    b.sglx_times, b.sglx_values = get_sglx_barcodes(sglx_bin_path)
+    b.hdf5_file = hdf5_path
+    b.hdf5_times, b.hdf5_values = get_hdf5_barcodes(hdf5_path)
+    b.nidq_file = nidq_bin_path
+    b.nidq_sync_channel = nidq_sync_channel
+    b.nidq_times, b.nidq_values = get_nidq_barcodes(nidq_bin_path, nidq_sync_channel)
+    b.hdf5_to_sglx = get_sync_model(
+        b.hdf5_times, b.hdf5_values, b.sglx_times, b.sglx_values, "HDF5", "SGLX"
     )
-    shared_barcode_values, sglx_slice, nidq_slice = get_shared_sequence(
-        sglx_barcode_values, nidq_barcode_values
+    b.nidq_to_sglx = get_sync_model(
+        b.nidq_times, b.nidq_values, b.sglx_times, b.sglx_values, "NIDQ", "SGLX"
     )
-    print("Longest barcode sequence common to both systems:\n", shared_barcode_values)
-    return fit_times(
-        x=nidq_barcode_start_times[nidq_slice],
-        y=sglx_barcode_start_times[sglx_slice],
-        xname="NIDQ",
-        yname="SGLX",
-    )
+    return b
