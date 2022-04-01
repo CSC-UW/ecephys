@@ -286,7 +286,7 @@ def get_sglx_barcodes(bin_path, bar_duration=0.029):
 
 def get_nidq_barcodes(bin_path, sync_channel, bar_duration=0.029, threshold=4000):
     sig = load_nidq_analog(bin_path, channels=[sync_channel])
-
+    sig = sig.sel(channel=sync_channel)
     nidq_barcode_in = binarize(sig.values, threshold=threshold)
 
     nidq_rising_edge_samples = get_rising_edges_from_binary_signal(nidq_barcode_in)
@@ -298,7 +298,6 @@ def get_nidq_barcodes(bin_path, sync_channel, bar_duration=0.029, threshold=4000
     return extract_barcodes_from_times(
         nidq_rising_edge_times, nidq_falling_edge_times, bar_duration=bar_duration
     )
-    return get_nidq_barcodes(sig)
 
 
 ##### HDF5 specific functions #####
@@ -338,8 +337,8 @@ def get_sync_model(
     return fit_times(
         x=sysX_times[sysX_slice],
         y=sysY_times[sysY_slice],
-        xname="sysX_name",
-        yname="sysY_name",
+        xname=sysX_name,
+        yname=sysY_name,
     )
 
 
