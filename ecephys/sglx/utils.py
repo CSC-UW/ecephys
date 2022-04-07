@@ -16,6 +16,10 @@ def get_meta(binpath):
     return readMeta(binpath)
 
 
+def get_meta_value(binpath, key):
+    return readMeta(binpath)[key]
+
+
 def get_sf(binpath):
     return SampRate(get_meta(binpath))
 
