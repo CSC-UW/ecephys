@@ -89,15 +89,18 @@ def parse_gtlist(g_list, t_list):
         for tstring in t_list
     ], dtype=int)  # eg [1, 2, 0, 1]
 
+    assert all(sorted(g_i_array) == g_i_array), "Gates should be sorted"
+
     gtlist = ''
     unique_g_idx = sorted(np.unique(g_i_array))
 
     for g in unique_g_idx:
-        g_t_idx = sorted(t_i_array[np.where(g_i_array == g)[0]])
-        assert len(g_t_idx) == len(set(g_t_idx))  # no repeats
+        g_t_idx = t_i_array[np.where(g_i_array == g)[0]]
+        assert len(g_t_idx) == len(set(g_t_idx)),  "Triggers should not be repeated"
+        assert all(sorted(g_t_idx) == g_t_idx),  "Triggers should be sorted for each gate"
         t_start = g_t_idx[0]
         t_end = g_t_idx[-1]
-        assert len(g_t_idx) == len(range(t_start, t_end + 1))  # no gaps
+        assert len(g_t_idx) == len(range(t_start, t_end + 1)), "There should be no gap in triggers for each gate"
         gtlist += '{' + f'{g},{t_start},{t_end}' + '}'
     
     return gtlist
