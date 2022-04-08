@@ -2,9 +2,6 @@ import pandas as pd
 import mat73
 from bg_atlasapi.bg_atlas import BrainGlobeAtlas
 
-# TODO: mat73 should be a dependency
-# TODO: BrainGlobe should be a depdendency
-
 
 def _brainglobe_rgb_to_matplotlib_rgba(rgb, alpha):
     return (rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, alpha)

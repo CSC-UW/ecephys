@@ -15,9 +15,6 @@ from ipywidgets import (
     jslink,
 )
 
-# TODO: ipympl should be a depnendency
-# TODO: colorcet should be a dependency
-
 from ..acute import SHARPTrack
 
 ##### Functions for adding rgba column to units
