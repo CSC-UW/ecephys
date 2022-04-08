@@ -9,6 +9,7 @@ from ipywidgets import (
     BoundedFloatText,
     BoundedIntText,
     FloatSlider,
+    Label,
     HBox,
     fixed,
     interactive_output,
@@ -263,10 +264,13 @@ def interactive_raster_explorer_with_events(spikes, units, events, figsize=(20, 
         step=1,
         description="EVT",
     )
+    event_description_label = Label(value=events.iloc[0]["description"])
 
     def _on_event_change(change):
         evt = change["new"]
         t1 = events.loc[evt, "t1"]
+        desc = events.loc[evt, "description"]
+        event_description_label.value = desc
         plot_start_box.value = t1 - plot_length_box.value / 2
 
     event_box.observe(_on_event_change, names="value")
@@ -278,6 +282,7 @@ def interactive_raster_explorer_with_events(spikes, units, events, figsize=(20, 
             plot_start_box,
             plot_start_slider,
             event_box,
+            event_description_label,
         ]
     )
 
