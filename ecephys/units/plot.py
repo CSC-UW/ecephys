@@ -22,7 +22,7 @@ from ..acute import SHARPTrack
 
 
 def add_structure_rgba_from_colormap(units, cmap):
-    units.df["rgba"] = units.df["structure"].apply(lambda s: cmap[s])
+    units["rgba"] = units["structure"].apply(lambda s: cmap[s])
 
 
 def add_structure_rgba_from_sharptrack_atlas(units):
@@ -32,7 +32,7 @@ def add_structure_rgba_from_sharptrack_atlas(units):
 
 def make_structure_cmap_from_palette(units, palette="glasbey_dark"):
     assert palette in cc.palette.keys(), "Requested palette not found."
-    structure_names = units.df["structure"].unique()
+    structure_names = units["structure"].unique()
     structure_colors = sns.color_palette(
         cc.palette[palette], n_colors=len(structure_names)
     )
@@ -46,28 +46,27 @@ def add_structure_rgba_from_palette(units, palette="glasbey_dark"):
 
 def add_unit_rgba_from_palette(units, palette="glasbey_dark"):
     assert palette in cc.palette.keys(), "Requested palette not found."
-    unit_colors = sns.color_palette(cc.palette[palette], n_colors=len(units.df))
-    units.df["rgba"] = [to_rgba(rgb, 1.0) for rgb in unit_colors]
+    unit_colors = sns.color_palette(cc.palette[palette], n_colors=len(units))
+    units["rgba"] = [to_rgba(rgb, 1.0) for rgb in unit_colors]
 
 
 def add_uniform_rgba(units, color):
     assert is_color_like(color), "Requested color not found."
-    unit_colors = [color] * len(units.df)
-    units.df["rgba"] = [to_rgba(rgb, 1.0) for rgb in unit_colors]
+    unit_colors = [color] * len(units)
+    units["rgba"] = [to_rgba(rgb, 1.0) for rgb in unit_colors]
 
 
 ##### Functions for basic raster plotting
 
 
 def get_spike_trains_for_plotting(spikes, units, start_time, end_time):
-    _spikes = spikes.select_time(start_time, end_time)
-    trains = _spikes.df.groupby("cluster_id")["t"].unique()
+    trains = spikes.spikes.as_trains(start_time, end_time)
 
-    if "rgba" not in units.df.columns:
+    if "rgba" not in units.columns:
         add_uniform_rgba(units, "black")
 
-    trains = units.df.join(trains, how="outer")
-    silent = trains["t"].isna()
+    trains = units.join(trains, how="outer")
+    silent = trains.trains.silent()
     # Add ghost spikes at very start and end of window to silent trains, to reserve space for them on the plot's x and y axes.
     trains.loc[silent, "t"] = pd.Series(
         [np.array((start_time, end_time))] * sum(silent)
@@ -140,8 +139,8 @@ def raster_explorer(
 def interactive_raster_explorer(spikes, units, figsize=(20, 8)):
     """Requires %matplotlib widget in notebook cell"""
     # Create interactive widgets for controlling plot parameters
-    spikes_start = np.floor(spikes.df["t"].min())
-    spikes_end = np.floor(spikes.df["t"].max())
+    spikes_start = np.floor(spikes["t"].min())
+    spikes_end = np.floor(spikes["t"].max())
     plot_start_slider = FloatSlider(
         min=spikes_start,
         max=spikes_end,
@@ -224,8 +223,8 @@ def interactive_raster_explorer_with_events(spikes, units, events, figsize=(20, 
     """Requires %matplotlib widget in notebook cell"""
     # Create interactive widgets for controlling plot parameters
     MIN_DURATION, MAX_DURATION = (1, 60)
-    min_time = np.floor(spikes.df["t"].min())
-    max_time = np.floor(spikes.df["t"].max()) - MIN_DURATION
+    min_time = np.floor(spikes["t"].min())
+    max_time = np.floor(spikes["t"].max()) - MIN_DURATION
     plot_start_slider = FloatSlider(
         min=min_time,
         max=max_time,
