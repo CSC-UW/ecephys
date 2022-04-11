@@ -2,7 +2,10 @@ from ..utils import flatten
 
 
 def get_spike_times(extr, cluster_id):
-    return extr.frame_to_time(extr.get_unit_spike_train(unit_id=cluster_id))
+    sf = extr.get_sampling_frequency()
+    return [
+        f / sf for f in extr.get_unit_spike_train(unit_id=cluster_id)
+    ]
 
 
 def get_spike_times_list(extr, cluster_ids=None):
