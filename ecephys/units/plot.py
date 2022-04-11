@@ -88,7 +88,7 @@ def _get_boundary_unit_ilocs(trains):
     return np.where(np.isin(trains.index, boundary_unit_ids))[0]
 
 
-def plot_spike_trains(trains, title=None, xlim=None, ax=None):
+def raster_from_trains(trains, title=None, xlim=None, ax=None):
     MIN_UNITS_FOR_YTICKLABEL = 5
 
     if ax is None:
@@ -118,10 +118,7 @@ def plot_spike_trains(trains, title=None, xlim=None, ax=None):
     ax.margins(x=0)
 
 
-##### Functions for interactive raster plotting
-
-
-def raster_explorer(
+def raster(
     spikes,
     units,
     ax,
@@ -132,64 +129,11 @@ def raster_explorer(
     plot_end = plot_start + plot_length
 
     trains = get_spike_trains_for_plotting(spikes, units, plot_start, plot_end)
-    plot_spike_trains(trains, xlim=([plot_start, plot_end]), ax=ax)
+    raster_from_trains(trains, xlim=([plot_start, plot_end]), ax=ax)
     plt.tight_layout()
 
 
-def interactive_raster_explorer(spikes, units, figsize=(20, 8)):
-    """Requires %matplotlib widget in notebook cell"""
-    # Create interactive widgets for controlling plot parameters
-    spikes_start = np.floor(spikes["t"].min())
-    spikes_end = np.floor(spikes["t"].max())
-    plot_start_slider = FloatSlider(
-        min=spikes_start,
-        max=spikes_end,
-        step=1,
-        value=spikes_start,
-        description="t=",
-    )
-    plot_start_box = BoundedFloatText(
-        min=spikes_start,
-        max=spikes_end,
-        step=1,
-        value=spikes_start,
-        description="t=",
-    )
-    jslink(
-        (plot_start_slider, "value"), (plot_start_box, "value")
-    )  # Allow control from either widget for easy navigation
-    plot_length_box = BoundedFloatText(
-        min=1, max=60, step=1, value=1, description="Secs"
-    )
-
-    # Lay control widgets out horizontally
-    ui = HBox(
-        [
-            plot_length_box,
-            plot_start_box,
-            plot_start_slider,
-        ]
-    )
-
-    # Plot and display
-    fig, ax = plt.subplots(figsize=figsize)
-    fig.canvas.header_visible = False
-    fig.canvas.toolbar_visible = False
-    out = interactive_output(
-        raster_explorer,
-        {
-            "spikes": fixed(spikes),
-            "units": fixed(units),
-            "ax": fixed(ax),
-            "plot_start": plot_start_box,
-            "plot_length": plot_length_box,
-        },
-    )
-
-    display(ui, out)
-
-
-def raster_explorer_with_events(
+def raster_with_events(
     spikes,
     units,
     events,
@@ -197,16 +141,12 @@ def raster_explorer_with_events(
     plot_start,
     plot_length,
 ):
-    ax.cla()
+    raster(spikes, units, ax, plot_start, plot_length)
     plot_end = plot_start + plot_length
-
     mask = ((events["t1"] >= plot_start) & (events["t1"] <= plot_end)) | (
         (events["t2"] >= plot_start) & (events["t2"] <= plot_end)
     )
     _events = events[mask]
-
-    trains = get_spike_trains_for_plotting(spikes, units, plot_start, plot_end)
-    plot_spike_trains(trains, xlim=([plot_start, plot_end]), ax=ax)
 
     for evt in _events.itertuples():
         ax.axvspan(
@@ -216,89 +156,119 @@ def raster_explorer_with_events(
             ec=to_rgba("lavender", 1.0),
         )
 
-    plt.tight_layout()
+
+class InteractiveRaster:
+    def __init__(self, spikes, units):
+        self._plotting_function = raster
+        self._spikes = spikes
+        self._units = units
+        self._plotting_args = {
+            "spikes": fixed(self._spikes),
+            "units": fixed(self._units),
+        }
+        self.setup_time_controls()
+
+    def setup_time_controls(self, min_duration=1, max_duration=60):
+        min_time = np.floor(self._spikes["t"].min())
+        max_time = np.floor(self._spikes["t"].max()) - min_duration
+
+        self._plot_start_slider = FloatSlider(
+            min=min_time,
+            max=max_time,
+            step=1,
+            value=min_time,
+            description="t=",
+        )
+        self._plot_start_box = BoundedFloatText(
+            min=min_time,
+            max=max_time,
+            step=1,
+            value=min_time,
+            description="t=",
+        )
+        jslink(
+            (self._plot_start_slider, "value"), (self._plot_start_box, "value")
+        )  # Allow control from either widget for easy navigation
+
+        self._plot_length_box = BoundedFloatText(
+            min=min_duration,
+            max=max_duration,
+            step=1,
+            value=np.ceil((max_duration - min_duration) / 2),
+            description="Secs",
+        )
+
+        self._plotting_args.update(
+            {
+                "plot_start": self._plot_start_box,
+                "plot_length": self._plot_length_box,
+            }
+        )
+
+    def setup_ui(self):
+        # Lay control widgets out horizontally
+        self._ui = HBox(
+            [
+                self._plot_length_box,
+                self._plot_start_box,
+                self._plot_start_slider,
+            ]
+        )
+
+    def run(self, figsize=(20, 8)):
+        self.setup_ui()
+
+        fig, ax = plt.subplots(figsize=figsize)
+        fig.canvas.header_visible = False
+        fig.canvas.toolbar_visible = False
+        self._plotting_args.update({"ax": fixed(ax)})
+        out = interactive_output(
+            self._plotting_function,
+            self._plotting_args,
+        )
+        display(self._ui, out)
 
 
-def interactive_raster_explorer_with_events(spikes, units, events, figsize=(20, 8)):
-    """Requires %matplotlib widget in notebook cell"""
-    # Create interactive widgets for controlling plot parameters
-    MIN_DURATION, MAX_DURATION = (1, 60)
-    min_time = np.floor(spikes["t"].min())
-    max_time = np.floor(spikes["t"].max()) - MIN_DURATION
-    plot_start_slider = FloatSlider(
-        min=min_time,
-        max=max_time,
-        step=1,
-        value=min_time,
-        description="t=",
-    )
-    plot_start_box = BoundedFloatText(
-        min=min_time,
-        max=max_time,
-        step=1,
-        value=min_time,
-        description="t=",
-    )
-    jslink(
-        (plot_start_slider, "value"), (plot_start_box, "value")
-    )  # Allow control from either widget for easy navigation
-    plot_length_box = BoundedFloatText(
-        min=MIN_DURATION,
-        max=MAX_DURATION,
-        step=1,
-        value=np.ceil((MAX_DURATION - MIN_DURATION) / 2),
-        description="Secs",
-    )
+class InteractiveRasterWithEvents(InteractiveRaster):
+    def __init__(self, spikes, units, events):
+        super(InteractiveRasterWithEvents, self).__init__(spikes, units)
+        self._plotting_function = raster_with_events
+        self._events = events
+        self._plotting_args.update({"events": fixed(self._events)})
+        self.setup_event_controls()
 
-    # Handle events
-    assert events.index.dtype == "int64"
-    if "t2" not in events.columns:
-        events = events.copy()
-        events["t2"] = events["t1"]
+    def setup_event_controls(self):
+        assert self._events.index.dtype == "int64"
+        if "t2" not in self._events.columns:
+            self._events = self._events.copy()
+            self._events["t2"] = self._events["t1"]
 
-    event_box = BoundedIntText(
-        value=events.index.min(),
-        min=events.index.min(),
-        max=events.index.max(),
-        step=1,
-        description="EVT",
-    )
-    event_description_label = Label(value=events.iloc[0]["description"])
+        self._event_box = BoundedIntText(
+            value=self._events.index.min(),
+            min=self._events.index.min(),
+            max=self._events.index.max(),
+            step=1,
+            description="EVT",
+        )
+        self._event_description_label = Label(value=self._events.iloc[0]["description"])
 
-    def _on_event_change(change):
-        evt = change["new"]
-        t1 = events.loc[evt, "t1"]
-        desc = events.loc[evt, "description"]
-        event_description_label.value = desc
-        plot_start_box.value = t1 - plot_length_box.value / 2
+        def _on_event_change(change):
+            evt = change["new"]
+            t1 = self._events.loc[evt, "t1"]
+            desc = self._events.loc[evt, "description"]
+            self._event_description_label.value = desc
+            self._plot_start_box.value = t1 - self._plot_length_box.value / 2
 
-    event_box.observe(_on_event_change, names="value")
+        self._event_box.observe(_on_event_change, names="value")
 
-    # Lay control widgets out horizontally
-    ui = HBox(
-        [
-            plot_length_box,
-            plot_start_box,
-            plot_start_slider,
-            event_box,
-            event_description_label,
-        ]
-    )
-
-    # Plot and display
-    fig, ax = plt.subplots(figsize=figsize)
-    fig.canvas.header_visible = False
-    fig.canvas.toolbar_visible = False
-    out = interactive_output(
-        raster_explorer_with_events,
-        {
-            "spikes": fixed(spikes),
-            "units": fixed(units),
-            "events": fixed(events),
-            "ax": fixed(ax),
-            "plot_start": plot_start_box,
-            "plot_length": plot_length_box,
-        },
-    )
-
-    display(ui, out)
+    def setup_ui(self):
+        # Lay control widgets out horizontally
+        self._ui = HBox(
+            [
+                self._plot_length_box,
+                self._plot_start_box,
+                self._plot_start_slider,
+                self._event_box,
+                self._event_description_label,
+            ]
+        )
