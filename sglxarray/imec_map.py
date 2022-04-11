@@ -132,6 +132,68 @@ def read_cmp_file(file):
     assert len(cmp) == (nAP + nLFP + nSY), "File header does not match content."
     return cmp
 
+def write_cmp(cmp, file):
+    """Write a channel map object to a file in SGLX `.cmp` format.
+
+    Parameters
+    ===========
+    cmp: DataFrame
+        The channel map table, with the same format returned by `parse_snsChanMap`, `read_cmp_file`, etc.
+    file: string or Path
+        The file to write.
+    """
+    nAP, nLF, nSY = cmp.groupby('stream').count()['acq_order'][['AP', 'LF', 'SY']]
+    lines = [f"{nAP},{nLF},{nSY}"] + [f"{row.label};{row.acq_order} {row.usr_order}" for row in cmp.itertuples()]
+    with open(file, 'w') as f:
+        f.write("\n".join(lines))
+
+def imro_to_depth_ordered_cmp(imro, base_to_tip=True):
+    """Given an imro object, create a channel map, setting usr_order so that channels are displayed in order of depth (y).
+
+    Parameters:
+    ===========
+    imro: DataFrame
+        The IMRO table, as returned by `parse_imroTbl()`.
+    base_to_tip: bool
+        If `True` (default), order channels from base to tip, else order then from tip to base.
+        In most cases, base-to-tip ordering will result in the most dorsal channels being displayed first.
+
+    Returns:
+    ========
+    cmp: DataFrame
+        The channel map table, with the same format returned by `parse_snsChanMap` or `read_cmp_file`.
+    """
+    imro = imro.sort_values(["chan_id"])
+    label = pd.Series(
+        [f"AP{id}" for id in imro["chan_id"]]
+        + [f"LF{id}" for id in imro["chan_id"]]
+        + ["SY0"]
+    )
+    stream = label.str.extract("(\D+)").values.squeeze()
+    chan_id = label.str.extract("(\d+)").astype(int).values.squeeze()
+    acq_order = [i for i in range(len(label))]
+
+    # Get depth ordering for AP channels first.
+    y_order = (
+        imro.sort_values(["y", "chan_id"], ascending=not (base_to_tip))
+        .reset_index(drop=True)
+        .sort_values("chan_id")
+        .index.values
+    )
+    # Use the AP channel ordering to order LF and SY channels.
+    usr_order = np.concatenate(
+        [y_order, y_order + len(imro), np.atleast_1d(len(imro) * 2)]
+    )
+    return pd.DataFrame(
+        {
+            "label": label.values,
+            "acq_order": acq_order,
+            "usr_order": usr_order,
+            "stream": stream,
+            "chan_id": chan_id,
+        }
+    )
+
 
 class ImecMap:
     """Parses and represents SpikeGLX's map files (i.e. the "IMRO table" and "Channel map") as pandas DataFrames.
