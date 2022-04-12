@@ -21,39 +21,40 @@ from ..acute import SHARPTrack
 ##### Functions for adding rgba column to units
 
 
-def add_structure_rgba_from_colormap(units, cmap):
-    units["rgba"] = units["structure"].apply(lambda s: cmap[s])
-
-
-def add_structure_rgba_from_sharptrack_atlas(units):
-    cmap = SHARPTrack.get_atlas_colormap()
-    add_structure_rgba_from_colormap(units, cmap)
-
-
-def make_structure_cmap_from_palette(units, palette="glasbey_dark"):
+def map_categories_to_palette(df, col_name, palette="glasbey_dark"):
     assert palette in cc.palette.keys(), "Requested palette not found."
-    structure_names = units["structure"].unique()
-    structure_colors = sns.color_palette(
-        cc.palette[palette], n_colors=len(structure_names)
+    category_names = df[col_name].unique()
+    category_colors = sns.color_palette(
+        cc.palette[palette], n_colors=len(category_names)
     )
-    return dict(zip(structure_names, structure_colors))
+    return dict(zip(category_names, category_colors))
 
 
-def add_structure_rgba_from_palette(units, palette="glasbey_dark"):
-    cmap = make_structure_cmap_from_palette(units, palette)
-    add_structure_rgba_from_colormap(units, cmap)
+def set_rgba_from_atlas(df):
+    cmap = SHARPTrack.get_atlas_colormap()
+    df["rgba"] = df["structure"].apply(lambda s: cmap[s])
 
 
-def add_unit_rgba_from_palette(units, palette="glasbey_dark"):
+def set_rgba_from_structure(df, palette="glasbey_dark"):
+    cmap = map_categories_to_palette(df, "structure", palette)
+    df["rgba"] = df["structure"].apply(lambda s: cmap[s])
+
+
+def set_rgba_from_cluster(df, palette="glasbey_dark"):
     assert palette in cc.palette.keys(), "Requested palette not found."
-    unit_colors = sns.color_palette(cc.palette[palette], n_colors=len(units))
-    units["rgba"] = [to_rgba(rgb, 1.0) for rgb in unit_colors]
+    cluster_colors = sns.color_palette(cc.palette[palette], n_colors=len(df))
+    df["rgba"] = [to_rgba(rgb, 1.0) for rgb in cluster_colors]
 
 
-def add_uniform_rgba(units, color):
+def set_uniform_rgba(df, color):
     assert is_color_like(color), "Requested color not found."
-    unit_colors = [color] * len(units)
-    units["rgba"] = [to_rgba(rgb, 1.0) for rgb in unit_colors]
+    cluster_colors = [color] * len(df)
+    df["rgba"] = [to_rgba(rgb, 1.0) for rgb in cluster_colors]
+
+
+def set_rgba_from_probe(df, palette="glasbey_dark"):
+    cmap = map_categories_to_palette(df, "probe", palette)
+    df["rgba"] = df["probe"].apply(lambda s: cmap[s])
 
 
 ##### Functions for basic raster plotting
@@ -63,7 +64,7 @@ def get_spike_trains_for_plotting(spikes, units, start_time, end_time):
     trains = spikes.spikes.as_trains(start_time, end_time)
 
     if "rgba" not in units.columns:
-        add_uniform_rgba(units, "black")
+        set_uniform_rgba(units, "black")
 
     trains = units.join(trains, how="outer")
     silent = trains.trains.silent()
@@ -76,46 +77,73 @@ def get_spike_trains_for_plotting(spikes, units, start_time, end_time):
     return trains.sort_values("depth")
 
 
-def _col_diff(df, col):
-    return df[col].ne(df[col].shift().bfill())
+def _col_diff(df, col_name):
+    return df[col_name].ne(df[col_name].shift().bfill())
 
 
-def _get_boundary_unit_ilocs(trains):
+def _get_boundary_ilocs(df, col_name):
     """Find trains.ilocs where trains['structure'] changes.
     These are the units that lie closest to structure boundaries, since `trains` is sorted by depth."""
-    changed = _col_diff(trains, "structure")
-    boundary_unit_ids = trains.structure[changed.shift(-1, fill_value=True)].index
-    return np.where(np.isin(trains.index, boundary_unit_ids))[0]
+    changed = _col_diff(df, col_name)
+    boundary_locs = df[col_name][changed.shift(-1, fill_value=True)].index
+    return np.where(np.isin(df.index, boundary_locs))[0]
 
 
-def raster_from_trains(trains, title=None, xlim=None, ax=None):
+def raster_from_trains(
+    trains,
+    title=None,
+    xlim=None,
+    ax=None,
+    structure_boundaries=True,
+    probe_boundaries=True,
+):
     MIN_UNITS_FOR_YTICKLABEL = 5
 
     if ax is None:
-        fig, ax = plt.subplots(figsize=(36, 14))
+        fig, ax = plt.subplots(figsize=(36, len(trains) * 0.03))
 
     ax.eventplot(data=trains, positions="t", colors="rgba")
 
-    if "structure" in trains.columns:
-        boundary_unit_ilocs = _get_boundary_unit_ilocs(trains)
-        ax.set_yticks(boundary_unit_ilocs)
-        do_label = np.diff(boundary_unit_ilocs, prepend=0) > MIN_UNITS_FOR_YTICKLABEL
+    def _set_yticks(ax, col_name):
+        boundary_ilocs = _get_boundary_ilocs(trains, col_name)
+        ax.set_yticks(boundary_ilocs)
+        do_label = np.diff(boundary_ilocs, prepend=0) > MIN_UNITS_FOR_YTICKLABEL
         ax.set_yticklabels(
             [
-                trains["structure"].iloc[iloc] if label else ""
-                for label, iloc in zip(do_label, boundary_unit_ilocs)
+                trains[col_name].iloc[iloc] if label else ""
+                for label, iloc in zip(do_label, boundary_ilocs)
             ]
         )
+
+    if structure_boundaries and "structure" in trains.columns:
+        _set_yticks(ax, "structure")
     else:
         ax.set_yticks([])
-
-    if title is not None:
-        ax.set_title(title, loc="left")
 
     if xlim is not None:
         ax.set_xlim(xlim)
 
-    ax.margins(x=0)
+    if probe_boundaries and "probe" in trains.columns:
+        secy = ax.secondary_yaxis("right")
+        _set_yticks(secy, "probe")
+        ax.hlines(
+            secy.get_yticks()[:-1],
+            *ax.get_xlim(),
+            color="red",
+            alpha=0.8,
+            linewidth=1,
+            zorder=1
+        )
+        # n_probes = len(trains["probe"].unique())
+        # probe_edges = np.insert(secy.get_yticks(), 0, 0)
+        # probe_colors = (["whitesmoke", "lightgrey"] * n_probes)[:n_probes]
+        # for lo, hi, c in zip(probe_edges, probe_edges[1:], probe_colors):
+        #    ax.axhspan(lo, hi, color=c, alpha=0.1, ec=None, zorder=1)
+
+    if title is not None:
+        ax.set_title(title, loc="left")
+
+    ax.margins(x=0, y=0)
 
 
 def raster(
