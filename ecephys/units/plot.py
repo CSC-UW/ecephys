@@ -17,6 +17,7 @@ from ipywidgets import (
 )
 
 from ..acute import SHARPTrack
+from ..utils import Bunch
 
 ##### Functions for adding rgba column to units
 
@@ -77,6 +78,21 @@ def get_spike_trains_for_plotting(spikes, units, start_time, end_time):
     return trains.sort_values("depth")
 
 
+def get_multiprobe_spike_trains_for_plotting(multiprobe_sorting, start_time, end_time):
+    trains = Bunch()
+    for probe in multiprobe_sorting:
+        trains[probe] = get_spike_trains_for_plotting(
+            multiprobe_sorting[probe].spikes,
+            multiprobe_sorting[probe].units,
+            start_time,
+            end_time,
+        )
+
+    return pd.concat(
+        [trains[probe] for probe in trains], keys=trains.keys(), names=["probe"]
+    ).reset_index()
+
+
 def _col_diff(df, col_name):
     return df[col_name].ne(df[col_name].shift().bfill())
 
@@ -102,7 +118,7 @@ def raster_from_trains(
     if ax is None:
         fig, ax = plt.subplots(figsize=(36, len(trains) * 0.03))
 
-    ax.eventplot(data=trains, positions="t", colors="rgba")
+    ax.eventplot(data=trains, positions="t", colors="rgba", linewidth=1)
 
     def _set_yticks(ax, col_name):
         boundary_ilocs = _get_boundary_ilocs(trains, col_name)
@@ -147,29 +163,32 @@ def raster_from_trains(
 
 
 def raster(
-    spikes,
-    units,
-    ax,
+    sorting,
     plot_start,
     plot_length,
+    ax,
 ):
     ax.cla()
     plot_end = plot_start + plot_length
 
-    trains = get_spike_trains_for_plotting(spikes, units, plot_start, plot_end)
+    if set(["spikes", "units"]).issubset(sorting.keys()):
+        trains = get_spike_trains_for_plotting(
+            sorting.spikes, sorting.units, plot_start, plot_end
+        )
+    else:
+        trains = get_multiprobe_spike_trains_for_plotting(sorting, plot_start, plot_end)
     raster_from_trains(trains, xlim=([plot_start, plot_end]), ax=ax)
     plt.tight_layout()
 
 
 def raster_with_events(
-    spikes,
-    units,
+    sorting,
     events,
-    ax,
     plot_start,
     plot_length,
+    ax,
 ):
-    raster(spikes, units, ax, plot_start, plot_length)
+    raster(sorting, plot_start, plot_length, ax)
     plot_end = plot_start + plot_length
     mask = ((events["t1"] >= plot_start) & (events["t1"] <= plot_end)) | (
         (events["t2"] >= plot_start) & (events["t2"] <= plot_end)
@@ -186,32 +205,56 @@ def raster_with_events(
 
 
 class InteractiveRaster:
-    def __init__(self, spikes, units):
+    def __init__(self, sorting):
         self._plotting_function = raster
-        self._spikes = spikes
-        self._units = units
+        self._sorting = sorting
         self._plotting_args = {
-            "spikes": fixed(self._spikes),
-            "units": fixed(self._units),
+            "sorting": fixed(self._sorting),
         }
+        self.min_plot_duration = 1
+        self.max_plot_duration = 60
+        self.min_step_increment = 1
         self.setup_time_controls()
 
-    def setup_time_controls(self, min_duration=1, max_duration=60):
-        min_time = np.floor(self._spikes["t"].min())
-        max_time = np.floor(self._spikes["t"].max()) - min_duration
+    @property
+    def is_multiprobe(self):
+        return not (set(["spikes", "units"]).issubset(self._sorting.keys()))
 
+    @property
+    def min_allowable_time(self):
+        if self.is_multiprobe:
+            return min(self._sorting[probe].spikes.t.min() for probe in self._sorting)
+        else:
+            return self._sorting.spikes.t.min()
+
+    @property
+    def max_allowable_time(self):
+        if self.is_multiprobe:
+            return max(self._sorting[probe].spikes.t.max() for probe in self._sorting)
+        else:
+            return self._sorting.spikes.t.max()
+        # Techncially, we should subtract self.min_duration from this value, to prevent scrolling past the end of the data.
+
+    @property
+    def n_units(self):
+        if self.is_multiprobe:
+            return sum(len(self._sorting[probe].units) for probe in self._sorting)
+        else:
+            return len(self._sorting.units)
+
+    def setup_time_controls(self):
         self._plot_start_slider = FloatSlider(
-            min=min_time,
-            max=max_time,
-            step=1,
-            value=min_time,
+            min=self.min_allowable_time,
+            max=self.max_allowable_time,
+            step=self.min_step_increment,
+            value=self.min_allowable_time,
             description="t=",
         )
         self._plot_start_box = BoundedFloatText(
-            min=min_time,
-            max=max_time,
-            step=1,
-            value=min_time,
+            min=self.min_allowable_time,
+            max=self.max_allowable_time,
+            step=self.min_step_increment,
+            value=self.min_allowable_time,
             description="t=",
         )
         jslink(
@@ -219,10 +262,10 @@ class InteractiveRaster:
         )  # Allow control from either widget for easy navigation
 
         self._plot_length_box = BoundedFloatText(
-            min=min_duration,
-            max=max_duration,
-            step=1,
-            value=np.ceil((max_duration - min_duration) / 2),
+            min=self.min_plot_duration,
+            max=self.max_plot_duration,
+            step=self.min_step_increment,
+            value=np.ceil((self.max_plot_duration - self.min_plot_duration) / 2),
             description="Secs",
         )
 
@@ -243,8 +286,15 @@ class InteractiveRaster:
             ]
         )
 
-    def run(self, figsize=(20, 8)):
+    def run(self, figsize="auto"):
         self.setup_ui()
+
+        if figsize == "auto":
+            figsize = (23, self.n_units * 0.03)
+        elif figsize == "wide":
+            figsize = (23, 8)
+        elif figsize == "long":
+            figsize = (9, 16)
 
         fig, ax = plt.subplots(figsize=figsize)
         fig.canvas.header_visible = False
@@ -258,8 +308,8 @@ class InteractiveRaster:
 
 
 class InteractiveRasterWithEvents(InteractiveRaster):
-    def __init__(self, spikes, units, events):
-        super(InteractiveRasterWithEvents, self).__init__(spikes, units)
+    def __init__(self, sorting, events):
+        super(InteractiveRasterWithEvents, self).__init__(sorting)
         self._plotting_function = raster_with_events
         self._events = events
         self._plotting_args.update({"events": fixed(self._events)})
