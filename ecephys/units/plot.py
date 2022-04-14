@@ -242,16 +242,20 @@ class Raster:
         plot_start=None,
         plot_duration=None,
         events=None,
-        selection_levels=[],
-        selections=[],
+        selection_levels=None,
+        selections=None,
     ):
         self._sorting = sorting
         self._plot_start = plot_start
         self._plot_duration = plot_duration
         self.update_trains()
         self.events = events
+        if selection_levels is None:
+            selection_levels = []
         self.selection_levels = selection_levels
         self.update_selection_options()
+        if selections is None:
+            selections = []
         self.selections = selections
 
         self.figsizes = {
