@@ -12,12 +12,13 @@ from ipywidgets import (
     Label,
     SelectMultiple,
     HBox,
+    VBox,
+    Layout,
     fixed,
     interactive_output,
     jslink,
 )
-from abc import ABC, abstractproperty, abstractstaticmethod, abstractmethod
-import warnings
+from abc import ABC, abstractproperty, abstractmethod
 
 from ..acute import SHARPTrack
 from ..utils import Bunch
@@ -64,40 +65,6 @@ def set_rgba_from_probe(df, palette="glasbey_dark"):
 ##### Functions for basic raster plotting
 
 
-# Remove, and use as SingleProbeSorting classmethod?
-def get_spike_trains_for_plotting(spikes, units, start_time, end_time):
-    trains = spikes.spikes.as_trains(start_time, end_time)
-
-    if "rgba" not in units.columns:
-        set_uniform_rgba(units, "black")
-
-    trains = units.join(trains, how="outer")
-    silent = trains.trains.silent()
-    # Add ghost spikes at very start and end of window to silent trains, to reserve space for them on the plot's x and y axes.
-    trains.loc[silent, "t"] = pd.Series(
-        [np.array((start_time, end_time))] * sum(silent)
-    ).values
-    # Make silent units white and transparent, so that they are invisible.
-    trains.loc[silent, "rgba"] = pd.Series([to_rgba("white", 0.0)] * sum(silent)).values
-    return trains.sort_values("depth")
-
-
-# Remove, and use as MultiProbeSorting classmethod?
-def get_multiprobe_spike_trains_for_plotting(multiprobe_sorting, start_time, end_time):
-    trains = Bunch()
-    for probe in multiprobe_sorting:
-        trains[probe] = get_spike_trains_for_plotting(
-            multiprobe_sorting[probe].spikes,
-            multiprobe_sorting[probe].units,
-            start_time,
-            end_time,
-        )
-
-    return pd.concat(
-        [trains[probe] for probe in trains], keys=trains.keys(), names=["probe"]
-    ).reset_index()
-
-
 def _col_diff(df, col_name):
     return df[col_name].ne(df[col_name].shift().bfill())
 
@@ -107,7 +74,6 @@ def _get_boundary_ilocs(df, col_name):
     These are the units that lie closest to structure boundaries, since `trains` is sorted by depth.
 
     Requres that df have an integer index!"""
-    df = df.reset_index()
     changed = _col_diff(df, col_name)
     boundary_locs = df[col_name][changed.shift(-1, fill_value=True)].index
     return np.where(np.isin(df.index, boundary_locs))[0]
@@ -121,6 +87,7 @@ def raster_from_trains(
     structure_boundaries=True,
     probe_boundaries=True,
 ):
+    """Requires that df  have integer index"""
     MIN_UNITS_FOR_YTICKLABEL = 5
 
     if ax is None:
@@ -171,198 +138,6 @@ def raster_from_trains(
     plt.tight_layout()
 
     return ax
-
-
-# Remove?
-def raster(
-    sorting,
-    plot_start,
-    plot_length,
-    ax,
-):
-    ax.cla()
-    plot_end = plot_start + plot_length
-
-    trains = sorting.plotting_trains(plot_start, plot_end)
-    raster_from_trains(trains, xlim=([plot_start, plot_end]), ax=ax)
-    plt.tight_layout()
-
-
-# Remove?
-def raster_with_events(
-    sorting,
-    events,
-    plot_start,
-    plot_length,
-    ax,
-):
-    raster(sorting, plot_start, plot_length, ax)
-    plot_end = plot_start + plot_length
-    mask = ((events["t1"] >= plot_start) & (events["t1"] <= plot_end)) | (
-        (events["t2"] >= plot_start) & (events["t2"] <= plot_end)
-    )
-    _events = events[mask]
-
-    for evt in _events.itertuples():
-        ax.axvspan(
-            max(evt.t1, plot_start),
-            min(evt.t2, plot_end),
-            fc=to_rgba("lavender", 0.1),
-            ec=to_rgba("lavender", 1.0),
-        )
-
-
-# Remove?
-class InteractiveRaster:
-    def __init__(self, sorting):
-        self._plotting_function = raster
-        self._sorting = sorting
-        self._plotting_args = {
-            "sorting": fixed(self._sorting),
-        }
-        self.min_plot_duration = 1
-        self.max_plot_duration = 60
-        self.min_step_increment = 1
-        self.setup_time_controls()
-
-    @property
-    def is_multiprobe(self):
-        return not (set(["spikes", "units"]).issubset(self._sorting.keys()))
-
-    @property
-    def min_allowable_time(self):
-        if self.is_multiprobe:
-            return min(self._sorting[probe].spikes.t.min() for probe in self._sorting)
-        else:
-            return self._sorting.spikes.t.min()
-
-    @property
-    def max_allowable_time(self):
-        if self.is_multiprobe:
-            return max(self._sorting[probe].spikes.t.max() for probe in self._sorting)
-        else:
-            return self._sorting.spikes.t.max()
-        # Techncially, we should subtract self.min_duration from this value, to prevent scrolling past the end of the data.
-
-    @property
-    def n_units(self):
-        if self.is_multiprobe:
-            return sum(len(self._sorting[probe].units) for probe in self._sorting)
-        else:
-            return len(self._sorting.units)
-
-    def setup_time_controls(self):
-        self._plot_start_slider = FloatSlider(
-            min=self.min_allowable_time,
-            max=self.max_allowable_time,
-            step=self.min_step_increment,
-            value=self.min_allowable_time,
-            description="t=",
-        )
-        self._plot_start_box = BoundedFloatText(
-            min=self.min_allowable_time,
-            max=self.max_allowable_time,
-            step=self.min_step_increment,
-            value=self.min_allowable_time,
-            description="t=",
-        )
-        jslink(
-            (self._plot_start_slider, "value"), (self._plot_start_box, "value")
-        )  # Allow control from either widget for easy navigation
-
-        self._plot_length_box = BoundedFloatText(
-            min=self.min_plot_duration,
-            max=self.max_plot_duration,
-            step=self.min_step_increment,
-            value=np.ceil((self.max_plot_duration - self.min_plot_duration) / 2),
-            description="Secs",
-        )
-
-        self._plotting_args.update(
-            {
-                "plot_start": self._plot_start_box,
-                "plot_length": self._plot_length_box,
-            }
-        )
-
-    def setup_ui(self):
-        # Lay control widgets out horizontally
-        self._ui = HBox(
-            [
-                self._plot_length_box,
-                self._plot_start_box,
-                self._plot_start_slider,
-            ]
-        )
-
-    def run(self, figsize="auto"):
-        self.setup_ui()
-
-        if figsize == "auto":
-            figsize = (23, self.n_units * 0.03)
-        elif figsize == "wide":
-            figsize = (23, 8)
-        elif figsize == "long":
-            figsize = (9, 16)
-
-        fig, ax = plt.subplots(figsize=figsize)
-        fig.canvas.header_visible = False
-        fig.canvas.toolbar_visible = False
-        self._plotting_args.update({"ax": fixed(ax)})
-        out = interactive_output(
-            self._plotting_function,
-            self._plotting_args,
-        )
-        display(self._ui, out)
-
-
-# Remove?
-class InteractiveRasterWithEvents(InteractiveRaster):
-    def __init__(self, sorting, events):
-        super(InteractiveRasterWithEvents, self).__init__(sorting)
-        self._plotting_function = raster_with_events
-        self._events = events
-        self._plotting_args.update({"events": fixed(self._events)})
-        self.setup_event_controls()
-
-    def setup_event_controls(self):
-        assert self._events.index.dtype == "int64"
-        if "t2" not in self._events.columns:
-            self._events = self._events.copy()
-            self._events["t2"] = self._events["t1"]
-
-        self._event_box = BoundedIntText(
-            value=self._events.index.min(),
-            min=self._events.index.min(),
-            max=self._events.index.max(),
-            step=1,
-            description="EVT",
-        )
-        self._event_description_label = Label(value=self._events.iloc[0]["description"])
-
-        def _on_event_change(change):
-            evt = change["new"]
-            t1 = self._events.loc[evt, "t1"]
-            desc = self._events.loc[evt, "description"]
-            self._event_description_label.value = desc
-            self._plot_start_box.value = t1 - self._plot_length_box.value / 2
-
-        self._event_box.observe(_on_event_change, names="value")
-
-    def setup_ui(self):
-        # Lay control widgets out horizontally
-        self._ui = HBox(
-            [
-                self._plot_length_box,
-                self._plot_start_box,
-                self._plot_start_slider,
-                self._event_box,
-                self._event_description_label,
-            ]
-        )
-
-
-##### DEV #####
 
 
 class Sorting(ABC):
@@ -579,10 +354,10 @@ class Raster:
 
     @property
     def trains(self):
-        if (self.selection_levels) and (self.selections):
+        if self.selection_levels:
             trains = self._trains.set_index(self.selection_levels, drop=False)
             trains.index = trains.index.to_flat_index()
-            return trains.drop(self.selections)
+            return trains.drop(self.selections).reset_index(drop=True)
         else:
             return self._trains
 
@@ -641,6 +416,7 @@ class Raster:
             value=self.plot_start,
             description="t=",
             continuous_update=False,
+            layout=Layout(width="95%"),
         )
         plot_start_box = BoundedFloatText(
             min=self.min_plot_start,
@@ -648,6 +424,7 @@ class Raster:
             step=self.min_plot_duration,
             value=self.plot_start,
             description="t=",
+            layout=Layout(width="150px"),
         )
         jslink(
             (plot_start_slider, "value"), (plot_start_box, "value")
@@ -659,6 +436,7 @@ class Raster:
             step=self.min_plot_duration,
             value=self.plot_duration,
             description="Secs",
+            layout=Layout(width="150px"),
         )
 
         return [plot_start_slider, plot_start_box, plot_duration_box]
@@ -675,6 +453,7 @@ class Raster:
             max=self.events.index.max(),
             step=1,
             description="EVT",
+            layout=Layout(width="150px"),
         )
         event_description_label = Label(value=self.events.iloc[0]["description"])
 
@@ -699,26 +478,34 @@ class Raster:
             plot_start_slider,
             plot_start_box,
             plot_duration_box,
-        ] = controls = self.get_time_controls()
+        ] = self.get_time_controls()
 
         if self.events is not None:
-            controls = controls + self.get_event_controls(
-                plot_start_box, plot_duration_box
+            event_controls = self.get_event_controls(plot_start_box, plot_duration_box)
+            navigation = VBox(
+                [
+                    plot_start_slider,
+                    HBox([plot_start_box, plot_duration_box] + event_controls),
+                ]
+            )
+        else:
+            navigation = VBox(
+                [plot_start_slider, HBox([plot_start_box, plot_duration_box])]
             )
 
         if self.selection_levels:
             menu = SelectMultiple(
-                options=[(str(opt), opt) for opt in self.selection_options],
+                options=[(str(opt), opt) for opt in reversed(self.selection_options)],
                 value=self.selections,
-                rows=3,
                 description="Hide:",
+                rows=min(10, len(self.selection_options)),
                 disabled=False,
             )
-            controls = controls + [menu]
+            ui = VBox([menu, navigation])
         else:
             menu = fixed([])
+            ui = navigation
 
-        ui = HBox(controls)
         out = interactive_output(
             self._interact,
             {
