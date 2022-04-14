@@ -370,7 +370,7 @@ class Raster:
         )
 
     def plot(self, figsize="auto"):
-        figsize = self.figsizes.pop(figsize, figsize)
+        figsize = self.figsizes.get(figsize, figsize)
         fig, ax = plt.subplots(figsize=figsize)
 
         fig.canvas.header_visible = False
@@ -472,7 +472,7 @@ class Raster:
         return [event_box, event_description_label]
 
     def interact(self, figsize="auto"):
-        figsize = self.figsizes.pop(figsize, figsize)
+        figsize = self.figsizes.get(figsize, figsize)
         fig, ax = plt.subplots(figsize=figsize)
         fig.canvas.header_visible = False
         fig.canvas.toolbar_visible = False
