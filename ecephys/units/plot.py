@@ -10,11 +10,14 @@ from ipywidgets import (
     BoundedIntText,
     FloatSlider,
     Label,
+    SelectMultiple,
     HBox,
     fixed,
     interactive_output,
     jslink,
 )
+from abc import ABC, abstractproperty, abstractstaticmethod, abstractmethod
+import warnings
 
 from ..acute import SHARPTrack
 from ..utils import Bunch
@@ -61,6 +64,7 @@ def set_rgba_from_probe(df, palette="glasbey_dark"):
 ##### Functions for basic raster plotting
 
 
+# Remove, and use as SingleProbeSorting classmethod?
 def get_spike_trains_for_plotting(spikes, units, start_time, end_time):
     trains = spikes.spikes.as_trains(start_time, end_time)
 
@@ -78,6 +82,7 @@ def get_spike_trains_for_plotting(spikes, units, start_time, end_time):
     return trains.sort_values("depth")
 
 
+# Remove, and use as MultiProbeSorting classmethod?
 def get_multiprobe_spike_trains_for_plotting(multiprobe_sorting, start_time, end_time):
     trains = Bunch()
     for probe in multiprobe_sorting:
@@ -99,7 +104,10 @@ def _col_diff(df, col_name):
 
 def _get_boundary_ilocs(df, col_name):
     """Find trains.ilocs where trains['structure'] changes.
-    These are the units that lie closest to structure boundaries, since `trains` is sorted by depth."""
+    These are the units that lie closest to structure boundaries, since `trains` is sorted by depth.
+
+    Requres that df have an integer index!"""
+    df = df.reset_index()
     changed = _col_diff(df, col_name)
     boundary_locs = df[col_name][changed.shift(-1, fill_value=True)].index
     return np.where(np.isin(df.index, boundary_locs))[0]
@@ -160,8 +168,12 @@ def raster_from_trains(
         ax.set_title(title, loc="left")
 
     ax.margins(x=0, y=0)
+    plt.tight_layout()
+
+    return ax
 
 
+# Remove?
 def raster(
     sorting,
     plot_start,
@@ -171,16 +183,12 @@ def raster(
     ax.cla()
     plot_end = plot_start + plot_length
 
-    if set(["spikes", "units"]).issubset(sorting.keys()):
-        trains = get_spike_trains_for_plotting(
-            sorting.spikes, sorting.units, plot_start, plot_end
-        )
-    else:
-        trains = get_multiprobe_spike_trains_for_plotting(sorting, plot_start, plot_end)
+    trains = sorting.plotting_trains(plot_start, plot_end)
     raster_from_trains(trains, xlim=([plot_start, plot_end]), ax=ax)
     plt.tight_layout()
 
 
+# Remove?
 def raster_with_events(
     sorting,
     events,
@@ -204,6 +212,7 @@ def raster_with_events(
         )
 
 
+# Remove?
 class InteractiveRaster:
     def __init__(self, sorting):
         self._plotting_function = raster
@@ -307,6 +316,7 @@ class InteractiveRaster:
         display(self._ui, out)
 
 
+# Remove?
 class InteractiveRasterWithEvents(InteractiveRaster):
     def __init__(self, sorting, events):
         super(InteractiveRasterWithEvents, self).__init__(sorting)
@@ -350,3 +360,372 @@ class InteractiveRasterWithEvents(InteractiveRaster):
                 self._event_description_label,
             ]
         )
+
+
+##### DEV #####
+
+
+class Sorting(ABC):
+    def __init__(self, bunch):
+        self._bunch = bunch
+
+    @abstractproperty
+    def data_start(self):
+        pass
+
+    @abstractproperty
+    def data_end(self):
+        pass
+
+    @abstractproperty
+    def n_units(self):
+        pass
+
+    @abstractmethod
+    def get_spike_trains_for_plotting(self, start_time, end_time):
+        pass
+
+
+class SingleProbeSorting(Sorting):
+    def __init__(self, bunch):
+        super(SingleProbeSorting, self).__init__(bunch)
+
+    @property
+    def data_start(self):
+        return self._bunch.spikes.t.min()
+
+    @property
+    def data_end(self):
+        return self._bunch.spikes.t.max()
+        # Techncially, we should subtract self.min_duration from this value, to prevent scrolling past the end of the data.
+
+    @property
+    def n_units(self):
+        return len(self._bunch.units)
+
+    def get_spike_trains_for_plotting(self, start_time=None, end_time=None):
+        start_time = self.data_start if start_time is None else start_time
+        end_time = self.data_end if end_time is None else end_time
+
+        trains = self._bunch.spikes.spikes.as_trains(start_time, end_time)
+
+        if "rgba" not in self._bunch.units.columns:
+            set_uniform_rgba(self._bunch.units, "black")
+
+        trains = self._bunch.units.join(trains, how="outer")
+        silent = trains.trains.silent()
+        # Add ghost spikes at very start and end of window to silent trains, to reserve space for them on the plot's x and y axes.
+        trains.loc[silent, "t"] = pd.Series(
+            [np.array((start_time, end_time))] * sum(silent)
+        ).values
+        # Make silent units white and transparent, so that they are invisible.
+        trains.loc[silent, "rgba"] = pd.Series(
+            [to_rgba("white", 0.0)] * sum(silent)
+        ).values
+        return trains.sort_values("depth")
+
+
+class MultiProbeSorting(Sorting):
+    def __init__(self, bunch):
+        super(MultiProbeSorting, self).__init__(bunch)
+
+    @property
+    def data_start(self):
+        return min(self._bunch[probe].spikes.t.min() for probe in self._bunch)
+
+    @property
+    def data_end(self):
+        return max(self._bunch[probe].spikes.t.max() for probe in self._bunch)
+        # Techncially, we should subtract self.min_duration from this value, to prevent scrolling past the end of the data.
+
+    @property
+    def n_units(self):
+        return sum(len(self._bunch[probe].units) for probe in self._bunch)
+
+    def get_spike_trains_for_plotting(self, start_time=None, end_time=None):
+        start_time = self.data_start if start_time is None else start_time
+        end_time = self.data_end if end_time is None else end_time
+        multiprobe_bunch = self._bunch
+
+        trains = Bunch()
+        for probe in multiprobe_bunch:
+            singleprobe_sorting = SingleProbeSorting(multiprobe_bunch[probe])
+            trains[probe] = singleprobe_sorting.get_spike_trains_for_plotting(
+                start_time,
+                end_time,
+            )
+
+        return pd.concat(
+            [trains[probe] for probe in trains], keys=trains.keys(), names=["probe"]
+        ).reset_index()
+
+
+class Raster:
+    def __init__(
+        self,
+        sorting,
+        plot_start=None,
+        plot_duration=None,
+        events=None,
+        selection_levels=[],
+        selections=[],
+    ):
+        self._sorting = sorting
+        self._plot_start = plot_start
+        self._plot_duration = plot_duration
+        self.update_trains()
+        self.events = events
+        self.selection_levels = selection_levels
+        self.update_selection_options()
+        self.selections = selections
+
+        self.figsizes = {
+            "auto": (23, self._sorting.n_units * 0.03),
+            "wide": (23, 8),
+            "long": (9, 16),
+        }
+
+    @property
+    def data_start(self):
+        return self._sorting.data_start
+
+    @property
+    def data_end(self):
+        return self._sorting.data_end
+
+    @property
+    def min_plot_duration(self):
+        return min(0.1, self.data_end - self.data_start)  # Try 100ms
+
+    @property
+    def max_plot_duration(self):
+        return self.data_end - self.data_start
+
+    @property
+    def min_plot_start(self):
+        return np.floor(self.data_start)
+
+    @property
+    def max_plot_start(self):
+        return self.data_end - self.min_plot_duration
+
+    @property
+    def plot_start(self):
+        if self._plot_start is None:
+            self._plot_start = self.min_plot_start
+        return self._plot_start
+
+    @plot_start.setter
+    def plot_start(self, val):
+        if val < self.min_plot_start:
+            self._plot_start = self.min_plot_start
+        elif val >= self.max_plot_start:
+            self._plot_start = self.max_plot_start
+        else:
+            self._plot_start = val
+
+        self.update_trains()
+
+    @property
+    def plot_duration(self):
+        if self._plot_duration is None:
+            self._plot_duration = self.min_plot_duration
+        return self._plot_duration
+
+    @plot_duration.setter
+    def plot_duration(self, val):
+        if val > self.max_plot_duration:
+            self._plot_duration = self.max_plot_duration
+        elif val <= self.min_plot_duration:
+            self._plot_duration = self.min_plot_duration
+        else:
+            self._plot_duration = val
+
+        self.update_trains()
+
+    @property
+    def plot_end(self):
+        return self.plot_start + self.plot_duration
+
+    @property
+    def selection_levels(self):
+        return self._selection_levels
+
+    @selection_levels.setter
+    def selection_levels(self, val):
+        assert set(val).issubset(self._trains.columns)
+        self._selection_levels = list(val)
+
+    def update_selection_options(self):
+        self._selection_options = (
+            self._trains.set_index(self.selection_levels)
+            .index.to_flat_index()
+            .unique()
+            .to_list()
+        )
+
+    @property
+    def selection_options(self):
+        return self._selection_options
+
+    @property
+    def selections(self):
+        return self._selections
+
+    @selections.setter
+    def selections(self, val):
+        assert set(val).issubset(self.selection_options)
+        self._selections = list(val)
+
+    @property
+    def trains(self):
+        if (self.selection_levels) and (self.selections):
+            trains = self._trains.set_index(self.selection_levels, drop=False)
+            trains.index = trains.index.to_flat_index()
+            return trains.drop(self.selections)
+        else:
+            return self._trains
+
+    def update_trains(self):
+        self._trains = self._sorting.get_spike_trains_for_plotting(
+            self.plot_start, self.plot_end
+        )
+
+    def plot(self, figsize="auto"):
+        figsize = self.figsizes.pop(figsize, figsize)
+        fig, ax = plt.subplots(figsize=figsize)
+
+        fig.canvas.header_visible = False
+        fig.canvas.toolbar_visible = False
+        ax = raster_from_trains(
+            self.trains, xlim=[self.plot_start, self.plot_end], ax=ax
+        )
+        if self.events is not None:
+            self.add_event_overlay(ax)
+        return ax
+
+    def add_event_overlay(self, ax):
+        mask = (
+            (self.events["t1"] >= self.plot_start)
+            & (self.events["t1"] <= self.plot_end)
+        ) | (
+            (self.events["t2"] >= self.plot_start)
+            & (self.events["t2"] <= self.plot_end)
+        )
+
+        for evt in self.events[mask].itertuples():
+            ax.axvspan(
+                max(evt.t1, self.plot_start),
+                min(evt.t2, self.plot_end),
+                fc=to_rgba("lavender", 0.1),
+                ec=to_rgba("lavender", 1.0),
+            )
+
+    def _interact(self, plot_start, plot_duration, selections, ax):
+        ax.cla()
+        self.plot_start = plot_start
+        self.plot_duration = plot_duration
+        self.selections = selections
+        ax = raster_from_trains(
+            self.trains, xlim=[self.plot_start, self.plot_end], ax=ax
+        )
+        if self.events is not None:
+            self.add_event_overlay(ax)
+        return ax
+
+    def get_time_controls(self):
+        plot_start_slider = FloatSlider(
+            min=self.min_plot_start,
+            max=self.max_plot_start,
+            step=self.min_plot_duration,
+            value=self.plot_start,
+            description="t=",
+            continuous_update=False,
+        )
+        plot_start_box = BoundedFloatText(
+            min=self.min_plot_start,
+            max=self.max_plot_start,
+            step=self.min_plot_duration,
+            value=self.plot_start,
+            description="t=",
+        )
+        jslink(
+            (plot_start_slider, "value"), (plot_start_box, "value")
+        )  # Allow control from either widget for easy navigation
+
+        plot_duration_box = BoundedFloatText(
+            min=self.min_plot_duration,
+            max=self.max_plot_duration,
+            step=self.min_plot_duration,
+            value=self.plot_duration,
+            description="Secs",
+        )
+
+        return [plot_start_slider, plot_start_box, plot_duration_box]
+
+    def get_event_controls(self, plot_start_box, plot_duration_box):
+        assert self.events.index.dtype == "int64"
+        if "t2" not in self.events.columns:
+            self.events = self.events.copy()
+            self.events["t2"] = self.events["t1"]
+
+        event_box = BoundedIntText(
+            value=self.events.index.min(),
+            min=self.events.index.min(),
+            max=self.events.index.max(),
+            step=1,
+            description="EVT",
+        )
+        event_description_label = Label(value=self.events.iloc[0]["description"])
+
+        def _on_event_change(change):
+            evt = change["new"]
+            t1 = self.events.loc[evt, "t1"]
+            desc = self.events.loc[evt, "description"]
+            event_description_label.value = desc
+            plot_start_box.value = t1 - plot_duration_box.value / 2
+
+        event_box.observe(_on_event_change, names="value")
+
+        return [event_box, event_description_label]
+
+    def interact(self, figsize="auto"):
+        figsize = self.figsizes.pop(figsize, figsize)
+        fig, ax = plt.subplots(figsize=figsize)
+        fig.canvas.header_visible = False
+        fig.canvas.toolbar_visible = False
+
+        [
+            plot_start_slider,
+            plot_start_box,
+            plot_duration_box,
+        ] = controls = self.get_time_controls()
+
+        if self.events is not None:
+            controls = controls + self.get_event_controls(
+                plot_start_box, plot_duration_box
+            )
+
+        if self.selection_levels:
+            menu = SelectMultiple(
+                options=[(str(opt), opt) for opt in self.selection_options],
+                value=self.selections,
+                rows=3,
+                description="Hide:",
+                disabled=False,
+            )
+            controls = controls + [menu]
+        else:
+            menu = fixed([])
+
+        ui = HBox(controls)
+        out = interactive_output(
+            self._interact,
+            {
+                "plot_start": plot_start_box,
+                "plot_duration": plot_duration_box,
+                "selections": menu,
+                "ax": fixed(ax),
+            },
+        )
+        display(ui, out)
