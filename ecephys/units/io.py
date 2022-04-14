@@ -18,11 +18,11 @@ def get_sorting_info(ks_dir):
     d["dtype"] = str(d["dtype"].strip("'"))
     d["hp_filtered"] = bool(d["hp_filtered"])
     # duration
-    tmp_extr = se.BinDatRecordingExtractor(
-        ks_dir / "temp_wh.dat",
-        d["sample_rate"],
-        d["n_channels_dat"],
-        d["dtype"],
+    tmp_extr = se.BinaryRecordingExtractor(
+        file_paths=ks_dir / "temp_wh.dat",
+        sampling_frequency=d["sample_rate"],
+        num_chan=d["n_channels_dat"],
+        dtype=d["dtype"],
     )
     d["duration"] = tmp_extr.get_num_frames() / tmp_extr.get_sampling_frequency()
     return d
