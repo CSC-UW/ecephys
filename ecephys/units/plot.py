@@ -332,10 +332,11 @@ class Raster:
 
     @selection_levels.setter
     def selection_levels(self, val):
-        assert set(val).issubset(self._trains.columns)
+        assert set(val).issubset(self._trains.columns), f"val={val}, cols={self._trains.columns}"
         self._selection_levels = list(val)
 
     def update_selection_options(self):
+        print(self.selection_levels)
         if self.selection_levels:
             self._selection_options = (
                 self._trains.set_index(self.selection_levels)
@@ -356,7 +357,7 @@ class Raster:
 
     @selections.setter
     def selections(self, val):
-        assert set(val).issubset(self.selection_options)
+        assert set(val).issubset(self.selection_options), f"val={val}, selection_options={self.selection_options}"
         self._selections = list(val)
 
     @property
