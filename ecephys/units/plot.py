@@ -123,7 +123,7 @@ def raster_from_trains(
             color="red",
             alpha=0.8,
             linewidth=1,
-            zorder=1
+            zorder=1,
         )
         # n_probes = len(trains["probe"].unique())
         # probe_edges = np.insert(secy.get_yticks(), 0, 0)
@@ -242,16 +242,20 @@ class Raster:
         plot_start=None,
         plot_duration=None,
         events=None,
-        selection_levels=[],
-        selections=[],
+        selection_levels=None,
+        selections=None,
     ):
         self._sorting = sorting
         self._plot_start = plot_start
         self._plot_duration = plot_duration
         self.update_trains()
         self.events = events
+        if selection_levels is None:
+            selection_levels = []
         self.selection_levels = selection_levels
         self.update_selection_options()
+        if selections is None:
+            selections = []
         self.selections = selections
 
         self.figsizes = {
@@ -328,7 +332,9 @@ class Raster:
 
     @selection_levels.setter
     def selection_levels(self, val):
-        assert set(val).issubset(self._trains.columns)
+        assert set(val).issubset(
+            self._trains.columns
+        ), f"val={val}, cols={self._trains.columns}"
         self._selection_levels = list(val)
 
     def update_selection_options(self):
@@ -352,7 +358,9 @@ class Raster:
 
     @selections.setter
     def selections(self, val):
-        assert set(val).issubset(self.selection_options)
+        assert set(val).issubset(
+            self.selection_options
+        ), f"val={val}, selection_options={self.selection_options}"
         self._selections = list(val)
 
     @property
@@ -370,7 +378,7 @@ class Raster:
         )
 
     def plot(self, figsize="auto"):
-        figsize = self.figsizes.pop(figsize, figsize)
+        figsize = self.figsizes.get(figsize, figsize)
         fig, ax = plt.subplots(figsize=figsize)
 
         fig.canvas.header_visible = False
@@ -472,7 +480,7 @@ class Raster:
         return [event_box, event_description_label]
 
     def interact(self, figsize="auto"):
-        figsize = self.figsizes.pop(figsize, figsize)
+        figsize = self.figsizes.get(figsize, figsize)
         fig, ax = plt.subplots(figsize=figsize)
         fig.canvas.header_visible = False
         fig.canvas.toolbar_visible = False
