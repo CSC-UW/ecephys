@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import colorcet as cc
 import seaborn as sns
@@ -18,10 +17,8 @@ from ipywidgets import (
     interactive_output,
     jslink,
 )
-from abc import ABC, abstractproperty, abstractmethod
 
 from ..acute import SHARPTrack
-from ..utils import Bunch
 
 ##### Functions for adding rgba column to units
 
@@ -138,101 +135,6 @@ def raster_from_trains(
     plt.tight_layout()
 
     return ax
-
-
-class Sorting(ABC):
-    def __init__(self, bunch):
-        self._bunch = bunch
-
-    @abstractproperty
-    def data_start(self):
-        pass
-
-    @abstractproperty
-    def data_end(self):
-        pass
-
-    @abstractproperty
-    def n_units(self):
-        pass
-
-    @abstractmethod
-    def get_spike_trains_for_plotting(self, start_time, end_time):
-        pass
-
-
-class SingleProbeSorting(Sorting):
-    def __init__(self, bunch):
-        super(SingleProbeSorting, self).__init__(bunch)
-
-    @property
-    def data_start(self):
-        return self._bunch.spikes.t.min()
-
-    @property
-    def data_end(self):
-        return self._bunch.spikes.t.max()
-        # Techncially, we should subtract self.min_duration from this value, to prevent scrolling past the end of the data.
-
-    @property
-    def n_units(self):
-        return len(self._bunch.units)
-
-    def get_spike_trains_for_plotting(self, start_time=None, end_time=None):
-        start_time = self.data_start if start_time is None else start_time
-        end_time = self.data_end if end_time is None else end_time
-
-        trains = self._bunch.spikes.spikes.as_trains(start_time, end_time)
-
-        if "rgba" not in self._bunch.units.columns:
-            set_uniform_rgba(self._bunch.units, "black")
-
-        trains = self._bunch.units.join(trains, how="outer")
-        silent = trains.trains.silent()
-        # Add ghost spikes at very start and end of window to silent trains, to reserve space for them on the plot's x and y axes.
-        trains.loc[silent, "t"] = pd.Series(
-            [np.array((start_time, end_time))] * sum(silent)
-        ).values
-        # Make silent units white and transparent, so that they are invisible.
-        trains.loc[silent, "rgba"] = pd.Series(
-            [to_rgba("white", 0.0)] * sum(silent)
-        ).values
-        return trains.sort_values("depth")
-
-
-class MultiProbeSorting(Sorting):
-    def __init__(self, bunch):
-        super(MultiProbeSorting, self).__init__(bunch)
-
-    @property
-    def data_start(self):
-        return min(self._bunch[probe].spikes.t.min() for probe in self._bunch)
-
-    @property
-    def data_end(self):
-        return max(self._bunch[probe].spikes.t.max() for probe in self._bunch)
-        # Techncially, we should subtract self.min_duration from this value, to prevent scrolling past the end of the data.
-
-    @property
-    def n_units(self):
-        return sum(len(self._bunch[probe].units) for probe in self._bunch)
-
-    def get_spike_trains_for_plotting(self, start_time=None, end_time=None):
-        start_time = self.data_start if start_time is None else start_time
-        end_time = self.data_end if end_time is None else end_time
-        multiprobe_bunch = self._bunch
-
-        trains = Bunch()
-        for probe in multiprobe_bunch:
-            singleprobe_sorting = SingleProbeSorting(multiprobe_bunch[probe])
-            trains[probe] = singleprobe_sorting.get_spike_trains_for_plotting(
-                start_time,
-                end_time,
-            )
-
-        return pd.concat(
-            [trains[probe] for probe in trains], keys=trains.keys(), names=["probe"]
-        ).reset_index()
 
 
 class Raster:

@@ -7,29 +7,6 @@ from pathlib import Path
 from collections.abc import Iterable
 from functools import reduce
 
-
-class Bunch(dict):
-    """A subclass of dictionary with an additional dot syntax."""
-
-    # Original: https://int-brain-lab.github.io/iblenv/_modules/brainbox/core/core.html
-
-    def __init__(self, *args, **kwargs):
-        super(Bunch, self).__init__(*args, **kwargs)
-        self.__dict__ = self
-
-    def copy(self):
-        """Return a new Bunch instance which is a copy of the current Bunch instance."""
-        return Bunch(super(Bunch, self).copy())
-
-    def to_df(self):
-        """Attempts to returns a pandas.DataFrame if all elements are arrays of the same length
-        Returns the original bunch if it can't"""
-        try:
-            return pd.DataFrame.from_dict(self)
-        except ValueError:
-            return self
-
-
 # -------------------- Filesystem utilities --------------------
 
 # Avoid PermissionError with shutil.copytree on NAS smb share
