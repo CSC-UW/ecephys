@@ -332,12 +332,15 @@ class Raster:
         self._selection_levels = list(val)
 
     def update_selection_options(self):
-        self._selection_options = (
-            self._trains.set_index(self.selection_levels)
-            .index.to_flat_index()
-            .unique()
-            .to_list()
-        )
+        if self.selection_levels:
+            self._selection_options = (
+                self._trains.set_index(self.selection_levels)
+                .index.to_flat_index()
+                .unique()
+                .to_list()
+            )
+        else:
+            self._selection_options = []
 
     @property
     def selection_options(self):
