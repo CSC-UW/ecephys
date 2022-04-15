@@ -38,6 +38,7 @@ def get_locked_df(
     window,
     time_colname='time',
     trim='end',
+    drop_out_of_window_datapoints=False,
 ):
     """Return timing relative to events to a frame.
 
@@ -57,6 +58,8 @@ def get_locked_df(
         'start' or 'end'. If windows around successive events overlap, do we
         trim the end of the earlier window or the start of the later one?
         (default 'end')
+    drop_out_of_window_datapoints: bool, optional
+        If true, return only datapoints within one of the event windows.
     
     Returns:
     data_df: pd.DataFrame, length (n_datapoints)
@@ -83,8 +86,8 @@ def get_locked_df(
 
         # Find indices of all datapoints within window
         event_window = event_windows[event_idx, :]
-        event_rows = ((data_df['time'] >= event_window[0])
-                      & (data_df['time'] < event_window[1]))
+        event_rows = ((data_df[time_colname] >= event_window[0])
+                      & (data_df[time_colname] < event_window[1]))
 
         # Add locked times
         data_df.loc[
@@ -101,4 +104,63 @@ def get_locked_df(
         data_df.loc[event_rows, 'event_window_start'] = event_window[0]
         data_df.loc[event_rows, 'event_window_end'] = event_window[1]
 
+    data_df['event_window_duration'] = data_df['event_window_end'] - data_df['event_window_start']
+
+    if drop_out_of_window_datapoints:
+        data_df = data_df.loc[
+            ~pd.isna(data_df['event_idx'])
+        ]
+
     return data_df
+
+
+# TODO: Here we assumed that all the events appear
+def get_event_firing_rates_df(
+    locked_data_df,
+    time_rel_colname='time_rel',
+):
+    """Return frame of cluster firing rates during event.
+
+    Parameters
+    ----------
+    locked_data_df: pd.DataFrame, length (n_datapoints)
+        Frame of data points, as returned by get_locked_df.
+        Must contain (relative) times for data points and event information:
+        The following columns are expected:
+            `event_idx`, `event_time`, `{time_rel_colname}`, `event_window_duration`
+
+    Returns:
+    --------
+    event_rates_df: pd.DataFrame, length (n_datapoints)
+        Frame containing the firing rate within each event window for each cluster.
+        Frame with ['cluster_id', 'event_idx'] MultiIndex and the folloeing columns:
+            `event_num_spikes`, `event_time`, `event_window_duration`, `event_firing_rate`
+    """
+
+    assert all([c in locked_data_df for c in ['cluster_id', 't_rel', 'event_idx', 'event_time', 'event_window_duration']]), print(locked_data_df.columns)
+
+    # TODO
+    # Check all events appear in frame
+    assert len(
+        locked_data_df.event_idx.unique()
+    ) == len(range(
+        locked_data_df.event_idx.min(),
+        locked_data_df.event_idx.max() + 1
+    ))
+
+    event_rates = locked_data_df.groupby(
+        ['cluster_id', 'event_idx']
+    ).agg(
+        {
+            't_rel': 'count',
+            'event_time': 'first',
+            'event_window_start': 'first',
+            'event_window_end': 'first',
+            'event_window_duration': 'first',
+        }
+    ).copy().rename(
+        columns={'t_rel': 'event_num_spikes'}
+    )
+    event_rates['event_firing_rate'] = event_rates['event_num_spikes'] / event_rates['event_window_duration']
+
+    return event_rates
