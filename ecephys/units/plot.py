@@ -299,6 +299,9 @@ class Raster:
         ) | (
             (self.events["t2"] >= self.plot_start)
             & (self.events["t2"] <= self.plot_end)
+        ) | (
+            (self.events["t1"] <= self.plot_start)
+            & (self.events["t2"] >= self.plot_end)
         )
 
         for evt in self.events[mask].itertuples():
