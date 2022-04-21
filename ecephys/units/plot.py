@@ -354,6 +354,13 @@ class Raster:
             description="Secs",
             layout=Layout(width="150px"),
         )
+        # Slider step equal to plot duration for easier scrolling
+        jslink(
+            (plot_duration_box, "value"), (plot_start_box, "step")
+        )
+        jslink(
+            (plot_start_box, "step"), (plot_start_slider, "step")
+        )
 
         return [plot_start_slider, plot_start_box, plot_duration_box]
 
