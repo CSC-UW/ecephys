@@ -59,12 +59,16 @@ def create_phy_cluster_info(ks_dir):
 
     Same effect as running `phy template-gui <ks_dir>/params.py` and hitting save
     in the GUI."""
-    from phy.apps.template import TemplateController
-    from phylib.io.model import load_model
+    raise NotImplementedError(
+        f"Please create cluster_info.tsv file manuallt for {ks_dir} "
+        "by opening Phy and clicking 'save'"
+    )
+    # from phy.apps.template import TemplateController
+    # from phylib.io.model import load_model
 
-    model = load_model(Path(ks_dir) / "params.py")
-    controller = TemplateController(dir_path=ks_dir, model=model)
-    controller._save_cluster_info()
+    # model = load_model(Path(ks_dir) / "params.py")
+    # controller = TemplateController(dir_path=ks_dir, model=model)
+    # controller._save_cluster_info()
 
 
 def get_cluster_groups(ks_dir, cluster_group_overrides=None):
