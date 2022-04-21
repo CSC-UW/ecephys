@@ -305,7 +305,7 @@ class Raster:
             ax.axvspan(
                 max(evt.t1, self.plot_start),
                 min(evt.t2, self.plot_end),
-                fc=to_rgba("lavender", 0.1),
+                fc=to_rgba("lavender", 0.3),
                 ec=to_rgba("lavender", 1.0),
             )
 
