@@ -26,3 +26,25 @@ class TrainsAccessor:
 
     def silent(self):
         return self._df["t"].isna()
+
+    # TODO: Allow many-to-1  units-to-train merge
+    def join_units(self, units, units_columns=None):
+        """Return trains df with added info from units.
+
+        Use all units columns if `units_columns` is None.
+        """
+        if units_columns is None:
+            units_columns = units.columns
+        if not all([c in units.columns] for c in units_columns):
+            raise ValueError(
+                "Could not find all requested columns in units df."
+            )
+        return pd.merge(
+            units[units_columns].reset_index(),
+            self._df.reset_index(),
+            validate='one_to_one',
+        ).set_index(
+            self._df.index.name
+        ).sort_values(
+            by=self._df.index.name
+        )
