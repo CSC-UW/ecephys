@@ -21,8 +21,6 @@ class TrainsAccessor:
         self.validate()
 
     def validate(self):
-        if "cluster_id" != self._df.index.name:
-            raise ValueError("`cluster_id` index not found.")
         if "t" not in self._df.columns:
             raise ValueError("`t` column not found.")
 
