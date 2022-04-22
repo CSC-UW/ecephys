@@ -40,16 +40,34 @@ class SingleProbeSorting(Sorting):
     def n_units(self):
         return len(self.units)
 
-    def get_spike_trains_for_plotting(self, start_time=None, end_time=None):
-        start_time = self.data_start if start_time is None else start_time
-        end_time = self.data_end if end_time is None else end_time
+    # TODO: There's probably ways to make this faster
+    # TODO: Aggregate other columns when units-to-train merge is not many-to-1
+    def get_spike_trains_for_plotting(self, start_time=-float('Inf'), end_time=float('Inf'), grouping_col='cluster_id'):
+        if grouping_col not in self.spikes:
+            # Add groupby column from units to spikes data
+            print(f"Joining `{grouping_col}` column from units df to spikes df... May take a bit of time.")
+            spikes = self.spikes.spikes.join_units(
+                self.units,
+                units_columns=[grouping_col],
+                start_time=start_time,
+                end_time=end_time,
+            )
+        else:
+            spikes = self.spikes
 
-        trains = self.spikes.spikes.as_trains(start_time, end_time)
+        trains = spikes.spikes.as_trains(
+            start_time=start_time,
+            end_time=end_time,
+            grouping_col=grouping_col,
+        )
 
-        if "rgba" not in self.units.columns:
-            set_uniform_rgba(self.units, "black")
+        # Add all other columns from units after turning into trains
+        if grouping_col == 'cluster_id':
+            trains = trains.trains.join_units(self.units)
 
-        trains = self.units.join(trains, how="outer")
+        if "rgba" not in trains.columns:
+            set_uniform_rgba(trains, "black")
+
         silent = trains.trains.silent()
         # Add ghost spikes at very start and end of window to silent trains, to reserve space for them on the plot's x and y axes.
         trains.loc[silent, "t"] = pd.Series(
@@ -59,6 +77,7 @@ class SingleProbeSorting(Sorting):
         trains.loc[silent, "rgba"] = pd.Series(
             [to_rgba("white", 0.0)] * sum(silent)
         ).values
+
         return trains.sort_values("depth")
 
 
