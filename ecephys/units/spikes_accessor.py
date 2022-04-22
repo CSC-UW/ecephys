@@ -21,9 +21,7 @@ class SpikesAccessor:
         return self._df.loc[mask]
 
     def as_trains(self, start_time=-np.Inf, end_time=np.Inf, grouping_col="cluster_id"):
-        if not grouping_col in self._df.columns:
-            raise ValueError(f"Can't find grouping col `{grouping_col}` in spikes df to generate trains.")
-        return (
+        return pd.DataFrame(
             self.select_time(start_time, end_time).groupby(grouping_col)["t"].unique()
         )
 
