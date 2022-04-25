@@ -45,7 +45,6 @@ class SingleProbeSorting(Sorting):
     def get_spike_trains_for_plotting(self, start_time=-float('Inf'), end_time=float('Inf'), grouping_col='cluster_id'):
         if grouping_col not in self.spikes:
             # Add groupby column from units to spikes data
-            print(f"Joining `{grouping_col}` column from units df to spikes df... May take a bit of time.")
             spikes = self.spikes.spikes.join_units(
                 self.units,
                 units_columns=[grouping_col],
@@ -71,11 +70,13 @@ class SingleProbeSorting(Sorting):
         silent = trains.trains.silent()
         # Add ghost spikes at very start and end of window to silent trains, to reserve space for them on the plot's x and y axes.
         trains.loc[silent, "t"] = pd.Series(
-            [np.array((start_time, end_time))] * sum(silent)
+            [np.array((start_time, end_time))] * sum(silent),
+            dtype='float64',
         ).values
         # Make silent units white and transparent, so that they are invisible.
         trains.loc[silent, "rgba"] = pd.Series(
-            [to_rgba("white", 0.0)] * sum(silent)
+            [to_rgba("white", 0.0)] * sum(silent),
+            dtype='object',
         ).values
 
         return trains.sort_values("depth")
