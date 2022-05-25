@@ -3,9 +3,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from IPython.display import display
-from ipywidgets import (BoundedFloatText, BoundedIntText, FloatSlider, HBox,
-                        Label, Layout, SelectMultiple, VBox, fixed,
-                        interactive_output, jslink)
+from ipywidgets import (
+    BoundedFloatText,
+    BoundedIntText,
+    FloatSlider,
+    HBox,
+    Label,
+    Layout,
+    SelectMultiple,
+    VBox,
+    fixed,
+    interactive_output,
+    jslink,
+)
 from matplotlib.colors import is_color_like, to_rgba
 from matplotlib.ticker import IndexLocator
 
@@ -98,12 +108,12 @@ def raster_from_trains(
 
     # Tick every _ rows with depth
     yticks = np.arange(0, len(trains), MIN_UNITS_FOR_YTICKLABEL).astype(int)
-    yticklabels = trains.reset_index()['depth'][yticks].values
+    yticklabels = trains.reset_index()["depth"][yticks].values
     ax.set_yticks(yticks)
     ax.set_yticklabels(yticklabels)
 
     if structure_boundaries and "structure" in trains.columns:
-        if trains.index.name != 'cluster_id':
+        if trains.index.name != "cluster_id":
             raise NotImplementedError
         _set_yticks(ax, "structure")
 
@@ -111,7 +121,7 @@ def raster_from_trains(
         ax.set_xlim(xlim)
 
     if probe_boundaries and "probe" in trains.columns:
-        if trains.index.name != 'cluster_id':
+        if trains.index.name != "cluster_id":
             raise NotImplementedError
         secy = ax.secondary_yaxis("right")
         _set_yticks(secy, "probe")
@@ -147,12 +157,12 @@ class Raster:
         events=None,
         selection_levels=None,
         selections=None,
-        grouping_col="cluster_id",
+        group_spikes_by="cluster_id",
     ):
         self._sorting = sorting
         self._plot_start = plot_start
         self._plot_duration = plot_duration
-        self._grouping_col=grouping_col
+        self._group_spikes_by = group_spikes_by
         self.update_trains()
         self.events = events
         if selection_levels is None:
@@ -281,7 +291,7 @@ class Raster:
         self._trains = self._sorting.get_spike_trains_for_plotting(
             start_time=self.plot_start,
             end_time=self.plot_end,
-            grouping_col=self._grouping_col,
+            group_spikes_by=self._group_spikes_by,
         )
 
     def plot(self, figsize="auto"):
@@ -299,14 +309,18 @@ class Raster:
 
     def add_event_overlay(self, ax):
         mask = (
-            (self.events["t1"] >= self.plot_start)
-            & (self.events["t1"] <= self.plot_end)
-        ) | (
-            (self.events["t2"] >= self.plot_start)
-            & (self.events["t2"] <= self.plot_end)
-        ) | (
-            (self.events["t1"] <= self.plot_start)
-            & (self.events["t2"] >= self.plot_end)
+            (
+                (self.events["t1"] >= self.plot_start)
+                & (self.events["t1"] <= self.plot_end)
+            )
+            | (
+                (self.events["t2"] >= self.plot_start)
+                & (self.events["t2"] <= self.plot_end)
+            )
+            | (
+                (self.events["t1"] <= self.plot_start)
+                & (self.events["t2"] >= self.plot_end)
+            )
         )
 
         for evt in self.events[mask].itertuples():
@@ -360,12 +374,8 @@ class Raster:
             layout=Layout(width="150px"),
         )
         # Slider step equal to plot duration for easier scrolling
-        jslink(
-            (plot_duration_box, "value"), (plot_start_box, "step")
-        )
-        jslink(
-            (plot_start_box, "step"), (plot_start_slider, "step")
-        )
+        jslink((plot_duration_box, "value"), (plot_start_box, "step"))
+        jslink((plot_start_box, "step"), (plot_start_slider, "step"))
 
         return [plot_start_slider, plot_start_box, plot_duration_box]
 

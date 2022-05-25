@@ -42,34 +42,22 @@ class SingleProbeSorting(Sorting):
 
     # TODO: There's probably ways to make this faster
     # TODO: Aggregate other columns when units-to-train merge is not many-to-1
-    def get_spike_trains_for_plotting(self, start_time=-float('Inf'), end_time=float('Inf'), grouping_col='cluster_id'):
-        if grouping_col not in self.spikes:
-            # Add groupby column from units to spikes data
-            print(f"Joining `{grouping_col}` column from units df to spikes df... May take a bit of time.")
-            spikes = self.spikes.spikes.join_units(
-                self.units,
-                units_columns=[grouping_col],
-                start_time=start_time,
-                end_time=end_time,
-            )
-        else:
-            spikes = self.spikes
+    def get_spike_trains_for_plotting(
+        self, start_time=None, end_time=None, group_spikes_by="cluster_id"
+    ):
+        start_time = self.data_start if start_time is None else start_time
+        end_time = self.data_end if end_time is None else end_time
+        spikes = self.spikes.spikes.select_time(start_time, end_time)
 
-        trains = spikes.spikes.as_trains(
-            start_time=start_time,
-            end_time=end_time,
-            grouping_col=grouping_col,
-        )
-
-        # Add all other columns from units after turning into trains
-        if grouping_col == 'cluster_id':
-            trains = trains.trains.join_units(self.units)
+        if group_spikes_by not in self.spikes.columns:
+            spikes = spikes.spikes.add_cluster_info(self.units, [group_spikes_by])
+        trains = spikes.spikes.as_trains(group_spikes_by=group_spikes_by)
 
         if "rgba" not in trains.columns:
             set_uniform_rgba(trains, "black")
 
-        silent = trains.trains.silent()
         # Add ghost spikes at very start and end of window to silent trains, to reserve space for them on the plot's x and y axes.
+        silent = trains.trains.silent()
         trains.loc[silent, "t"] = pd.Series(
             [np.array((start_time, end_time))] * sum(silent)
         ).values
@@ -78,6 +66,10 @@ class SingleProbeSorting(Sorting):
             [to_rgba("white", 0.0)] * sum(silent)
         ).values
 
+        if group_spikes_by == "cluster_id":
+            trains = trains.trains.join_units(self.units)
+
+        assert "depth" in trains.columns, "Depth column not found in trains."
         return trains.sort_values("depth")
 
 
@@ -97,14 +89,15 @@ class MultiProbeSorting(Sorting):
     def n_units(self):
         return sum(len(self.sorts[probe].units) for probe in self.sorts)
 
-    def get_spike_trains_for_plotting(self, start_time=None, end_time=None):
+    def get_spike_trains_for_plotting(
+        self, start_time=None, end_time=None, group_spikes_by="cluster_id"
+    ):
         start_time = self.data_start if start_time is None else start_time
         end_time = self.data_end if end_time is None else end_time
 
         trains = {
             probe: self.sorts[probe].get_spike_trains_for_plotting(
-                start_time,
-                end_time,
+                start_time, end_time, group_spikes_by
             )
             for probe in self.sorts
         }
