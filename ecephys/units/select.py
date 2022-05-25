@@ -157,6 +157,13 @@ def subset_cluster_info(
 
 
 # TODO: This doesn't return an extractor anymore, but rather a sorting?
+# TODO: This function doesn't need to take `info` as an argument. It can get this from the extractor (see TODOs for `get_cluster_info`)
+# TODO: good_only can be achieved now using KilosortSortingExtractor(ks_dir, exclude_cluster_groups=["noise", "mua"]
+# TODO: drop_noise can be acheived using KilosortSortingExtractor(ks_dir, exclude_cluster_groups="noise")
+# TODO: selection_intervals should operate on extractor object, rather than cluster_info dataframe
+# TODO: cluster_group_overrides is never used?
+# If we really need the ability to filter clusters beyond what is offered by SpikeInterface extractor/sorting objects, we should probably either:
+#   (a) extend those objects, (b) write functions that use them as much as possible, and/or (c) submit a PR to SpikeInterface.
 def subset_clusters(
     extractor,
     info,
