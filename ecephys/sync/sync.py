@@ -340,22 +340,3 @@ def get_sync_model(
         xname=sysX_name,
         yname=sysY_name,
     )
-
-
-# TODO: This should be in the acute package.
-def get_sync_models(sglx_bin_path, hdf5_path, nidq_bin_path, nidq_sync_channel):
-    b = Bunch()
-    b.sglx_file = sglx_bin_path
-    b.sglx_times, b.sglx_values = get_sglx_barcodes(sglx_bin_path)
-    b.hdf5_file = hdf5_path
-    b.hdf5_times, b.hdf5_values = get_hdf5_barcodes(hdf5_path)
-    b.nidq_file = nidq_bin_path
-    b.nidq_sync_channel = nidq_sync_channel
-    b.nidq_times, b.nidq_values = get_nidq_barcodes(nidq_bin_path, nidq_sync_channel)
-    b.hdf5_to_sglx = get_sync_model(
-        b.hdf5_times, b.hdf5_values, b.sglx_times, b.sglx_values, "HDF5", "SGLX"
-    )
-    b.nidq_to_sglx = get_sync_model(
-        b.nidq_times, b.nidq_values, b.sglx_times, b.sglx_values, "NIDQ", "SGLX"
-    )
-    return b
