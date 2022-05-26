@@ -233,9 +233,19 @@ class Raster:
 
     @selection_levels.setter
     def selection_levels(self, val):
-        assert set(val).issubset(
+        if not set(val).issubset(
             self._trains.columns
-        ), f"val={val}, cols={self._trains.columns}"
+        ):
+            raise NotImplementedError(
+                "Setting selection levels to any field in cluster_info.tsv is not yet supported "
+                "when grouping spikes by another column than 'cluster_id'. "
+                "The supported selection levels for this type of Sorting/grouping are: "
+                f"`{self._trains.columns}`. \n"
+                "Modify `SingleProbeSorting.get_spike_trains_for_plotting` to support all levels from cluster_info.tsv."
+            )
+        # assert set(val).issubset(
+        #     self._trains.columns
+        # ), f"val={val}, cols={self._trains.columns}"
         self._selection_levels = list(val)
 
     def update_selection_options(self):
