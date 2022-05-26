@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 
 
 def get_windows(event_times, window, trim='end'):
@@ -82,7 +83,7 @@ def get_locked_df(
     data_df['event_window_start'] = None
     data_df['event_window_end'] = None
 
-    for event_idx, event_time in enumerate(event_times):
+    for event_idx, event_time in tqdm(enumerate(event_times)):
 
         # Find indices of all datapoints within window
         event_window = event_windows[event_idx, :]
@@ -141,15 +142,28 @@ def get_event_firing_rates_df(
 
     # TODO
     # Check all events appear in frame
-    assert len(
-        locked_data_df.event_idx.unique()
-    ) == len(range(
-        locked_data_df.event_idx.min(),
-        locked_data_df.event_idx.max() + 1
-    ))
+    if not len(
+            locked_data_df.event_idx.unique()
+        ) == len(range(
+            locked_data_df.event_idx.min(),
+            locked_data_df.event_idx.max() + 1
+        )):
+        import warnings
+        warnings.warn("Missing events in locked frame. Is that ok? ")
+    # assert len(
+    #     locked_data_df.event_idx.unique()
+    # ) == len(range(
+    #     locked_data_df.event_idx.min(),
+    #     locked_data_df.event_idx.max() + 1
+    # ))
+
+    # Turn to category to include 0Hz firing rates
+    locked_data_df['cluster_id'] = locked_data_df['cluster_id'].astype('category')
+    locked_data_df['event_idx'] = locked_data_df['event_idx'].astype('category')
 
     event_rates = locked_data_df.groupby(
-        ['cluster_id', 'event_idx']
+        ['cluster_id', 'event_idx'],
+        observed=False,  # Include 0Hz firing rates
     ).agg(
         {
             't_rel': 'count',
@@ -161,6 +175,27 @@ def get_event_firing_rates_df(
     ).copy().rename(
         columns={'t_rel': 'event_num_spikes'}
     )
+
+    # Proper datatypes
+
+
+    # Need to recover event information for clusters x events that showed no spike
+    fb_filled_event_cols = [
+        'event_time', 'event_window_start', 'event_window_end', 'event_window_duration'
+    ]  # Fill NaNs within these columns from other-cluster/same-event 
+    filled_df = event_rates.groupby(level=1)[fb_filled_event_cols].bfill()  # Backward-fill by event_idx
+    filled_df = filled_df.groupby(level=1)[fb_filled_event_cols].ffill()  # Further forward fill by event_idx
+    event_rates.update(filled_df)
+
     event_rates['event_firing_rate'] = event_rates['event_num_spikes'] / event_rates['event_window_duration']
 
-    return event_rates
+    # Don't bother
+    return event_rates.astype(
+        {
+            'event_time': float,
+            'event_window_start': float,
+            'event_window_end': float,
+            'event_window_duration': float,
+            'event_firing_rate': float,
+        }
+    )
