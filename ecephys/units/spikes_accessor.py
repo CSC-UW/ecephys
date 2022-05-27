@@ -20,11 +20,9 @@ class SpikesAccessor:
         mask = (self._df["t"] >= start_time) & (self._df["t"] <= end_time)
         return self._df.loc[mask]
 
-    def as_trains(self, start_time=-np.Inf, end_time=np.Inf, grouping_col="cluster_id"):
-        if not grouping_col in self._df.columns:
-            raise ValueError(f"Can't find grouping col `{grouping_col}` in spikes df to generate trains.")
+    def as_trains(self, start_time=-np.Inf, end_time=np.Inf):
         return (
-            self.select_time(start_time, end_time).groupby(grouping_col)["t"].unique()
+            self.select_time(start_time, end_time).groupby("cluster_id")["t"].unique()
         )
 
 
