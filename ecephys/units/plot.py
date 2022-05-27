@@ -103,12 +103,16 @@ def raster_from_trains(
     ax.set_yticklabels(yticklabels)
 
     if structure_boundaries and "structure" in trains.columns:
+        if trains.index.name != 'cluster_id':
+            raise NotImplementedError
         _set_yticks(ax, "structure")
 
     if xlim is not None:
         ax.set_xlim(xlim)
 
     if probe_boundaries and "probe" in trains.columns:
+        if trains.index.name != 'cluster_id':
+            raise NotImplementedError
         secy = ax.secondary_yaxis("right")
         _set_yticks(secy, "probe")
         ax.hlines(

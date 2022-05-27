@@ -98,15 +98,14 @@ class MultiProbeSorting(Sorting):
     def n_units(self):
         return sum(len(self.sorts[probe].units) for probe in self.sorts)
 
-    def get_spike_trains_for_plotting(self, start_time=-float('Inf'), end_time=float('Inf'), grouping_col='cluster_id'):
+    def get_spike_trains_for_plotting(self, start_time=None, end_time=None):
         start_time = self.data_start if start_time is None else start_time
         end_time = self.data_end if end_time is None else end_time
 
         trains = {
             probe: self.sorts[probe].get_spike_trains_for_plotting(
-                start_time=start_time,
-                end_time=end_time,
-                grouping_col=grouping_col,
+                start_time,
+                end_time,
             )
             for probe in self.sorts
         }
