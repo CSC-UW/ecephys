@@ -25,25 +25,6 @@ class SpikesAccessor:
             self.select_time(start_time, end_time).groupby(grouping_col)["t"].unique()
         )
 
-    def join_units(
-        self, units, units_columns=None, start_time=-float('Inf'), end_time=float('Inf')
-    ):
-        """Return spikes df with added info from units.
-
-        Use all units columns if units_columns is None.
-        """
-        if units_columns is None:
-            units_columns = units.columns
-        if not all([c in units.columns] for c in units_columns):
-            raise ValueError(
-                "Could not find all requested columns in units df."
-            )
-        return pd.merge(
-            units[units_columns].reset_index(),
-            self.select_time(start_time, end_time).reset_index(),
-            validate='one_to_many',
-        ).set_index('spike')  # TODO: Any way to speed this up?
-
 
 def spikeinterface_sorting_to_dataframe(si_sorting):
     [(spike_samples, cluster_ids)] = si_sorting.get_all_spike_trains()
