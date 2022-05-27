@@ -1,13 +1,22 @@
-import colorcet as cc
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+import colorcet as cc
 import seaborn as sns
+from matplotlib.colors import to_rgba, is_color_like
 from IPython.display import display
-from ipywidgets import (BoundedFloatText, BoundedIntText, FloatSlider, HBox,
-                        Label, Layout, SelectMultiple, VBox, fixed,
-                        interactive_output, jslink)
-from matplotlib.colors import is_color_like, to_rgba
-from matplotlib.ticker import IndexLocator
+from ipywidgets import (
+    BoundedFloatText,
+    BoundedIntText,
+    FloatSlider,
+    Label,
+    SelectMultiple,
+    HBox,
+    VBox,
+    Layout,
+    fixed,
+    interactive_output,
+    jslink,
+)
 
 from ..acute import SHARPTrack
 
@@ -94,25 +103,15 @@ def raster_from_trains(
             ]
         )
 
-    ax.set_ylabel(f"Spikes grouped by {trains.index.name}, labelled by depth.")
-
-    # Tick every _ rows with depth
-    yticks = np.arange(0, len(trains), MIN_UNITS_FOR_YTICKLABEL).astype(int)
-    yticklabels = trains.reset_index()['depth'][yticks].values
-    ax.set_yticks(yticks)
-    ax.set_yticklabels(yticklabels)
-
     if structure_boundaries and "structure" in trains.columns:
-        if trains.index.name != 'cluster_id':
-            raise NotImplementedError
         _set_yticks(ax, "structure")
+    else:
+        ax.set_yticks([])
 
     if xlim is not None:
         ax.set_xlim(xlim)
 
     if probe_boundaries and "probe" in trains.columns:
-        if trains.index.name != 'cluster_id':
-            raise NotImplementedError
         secy = ax.secondary_yaxis("right")
         _set_yticks(secy, "probe")
         ax.hlines(
@@ -147,12 +146,10 @@ class Raster:
         events=None,
         selection_levels=None,
         selections=None,
-        grouping_col="cluster_id",
     ):
         self._sorting = sorting
         self._plot_start = plot_start
         self._plot_duration = plot_duration
-        self._grouping_col=grouping_col
         self.update_trains()
         self.events = events
         if selection_levels is None:
@@ -279,9 +276,7 @@ class Raster:
 
     def update_trains(self):
         self._trains = self._sorting.get_spike_trains_for_plotting(
-            start_time=self.plot_start,
-            end_time=self.plot_end,
-            grouping_col=self._grouping_col,
+            self.plot_start, self.plot_end
         )
 
     def plot(self, figsize="auto"):
