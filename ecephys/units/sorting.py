@@ -53,11 +53,11 @@ class SingleProbeSorting(Sorting):
         silent = trains.trains.silent()
         # Add ghost spikes at very start and end of window to silent trains, to reserve space for them on the plot's x and y axes.
         trains.loc[silent, "t"] = pd.Series(
-            [np.array((start_time, end_time))] * sum(silent)
+            [np.array((start_time, end_time))] * sum(silent), dtype="float64"
         ).values
         # Make silent units white and transparent, so that they are invisible.
         trains.loc[silent, "rgba"] = pd.Series(
-            [to_rgba("white", 0.0)] * sum(silent)
+            [to_rgba("white", 0.0)] * sum(silent), dtype="object"
         ).values
         return trains.sort_values("depth")
 
