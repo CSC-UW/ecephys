@@ -76,8 +76,8 @@ INSTALL_REQUIRES = [
     "ripple_detection",
     "spikeinterface",
     "kcsd @ git+https://github.com/Neuroinflab/kCSD-python@master#egg=kcsd",
-    "emg_from_lfp @ git+https://github.com/CSC-UW/emg_from_lfp@master#egg=emg_from_lfp",
-    "hypnogram @ git+https://github.com/CSC-UW/hypnogram.git@master#egg=hypnogram",
+    "emg_from_lfp",  # @ git+https://github.com/CSC-UW/emg_from_lfp@master#egg=emg_from_lfp
+    "hypnogram",  # @ git+https://github.com/CSC-UW/hypnogram.git@master#egg=hypnogram
     "sglxarray",
 ]
 
