@@ -81,4 +81,4 @@ INSTALL_REQUIRES = [
     "sglxarray",
 ]
 
-PYTHON_REQUIRES = ">= 3.10"
+PYTHON_REQUIRES = ">= 3.7"
