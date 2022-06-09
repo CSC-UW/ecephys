@@ -63,7 +63,7 @@ INSTALL_REQUIRES = [
     "scikit-learn",
     "statsmodels",
     "mat73",
-    "matplotlib",
+    "matplotlib==3.5.1",
     "pyyaml",
     "seaborn",
     "colorcet",
