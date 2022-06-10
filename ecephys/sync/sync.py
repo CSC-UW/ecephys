@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from warnings import warn
 from sklearn.linear_model import LinearRegression
 from difflib import SequenceMatcher
-from brainbox.core import Bunch
+from bunch import Bunch
 from ..sglx.external.readSGLX import readMeta, SampRate, makeMemMapRaw, ExtractDigital
 from ..sglx import load_nidq_analog
 from .external.barcodes import extract_barcodes_from_times
