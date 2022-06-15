@@ -96,13 +96,21 @@ def stream_store_to_xarray(info, store):
     timedelta = pd.to_timedelta(time, "s")
     datetime = pd.to_datetime(info.start_date) + timedelta
 
+    # SEVs use 'channels', while TEVs use 'channel'.
+    if ("channel" in store.keys()) and not ("channels" in store.keys()):
+        channels = store.channel
+    elif ("channels" in store.keys()) and not ("channel" in store.keys()):
+        channels = store.channels
+    else:
+        ValueError("Stream store should contain 'channel' or 'channels' fields.")
+
     volts_to_microvolts = 1e6
     data = xr.DataArray(
         np.atleast_2d(store.data).T * volts_to_microvolts,
         dims=("time", "channel"),
         coords={
             "time": time,
-            "channel": store.channel,
+            "channel": channels,
             "timedelta": ("time", timedelta),
             "datetime": ("time", datetime),
         },
