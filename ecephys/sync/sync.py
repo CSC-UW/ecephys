@@ -41,7 +41,7 @@ def visualize_mapping(x, y, model, nPulsesToPlot=10, xname="X", yname="Y"):
     Red lines = Pulse times measured by x and remapped to y's time space."""
     y_pred = model.predict(x)
 
-    plt.figure(num=None, figsize=(30, 6), dpi=80, facecolor="w", edgecolor="k")
+    plt.figure(num=None, figsize=(30, 1), dpi=80, facecolor="w", edgecolor="k")
     plt.vlines(y[:nPulsesToPlot], 0, 1, colors="black")
     plt.vlines(y_pred[:nPulsesToPlot], 0, 1, linestyle="dotted", colors="red")
     plt.title(
