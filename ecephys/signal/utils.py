@@ -53,7 +53,7 @@ def get_perievent_samples(event_time, time, fs, time_before, time_after):
         The amount of time to extract after the event.
 
     Returns:
-    (start_sample, end_sample): tuple of ints
+    (start_sample, event_sample, end_sample): tuple of ints
         The first and last sample to extract around the event.
     """
     event_sample = (np.abs(time - event_time)).argmin()
@@ -62,18 +62,18 @@ def get_perievent_samples(event_time, time, fs, time_before, time_after):
     start_sample = event_sample - samples_before
     end_sample = event_sample + samples_after
 
-    return (start_sample, end_sample)
+    return (start_sample, event_sample, end_sample)
 
 
 def get_perievent_time(event_time, time, fs, time_before, time_after):
-    start_sample, end_sample = get_perievent_samples(
+    start_sample, event_sample, end_sample = get_perievent_samples(
         event_time, time, fs, time_before, time_after
     )
     return time[start_sample:end_sample]
 
 
 def get_perievent_data(sigs, event_time, time, fs, time_before, time_after):
-    start_sample, end_sample = get_perievent_samples(
+    start_sample, event_sample, end_sample = get_perievent_samples(
         event_time, time, fs, time_before, time_after
     )
     evt_sigs = sigs[start_sample:end_sample, :]
@@ -82,8 +82,8 @@ def get_perievent_data(sigs, event_time, time, fs, time_before, time_after):
 
 
 def _get_perievent_data(sigs, event_time, time, time_before, time_after):
-    window_start_time = ripple_time - time_before
-    window_end_time = ripple_time + time_after
-    ripple_samples = np.logical_and(time >= window_start_time, time <= window_end_time)
+    window_start_time = event_time - time_before
+    window_end_time = event_time + time_after
+    event_samples = np.logical_and(time >= window_start_time, time <= window_end_time)
 
-    return sigs[ripple_samples, :], time[ripple_samples, :]
+    return sigs[event_samples, :], time[event_samples, :]
