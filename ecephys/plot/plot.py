@@ -195,7 +195,7 @@ def plot_spectrogram(
     freqs, spg_times, spg = trim_spectrogram(freqs, spg_times, spg, f_range, t_range)
 
     ax = check_ax(ax, figsize=figsize)
-    ax.pcolormesh(spg_times, freqs, np.log10(spg), shading="gouraud")
+    ax.pcolormesh(spg_times, freqs, np.log10(spg), shading="gouraud", cmap="viridis")
     ax.set_yscale(yscale)
     ax.set_ylabel("Frequency [Hz]")
     ax.set_xlabel("Time [sec]")
