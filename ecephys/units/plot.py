@@ -294,14 +294,18 @@ class Raster:
 
     def add_event_overlay(self, ax):
         mask = (
-            (self.events["t1"] >= self.plot_start)
-            & (self.events["t1"] <= self.plot_end)
-        ) | (
-            (self.events["t2"] >= self.plot_start)
-            & (self.events["t2"] <= self.plot_end)
-        ) | (
-            (self.events["t1"] <= self.plot_start)
-            & (self.events["t2"] >= self.plot_end)
+            (
+                (self.events["t1"] >= self.plot_start)
+                & (self.events["t1"] <= self.plot_end)
+            )
+            | (
+                (self.events["t2"] >= self.plot_start)
+                & (self.events["t2"] <= self.plot_end)
+            )
+            | (
+                (self.events["t1"] <= self.plot_start)
+                & (self.events["t2"] >= self.plot_end)
+            )
         )
 
         for evt in self.events[mask].itertuples():
@@ -355,12 +359,8 @@ class Raster:
             layout=Layout(width="150px"),
         )
         # Slider step equal to plot duration for easier scrolling
-        jslink(
-            (plot_duration_box, "value"), (plot_start_box, "step")
-        )
-        jslink(
-            (plot_start_box, "step"), (plot_start_slider, "step")
-        )
+        jslink((plot_duration_box, "value"), (plot_start_box, "step"))
+        jslink((plot_start_box, "step"), (plot_start_slider, "step"))
 
         return [plot_start_slider, plot_start_box, plot_duration_box]
 
@@ -439,3 +439,9 @@ class Raster:
             },
         )
         display(ui, out)
+        # When using %matplotlib widget backend, it is suggested that we do not use out = interactive_output(...); display(ui, out)
+        # Instead, it is suggested that we use display(ui, fig.canvas), or include fig.canvas in the ui,
+        # because interactive_output(...) should be reserved for an inline backend.
+        # One would assume that it would also be possible to not use the %matplotlib widget backend and keep interactive_output(...),
+        # possibly with a plt.ion() call before the Raster object is created. But this does not work.
+        # See: https://github.com/matplotlib/matplotlib/issues/23229
