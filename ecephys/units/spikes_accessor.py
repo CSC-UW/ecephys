@@ -16,13 +16,18 @@ class SpikesAccessor:
         if "spike" != self._df.index.name:
             raise ValueError("`spike` index not found.")
 
+
+
     def select_time(self, start_time, end_time):
         mask = (self._df["t"] >= start_time) & (self._df["t"] <= end_time)
         return self._df.loc[mask]
 
     def as_trains(self, start_time=-np.Inf, end_time=np.Inf, grouping_col="cluster_id"):
         return pd.DataFrame(
-            self.select_time(start_time, end_time).groupby(grouping_col)["t"].unique()
+            self.select_time(start_time, end_time).groupby(
+                grouping_col,
+                observed=False, # Represent all categories
+            )["t"].unique()
         )
 
     def join_units(
