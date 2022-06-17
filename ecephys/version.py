@@ -53,6 +53,10 @@ EXTRAS_REQUIRE = {
     "tables": [
         "tables",
     ],
+    "dev": [
+        "altair"
+
+    ],
 }
 INSTALL_REQUIRES = [
     "black",
