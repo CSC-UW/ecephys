@@ -202,8 +202,8 @@ def load_trigger(bin_path, channels=None, start_time=0, end_time=np.Inf):
             "channel": channels,
             "timedelta": ("time", timedelta),
             "datetime": ("time", datetime),
-            "x": ("channel", im.chans2coords(channels)[:, 0]),
-            "y": ("channel", im.chans2coords(channels)[:, 1]),
+            "x": ("channel", np.atleast_2d(im.chans2coords(channels))[:, 0]),
+            "y": ("channel", np.atleast_2d(im.chans2coords(channels))[:, 1]),
         },
         attrs={"units": sig_units, "fs": fs, "im": im},
     )
