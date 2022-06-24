@@ -442,6 +442,8 @@ class Raster:
         # When using %matplotlib widget backend, it is suggested that we do not use out = interactive_output(...); display(ui, out)
         # Instead, it is suggested that we use display(ui, fig.canvas), or include fig.canvas in the ui,
         # because interactive_output(...) should be reserved for an inline backend.
+        # See: https://github.com/matplotlib/matplotlib/issues/23229
         # One would assume that it would also be possible to not use the %matplotlib widget backend and keep interactive_output(...),
         # possibly with a plt.ion() call before the Raster object is created. But this does not work.
-        # See: https://github.com/matplotlib/matplotlib/issues/23229
+        # It seems that ipywigets.AppLayout is the recommended way to not use the %matplotlib widget backend.
+        # See: https://ipywidgets.readthedocs.io/en/latest/examples/Layout%20Templates.html
