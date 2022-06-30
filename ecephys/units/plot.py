@@ -144,7 +144,12 @@ class Raster:
         selection_levels=None,
         selections=None,
         grouping_col="cluster_id",
+        alpha=0.3,
     ):
+        """
+        Kwargs:
+            events (pd.DataFrame): fields 'fc', 'ec', 'alpha'. 'linewidth' passed to plt.axvline
+        """
         self._sorting = sorting
         self._plot_start = plot_start
         self._plot_duration = plot_duration
@@ -158,6 +163,7 @@ class Raster:
         if selections is None:
             selections = []
         self.selections = selections
+        self.alpha=alpha
 
         self.figsizes = {
             "auto": (23, self._sorting.n_units * 0.03),
@@ -315,12 +321,29 @@ class Raster:
             & (self.events["t2"] >= self.plot_end)
         )
 
-        for evt in self.events[mask].itertuples():
+        AXVSPAN_KWARGS = {
+            'fc': to_rgba("darkred", 0.1),
+            'ec': to_rgba("darkred", 1.0),
+            'linewidth': 1,
+            'alpha': self.alpha,
+        }
+
+        for _, evt_row in self.events[mask].iterrows():
+            if 'ylim' in evt_row:
+                ymin, ymax = evt_row.ylim
+                plt.margins(0) # Remove margin on y axis
+            else:
+                ymin, ymax = 0, 1
+            kwargs = {
+                col: evt_row.get(col, df)
+                for col, df in AXVSPAN_KWARGS.items()
+            }
             ax.axvspan(
-                max(evt.t1, self.plot_start),
-                min(evt.t2, self.plot_end),
-                fc=to_rgba("lavender", 0.3),
-                ec=to_rgba("lavender", 1.0),
+                max(evt_row.t1, self.plot_start),
+                min(evt_row.t2, self.plot_end),
+                ymin=ymin,
+                ymax=ymax,
+                **kwargs,
             )
 
     def _interact(self, plot_start, plot_duration, selections, ax):
