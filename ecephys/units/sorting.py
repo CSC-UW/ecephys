@@ -54,6 +54,17 @@ class SingleProbeSorting(Sorting):
         else:
             spikes = self.spikes
 
+        # Turn depth column to categorical so we represent "empty" depths when grouping as trains
+        if grouping_col == 'depth':
+            DF_DEPTH_STEP = 20
+            observed_depths = spikes.depth.values 
+            tmp = np.diff(np.sort(spikes.depth.values))
+            observed_depth_step = tmp[tmp>0].min()
+            depth_step = min(DF_DEPTH_STEP, observed_depth_step)
+            depth_categories = np.arange(min(observed_depths), max(observed_depths) + depth_step, depth_step)
+            spikes['depth'] = spikes['depth'].astype("category")
+            spikes['depth'] = spikes['depth'].cat.set_categories(depth_categories, ordered=True)
+
         trains = spikes.spikes.as_trains(
             start_time=start_time,
             end_time=end_time,
