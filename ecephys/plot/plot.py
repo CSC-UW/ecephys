@@ -232,7 +232,7 @@ def plot_hypnogram_overlay(
     ax = check_ax(ax, figsize=figsize)
 
     for _, bout in hypnogram.iterrows():
-        if 'ylim' in dir(bout):
+        if 'ylim' in bout:
             ymin, ymax = bout.ylim
             plt.margins(0) # Remove margin on y axis
         else:
@@ -241,7 +241,7 @@ def plot_hypnogram_overlay(
             bout[t1_column],
             bout[t2_column],
             alpha=alpha,
-            color=state_colors[bout.state],
+            color=state_colors[bout['state']],
             zorder=1000,
             ec="none",
             ymin=ymin,
