@@ -40,6 +40,18 @@ class SingleProbeSorting(Sorting):
     def n_units(self):
         return len(self.units)
 
+    def copy(self):
+        return SingleProbeSorting(
+            self.spikes.copy(),
+            self.units.copy(),
+        )
+    
+    def subset_units(self, cluster_ids_to_keep):
+        self.spikes = self.spikes.loc[
+            self.spikes['cluster_id'].isin(sorted(cluster_ids_to_keep))
+        ]
+        self.units = self.units.loc[sorted(cluster_ids_to_keep)]
+
     # TODO: There's probably ways to make this faster
     # TODO: Aggregate other columns when units-to-train merge is not many-to-1
     def get_spike_trains_for_plotting(self, start_time=-float('Inf'), end_time=float('Inf'), grouping_col='cluster_id'):
@@ -106,6 +118,16 @@ class MultiProbeSorting(Sorting):
     @property
     def n_units(self):
         return sum(len(self.sorts[probe].units) for probe in self.sorts)
+
+    def copy(self):
+        return MultiProbeSorting({
+            prb: sorting.copy()
+            for prb, sorting in self.sorts.items()
+        })
+
+    def subset_units(self, cluster_ids_to_keep_per_probe):
+        for probe, cluster_ids_to_keep in cluster_ids_to_keep_per_probe.items():
+            self.sorts[probe].subset_units(cluster_ids_to_keep)
 
     def get_spike_trains_for_plotting(self, start_time=-float('Inf'), end_time=float('Inf'), grouping_col='cluster_id'):
         start_time = self.data_start if start_time is None else start_time
