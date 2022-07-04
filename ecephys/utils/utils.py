@@ -36,15 +36,15 @@ def next_power_of_2(x):
     return 1 << (np.int(x) - 1).bit_length()
 
 
-def discard_outliers(x):
+def discard_outliers(x, n_mad=6):
     mad = median_abs_deviation(x)
-    threshold = np.median(x) + 6 * mad
+    threshold = np.median(x) + n_mad * mad
     return x[x <= threshold]
 
 
-def replace_outliers(x, fill_value=np.nan):
+def replace_outliers(x, n_mad=6, fill_value=np.nan):
     mad = median_abs_deviation(x)
-    threshold = np.median(x) + 6 * mad
+    threshold = np.median(x) + n_mad * mad
     x[x > threshold] = fill_value
     return x
 
