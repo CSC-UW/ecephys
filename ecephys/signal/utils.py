@@ -56,6 +56,11 @@ def get_perievent_samples(event_time, time, fs, time_before, time_after):
     (start_sample, event_sample, end_sample): tuple of ints
         The first and last sample to extract around the event.
     """
+    if (time.min() > event_time - time_before) or (
+        time.max() < event_time + time_after
+    ):
+        raise ValueError("Requested samples that fall outside the bounts of the data.")
+
     event_sample = (np.abs(time - event_time)).argmin()
     samples_before = np.int(time_before * fs)
     samples_after = np.int(time_after * fs)
