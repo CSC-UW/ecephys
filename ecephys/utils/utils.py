@@ -6,6 +6,11 @@ from scipy.stats import median_abs_deviation
 from pathlib import Path
 from collections.abc import Iterable
 from functools import reduce
+from rich.console import Console
+_console = Console()
+
+def warn(msg):
+    _console.print(f"Warning: {msg}", style="bright_yellow")
 
 # -------------------- Filesystem utilities --------------------
 

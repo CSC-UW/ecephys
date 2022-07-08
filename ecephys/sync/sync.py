@@ -1,14 +1,12 @@
 import tdt
 import numpy as np
 import matplotlib.pyplot as plt
-from warnings import warn
 from sklearn.linear_model import LinearRegression
 from difflib import SequenceMatcher
-from bunch import Bunch
 from ..sglx.external.readSGLX import readMeta, SampRate, makeMemMapRaw, ExtractDigital
 from ..sglx import load_nidq_analog
 from .external.barcodes import extract_barcodes_from_times
-from .h5sync import H5Sync
+from ..utils import warn
 
 # TODO: System-specific packages should be in system-specific repos (e.g. tdt_xarray, sglxarray, acute, etc.)
 
@@ -300,27 +298,7 @@ def get_nidq_barcodes(bin_path, sync_channel, bar_duration=0.029, threshold=4000
     )
 
 
-##### HDF5 specific functions #####
-
-
-def get_hdf5_barcodes(hdf5_path, bar_duration=0.029):
-    """Get SpikeGLX barcodes and times
-
-    Returns
-    --------
-    (barcode_start_times, barcode_values)
-    """
-    h5 = H5Sync(hdf5_path)
-
-    h5_rising_edge_times = h5.get_rising_edges("barcode", "sec")
-    h5_falling_edge_times = h5.get_falling_edges("barcode", "sec")
-
-    return extract_barcodes_from_times(
-        h5_rising_edge_times, h5_falling_edge_times, bar_duration=bar_duration
-    )
-
-
-##### System-to-system functions #####
+##### Generic system-to-system functions #####
 
 
 def get_sync_model(

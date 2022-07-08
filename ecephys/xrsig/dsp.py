@@ -4,11 +4,15 @@ import numpy as np
 from ..signal import timefrequency as tfr
 from .xrsig import get_dim_coords
 
+# TODO: Checkut xrft package!
+
+
 def _wrap_spg_times(spg_times, sig):
     time = sig.time.values.min() + spg_times
     timedelta = sig.timedelta.values.min() + pd.to_timedelta(spg_times, "s")
     datetime = sig.datetime.values.min() + pd.to_timedelta(spg_times, "s")
     return time, timedelta, datetime
+
 
 def _wrap_2d_spectrogram(freqs, spg_time, spg, sig):
     time, timedelta, datetime = _wrap_spg_times(spg_time, sig)
@@ -26,6 +30,7 @@ def _wrap_2d_spectrogram(freqs, spg_time, spg, sig):
         da = da.assign_attrs({"units": f"{sig.units}^2/Hz"})
     return da
 
+
 def _wrap_3d_spectrogram(freqs, spg_time, spg, sig):
     time, timedelta, datetime = _wrap_spg_times(spg_time, sig)
     da = xr.DataArray(
@@ -36,11 +41,12 @@ def _wrap_3d_spectrogram(freqs, spg_time, spg, sig):
             "time": time,
             "timedelta": ("time", timedelta),
             "datetime": ("time", datetime),
-        }
+        },
     ).assign_coords(get_dim_coords(sig, "channel"))
     if "units" in sig.attrs:
         da = da.assign_attrs({"units": f"{sig.units}^2/Hz"})
     return da
+
 
 def parallel_spectrogram_welch(sig, **kwargs):
     """Compute a spectrogram for each channel in parallel.
@@ -62,6 +68,7 @@ def parallel_spectrogram_welch(sig, **kwargs):
     )
     return _wrap_3d_spectrogram(freqs, spg_time, spg, sig)
 
+
 def single_spectrogram_welch(sig, **kwargs):
     """Compute a single (e.g. single-channel, single-region) spectrogram.
 
@@ -80,10 +87,14 @@ def single_spectrogram_welch(sig, **kwargs):
     if sig.values.ndim == 1:
         wrapper = _wrap_2d_spectrogram
     if sig.values.ndim == 2:
-        assert sig.values.shape[1] == 1, "This function is not intended for multichannel data."
+        assert (
+            sig.values.shape[1] == 1
+        ), "This function is not intended for multichannel data."
         wrapper = _wrap_3d_spectrogram
 
-    freqs, spg_time, spg = tfr.compute_spectrogram_welch(sig.values.squeeze(), sig.fs, **kwargs)
+    freqs, spg_time, spg = tfr.compute_spectrogram_welch(
+        sig.values.squeeze(), sig.fs, **kwargs
+    )
     return wrapper(freqs, spg_time, spg, sig)
 
 
