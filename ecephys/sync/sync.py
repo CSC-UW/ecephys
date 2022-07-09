@@ -107,7 +107,33 @@ def get_shared_sequence(a, b):
     return shared, a_slice, b_slice
 
 
-##### e3vision specific functions #####
+#####
+# Generic system-to-system functions
+# #####
+
+
+def get_sync_model(
+    sysX_times, sysX_values, sysY_times, sysY_values, sysX_name="X", sysY_name="Y"
+):
+    """Use barcodes to align streams."""
+    shared_values, sysY_slice, sysX_slice = get_shared_sequence(
+        sysY_values, sysX_values
+    )
+    print(
+        "Length of longest barcode sequence common to both systems:\n",
+        len(shared_values),
+    )
+    return fit_times(
+        x=sysX_times[sysX_slice],
+        y=sysY_times[sysY_slice],
+        xname=sysX_name,
+        yname=sysY_name,
+    )
+
+
+#####
+# e3vision specific functions
+#####
 def get_e3v_pulse_width_threshold_from_fps(fps):
     """Calculate threshold for detecting frames written to disk from the camera's framerate.
 
@@ -152,7 +178,9 @@ def _get_frame_times_from_e3v(rising_edges, falling_edges, fps):
     return np.asarray(frame_start_edges)
 
 
-##### TDT specific functions #####
+#####
+# TDT specific functions
+#####
 
 
 def load_epoc_store_from_tdt(block_path, store_name, start_time=0, end_time=0):
@@ -230,12 +258,14 @@ def extract_ttl_edges_from_tdt(block_path, store_name):
     return rising, falling
 
 
-##### SpikeGLX specific functions #####
+#####
+# SpikeGLX specific functions
+#####
 # TODO: Pull these from CSC-UW/barcode_sync/counter_barcode_sync.ipynb, NOT e.g. e3vision_sync.ipynb
 # TODO: Incorporate some of these into sglxarray
 
 
-def load_sync_channel_from_sglx(bin_path):
+def load_sync_channel_from_sglx_imec(bin_path):
     """Load the sync channel from the specified binary file.
     The SpikeGLX metadata file must be present in the same directory as the binary file."""
     meta = readMeta(bin_path)
@@ -262,14 +292,14 @@ def load_sync_channel_from_sglx(bin_path):
     return sync, time
 
 
-def get_sglx_barcodes(bin_path, bar_duration=0.029):
+def get_sglx_imec_barcodes(bin_path, bar_duration=0.029):
     """Get SpikeGLX barcodes and times
 
     Returns
     --------
     (barcode_start_times, barcode_values)
     """
-    sglx_barcode_in, sglx_times = load_sync_channel_from_sglx(bin_path)
+    sglx_barcode_in, sglx_times = load_sync_channel_from_sglx_imec(bin_path)
 
     sglx_rising_edge_samples = get_rising_edges_from_binary_signal(sglx_barcode_in)
     sglx_falling_edge_samples = get_falling_edges_from_binary_signal(sglx_barcode_in)
@@ -282,7 +312,7 @@ def get_sglx_barcodes(bin_path, bar_duration=0.029):
     )
 
 
-def get_nidq_barcodes(bin_path, sync_channel, bar_duration=0.029, threshold=4000):
+def get_sglx_nidq_barcodes(bin_path, sync_channel, bar_duration=0.029, threshold=4000):
     sig = load_nidq_analog(bin_path, channels=[sync_channel])
     sig = sig.sel(channel=sync_channel)
     nidq_barcode_in = binarize(sig.values, threshold=threshold)
@@ -295,26 +325,4 @@ def get_nidq_barcodes(bin_path, sync_channel, bar_duration=0.029, threshold=4000
 
     return extract_barcodes_from_times(
         nidq_rising_edge_times, nidq_falling_edge_times, bar_duration=bar_duration
-    )
-
-
-##### Generic system-to-system functions #####
-
-
-def get_sync_model(
-    sysX_times, sysX_values, sysY_times, sysY_values, sysX_name="X", sysY_name="Y"
-):
-    """Use barcodes to align streams."""
-    shared_values, sysY_slice, sysX_slice = get_shared_sequence(
-        sysY_values, sysX_values
-    )
-    print(
-        "Length of longest barcode sequence common to both systems:\n",
-        len(shared_values),
-    )
-    return fit_times(
-        x=sysX_times[sysX_slice],
-        y=sysY_times[sysY_slice],
-        xname=sysX_name,
-        yname=sysY_name,
     )
