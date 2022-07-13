@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import xarray as xr
+import brainbox.singlecell as bbsc
 from abc import ABC, abstractproperty, abstractmethod
 from matplotlib.colors import to_rgba
 from .plot import set_uniform_rgba
@@ -119,6 +121,66 @@ class SingleProbeSorting(Sorting):
         ).values
 
         return trains.sort_values("depth")
+
+    def get_peths(
+        self, events, include_cluster_structure=True, include_cluster_group=True
+    ):
+        # events: DataFrame, must have column 'ephys_time' with the time of each event.
+
+        # This takes ~90 seconds per 1000 trials for a single probe
+        # This would be trivial to turn into a general get_peths() method
+        cluster_ids = self.spikes["cluster_id"].unique()
+        try:
+            _peths, binned_spikes = bbsc.calculate_peths(
+                spike_times=self.spikes["t"],
+                spike_clusters=self.spikes["cluster_id"],
+                cluster_ids=cluster_ids,
+                align_times=events["ephys_time"],
+                pre_time=1.0,
+                post_time=1.0,
+                bin_size=0.025,
+                smoothing=0,
+                return_fr=True,
+            )
+        except ValueError:
+            pass
+
+        # Wrap returned data in DataArrays for convenience.
+        peths = xr.DataArray(
+            data=binned_spikes,
+            dims=["event", "cluster_id", "bin_time"],
+            coords={
+                "event": events.index.values,
+                "cluster_id": _peths.cscale,
+                "bin_time": _peths.tscale,
+            },
+        )  # bin centers
+
+        # Add other event properties, like ephys time, event type, or sleep/wake state
+        for event_property in events.columns:
+            peths = peths.assign_coords(
+                {event_property: ("event", events[event_property])}
+            )
+
+        # Add certain unit properties, if requested
+        if include_cluster_structure:
+            peths = peths.assign_coords(
+                {
+                    "structure": (
+                        "cluster_id",
+                        self.units.loc[cluster_ids, "structure"],
+                    ),
+                }
+            )
+
+        if include_cluster_group:
+            peths = peths.assign_coords(
+                {
+                    "group": ("cluster_id", self.units.loc[cluster_ids, "group"]),
+                }
+            )
+
+        return peths
 
 
 class MultiProbeSorting(Sorting):
