@@ -58,7 +58,7 @@ EXTRAS_REQUIRE = {
 INSTALL_REQUIRES = [
     "black",
     "scipy",
-    "numpy",
+    "numpy>=1.18",
     "pandas",
     "xarray",
     "scikit-learn",
@@ -68,7 +68,7 @@ INSTALL_REQUIRES = [
     "pyyaml",
     "seaborn",
     "colorcet",
-    "ipykernel",
+    "ipykernel>=6.0.0",
     "ipywidgets",
     "ipympl",
     "tdt",
@@ -82,4 +82,4 @@ INSTALL_REQUIRES = [
     "sglxarray",
 ]
 
-PYTHON_REQUIRES = ">= 3.7"
+PYTHON_REQUIRES = ">=3.8, <3.11"
