@@ -1,4 +1,4 @@
-from hypnogram import DatetimeHypnogram
+from ecephys.hypnogram import DatetimeHypnogram
 
 # These functions could use the XRSig accessor instead of requiring
 # datetime to be a dimension.

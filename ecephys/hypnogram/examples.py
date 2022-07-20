@@ -1,5 +1,5 @@
 import os.path as op
-import hypnogram as hg
+import ecephys.hypnogram as hg
 
 data_path = op.join(hg.__path__[0], "data")
 # Load data like: op.join(data_path, 'mydatafile.dat')
