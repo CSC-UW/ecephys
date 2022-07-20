@@ -3,7 +3,7 @@ import itertools
 import matplotlib.pyplot as plt
 import os.path
 import yaml
-import emg_from_lfp
+from ecephys import emg_from_lfp
 import tqdm
 import os
 from pathlib import Path

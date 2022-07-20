@@ -26,7 +26,6 @@ bg-atlasapi = "^1.0.2"
 neurodsp = "^2.1.0"
 ripple-detection = "^1.1.0"
 spikeinterface = "^0.94.0"
-emg-from-lfp = {git = "https://github.com/CSC-UW/emg_from_lfp.git", rev = "master"}
 kcsd = {git = "https://github.com/Neuroinflab/kCSD-python.git", rev = "master"}
 ibllib = "^2.13.3"
 

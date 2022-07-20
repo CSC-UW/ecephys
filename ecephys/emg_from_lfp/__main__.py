@@ -1,14 +1,14 @@
 """emg_from_lfp
 
 Usage:
-  emg_from_lfp <emg_config_path>
+  ecephys.emg_from_lfp <emg_config_path>
 
 Options:
   -h --help      show this
 """
 
 
-import emg_from_lfp
+import ecephys.emg_from_lfp as lfemg
 from docopt import docopt
 import yaml
 
@@ -23,4 +23,4 @@ if __name__ == "__main__":
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     # Run main function
-    emg_from_lfp.run(config)
+    lfemg.run(config)

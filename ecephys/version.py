@@ -78,6 +78,7 @@ INSTALL_REQUIRES = [
     "spikeinterface",
     "tqdm",
     "netcdf4",
+    "docopt",
     "kcsd @ git+https://github.com/Neuroinflab/kCSD-python@master#egg=kcsd",
 ]
 

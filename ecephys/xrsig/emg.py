@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
-from emg_from_lfp import compute_emg
+from ecephys.emg_from_lfp import compute_emg
 
 
 def get_emg(sig, **emg_kwargs):

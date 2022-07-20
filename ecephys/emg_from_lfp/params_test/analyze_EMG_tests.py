@@ -8,7 +8,7 @@ import numpy as np
 import scipy.stats
 import tqdm
 
-import emg_from_lfp
+from ecephys import emg_from_lfp
 import pandas as pd
 from run_EMG_tests import (
     BINPATH,
