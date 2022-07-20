@@ -5,7 +5,7 @@ description = "\"Python tools for extracellular electrophysiology\""
 authors = ["Graham Findlay <gfindlay@wisc.edu>"]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.8,<3.11" # <3.11 from scipy
 black = "^22.6.0"
 scipy = "^1.8.1"
 numpy = "^1.18"
@@ -25,7 +25,7 @@ tdt = "^0.5.3"
 bg-atlasapi = "^1.0.2"
 neurodsp = "^2.1.0"
 ripple-detection = "^1.1.0"
-spikeinterface = "^0.94.0"
+spikeinterface = {git = "https://github.com/CSC-UW/spikeinterface.git", rev = "wisc/dev"}
 kcsd = {git = "https://github.com/Neuroinflab/kCSD-python.git", rev = "master"}
 ibllib = "^2.13.3"
 

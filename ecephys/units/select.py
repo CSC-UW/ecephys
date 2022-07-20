@@ -1,7 +1,5 @@
 import numpy as np
 import pandas as pd
-from sklearn import cluster
-import spikeinterface.extractors as se
 
 
 SELECTION_INTERVALS_DF = {

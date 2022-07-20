@@ -1,0 +1,1 @@
+These legacy setuptools scripts are provided in case you have difficulty with `pyproject.toml`. You can install from this `setup.py` just as you would normally. Simply `cd` into this directory and run `pip install -e .`.

@@ -2,10 +2,10 @@ import sys
 import os
 from setuptools import setup, find_packages
 
-PACKAGES = find_packages()
+PACKAGES = find_packages(where="../")
 
 # Get version and release info, which is all stored in ecephys/version.py
-ver_file = os.path.join("ecephys", "version.py")
+ver_file = os.path.join("version.py")
 with open(ver_file) as f:
     exec(f.read())
 
@@ -33,7 +33,7 @@ opts = dict(
     platforms=PLATFORMS,
     version=VERSION,
     packages=PACKAGES,
-    package_data=PACKAGE_DATA,
+    package_dir={"ecephys": "../ecephys"},
     install_requires=INSTALL_REQUIRES,
     extras_require=EXTRAS_REQUIRE,
     python_requires=PYTHON_REQUIRES,

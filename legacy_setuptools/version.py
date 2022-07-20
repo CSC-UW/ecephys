@@ -1,5 +1,3 @@
-from os.path import join as pjoin
-
 # Format expected by setup.py and doc/source/conf.py: string of form "X.Y.Z"
 _version_major = 0
 _version_minor = 0
@@ -48,11 +46,7 @@ MAJOR = _version_major
 MINOR = _version_minor
 MICRO = _version_micro
 VERSION = __version__
-PACKAGE_DATA = {"ecephys": [pjoin("data", "*")]}
 EXTRAS_REQUIRE = {
-    "tables": [
-        "tables",
-    ],
     "dev": ["altair"],
 }
 INSTALL_REQUIRES = [
