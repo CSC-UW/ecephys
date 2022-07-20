@@ -1,4 +1,4 @@
-import sglxarray
+from ecephys import sglxr
 from pathlib import Path
 
 SUBPACKAGE_DIRECTORY = Path(__file__).resolve().parent
@@ -11,4 +11,4 @@ def example_data_path():
 
 def example_data():
     p = example_data_path()
-    return sglxarray.load_trigger(p)
+    return sglxr.load_trigger(p)

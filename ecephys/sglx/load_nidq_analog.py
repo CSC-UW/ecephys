@@ -1,8 +1,12 @@
 import numpy as np
 import xarray as xr
-import sglxarray as sglxr
+from ecephys.sglxr.sglxr import (
+    _to_seconds,
+    _get_first_and_last_samples,
+    _get_timestamps,
+)
 from pathlib import Path
-from sglxarray.external.readSGLX import (
+from ecephys.sglxr.external.readSGLX import (
     ChannelCountsNI,
     readMeta,
     SampRate,
@@ -23,18 +27,14 @@ def load_nidq_analog(bin_path, channels, start_time=0, end_time=np.Inf):
 
     # Get the requested start and end samples
     fs = SampRate(meta)
-    firstSamp = sglxr.sglxarray._to_seconds(start_time, meta) * fs
-    lastSamp = sglxr.sglxarray._to_seconds(end_time, meta) * fs
+    firstSamp = _to_seconds(start_time, meta) * fs
+    lastSamp = _to_seconds(end_time, meta) * fs
 
     # Get the start and end samples
-    firstSamp, lastSamp = sglxr.sglxarray._get_first_and_last_samples(
-        meta, firstSamp, lastSamp
-    )
+    firstSamp, lastSamp = _get_first_and_last_samples(meta, firstSamp, lastSamp)
 
     # Get timestamps of each sample
-    time, timedelta, datetime = sglxr.sglxarray._get_timestamps(
-        meta, firstSamp, lastSamp
-    )
+    time, timedelta, datetime = _get_timestamps(meta, firstSamp, lastSamp)
 
     # Make memory map to selected data.
     rawData = makeMemMapRaw(bin_path, meta)

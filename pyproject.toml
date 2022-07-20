@@ -28,7 +28,6 @@ ripple-detection = "^1.1.0"
 spikeinterface = "^0.94.0"
 emg-from-lfp = {git = "https://github.com/CSC-UW/emg_from_lfp.git", rev = "master"}
 hypnogram = {git = "https://github.com/CSC-UW/hypnogram.git", rev = "master"}
-sglxarray = {git = "https://github.com/CSC-UW/sglxarray.git", rev = "main"}
 kcsd = {git = "https://github.com/Neuroinflab/kCSD-python.git", rev = "master"}
 ibllib = "^2.13.3"
 
