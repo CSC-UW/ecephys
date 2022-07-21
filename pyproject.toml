@@ -23,7 +23,6 @@ ipywidgets = "^7.7.1"
 ipympl = "^0.9.1"
 tdt = "^0.5.3"
 bg-atlasapi = "^1.0.2"
-neurodsp = "^2.1.0"
 ripple-detection = "^1.1.0"
 spikeinterface = {git = "https://github.com/CSC-UW/spikeinterface.git", rev = "wisc/dev"}
 kcsd = {git = "https://github.com/Neuroinflab/kCSD-python.git", rev = "master"}

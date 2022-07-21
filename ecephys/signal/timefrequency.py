@@ -1,12 +1,120 @@
 import numpy as np
 from scipy.signal import spectrogram, cwt, morlet2
-from neurodsp.spectral.checks import check_spg_settings
-from neurodsp.spectral.utils import trim_spectrogram
 from multiprocessing import Pool
 from functools import partial
 
 from ecephys.utils import ncols, all_arrays_equal
 from ecephys.signal.utils import get_perievent_time, get_perievent_data
+
+# This function is taken directly from neurodsp.spectral.utils.
+# We cannot use the neurodsp package, because a critical IBL library shadows the name.
+def check_spg_settings(fs, window, nperseg, noverlap):
+    """Check settings used for calculating spectrogram.
+    Parameters
+    ----------
+    fs : float
+        Sampling rate, in Hz.
+    window : str or tuple or array_like
+        Desired window to use. See scipy.signal.get_window for a list of available windows.
+        If array_like, the array will be used as the window and its length must be nperseg.
+    nperseg : int or None
+        Length of each segment, in number of samples.
+    noverlap : int or None
+        Number of points to overlap between segments.
+    Returns
+    -------
+    nperseg : int
+        Length of each segment, in number of samples.
+    noverlap : int
+        Number of points to overlap between segments.
+    """
+
+    # Set the nperseg, if not provided
+    if nperseg is None:
+
+        # If the window is a string or tuple, defaults to 1 second of data
+        if isinstance(window, (str, tuple)):
+            nperseg = int(fs)
+        # If the window is an array, defaults to window length
+        else:
+            nperseg = len(window)
+    else:
+        nperseg = int(nperseg)
+
+    if noverlap is not None:
+        noverlap = int(noverlap)
+
+    return nperseg, noverlap
+
+
+# This function is taken directly from neurodsp.spectral.utils.
+# We cannot use the neurodsp package, because a critical IBL library shadows the name.
+def trim_spectrogram(freqs, times, spg, f_range=None, t_range=None):
+    """Extract a frequency or time range of interest from a spectrogram.
+    Parameters
+    ----------
+    freqs : 1d array
+        Frequency values for the spectrogram.
+    times : 1d array
+        Time values for the spectrogram.
+    spg : 2d array
+        Spectrogram, or time frequency representation of a signal.
+        Formatted as [n_freqs, n_time_windows].
+    f_range : list of [float, float]
+        Frequency range to restrict to, as [f_low, f_high].
+    t_range : list of [float, float]
+        Time range to restrict to, as [t_low, t_high].
+    Returns
+    -------
+    freqs_ext : 1d array
+        Extracted frequency values for the power spectrum.
+    times_ext : 1d array
+        Extracted segment time values
+    spg_ext : 2d array
+        Extracted spectrogram values.
+    Notes
+    -----
+    This function extracts frequency ranges >= f_low and <= f_high,
+    and time ranges >= t_low and <= t_high. It does not round to below
+    or above f_low and f_high, or t_low and t_high, respectively.
+    Examples
+    --------
+    Trim the spectrogram of a simulated time series:
+    >>> from neurodsp.sim import sim_combined
+    >>> from neurodsp.timefrequency import compute_wavelet_transform
+    >>> from neurodsp.utils.data import create_times, create_freqs
+    >>> fs = 500
+    >>> n_seconds = 10
+    >>> times = create_times(n_seconds, fs)
+    >>> sig = sim_combined(n_seconds, fs,
+    ...                    components={'sim_powerlaw': {}, 'sim_oscillation' : {'freq': 10}})
+    >>> freqs = create_freqs(1, 15)
+    >>> mwt = compute_wavelet_transform(sig, fs, freqs)
+    >>> spg = abs(mwt)**2
+    >>> freqs_ext, times_ext, spg_ext = trim_spectrogram(freqs, times, spg,
+    ...                                                  f_range=[8, 12], t_range=[0, 5])
+    """
+
+    # Initialize spg_ext, to define for case in which neither f_range nor t_range is defined
+    spg_ext = spg
+
+    # Restrict frequency range of the spectrogram
+    if f_range is not None:
+        f_mask = np.logical_and(freqs >= f_range[0], freqs <= f_range[1])
+        freqs_ext = freqs[f_mask]
+        spg_ext = spg_ext[f_mask, :]
+    else:
+        freqs_ext = freqs
+
+    # Restrict time range of the spectrogram
+    if t_range is not None:
+        times_mask = np.logical_and(times >= t_range[0], times <= t_range[1])
+        times_ext = times[times_mask]
+        spg_ext = spg_ext[:, times_mask]
+    else:
+        times_ext = times
+
+    return freqs_ext, times_ext, spg_ext
 
 
 def compute_spectrogram_welch(

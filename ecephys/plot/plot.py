@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from ecephys.signal.utils import mean_subtract
+from ecephys.signal.timefrequency import trim_spectrogram
 from IPython.display import display
 from ipywidgets import (
     BoundedFloatText,
@@ -15,8 +16,6 @@ from ipywidgets import (
     interactive_output,
     jslink,
 )
-from neurodsp.plts.utils import check_ax
-from neurodsp.spectral.utils import trim_spectrogram
 
 state_colors = {
     "Wake": "palegreen",
@@ -42,6 +41,25 @@ on_off_colors = {
     "on": "tomato",
     "off": "plum",
 }
+
+# This function is taken directly from neurodsp.plts.utils.
+# We cannot use the neurodsp package, because a critical IBL library shadows the name.
+def check_ax(ax, figsize=None):
+    """Check whether a figure axes object is defined, define if not.
+    Parameters
+    ----------
+    ax : matplotlib.Axes or None
+        Axes object to check if is defined.
+    Returns
+    -------
+    ax : matplotlib.Axes
+        Figure axes object to use.
+    """
+
+    if not ax:
+        _, ax = plt.subplots(figsize=figsize)
+
+    return ax
 
 
 def plot_spike_train(
@@ -211,8 +229,8 @@ def plot_on_off_overlay(on_off_df, state_colors=on_off_colors, **kwargs):
 def plot_hypnogram_overlay(
     hypnogram,
     state_colors=state_colors,
-    t1_column='start_time',
-    t2_column='end_time',
+    t1_column="start_time",
+    t2_column="end_time",
     ax=None,
     xlim=None,
     figsize=(18, 3),
@@ -232,16 +250,16 @@ def plot_hypnogram_overlay(
     ax = check_ax(ax, figsize=figsize)
 
     for _, bout in hypnogram.iterrows():
-        if 'ylim' in bout:
+        if "ylim" in bout:
             ymin, ymax = bout.ylim
-            plt.margins(0) # Remove margin on y axis
+            plt.margins(0)  # Remove margin on y axis
         else:
             ymin, ymax = 0, 1
         ax.axvspan(
             bout[t1_column],
             bout[t2_column],
             alpha=alpha,
-            color=state_colors[bout['state']],
+            color=state_colors[bout["state"]],
             zorder=1000,
             ec="none",
             ymin=ymin,

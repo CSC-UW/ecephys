@@ -27,9 +27,8 @@ from ipywidgets import (
     fixed,
     interactive_output,
 )
-from neurodsp.plts.utils import check_ax
 from ecephys.sglxr import load_trigger
-from ..plot import lfp_explorer, colormesh_explorer
+from ..plot import lfp_explorer, colormesh_explorer, check_ax
 from ..xrsig import get_kcsd
 
 

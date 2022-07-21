@@ -67,7 +67,6 @@ INSTALL_REQUIRES = [
     "ipympl",
     "tdt",
     "bg-atlasapi",
-    "neurodsp",
     "ripple_detection",
     "spikeinterface",
     "tqdm",
