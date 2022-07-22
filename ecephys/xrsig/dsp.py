@@ -26,8 +26,9 @@ def _wrap_2d_spectrogram(freqs, spg_time, spg, sig):
             "datetime": ("time", datetime),
         },
     ).assign_coords(get_dim_coords(sig, None))
-    if "units" in sig.attrs:
-        da = da.assign_attrs({"units": f"{sig.units}^2/Hz"})
+    da = da.assign_attrs(sig.attrs)
+    if "units" in da.attrs:
+        da = da.assign_attrs({"units": f"{da.units}^2/Hz"})
     return da
 
 
@@ -43,8 +44,9 @@ def _wrap_3d_spectrogram(freqs, spg_time, spg, sig):
             "datetime": ("time", datetime),
         },
     ).assign_coords(get_dim_coords(sig, "channel"))
-    if "units" in sig.attrs:
-        da = da.assign_attrs({"units": f"{sig.units}^2/Hz"})
+    da = da.assign_attrs(sig.attrs)
+    if "units" in da.attrs:
+        da = da.assign_attrs({"units": f"{da.units}^2/Hz"})
     return da
 
 
