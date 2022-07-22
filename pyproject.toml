@@ -5,9 +5,9 @@ description = "\"Python tools for extracellular electrophysiology\""
 authors = ["Graham Findlay <gfindlay@wisc.edu>"]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11" # <3.11 from scipy
+python = "^3.8
 black = "^22.6.0"
-scipy = "^1.8.1"
+scipy = {version = "^1.8.1", python = "<3.11"}
 numpy = "^1.18"
 pandas = "^1.4.3"
 xarray = "^2022.3.0"
