@@ -165,6 +165,15 @@ class FloatHypnogram(Hypnogram):
         df["duration"] = pd.to_timedelta(df["duration"], "s")
         return DatetimeHypnogram(df)
 
+    def keep_longer(self, duration):
+        """Keep bouts longer than a given duration.
+
+        Parameters:
+        -----------
+        duration: float
+        """
+        return self.__class__(self.loc[self.duration > duration])
+
 
 class DatetimeHypnogram(Hypnogram):
 
