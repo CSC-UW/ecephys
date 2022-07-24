@@ -3,6 +3,9 @@ import xarray as xr
 from . import dsp, utils
 
 class DataArrayWrapper:
+    """Passes calls not otherwise overriden to an underlying DataArray object.
+    This allows one to effectively extend the DataArray type without subclassing it directly,
+    using the principle of composition over inheritance."""
     def __init__(self, da):
         assert isinstance(da, xr.DataArray)
         self._da = da
@@ -25,6 +28,9 @@ class DataArrayWrapper:
         return len(self._da)
 
 class LocalFieldPotentials(DataArrayWrapper):
+    """Provides methods for operating on LFPs.
+    Dimensions: ('time', 'channel').
+    'time' is seconds from a reference period (usually the start of the experiment). """
     def __init__(self, da):
         super().__init__(da)
         self._validate()
@@ -68,6 +74,9 @@ class LocalFieldPotentials(DataArrayWrapper):
         return ChannelSpectrograms(spgs)
 
 class ChannelSpectrograms(DataArrayWrapper):
+    """Channelwise spectrograms.
+    Dimensions: ('frequency', 'time', 'channel').
+    'time' is seconds from a reference period (usually the start of the experiment). """
     def __init__(self, da):
         super().__init__(da)
         self._validate()
@@ -84,6 +93,8 @@ class ChannelSpectrograms(DataArrayWrapper):
         return ChannelSpectra(spectra)
 
 class ChannelSpectra(DataArrayWrapper):
+    """Channelwise power spectral densities.
+    Dimensions: ('frequency', 'channel')."""
     def __init__(self, da):
         super().__init__(da)
         self._validate()
@@ -97,9 +108,11 @@ class ChannelSpectra(DataArrayWrapper):
 
     def bandpower(self, slice):
         pow = self.sel(frequency=slice).sum(dim='frequency')
-        return ChannelData(pow)
+        return ChannelScalars(pow)
 
-class ChannelData(DataArrayWrapper):
+class ChannelScalars(DataArrayWrapper):
+    """Any channelwise scalar data.
+    Dimensions: ('channel',)."""
     def __init__(self, da):
         super().__init__(da)
         self._validate()
