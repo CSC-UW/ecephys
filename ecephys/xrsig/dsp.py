@@ -2,7 +2,7 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 from ..signal import timefrequency as tfr
-from .xrsig import get_dim_coords
+from .utils import get_dim_coords
 
 # TODO: Checkut xrft package!
 

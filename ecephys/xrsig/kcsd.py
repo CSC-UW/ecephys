@@ -1,7 +1,6 @@
 import xarray as xr
 import numpy as np
 from kcsd import KCSD1D
-from kcsd import utility_functions as kcsd_utils
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.signal import find_peaks
