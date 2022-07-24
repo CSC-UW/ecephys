@@ -9,13 +9,6 @@ from ecephys import hypnogram as hg
 #####
 # TODO: Add as methods to DataArrayWrapper?
 
-def get_dim_coords(da, dim_name):
-    """Get all the coordinates corresponding to one dimension, as a dict that can be assigned to a new xarray object using `assign_coords`."""
-    if dim_name:
-        return {coord_name: coord_obj for coord_name, coord_obj in da.coords.items() if dim_name in coord_obj[coord_name].dims}
-    else:
-        return {coord_name: coord_obj for coord_name, coord_obj in da.coords.items() if coord_obj[coord_name].dims == ()}
-
 def get_boundary_ilocs(da, coord_name):
     df = da[coord_name].to_dataframe() # Just so we can use pandas utils
     df = df.loc[:,~df.columns.duplicated()].copy() # Drop duplicate columns
@@ -108,30 +101,3 @@ def keep_hypnogram_contents(dat, hypnogram):
     assert "datetime" in dat.dims, "Data must contain datetime dimension."
     keep = hypnogram.covers_time(dat.datetime)
     return dat.sel(datetime=keep)
-
-#####
-# Likely deprecated utils
-#####
-
-# Is this needed anymore, now that it exists in sglxarray?
-def rebase_time(sig, in_place=True):
-    """Rebase time and timedelta coordinates so that t=0 corresponds to the beginning
-    of the datetime dimension."""
-    if not in_place:
-        sig = sig.copy()
-    sig["timedelta"] = sig.datetime - sig.datetime.min()
-    sig["time"] = sig["timedelta"] / pd.to_timedelta(1, "s")
-    return sig
-
-
-# TODO: Remove this function. It is ugly and dangerous. Function graveyard gist?
-def dtdim(dat):
-    assert "datetime" in dat.coords, "Datetime coordinate not found."
-    if "time" in dat.dims:
-        return dat.swap_dims({"time": "datetime"})
-    elif "timedelta" in dat.dims:
-        return dat.swap_dims({"timedelta": "datetime"})
-    else:
-        raise ValueError(
-            "Exactly one of `time` or `timedelta` must be present as a dimension."
-        )

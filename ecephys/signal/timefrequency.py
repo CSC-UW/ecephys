@@ -117,7 +117,7 @@ def trim_spectrogram(freqs, times, spg, f_range=None, t_range=None):
     return freqs_ext, times_ext, spg_ext
 
 
-def compute_spectrogram_welch(
+def single_spectrogram_welch(
     sig,
     fs,
     window="hann",
@@ -178,6 +178,10 @@ def compute_spectrogram_welch(
 def parallel_spectrogram_welch(sig, fs, **kwargs):
     """Apply `_compute_spectrogram_welch` to each channel in parallel.
 
+    Should also work fine for a single channel, as long as sig is 2D.
+    But in that case, maybe you want to save the overhead and use
+    single_spectrogram_welch directly...
+
     Parameters
     ----------
     sig: (n_samples, n_chans)
@@ -196,9 +200,10 @@ def parallel_spectrogram_welch(sig, fs, **kwargs):
     spg : (n_freqs, n_spg_times, n_chans)
         Spectrogram of `sig`.
     """
-    assert ncols(sig) > 1, "Parallel spectrogram intended for multichannel data only."
-
-    worker = partial(compute_spectrogram_welch, fs=fs, **kwargs)
+    if ncols == 1:
+        print("Using parallel_spectrogram_welch on single-channel data.")
+        print("Maybe you want to use single_spectrogram_welch instead?")
+    worker = partial(single_spectrogram_welch, fs=fs, **kwargs)
     jobs = [x for x in sig.T]
 
     n_chans = ncols(sig)
@@ -212,10 +217,12 @@ def parallel_spectrogram_welch(sig, fs, **kwargs):
 
     freqs = freqs[0]
     spg_times = spg_times[0]
-    spg = np.dstack(spg)
+    if len(spg) > 1:
+        spg = np.dstack(spg)
+    else:
+        spg = np.expand_dims(spg, axis=-1)
 
     return freqs, spg_times, spg
-
 
 def get_bandpower(freqs, spg_times, spg, f_range, t_range=None):
     """Get band-limited power from a spectrogram.

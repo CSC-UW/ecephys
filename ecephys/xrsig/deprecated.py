@@ -2,10 +2,42 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 from ..signal import timefrequency as tfr
-from .utils import get_dim_coords
 
-# TODO: Checkut xrft package!
+#####
+# Likely deprecated utils
+#####
 
+# Is this needed anymore, now that it exists in sglxarray?
+def rebase_time(sig, in_place=True):
+    """Rebase time and timedelta coordinates so that t=0 corresponds to the beginning
+    of the datetime dimension."""
+    if not in_place:
+        sig = sig.copy()
+    sig["timedelta"] = sig.datetime - sig.datetime.min()
+    sig["time"] = sig["timedelta"] / pd.to_timedelta(1, "s")
+    return sig
+
+
+# TODO: Remove this function. It is ugly and dangerous. Function graveyard gist?
+def dtdim(dat):
+    assert "datetime" in dat.coords, "Datetime coordinate not found."
+    if "time" in dat.dims:
+        return dat.swap_dims({"time": "datetime"})
+    elif "timedelta" in dat.dims:
+        return dat.swap_dims({"timedelta": "datetime"})
+    else:
+        raise ValueError(
+            "Exactly one of `time` or `timedelta` must be present as a dimension."
+        )
+
+# TODO: This is not necessary, since you can achieve the same with:
+# da2 = xr.DataArray(coords={**da1.foo.coords}), or da2['foo'] = da1['foo']
+def get_dim_coords(da, dim_name):
+    """Get all the coordinates corresponding to one dimension, as a dict that can be assigned to a new xarray object using `assign_coords`."""
+    if dim_name:
+        return {coord_name: coord_obj for coord_name, coord_obj in da.coords.items() if dim_name in coord_obj[coord_name].dims}
+    else:
+        return {coord_name: coord_obj for coord_name, coord_obj in da.coords.items() if coord_obj[coord_name].dims == ()}
 
 def _wrap_spg_times(spg_times, sig):
     time = sig.time.values.min() + spg_times
@@ -49,28 +81,6 @@ def _wrap_3d_spectrogram(freqs, spg_time, spg, sig):
         da = da.assign_attrs({"units": f"{da.units}^2/Hz"})
     return da
 
-
-def parallel_spectrogram_welch(sig, **kwargs):
-    """Compute a spectrogram for each channel in parallel.
-
-    Parameters
-    ----------
-    sig: xr.DataArray (time, channel)
-        Required attr: (fs, the sampling rate)
-    **kwargs: optional
-        Keyword arguments passed to `_compute_spectrogram_welch`.
-
-    Returns:
-    --------
-    spg : xr.DataArray (frequency, time, channel)
-        Spectrogram of `sig`.
-    """
-    freqs, spg_time, spg = tfr.parallel_spectrogram_welch(
-        sig.transpose("time", "channel").values, sig.fs, **kwargs
-    )
-    return _wrap_3d_spectrogram(freqs, spg_time, spg, sig)
-
-
 def single_spectrogram_welch(sig, **kwargs):
     """Compute a single (e.g. single-channel, single-region) spectrogram.
 
@@ -94,44 +104,7 @@ def single_spectrogram_welch(sig, **kwargs):
         ), "This function is not intended for multichannel data."
         wrapper = _wrap_3d_spectrogram
 
-    freqs, spg_time, spg = tfr.compute_spectrogram_welch(
+    freqs, spg_time, spg = tfr.single_spectrogram_welch(
         sig.values.squeeze(), sig.fs, **kwargs
     )
     return wrapper(freqs, spg_time, spg, sig)
-
-
-def get_bandpower(spg, f_range):
-    """Get band-limited power from a spectrogram.
-
-    Parameters
-    ----------
-    spg: xr.DataArray (frequency, time, [channel])
-        Spectrogram data.
-    f_range: (float, float)
-        Frequency range to restrict to, as [f_low, f_high].
-
-    Returns:
-    --------
-    bandpower: xr.DataArray (time, [channel])
-        Sum of the power in `f_range` at each point in time.
-    """
-    bandpower = spg.sel(frequency=slice(*f_range)).sum(dim="frequency")
-    bandpower.attrs["f_range"] = f_range
-
-    return bandpower
-
-
-def get_bandpowers(spg, bands):
-    """Get multiple bandpower series in a single Dataset object.
-
-    Examples
-    --------
-        get_bandpowers(spg, {'delta': (0.5, 4), 'theta': (5, 10)})
-    """
-    return xr.Dataset(
-        {band_name: get_bandpower(spg, f_range) for band_name, f_range in bands.items()}
-    )
-
-
-def get_psd(spg):
-    return spg.median(dim="datetime")
