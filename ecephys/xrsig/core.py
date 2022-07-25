@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import ecephys.emg_from_lfp as lfemg
 from ecephys.signal import timefrequency as tfr
 
-from . import dsp, utils
+from . import utils
 
 class DataArrayWrapper:
     """Passes calls not otherwise overriden to an underlying DataArray object.
