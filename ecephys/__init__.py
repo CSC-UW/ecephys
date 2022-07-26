@@ -7,6 +7,7 @@ from . import (
     sglx,
     sglxr,
     signal,
+    tdtxr,
     sync,
     units,
     utils,
