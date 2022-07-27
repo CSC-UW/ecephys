@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import ecephys.emg_from_lfp as lfemg
 from ecephys.signal import timefrequency as tfr
+from ecephys.signal import filt
 
 from . import utils
 
@@ -112,6 +113,18 @@ class LocalFieldPotentials(DataArrayWrapper):
             spgda = spgda.assign_attrs({"units": f"{spgda.units}^2/Hz"})
 
         return ChannelSpectrograms(spgda)
+
+    def butter_bandpass(self, lowcut, highcut, order, plot=True):
+        _da = self._da.copy()
+        _da.values = filt.butter_bandpass(_da.values.T, lowcut, highcut, _da.fs, order, plot).T
+        if plot:
+            plot_duration = 1 # seconds
+            plot_time = slice(self.time.min(), self.time.min() + plot_duration)
+            self.sel(time=plot_time).plot.line(x='time', add_legend=False, figsize=(36, 5), alpha=0.1);
+            plt.title(f"First {plot_duration}s of original signal")
+            _da.sel(time=plot_time).plot.line(x='time', add_legend=False, figsize=(36, 5), alpha=0.1);
+            plt.title(f"First {plot_duration}s of filtered signal")
+        return self.__class__(_da)
 
 
     def kCSD(self, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
