@@ -363,7 +363,7 @@ class KernelCurrentSourceDensity(DataArrayWrapper):
         self._validate()
 
     def _validate(self):
-        expected_dims = ("time", "pos")
+        expected_dims = ("pos", "time")
         expected_attrs = {"fs", "kcsd"}
         if not self.dims == expected_dims:
             raise AttributeError(
