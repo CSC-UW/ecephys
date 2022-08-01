@@ -137,7 +137,7 @@ class SingleProbeSorting(Sorting):
                 cluster_ids=cluster_ids,
                 align_times=events["ephys_time"],
                 pre_time=1.0,
-                post_time=1.0,
+                post_time=2.0,
                 bin_size=0.025,
                 smoothing=0,
                 return_fr=True,
