@@ -18,23 +18,25 @@ from ipywidgets import (
 )
 
 _colorblind = sns.color_palette("colorblind")
+_deep = sns.color_palette("deep")
+_dark = sns.color_palette("dark")
 state_colors = {
-    "Wake": _colorblind[2],  # green
-    "W": _colorblind[2],
-    "Arousal": _colorblind[8],  # yellow
-    "MA": _colorblind[8],  # yellow
-    "aWk": "lightgreen",
-    "qWk": "seagreen",
+    "Wake": _colorblind[7],
+    "W": _colorblind[7],
+    "Arousal": _deep[2],
+    "MA": _deep[2],
+    "aWk": _colorblind[7],
+    "qWk": _dark[9],
     "M": "darkseagreen",
     "Trans": "gainsboro",
-    "NREM": _colorblind[0],
-    "N1": _colorblind[9],  # light blue
-    "N2": _colorblind[0],  # blue
-    "IS": _colorblind[3],  # red orange
-    "REM": _colorblind[1],  # light orange
+    "NREM": _colorblind[2],
+    "N1": _colorblind[2],
+    "N2": _colorblind[2],
+    "IS": _deep[5],
+    "REM": _colorblind[1],
     "Art": "crimson",
     "?": "crimson",
-    "None": _colorblind[7],  # grey
+    "None": _dark[7],
     "Drug": "white",
 }
 
