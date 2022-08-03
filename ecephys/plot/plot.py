@@ -26,7 +26,8 @@ state_colors = {
     "Arousal": _deep[2],
     "MA": _deep[2],
     "aWk": _colorblind[7],
-    "qWk": _dark[9],
+    "qWk": _dark[7],
+    "QWK": _dark[7],
     "M": "darkseagreen",
     "Trans": "gainsboro",
     "NREM": _colorblind[2],
@@ -36,7 +37,7 @@ state_colors = {
     "REM": _colorblind[1],
     "Art": "crimson",
     "?": "crimson",
-    "None": _dark[7],
+    "None": _colorblind[8],
     "Drug": "white",
 }
 
