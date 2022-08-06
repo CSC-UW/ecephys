@@ -7,10 +7,13 @@ from pathlib import Path
 from collections.abc import Iterable
 from functools import reduce
 from rich.console import Console
+
 _console = Console()
+
 
 def warn(msg):
     _console.print(f"Warning: {msg}", style="bright_yellow")
+
 
 # -------------------- Filesystem utilities --------------------
 
@@ -96,7 +99,7 @@ def item_intersection(l):
 
 
 def save_xarray(xr_obj, path):
-    """Save an Xarray object to NetCDF, which preserves obj.attrs"""
+    """Save an Xarray object to NetCDF, which preserves obj.attrs as long as they are serializable"""
     assert isinstance(xr_obj, xr.DataArray) or isinstance(xr_obj, xr.Dataset)
     Path(path).parent.mkdir(
         parents=True, exist_ok=True

@@ -28,8 +28,8 @@ from ipywidgets import (
     interactive_output,
 )
 from ecephys.sglxr import load_trigger
+from .. import xrsig
 from ..plot import lfp_explorer, colormesh_explorer, check_ax
-from ..xrsig import get_kcsd
 
 
 # This function is only really only appropriate for file-level SPWs, not alias-level SPWS, which lack a t0 field. Fix this.
@@ -66,7 +66,7 @@ def load_spws_and_convert_to_datetime(path):
 
 
 def get_detection_series(
-    csd, coarse_detection_chans=slice(None), n_fine_detection_chans=5
+    csd, coarse_detection_chans=slice(None), n_fine_detection_chans=3
 ):
     """Get the single timeseries to be threshold for SPW detection.
 
@@ -505,9 +505,9 @@ def lazy_spw_explorer(
 
     # Compute CSD
     if show_csd:
-        csd = get_kcsd(
-            lfp,
-            np.asarray(csd_params["ele_pos"]).squeeze(),
+        lf = xrsig.LocalFieldPotentials(lfp)
+        csd = lf.kCSD(
+            ele_pos=np.asarray(csd_params["ele_pos"]).squeeze(),
             drop_chans=csd_params["channels_omitted_from_csd_estimation"],
             do_lcurve=False,
             gdx=csd_params["gdx"],

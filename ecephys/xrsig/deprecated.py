@@ -8,6 +8,7 @@ from ..signal import timefrequency as tfr
 #####
 
 # Is this needed anymore, now that it exists in sglxarray?
+# It is used in seahorse
 def rebase_time(sig, in_place=True):
     """Rebase time and timedelta coordinates so that t=0 corresponds to the beginning
     of the datetime dimension."""
