@@ -7,18 +7,6 @@ from ..signal import timefrequency as tfr
 # Likely deprecated utils
 #####
 
-# Is this needed anymore, now that it exists in sglxarray?
-# It is used in seahorse
-def rebase_time(sig, in_place=True):
-    """Rebase time and timedelta coordinates so that t=0 corresponds to the beginning
-    of the datetime dimension."""
-    if not in_place:
-        sig = sig.copy()
-    sig["timedelta"] = sig.datetime - sig.datetime.min()
-    sig["time"] = sig["timedelta"] / pd.to_timedelta(1, "s")
-    return sig
-
-
 # TODO: Remove this function. It is ugly and dangerous. Function graveyard gist?
 def dtdim(dat):
     assert "datetime" in dat.coords, "Datetime coordinate not found."
@@ -31,14 +19,24 @@ def dtdim(dat):
             "Exactly one of `time` or `timedelta` must be present as a dimension."
         )
 
+
 # TODO: This is not necessary, since you can achieve the same with:
 # da2 = xr.DataArray(coords={**da1.foo.coords}), or da2['foo'] = da1['foo']
 def get_dim_coords(da, dim_name):
     """Get all the coordinates corresponding to one dimension, as a dict that can be assigned to a new xarray object using `assign_coords`."""
     if dim_name:
-        return {coord_name: coord_obj for coord_name, coord_obj in da.coords.items() if dim_name in coord_obj[coord_name].dims}
+        return {
+            coord_name: coord_obj
+            for coord_name, coord_obj in da.coords.items()
+            if dim_name in coord_obj[coord_name].dims
+        }
     else:
-        return {coord_name: coord_obj for coord_name, coord_obj in da.coords.items() if coord_obj[coord_name].dims == ()}
+        return {
+            coord_name: coord_obj
+            for coord_name, coord_obj in da.coords.items()
+            if coord_obj[coord_name].dims == ()
+        }
+
 
 def _wrap_spg_times(spg_times, sig):
     time = sig.time.values.min() + spg_times
@@ -81,6 +79,7 @@ def _wrap_3d_spectrogram(freqs, spg_time, spg, sig):
     if "units" in da.attrs:
         da = da.assign_attrs({"units": f"{da.units}^2/Hz"})
     return da
+
 
 def single_spectrogram_welch(sig, **kwargs):
     """Compute a single (e.g. single-channel, single-region) spectrogram.

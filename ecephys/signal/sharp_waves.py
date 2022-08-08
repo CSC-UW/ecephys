@@ -49,6 +49,9 @@ def load_spws_and_convert_to_datetime(path):
     else:
         raise ValueError("Expected file of type .nc or .h5")
 
+    if len(spws) == 0:
+        return spws
+
     assert "t0" in spws.attrs, "No `t0` field present for conversion to datetime."
     assert is_float_dtype(spws.start_time), "Expected float times. Already datetimes?"
     assert is_float_dtype(spws.end_time), "Expected float times. Already datetimes?"
@@ -174,11 +177,14 @@ def detect_by_value(
         The time that a SPW must exceed the detection threshold.
     """
     csd = csd.swap_dims({"pos": "channel"})
+    print("Getting SPW detection channels.")
     cdc = get_coarse_detection_chans(
         initial_peak_channel, n_coarse_detection_chans, csd.channel.values.tolist()
     )
+    print("Getting SPW detection timeseries")
     ser = get_detection_series(csd, cdc)
 
+    print("Detecting SPWs...")
     spws = evt.detect_by_value(
         ser.values,
         ser.time.values,
@@ -186,11 +192,15 @@ def detect_by_value(
         boundary_threshold,
         minimum_duration,
     )
+    print(f"{len(spws)} SPWs detected.")
     spws.attrs["initial_peak_channel"] = initial_peak_channel
     spws.attrs["n_coarse_detection_chans"] = n_coarse_detection_chans
-    if "datetime" in ser.coords:
+    if len(spws) == 0:
+        return spws
+    elif "datetime" in ser.coords:
         spws.attrs["t0"] = np.datetime_as_string(ser.datetime.values.min())
-    return get_peak_info(ser, spws)
+        print("Getting info about SPW peaks.")
+        return get_peak_info(ser, spws)
 
 
 def detect_by_zscore(

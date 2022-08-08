@@ -9,17 +9,38 @@ from ecephys import hypnogram as hg
 #####
 # TODO: Add as methods to DataArrayWrapper?
 
+
 def get_boundary_ilocs(da, coord_name):
-    df = da[coord_name].to_dataframe() # Just so we can use pandas utils
-    df = df.loc[:,~df.columns.duplicated()].copy() # Drop duplicate columns
-    df = df.reset_index() # So we can find boundaries of dimensions too
+    df = da[coord_name].to_dataframe()  # Just so we can use pandas utils
+    df = df.loc[:, ~df.columns.duplicated()].copy()  # Drop duplicate columns
+    df = df.reset_index()  # So we can find boundaries of dimensions too
     changed = df[coord_name].ne(df[coord_name].shift().bfill())
     boundary_locs = df[coord_name][changed.shift(-1, fill_value=True)].index
     return np.where(np.isin(df.index, boundary_locs))[0]
 
+
 #####
-# Dataset utils
+# Voltage timeseries utils
 #####
+# TODO: Add as a method to LFP class
+
+
+def rereference(sig, ref_chans, func=np.mean):
+    """Re-reference a signal to a function of specific channels."""
+    # Example: For common avg. ref., ref_chans == sig.channel
+    ref = sig.sel(channel=ref_chans).reduce(func, dim="channel", keepdims=True)
+    return sig - ref.values
+
+
+def rebase_time(sig, in_place=True):
+    """Rebase time and timedelta coordinates so that t=0 corresponds to the beginning
+    of the datetime dimension."""
+    if not in_place:
+        sig = sig.copy()
+    sig["timedelta"] = sig.datetime - sig.datetime.min()
+    sig["time"] = sig["timedelta"] / pd.to_timedelta(1, "s")
+    return sig
+
 
 def load_and_concatenate_datasets(paths):
     datasets = list()
@@ -30,17 +51,6 @@ def load_and_concatenate_datasets(paths):
             pass
 
     return rebase_time(xr.concat(datasets, dim="time"))
-
-#####
-# Voltage timeseries utils
-#####
-# TODO: Add as a method to LFP class
-
-def rereference(sig, ref_chans, func=np.mean):
-    """Re-reference a signal to a function of specific channels."""
-    # Example: For common avg. ref., ref_chans == sig.channel
-    ref = sig.sel(channel=ref_chans).reduce(func, dim="channel", keepdims=True)
-    return sig - ref.values
 
 
 #####

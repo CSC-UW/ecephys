@@ -251,7 +251,8 @@ class ChannelSpectrograms(DataArrayWrapper):
         expected = ("frequency", "time", "channel")
         if not self.dims == expected:
             raise AttributeError(
-                f"{self.__class__.__name__} must have dimensions {expected}."
+                f"{self.__class__.__name__} must have dimensions {expected}.\n"
+                f"Got dimensions {self.dims}."
             )
 
     def spectra(self):
@@ -343,6 +344,28 @@ class ChannelScalars(DataArrayWrapper):
             ax.set_yticklabels(boundaries.structure.values)
             for ch in boundaries.channel:
                 ax.axhline(ch, alpha=0.5, color="dimgrey", linestyle="--")
+
+
+class Spectrogram(DataArrayWrapper):
+    """Single spectrogram, for a channel or region.
+    Dimensions: ('frequency', 'time').
+    'time' is seconds from a reference period (usually the start of the experiment)."""
+
+    def __init__(self, da):
+        super().__init__(da)
+        self._validate()
+
+    def _validate(self):
+        expected = ("frequency", "time")
+        if not self.dims == expected:
+            raise AttributeError(
+                f"{self.__class__.__name__} must have dimensions {expected}.\n"
+                f"Got dimensions {self.dims}."
+            )
+
+    def bandpower(self, f_range):
+        pow = self.sel(frequency=slice(*f_range)).sum(dim="frequency")
+        return pow
 
 
 class KernelCurrentSourceDensity(DataArrayWrapper):
