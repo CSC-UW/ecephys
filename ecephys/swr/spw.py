@@ -3,16 +3,9 @@ import numpy as np
 from pathlib import Path
 from pandas.api.types import is_float_dtype
 from statsmodels.nonparametric.smoothers_lowess import lowess
-from . import event_detection as evt
-from ..utils import (
-    dt_series_to_seconds,
-    round_to_values,
-    all_arrays_equal,
-    get_epocs,
-    get_values_around,
-    load_df_h5,
-    read_pandas_netcdf,
-)
+from . import swr
+from .. import xrsig, sglxr, plot, utils
+from ..signal import event_detection as evd
 
 # -------------------- Plotting related imports --------------------
 import matplotlib.pyplot as plt
@@ -27,9 +20,6 @@ from ipywidgets import (
     fixed,
     interactive_output,
 )
-from ecephys.sglxr import load_trigger
-from .. import xrsig
-from ..plot import lfp_explorer, colormesh_explorer, check_ax
 
 
 # This function is only really only appropriate for file-level SPWs, not alias-level SPWS, which lack a t0 field. Fix this.
@@ -43,9 +33,9 @@ def load_spws_and_convert_to_datetime(path):
     """
     filetype = Path(path).suffix
     if filetype == ".nc":
-        spws = read_pandas_netcdf(path)
+        spws = utils.read_pandas_netcdf(path)
     elif filetype == ".h5":
-        spws = load_df_h5(path)
+        spws = utils.load_df_h5(path)
     else:
         raise ValueError("Expected file of type .nc or .h5")
 
@@ -68,7 +58,7 @@ def load_spws_and_convert_to_datetime(path):
 # -------------------- Detection related functions --------------------
 
 
-def get_detection_series(
+def get_spw_detection_series(
     csd, coarse_detection_chans=slice(None), n_fine_detection_chans=3
 ):
     """Get the single timeseries to be threshold for SPW detection.
@@ -99,64 +89,14 @@ def get_detection_series(
     return -_csd[_csd.argmin(dim="channel")]
 
 
-def get_peak_info(sig, spws):
-    """Get properties of each SPW peak.
-
-    Parameters
-    ==========
-    sig: (time,) DataArray
-        The signal to extract peak amplitudes, times, and channels from.
-        Probably the series used for SPW detection.
-    spws: DataFrame
-        The SPWs, with each SPW's start and end times.
-    """
-    spws = spws.copy()
-
-    def _get_peak_info(spw):
-        spw_sig = sig.sel(time=slice(spw.start_time, spw.end_time))
-        peak = spw_sig[spw_sig.argmax()]
-        return peak.item(), peak.time.item(), peak.channel.item()
-
-    info = list(map(_get_peak_info, spws.itertuples()))
-    spws[["peak_amplitude", "peak_time", "peak_channel"]] = info
-    return spws
-
-
-def get_coarse_detection_chans(peak_channel, n_coarse_detection_chans, csd_chans):
-    """Given a channel around which to detect SPWs, get the neighboring channels.
-    Checks to make sure that you have CSD estimates for all those channels.
-
-    Parameters:
-    ===========
-    peak_channel: int
-        The channel around which to detect SPWs.
-    n_coarse_detection_chans: int
-        An odd integer, indiciating the number of neighboring channels (inclusive)
-        to use for detecting SPWs.
-    csd_chans: np.array
-        The channels for which you have CSD estimates.
-    """
-    assert (
-        n_coarse_detection_chans % 2
-    ), "Must use an odd number of of detection channels."
-
-    idx = csd_chans.index(peak_channel)
-    first = idx - n_coarse_detection_chans // 2
-    last = idx + n_coarse_detection_chans // 2 + 1
-
-    assert first >= 0, "Cannot detect SPWs outside the bounds of your CSD."
-    assert last < len(csd_chans), "Cannot detect SPWs outside the bounds of your CSD."
-
-    return csd_chans[first:last]
-
-
-def detect_by_value(
+def detect_spws_by_value(
     csd,
-    initial_peak_channel,
-    n_coarse_detection_chans,
+    spw_center,
+    n_coarse,
+    n_fine,
     detection_threshold,
     boundary_threshold,
-    minimum_duration=0.005,
+    minimum_duration,
 ):
     """Detect SPWs using thresholds whose absolute values are provided.
     Return SPWs as a DataFrame.
@@ -178,14 +118,14 @@ def detect_by_value(
     """
     csd = csd.swap_dims({"pos": "channel"})
     print("Getting SPW detection channels.")
-    cdc = get_coarse_detection_chans(
-        initial_peak_channel, n_coarse_detection_chans, csd.channel.values.tolist()
+    cdc = swr.get_coarse_detection_chans(
+        spw_center, n_coarse, csd.channel.values.tolist()
     )
     print("Getting SPW detection timeseries")
-    ser = get_detection_series(csd, cdc)
+    ser = get_spw_detection_series(csd, cdc, n_fine)
 
     print("Detecting SPWs...")
-    spws = evt.detect_by_value(
+    spws = evd.detect_by_value(
         ser.values,
         ser.time.values,
         detection_threshold,
@@ -193,43 +133,46 @@ def detect_by_value(
         minimum_duration,
     )
     print(f"{len(spws)} SPWs detected.")
-    spws.attrs["initial_peak_channel"] = initial_peak_channel
-    spws.attrs["n_coarse_detection_chans"] = n_coarse_detection_chans
+    spws.attrs["center_channel"] = spw_center
+    spws.attrs["n_coarse"] = n_coarse
+    spws.attrs["n_fine"] = n_fine
     if len(spws) == 0:
         return spws
     elif "datetime" in ser.coords:
         spws.attrs["t0"] = np.datetime_as_string(ser.datetime.values.min())
         print("Getting info about SPW peaks.")
-        return get_peak_info(ser, spws)
+        return swr.get_peak_info(ser, spws)
 
 
-def detect_by_zscore(
+def detect_spws_by_zscore(
     csd,
-    initial_peak_channel,
-    n_coarse_detection_chans,
-    detection_threshold=2.5,
-    boundary_threshold=1.5,
-    minimum_duration=0.005,
+    spw_center,
+    n_coarse,
+    n_fine,
+    detection_threshold,
+    boundary_threshold,
+    minimum_duration,
 ):
     """See `detect_by_value`, but using zscores."""
     csd = csd.swap_dims({"pos": "channel"})
-    cdc = get_coarse_detection_chans(
-        initial_peak_channel, n_coarse_detection_chans, csd.channel.values.tolist()
+    cdc = swr.get_coarse_detection_chans(
+        spw_center, n_coarse, csd.channel.values.tolist()
     )
-    ser = get_detection_series(csd, cdc)
+    ser = get_spw_detection_series(csd, cdc, n_fine)
 
-    spws = evt.detect_by_zscore(
+    spws = evd.detect_by_zscore(
         ser.values,
         ser.time.values,
         detection_threshold,
         boundary_threshold,
         minimum_duration,
     )
-    spws.attrs["initial_peak_channel"] = initial_peak_channel
-    spws.attrs["n_coarse_detection_chans"] = n_coarse_detection_chans
+    spws.attrs["center_channel"] = spw_center
+    spws.attrs["n_coarse"] = n_coarse
+    spws.attrs["n_fine"] = n_fine
     if "datetime" in ser.coords:
         spws.attrs["t0"] = np.datetime_as_string(ser.datetime.values.min())
-    return get_peak_info(ser, spws)
+    return swr.get_peak_info(ser, spws)
 
 
 # -------------------- Drift related functions --------------------
@@ -257,7 +200,7 @@ def _estimate_drift(t, pos, **kwargs):
     return out[:, 0], out[:, 1]
 
 
-def estimate_drift(spws, imec_map, frac=1 / 48, it=3):
+def estimate_spw_drift(spws, imec_map, frac=1 / 48, it=3):
     """Estimate drift using SPW peak locations over time.
 
     spws: DataFrame
@@ -271,10 +214,10 @@ def estimate_drift(spws, imec_map, frac=1 / 48, it=3):
         Computation time is a linear function of this valuable, but estimate quality is not.
     """
     um_per_mm = 1000
-    peak_times = dt_series_to_seconds(spws.peak_time)
+    peak_times = utils.dt_series_to_seconds(spws.peak_time)
     peak_ycoords = imec_map.chans2coords(spws.peak_channel)[:, 1] / um_per_mm
     t, y = _estimate_drift(peak_times, peak_ycoords, frac=frac, it=it)
-    nearest_y = round_to_values(y, imec_map.y / um_per_mm)
+    nearest_y = utils.round_to_values(y, imec_map.y / um_per_mm)
     t0_chan = imec_map.y2chans(nearest_y[0] * um_per_mm)
     nearest_chans = imec_map.y2chans(nearest_y * um_per_mm)
     nearest_ids = nearest_chans.chan_id.values
@@ -295,8 +238,8 @@ def estimate_drift(spws, imec_map, frac=1 / 48, it=3):
 def get_drift_epocs(drift):
     """Get epocs during which drift amount is estimated to be less than the spacing between electrodes."""
     cols = ["nearest_y", "nearest_id", "shifts"]
-    dfs = list(get_epocs(drift, col, "dt") for col in cols)
-    assert all_arrays_equal(
+    dfs = list(utils.get_epocs(drift, col, "dt") for col in cols)
+    assert utils.all_arrays_equal(
         df.index for df in dfs
     ), "Different columns yielded different epochs."
 
@@ -346,7 +289,7 @@ def spw_explorer_xr(
     plot_end_time = spw.peak_time + plot_duration / 2
 
     center_chan = spw.peak_channel if center_chan is None else center_chan
-    chans = get_values_around(lfp.channel.values, center_chan, n_chans)
+    chans = utils.get_values_around(lfp.channel.values, center_chan, n_chans)
 
     _lfp = lfp.sel(time=slice(plot_start_time, plot_end_time), channel=chans)
     _csd = csd.swap_dims({"pos": "channel"}).sel(
@@ -356,7 +299,7 @@ def spw_explorer_xr(
     # Plot LFP
     lfp_ax.set_facecolor("none")
     if show_lfps:
-        lfp_explorer(
+        plot.lfp_explorer(
             _lfp.time.values,
             _lfp.values,
             chan_labels=_lfp.channel.values,
@@ -370,7 +313,7 @@ def spw_explorer_xr(
     # Plot CSD
     csd_ax.set_zorder(lfp_ax.get_zorder() - 1)
     if show_csd:
-        colormesh_explorer(
+        plot.colormesh_explorer(
             _csd.time.values, _csd.values.T, y=_csd.pos.values, ax=csd_ax, flip_ud=True
         )
         csd_ax.set_ylabel("Depth (mm)")
@@ -484,7 +427,7 @@ def lazy_spw_explorer(
     window_end_time = spw.peak_time + window_length / 2
 
     # Load the peri-event data
-    lfp = load_trigger(
+    lfp = sglxr.load_trigger(
         lfp_path,
         csd_params["csd_channels"],
         start_time=window_start_time,
@@ -503,7 +446,7 @@ def lazy_spw_explorer(
     # Plot raw LFPs
     lfp_ax.set_facecolor("none")
     if show_lfps:
-        lfp_explorer(
+        plot.lfp_explorer(
             lfp.time.values,
             lfps,
             lfp_ax,
@@ -529,7 +472,7 @@ def lazy_spw_explorer(
     csd_ax.set_zorder(lfp_ax.get_zorder() - 1)
     csd_ax.set_xlabel("Time [sec]")
     if show_csd:
-        colormesh_explorer(csd.time.values, csd.values.T, csd_ax)
+        plot.colormesh_explorer(csd.time.values, csd.values.T, csd_ax)
         csd_ax.set_ylabel("Depth (mm)")
 
     # Highlight each spw
@@ -607,7 +550,7 @@ def interactive_lazy_spw_explorer(spws, metadata, subject, condition, figsize=(2
 
 # Is this function still used?
 def plot_spw_density(spws, binwidth=10, ax=None, figsize=(20, 4)):
-    ax = check_ax(ax, figsize=figsize)
+    ax = plot.check_ax(ax, figsize=figsize)
     g = sns.histplot(
         spws.start_time, binwidth=binwidth, stat="frequency", color="black", ax=ax
     )
