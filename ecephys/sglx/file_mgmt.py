@@ -418,4 +418,4 @@ def loc(df, **kwargs):
     >>> loc(df, stream='lf', ftype='bin')
     >>> df.pipe(loc, stream='lf', ftype='bin')
     """
-    return df.loc[(df[list(kwargs)] == pd.Series(kwargs)).all(axis=1)]
+    return df.loc[(df[list(kwargs)] == pd.Series(kwargs, dtype="object")).all(axis=1)]
