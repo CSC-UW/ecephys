@@ -34,7 +34,7 @@ def load_nidq_analog(bin_path, channels, start_time=0, end_time=np.Inf):
     firstSamp, lastSamp = _get_first_and_last_samples(meta, firstSamp, lastSamp)
 
     # Get timestamps of each sample
-    time, timedelta, datetime = _get_timestamps(meta, firstSamp, lastSamp)
+    time, timedelta, datetime, _ = _get_timestamps(meta, firstSamp, lastSamp)
 
     # Make memory map to selected data.
     rawData = makeMemMapRaw(bin_path, meta)

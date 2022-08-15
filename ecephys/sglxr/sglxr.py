@@ -78,7 +78,7 @@ def _get_timestamps(meta, firstSample=0, lastSample=np.Inf):
 
     datetime = pd.to_datetime(meta["fileCreateTime"]) + timedelta
 
-    return time, timedelta, datetime
+    return time, timedelta, datetime, fs
 
 
 def get_timestamps(bin_path):
@@ -90,7 +90,7 @@ def _to_seconds(t, meta):
     See `start_time` and `end_time` arguments to `load_trigger` for
     expected behavior and accepted types."""
     if isinstance(t, str):
-        _, _, dt = _get_timestamps(meta)
+        _, _, dt, _ = _get_timestamps(meta)
         i = _find_nearest(dt._get_time_micros(), _time_to_micros(to_time(t)))
         t = dt[i]
 
@@ -178,7 +178,7 @@ def load_trigger(bin_path, channels=None, start_time=0, end_time=np.Inf):
     firstSamp, lastSamp = _get_first_and_last_samples(meta, firstSamp, lastSamp)
 
     # Get timestamps of each sample
-    time, timedelta, datetime = _get_timestamps(meta, firstSamp, lastSamp)
+    time, timedelta, datetime, _ = _get_timestamps(meta, firstSamp, lastSamp)
 
     # Make memory map to selected data.
     im = ImecMap.from_meta(meta)
