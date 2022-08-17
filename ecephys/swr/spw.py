@@ -22,6 +22,7 @@ from ipywidgets import (
 )
 
 
+# TODO: Deprecated, remove
 # This function is only really only appropriate for file-level SPWs, not alias-level SPWS, which lack a t0 field. Fix this.
 def load_spws_and_convert_to_datetime(path):
     """Load SPWs from disk to DataFrame.
@@ -133,6 +134,7 @@ def detect_spws_by_value(
         minimum_duration,
     )
     print(f"{len(spws)} SPWs detected.")
+    # TODO: There really isn't any reason to store attrs here...
     spws.attrs["center_channel"] = spw_center
     spws.attrs["n_coarse"] = n_coarse
     spws.attrs["n_fine"] = n_fine
@@ -200,13 +202,14 @@ def _estimate_drift(t, pos, **kwargs):
     return out[:, 0], out[:, 1]
 
 
-def estimate_spw_drift(spws, imec_map, frac=1 / 48, it=3):
-    """Estimate drift using SPW peak locations over time.
+# TODO: Move to swr.py
+def estimate_swr_drift(spws, imec_map, frac=1 / 48, it=3):
+    """Estimate drift using SPW or ripple peak locations over time.
 
-    spws: DataFrame
-        SPWs to use for estimation.
+    swrs: DataFrame
+        Events to use for estimation.
     imec_map: sglx.Map
-        The imec map used in the recording from which SPWs were detected.
+        The imec map used in the recording from which events were detected.
     frac: float between (0, 1)
         The fraction of data used when estimating each position.
     it: int
@@ -214,9 +217,9 @@ def estimate_spw_drift(spws, imec_map, frac=1 / 48, it=3):
         Computation time is a linear function of this valuable, but estimate quality is not.
     """
     um_per_mm = 1000
-    peak_times = utils.dt_series_to_seconds(spws.peak_time)
+    # peak_times = utils.dt_series_to_seconds(spws.peak_time)
     peak_ycoords = imec_map.chans2coords(spws.peak_channel)[:, 1] / um_per_mm
-    t, y = _estimate_drift(peak_times, peak_ycoords, frac=frac, it=it)
+    t, y = _estimate_drift(spws.peak_time.values, peak_ycoords, frac=frac, it=it)
     nearest_y = utils.round_to_values(y, imec_map.y / um_per_mm)
     t0_chan = imec_map.y2chans(nearest_y[0] * um_per_mm)
     nearest_chans = imec_map.y2chans(nearest_y * um_per_mm)
@@ -225,7 +228,7 @@ def estimate_spw_drift(spws, imec_map, frac=1 / 48, it=3):
 
     return pd.DataFrame(
         {
-            "dt": spws.peak_time.values,
+            # "dt": spws.peak_time.values,
             "t": t,
             "y": y,
             "nearest_y": nearest_y,
@@ -238,7 +241,7 @@ def estimate_spw_drift(spws, imec_map, frac=1 / 48, it=3):
 def get_drift_epocs(drift):
     """Get epocs during which drift amount is estimated to be less than the spacing between electrodes."""
     cols = ["nearest_y", "nearest_id", "shifts"]
-    dfs = list(utils.get_epocs(drift, col, "dt") for col in cols)
+    dfs = list(utils.get_epocs(drift, col, "t") for col in cols)
     assert utils.all_arrays_equal(
         df.index for df in dfs
     ), "Different columns yielded different epochs."
