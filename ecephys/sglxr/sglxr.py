@@ -65,7 +65,9 @@ def _get_first_and_last_samples(meta, firstSample=0, lastSample=np.Inf):
     return firstSample, lastSample
 
 
-def _get_timestamps(meta, firstSample=0, lastSample=np.Inf):
+def _get_timestamps(
+    meta, firstSample=0, lastSample=np.Inf, t0=0.0, dt0="fileCreateTime"
+):
     """Get all timestamps contained in the data."""
 
     firstSample, lastSample = _get_first_and_last_samples(meta, firstSample, lastSample)
@@ -76,40 +78,42 @@ def _get_timestamps(meta, firstSample=0, lastSample=np.Inf):
     time = time / fs  # timestamps in seconds from start of file
     timedelta = pd.to_timedelta(time, "s")  # as timedelta objects
 
-    datetime = pd.to_datetime(meta["fileCreateTime"]) + timedelta
+    if dt0 == "fileCreateTime":
+        dt0 = pd.to_datetime(meta["fileCreateTime"])
 
-    return time, timedelta, datetime, fs
-
-
-def get_timestamps(bin_path):
-    return _get_timestamps(readMeta(Path(bin_path)))
+    return t0 + time, dt0 + timedelta, fs
 
 
-def _to_seconds(t, meta):
+def get_timestamps(bin_path, **kwargs):
+    return _get_timestamps(readMeta(Path(bin_path)), **kwargs)
+
+
+def _to_seconds_from_file_start(x, meta, **kwargs):
     """Convert any time into seconds from the start of the file.
     See `start_time` and `end_time` arguments to `load_trigger` for
     expected behavior and accepted types."""
-    if isinstance(t, str):
-        _, _, dt, _ = _get_timestamps(meta)
-        i = _find_nearest(dt._get_time_micros(), _time_to_micros(to_time(t)))
-        t = dt[i]
+    t, dt, _ = _get_timestamps(meta, **kwargs)
 
-    if is_datetime64_any_dtype(t) or isinstance(t, pd.Timestamp):
-        t0 = pd.to_datetime(meta["fileCreateTime"])
-        return (t - t0).total_seconds()
-    if is_timedelta64_dtype(t) or isinstance(t, pd.Timedelta):
-        return t.total_seconds()
+    if isinstance(x, str):
+        x = dt[_find_nearest(dt._get_time_micros(), _time_to_micros(to_time(x)))]
 
-    if is_datetime_or_timedelta_dtype(t):
+    if is_datetime64_any_dtype(x) or isinstance(x, pd.Timestamp):
+        return (x - dt.min()).total_seconds()
+    if is_timedelta64_dtype(x) or isinstance(x, pd.Timedelta):
+        return x.total_seconds()
+
+    if is_datetime_or_timedelta_dtype(x):
         raise ValueError("Unexpected datetime or timedelta object type.")
 
-    if isinstance(t, numbers.Real):
-        return t
+    if isinstance(x, numbers.Real):
+        return x - t.min()
 
-    raise ValueError(f"Could not convert {t} to time.")
+    raise ValueError(f"Could not convert {x} to time.")
 
 
-def load_trigger(bin_path, channels=None, start_time=0, end_time=np.Inf):
+def load_trigger(
+    bin_path, channels=None, start_time=0, end_time=np.Inf, t0=0.0, dt0="fileCreateTime"
+):
     """Load SpikeGLX timeseries data.
 
     Parameters
@@ -124,19 +128,25 @@ def load_trigger(bin_path, channels=None, start_time=0, end_time=np.Inf):
         - Default: None, a.k.a. load all channels.
     start_time: float, timedelta, datetime, or string (optional)
         Start time of the data to load.
-        - If float: Time relative to the file start, in seconds.
+        - If float: Absolute time (i.e. including t0), in seconds.
         - If timedelta: Time relative to the file start.
         - If datetime: Any absolute datetime is fine.
         - If string: Time of day, e.g. '13:00:00' for 1PM.
             Similar to DataFrame.at_time, but rounds to the nearest sample in the data.
         - If the value provided works out to be less than 0 or before the actual file start time,
             the real file start time will be used.
-        - Default: 0.0, a.k.a. the start of the file.
+        - Default: 0.0, aka. the start of the file when t0 is 0.0
     end_time: float, timedelta, datetime, or string (optional)
         End time of the data to load.
         - The behavior is the same as for `start_time`, but if  the value provided works out
             to be greater than the actual file end time, the actual file end time will be used.
         - Default: np.Inf, a.k.a. the end of the file.
+    t0: float (optional)
+        Force the first timestamp in the file (not necessarily the loaded data) to this value.
+        Default: 0.0
+    dt0: datetime (optional) or 'fileCreateTime'
+        Force the first datetime stamp in the file (not necessarily the loaded data) to this value. If 'fileCreateTime', use metadata.
+        Default: 'fileCreateTime'
 
     Returns
     -------
@@ -147,11 +157,8 @@ def load_trigger(bin_path, channels=None, start_time=0, end_time=np.Inf):
             channel: int
                 Channel IDs of the loaded data.
         Coordinates:
-            (time, timedelta): timedelta64[ns]
-                Timedelta in seconds from the start of the file, nanosecond resolution.
             (time, datetime): datetime64[ns]
-                Absolute timestamp of each sample, estimated using the `fileCreateTime`
-                    field from the metadata. Nanosecond resolution.
+                Absolute timestamp of each sample, nanosecond resolution.
             (channel, x): float
                 X coordinate in probe space, in microns, of each channel.
             (channel, y): float
@@ -171,14 +178,14 @@ def load_trigger(bin_path, channels=None, start_time=0, end_time=np.Inf):
 
     # Get the requested start and end samples
     fs = SampRate(meta)
-    firstSamp = _to_seconds(start_time, meta) * fs
-    lastSamp = _to_seconds(end_time, meta) * fs
+    firstSamp = _to_seconds_from_file_start(start_time, meta, t0=t0, dt0=dt0) * fs
+    lastSamp = _to_seconds_from_file_start(end_time, meta, t0=t0, dt0=dt0) * fs
 
     # Get the start and end samples
     firstSamp, lastSamp = _get_first_and_last_samples(meta, firstSamp, lastSamp)
 
     # Get timestamps of each sample
-    time, timedelta, datetime, _ = _get_timestamps(meta, firstSamp, lastSamp)
+    time, datetime, _ = _get_timestamps(meta, firstSamp, lastSamp, t0=t0, dt0=dt0)
 
     # Make memory map to selected data.
     im = ImecMap.from_meta(meta)
@@ -200,7 +207,6 @@ def load_trigger(bin_path, channels=None, start_time=0, end_time=np.Inf):
         coords={
             "time": time,
             "channel": channels,
-            "timedelta": ("time", timedelta),
             "datetime": ("time", datetime),
             "x": ("channel", np.atleast_2d(im.chans2coords(channels))[:, 0]),
             "y": ("channel", np.atleast_2d(im.chans2coords(channels))[:, 1]),
@@ -211,7 +217,7 @@ def load_trigger(bin_path, channels=None, start_time=0, end_time=np.Inf):
     return data
 
 
-def load_contiguous_triggers(bin_paths, chans=None):
+def load_contiguous_triggers(bin_paths, chans=None, t0=0.0, dt0="fileCreateTime"):
     """Load and concatenate a list of temporally contiguous SGLX files.
 
     Parameters
@@ -229,13 +235,17 @@ def load_contiguous_triggers(bin_paths, chans=None):
         Datetimes are rebased so that the `fileCreateTime` field of the
             very first file's metadata is used as t0
     """
-    triggers = [load_trigger(path, chans) for path in bin_paths]
+    triggers = [load_trigger(bin_paths[0], chans, t0=t0, dt0=dt0)] + [
+        load_trigger(p) for p in bin_paths[1:]
+    ]
     data = xr.concat(triggers, dim="time")
 
     time = np.arange(data.time.size) / data.fs
-    timedelta = pd.to_timedelta(time)
-    datetime = data.datetime.values.min() + timedelta
+    timedelta = pd.to_timedelta(time, "s")
 
     return data.assign_coords(
-        {"time": time, "timedelta": ("time", timedelta), "datetime": ("time", datetime)}
+        {
+            "time": data.time.values.min() + time,
+            "datetime": ("time", data.datetime.values.min() + timedelta),
+        }
     )

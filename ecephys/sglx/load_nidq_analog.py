@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 from ecephys.sglxr.sglxr import (
-    _to_seconds,
+    _to_seconds_from_file_start,
     _get_first_and_last_samples,
     _get_timestamps,
 )
@@ -27,14 +27,14 @@ def load_nidq_analog(bin_path, channels, start_time=0, end_time=np.Inf):
 
     # Get the requested start and end samples
     fs = SampRate(meta)
-    firstSamp = _to_seconds(start_time, meta) * fs
-    lastSamp = _to_seconds(end_time, meta) * fs
+    firstSamp = _to_seconds_from_file_start(start_time, meta) * fs
+    lastSamp = _to_seconds_from_file_start(end_time, meta) * fs
 
     # Get the start and end samples
     firstSamp, lastSamp = _get_first_and_last_samples(meta, firstSamp, lastSamp)
 
     # Get timestamps of each sample
-    time, timedelta, datetime, _ = _get_timestamps(meta, firstSamp, lastSamp)
+    time, datetime, _ = _get_timestamps(meta, firstSamp, lastSamp)
 
     # Make memory map to selected data.
     rawData = makeMemMapRaw(bin_path, meta)
@@ -57,7 +57,6 @@ def load_nidq_analog(bin_path, channels, start_time=0, end_time=np.Inf):
         coords={
             "time": time,
             "channel": channels,
-            "timedelta": ("time", timedelta),
             "datetime": ("time", datetime),
         },
         attrs={"units": sig_units, "fs": fs},
