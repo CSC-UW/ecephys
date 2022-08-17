@@ -137,10 +137,7 @@ def detect_by_value(
         minimum_duration=minimum_duration,
     )
 
-    index = pd.Index(np.arange(len(candidate_event_times)), name="event")
-    events = pd.DataFrame(
-        candidate_event_times, columns=["start_time", "end_time"], index=index
-    )
+    events = pd.DataFrame(candidate_event_times, columns=["start_time", "end_time"])
 
     events.attrs["detection_threshold"] = detection_threshold
     events.attrs["boundary_threshold"] = boundary_threshold
