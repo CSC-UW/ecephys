@@ -117,10 +117,11 @@ def drop_unserializeable(d):
         return ""
 
 
-def write_da_as_npy(da, object):
-    np.save(f"{object}.data.npy", da.to_numpy())
+def write_da_as_npy(da, object, dir=None):
+    dir = Path().cwd() if dir is None else Path(dir)
+    np.save(dir / f"{object}.data.npy", da.to_numpy())
     for coord in da.coords:
-        np.save(f"{object}.{coord}.npy", da[coord].to_numpy())
+        np.save(dir / f"{object}.{coord}.npy", da[coord].to_numpy())
     metadata = {
         "name": da.name,
         "dims": [d for d in da.dims],
@@ -128,23 +129,24 @@ def write_da_as_npy(da, object):
         "cdims": [list(v.coords.dims) for v in da.coords.values()],
         "attrs": drop_unserializeable(da.attrs),
     }
-    with open(f"{object}.metadata.json", "w") as f:
+    with open(dir / f"{object}.metadata.json", "w") as f:
         json.dump(metadata, f)
 
 
-def read_npy_as_da(path, object):
-    metafile = path / f"{object}.metadata.json"
+def read_npy_as_da(object, dir=None):
+    dir = Path().cwd() if dir is None else Path(dir)
+    metafile = dir / f"{object}.metadata.json"
     assert metafile.is_file(), f"Missing metadata: {metafile.name}"
     with open(metafile, "r") as f:
         meta = json.load(f)
 
-    datafile = path / f"{object}.data.npy"
+    datafile = dir / f"{object}.data.npy"
     assert datafile.is_file(), f"Missing data: {datafile.name}"
     data = np.load(datafile)
 
     coords = dict()
     for coord, cdims in zip(meta["coords"], meta["cdims"]):
-        coordfile = path / f"{object}.{coord}.npy"
+        coordfile = dir / f"{object}.{coord}.npy"
         assert coordfile.is_file(), f"Missing coord file: {coordfile.name}"
         coords.update({coord: (cdims, np.load(coordfile))})
 
