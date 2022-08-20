@@ -114,13 +114,24 @@ class Hypnogram:
         )
         return self.groupby("state").duration.sum() / total_time
 
-    def write(self, path):
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
+    def write_htsv(self, file):
+        """Write as HTSV."""
+        file = Path(file)
+        assert file.suffix == ".htsv", "File must use extension .htsv"
+        file.parent.mkdir(parents=True, exist_ok=True)
         self.to_csv(
-            path,
+            file,
             sep="\t",
+            header=True,
             index=False,
         )
+
+    # TODO: Deprecated. Remove.
+    def write(self, file):
+        warnings.warn(
+            "Hypnogram.write is deprecated and will be removed. Use Hypnogram.write_htsv instead."
+        )
+        self.write_htsv(file)
 
     def reconcile(self, other, how="self"):
         """Reconcile this hypnogram with another, per `reconcile_hypnograms`.
@@ -151,7 +162,6 @@ class Hypnogram:
 
 
 class FloatHypnogram(Hypnogram):
-
     def write_visbrain(self, path):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._df.to_csv(
@@ -174,9 +184,100 @@ class FloatHypnogram(Hypnogram):
         """
         return self.__class__(self.loc[self.duration > duration])
 
+    @classmethod
+    def get_dummy(cls, end_time):
+        """Return an empty, unscored hypnogram.
+
+        Parameters
+        ----------
+        end_time: float
+            The time at which the hypnogram should end, in seconds.
+
+        Returns:
+            H: pd.DataFrame
+                A hypnogram containing a single state ("None") extending from t=0 until `end_time`.
+        """
+        df = pd.DataFrame(
+            {
+                "state": "None",
+                "start_time": [0.0],
+                "end_time": [end_time],
+                "duration": [end_time],
+            }
+        )
+        return cls(df)
+
+    @classmethod
+    def from_htsv(cls, file):
+        assert Path(file).suffix == ".htsv", "File must use extension .htsv"
+        df = pd.read_csv(file, sep="\t", header=0)
+        return cls(df)
+
+    @classmethod
+    def from_visbrain(cls, file):
+        """Load a Visbrain formatted hypnogram."""
+        df = pd.read_csv(file, sep="\t", names=["state", "end_time"], comment="*")
+        df["start_time"] = df.apply(lambda row: _infer_bout_start(df, row), axis=1)
+        df["duration"] = df.apply(lambda row: row.end_time - row.start_time, axis=1)
+        return cls(df)
+
+    @classmethod
+    def from_Spike2(cls, file):
+        """Load a Spike2 formatted hypnogram."""
+        df = pd.read_table(
+            file,
+            sep="\t",
+            names=["epoch", "start_time", "end_time", "state", "comment", "blank"],
+            usecols=["epoch", "start_time", "end_time", "state"],
+            index_col="epoch",
+            skiprows=22,
+        )
+        return cls(df)
+
+    @classmethod
+    def from_SleepSign(cls, file):
+        """Load a SleepSign hypnogram, exported using the `trend` function."""
+        df = pd.read_table(
+            file,
+            skiprows=19,
+            usecols=[0, 1, 2],
+            names=["start_time", "epoch", "state"],
+            parse_dates=["start_time"],
+            index_col="epoch",
+        )
+        # Make sure that the data starts with epoch 0.
+        assert (
+            df.index.values[0] == 0
+        ), "First epoch found is not #0. Unexpected number of header lines in file?"
+
+        # The datetimes in the first column are meaningless. Convert them to floats.
+        df["start_time"] = (df.start_time - df.start_time[0]) / pd.to_timedelta(1, "s")
+
+        # Make sure all epochs are the same length, so that we can safely infer the file's end time.
+        def _all_equal(iterator):
+            """Check if all items in an un-nested array are equal."""
+            try:
+                iterator = iter(iterator)
+                first = next(iterator)
+                return all(first == rest for rest in iterator)
+            except StopIteration:
+                return True
+
+        epoch_lengths = df.start_time.diff().values[1:]
+        assert _all_equal(epoch_lengths), "Epochs are not all the same length."
+        epoch_length = epoch_lengths[0]
+
+        # Infer the epoch end times, and compute epoch durations
+        df["end_time"] = df.start_time + epoch_length
+        df["duration"] = df.apply(lambda row: row.end_time - row.start_time, axis=1)
+        assert all(df.duration == epoch_length)
+
+        # Reorder columns and return
+        df = df[["state", "start_time", "end_time", "duration"]]
+        return cls(df)
+
 
 class DatetimeHypnogram(Hypnogram):
-
     def as_float(self):
         df = self._df.copy()
         start_datetime = df.start_time.min()
@@ -375,7 +476,30 @@ class DatetimeHypnogram(Hypnogram):
         for gap in gaps:
             gap.update({"state": fill_state})
 
-        return self.__class__(pd.concat([self._df, pd.DataFrame.from_records(gaps)]).sort_values("start_time", ignore_index=True))
+        return self.__class__(
+            pd.concat([self._df, pd.DataFrame.from_records(gaps)]).sort_values(
+                "start_time", ignore_index=True
+            )
+        )
+
+    @classmethod
+    def from_htsv(cls, file):
+        """Load a hypnogram whose entries are valid datetime strings."""
+        assert Path(file).suffix == ".htsv", "File must use extension .htsv"
+        try:
+            df = pd.read_csv(file, sep="\t", header=0)
+        except pd.errors.EmptyDataError:
+            return None
+
+        df["start_time"] = pd.to_datetime(df["start_time"])
+        df["end_time"] = pd.to_datetime(df["end_time"])
+        df["duration"] = pd.to_timedelta(df["duration"])
+        return cls(df)
+
+
+#####
+# Misc. module functions
+#####
 
 
 def _infer_bout_start(df, bout):
@@ -399,105 +523,6 @@ def _infer_bout_start(df, bout):
         start_time = df.loc[bout.name - 1].end_time
 
     return start_time
-
-
-def load_visbrain_hypnogram(path):
-    """Load a Visbrain formatted hypnogram."""
-    df = pd.read_csv(path, sep="\t", names=["state", "end_time"], comment="*")
-    df["start_time"] = df.apply(lambda row: _infer_bout_start(df, row), axis=1)
-    df["duration"] = df.apply(lambda row: row.end_time - row.start_time, axis=1)
-    return FloatHypnogram(df)
-
-
-def load_spike2_hypnogram(path):
-    """Load a Spike2 formatted hypnogram."""
-    df = pd.read_table(
-        path,
-        sep="\t",
-        names=["epoch", "start_time", "end_time", "state", "comment", "blank"],
-        usecols=["epoch", "start_time", "end_time", "state"],
-        index_col="epoch",
-        skiprows=22,
-    )
-    return FloatHypnogram(df)
-
-
-def load_sleepsign_hypnogram(path):
-    """Load a SleepSign hypnogram, exported using the `trend` function."""
-    df = pd.read_table(
-        path,
-        skiprows=19,
-        usecols=[0, 1, 2],
-        names=["start_time", "epoch", "state"],
-        parse_dates=["start_time"],
-        index_col="epoch",
-    )
-    # Make sure that the data starts with epoch 0.
-    assert (
-        df.index.values[0] == 0
-    ), "First epoch found is not #0. Unexpected number of header lines in file?"
-
-    # The datetimes in the first column are meaningless. Convert them to floats.
-    df["start_time"] = (df.start_time - df.start_time[0]) / pd.to_timedelta(1, "s")
-
-    # Make sure all epochs are the same length, so that we can safely infer the file's end time.
-    def _all_equal(iterator):
-        """Check if all items in an un-nested array are equal."""
-        try:
-            iterator = iter(iterator)
-            first = next(iterator)
-            return all(first == rest for rest in iterator)
-        except StopIteration:
-            return True
-
-    epoch_lengths = df.start_time.diff().values[1:]
-    assert _all_equal(epoch_lengths), "Epochs are not all the same length."
-    epoch_length = epoch_lengths[0]
-
-    # Infer the epoch end times, and compute epoch durations
-    df["end_time"] = df.start_time + epoch_length
-    df["duration"] = df.apply(lambda row: row.end_time - row.start_time, axis=1)
-    assert all(df.duration == epoch_length)
-
-    # Reorder columns and return
-    df = df[["state", "start_time", "end_time", "duration"]]
-    return FloatHypnogram(df)
-
-
-def load_datetime_hypnogram(path):
-    """Load a hypnogram whose entries are valid datetime strings."""
-    try:
-        df = pd.read_csv(path, sep="\t")
-    except pd.errors.EmptyDataError:
-        return None
-
-    df["start_time"] = pd.to_datetime(df["start_time"])
-    df["end_time"] = pd.to_datetime(df["end_time"])
-    df["duration"] = pd.to_timedelta(df["duration"])
-    return DatetimeHypnogram(df)
-
-
-def get_dummy_hypnogram(end_time):
-    """Return an empty, unscored hypnogram.
-
-    Parameters
-    ----------
-    end_time: float
-        The time at which the hypnogram should end, in seconds.
-
-    Returns:
-        H: pd.DataFrame
-            A hypnogram containing a single state ("None") extending from t=0 until `end_time`.
-    """
-    df = pd.DataFrame(
-        {
-            "state": "None",
-            "start_time": [0.0],
-            "end_time": [end_time],
-            "duration": [end_time],
-        }
-    )
-    return FloatHypnogram(df)
 
 
 def get_separated_wake_hypnogram(qwk_intervals, awk_intervals):
@@ -650,3 +675,41 @@ def _check_time(t):
             )
 
     raise ValueError("Unexpected time of day type.")
+
+
+#####
+# Deprecated loading functions.
+# TODO: Remove
+#####
+
+
+def load_visbrain_hypnogram(path):
+    """Load a Visbrain formatted hypnogram."""
+    warnings.warn(
+        "load_visbrain_hypnogram is deprecated and will be removed. Use FloatHypnogram.from_visbrain instead."
+    )
+    return FloatHypnogram.from_visbrain(path)
+
+
+def load_spike2_hypnogram(path):
+    """Load a Spike2 formatted hypnogram."""
+    warnings.warn(
+        "load_spike2_hypnogram is deprecated and will be removed. Use FloatHypnogram.from_Spike2 instead."
+    )
+    return FloatHypnogram.from_Spike2(path)
+
+
+def load_sleepsign_hypnogram(path):
+    """Load a SleepSign hypnogram, exported using the `trend` function."""
+    warnings.warn(
+        "load_sleepsign_hypnogram is deprecated and will be removed. Use FloatHypnogram.from_SleepSign instead."
+    )
+    return FloatHypnogram.from_SleepSign(path)
+
+
+def load_datetime_hypnogram(path):
+    """Load a hypnogram whose entries are valid datetime strings."""
+    warnings.warn(
+        "load_datetime_hypnogram is deprecated and will be removed. Use DatetimeHypnogram.from_htsv instead."
+    )
+    return DatetimeHypnogram.from_htsv(path)
