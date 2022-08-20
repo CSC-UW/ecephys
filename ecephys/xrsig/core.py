@@ -336,7 +336,12 @@ class ChannelScalars(DataArrayWrapper):
         da = (
             self.sortby("y") if "y" in self.coords else self._da
         )  # Sort by depth if possible
-        da.plot.line(y="channel", ax=ax, **kwargs)
+        da.plot.line(y="y", ax=ax, **kwargs)
+        ytick_labels = [
+            x for x in zip(np.round(da["y"].values, 2), da["channel"].values)
+        ]
+        ax.set_yticks(da.y.values)
+        ax.set_yticklabels(ytick_labels)
 
         if "structure" in self.coords:
             boundaries = da.isel(channel=utils.get_boundary_ilocs(da, "structure"))
