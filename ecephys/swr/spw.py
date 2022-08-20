@@ -148,32 +148,30 @@ def detect_spws_by_value(
 
 def detect_spws_by_zscore(
     csd,
-    spw_center,
-    n_coarse,
-    n_fine,
-    detection_threshold,
-    boundary_threshold,
-    minimum_duration,
+    spwCenter,
+    nCoarse,
+    nFine,
+    detectionThreshold,
+    boundaryThreshold,
+    minimumDuration,
 ):
     """See `detect_by_value`, but using zscores."""
     csd = csd.swap_dims({"pos": "channel"})
-    cdc = swr.get_coarse_detection_chans(
-        spw_center, n_coarse, csd.channel.values.tolist()
+    chans = swr.get_coarse_detection_chans(
+        spwCenter, nCoarse, csd.channel.values.tolist()
     )
-    ser = get_spw_detection_series(csd, cdc, n_fine)
+    ser = get_spw_detection_series(csd, chans, nFine)
 
     spws = evd.detect_by_zscore(
         ser.values,
         ser.time.values,
-        detection_threshold,
-        boundary_threshold,
-        minimum_duration,
+        detectionThreshold,
+        boundaryThreshold,
+        minimumDuration,
     )
-    spws.attrs["center_channel"] = spw_center
-    spws.attrs["n_coarse"] = n_coarse
-    spws.attrs["n_fine"] = n_fine
-    if "datetime" in ser.coords:
-        spws.attrs["t0"] = np.datetime_as_string(ser.datetime.values.min())
+    spws.attrs["centerChannel"] = spwCenter
+    spws.attrs["nCoarse"] = nCoarse
+    spws.attrs["nFine"] = nFine
     return swr.get_peak_info(ser, spws)
 
 
