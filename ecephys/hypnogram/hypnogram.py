@@ -185,7 +185,7 @@ class FloatHypnogram(Hypnogram):
         return self.__class__(self.loc[self.duration > duration])
 
     @classmethod
-    def get_dummy(cls, end_time):
+    def get_dummy(cls, start_time=0.0, end_time=np.Inf):
         """Return an empty, unscored hypnogram.
 
         Parameters
@@ -200,9 +200,9 @@ class FloatHypnogram(Hypnogram):
         df = pd.DataFrame(
             {
                 "state": "None",
-                "start_time": [0.0],
-                "end_time": [end_time],
-                "duration": [end_time],
+                "start_time": [float(start_time)],
+                "end_time": [float(end_time)],
+                "duration": [float(end_time - start_time)],
             }
         )
         return cls(df)
