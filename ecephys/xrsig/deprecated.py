@@ -2,6 +2,7 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 from ..signal import timefrequency as tfr
+from . import core
 
 #####
 # Likely deprecated utils
@@ -108,3 +109,101 @@ def single_spectrogram_welch(sig, **kwargs):
         sig.values.squeeze(), sig.fs, **kwargs
     )
     return wrapper(freqs, spg_time, spg, sig)
+
+
+class SPGs(core.TimeseriesND):
+    """Multsignal spectrograms.
+    Dimensions: ('frequency', 'time', <signal>).
+    Attributes:
+        fs: Sampling rate
+
+    'time' is seconds from a reference period (usually the start of the experiment).
+    """
+
+    def __init__(self, da):
+        super().__init__(da)
+        self._validate()
+
+    def _validate(self):
+        expected = ("frequency", "time")
+        if not self.dims[:2] == expected:
+            raise AttributeError(
+                f"{self.__class__.__name__} must have first dimensions {expected}."
+            )
+
+    def spectra(self):
+        spectra = self.median(dim="time")
+        return PSDs(spectra)
+
+    def bandpowers(self, fRange):
+        """Get band-limited power from a spectrogram.
+
+        Parameters
+        ----------
+        f_range: (float, float)
+            Frequency range to restrict to, as [f_low, f_high].
+
+        Returns:
+        --------
+        bandpower: xr.DataArray (time, channel)
+            Sum of the power in `f_range` at each point in time.
+        """
+        bandpower = self.sel(frequency=slice(*fRange)).sum(dim="frequency")
+        bandpower.attrs["fRange"] = fRange
+        return bandpower
+
+    def multiband_powers(self, bands):
+        """Get multiple bandpower series in a single Dataset object.
+
+        Examples
+        --------
+            self.multiband_powers({'delta': (0.5, 4), 'theta': (5, 10)})
+        """
+        return xr.Dataset(
+            {
+                band_name: self.bandpowers(f_range)
+                for band_name, f_range in bands.items()
+            }
+        )
+
+
+class PSDs(core.DataArrayWrapper):
+    """Channelwise power spectral densities.
+    Dimensions: ('frequency', <signal>)."""
+
+    def __init__(self, da):
+        super().__init__(da)
+        self._validate()
+
+    def _validate(self):
+        expected = ("frequency", "channel")
+        if not self.dims == expected:
+            raise AttributeError(
+                f"{self.__class__.__name__} must have dimensions {expected}."
+            )
+
+    def bandpower(self, slice):
+        pow = self.sel(frequency=slice).sum(dim="frequency")
+        return core.LaminarScalars(pow)
+
+
+class Spectrogram(core.DataArrayWrapper):
+    """Single spectrogram, for a channel or region.
+    Dimensions: ('frequency', 'time').
+    'time' is seconds from a reference period (usually the start of the experiment)."""
+
+    def __init__(self, da):
+        super().__init__(da)
+        self._validate()
+
+    def _validate(self):
+        expected = ("frequency", "time")
+        if not self.dims == expected:
+            raise AttributeError(
+                f"{self.__class__.__name__} must have dimensions {expected}.\n"
+                f"Got dimensions {self.dims}."
+            )
+
+    def bandpower(self, f_range):
+        pow = self.sel(frequency=slice(*f_range)).sum(dim="frequency")
+        return pow

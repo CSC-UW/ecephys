@@ -7,6 +7,7 @@ import ecephys.emg_from_lfp as lfemg
 from ecephys.signal import timefrequency as tfr
 from ecephys.signal import filt
 
+from .. import utils as ece_utils
 from . import utils
 
 
@@ -15,8 +16,15 @@ class DataArrayWrapper:
     This allows one to effectively extend the DataArray type without subclassing it directly,
     using the principle of composition over inheritance."""
 
-    def __init__(self, da):
-        assert isinstance(da, xr.DataArray)
+    def __init__(self, obj):
+        if isinstance(obj, DataArrayWrapper):
+            da = obj._da
+        elif isinstance(obj, xr.DataArray):
+            da = obj
+        else:
+            raise ValueError(
+                f"Cannot create {self.__class__.__name__} from object of type {type(obj)}."
+            )
         self._da = da
 
     def __getattr__(self, attr):
@@ -43,14 +51,14 @@ class DataArrayWrapper:
         vars(self).update(state)
 
 
-class LocalFieldPotentials(DataArrayWrapper):
-    """Provides methods for operating on LFPs.
-
-    Dimensions: ('time', 'channel').
+class Timeseries(DataArrayWrapper):
+    """
+    Required dimension: "time"
     Attributes:
         fs: Sampling rate
 
-    'time' is seconds from a reference period (usually the start of the experiment)."""
+    'time' is seconds from a reference period (usually the start of the experiment).
+    """
 
     def __init__(self, da):
         super().__init__(da)
@@ -74,11 +82,10 @@ class LocalFieldPotentials(DataArrayWrapper):
         return len(self._da)
 
     def _validate(self):
-        expected_dims = ("time", "channel")
         expected_attrs = {"fs"}
-        if not self.dims == expected_dims:
+        if not "time" in self.dims:
             raise AttributeError(
-                f"{self.__class__.__name__} must have dimensions {expected_dims}."
+                f"{self.__class__.__name__} must have dimension `time`."
             )
         for attr in expected_attrs:
             if not attr in self.attrs:
@@ -86,68 +93,117 @@ class LocalFieldPotentials(DataArrayWrapper):
                     f"{self.__class__.__name__} must have attribute {attr}."
                 )
 
-    def spectrograms(self, **kwargs):
-        """Get spectrograms for each channel using Welch's method.
-        Extra keyword arguments are passed down to scipy.signal.welch.
-        """
-        # TODO: Checkut xrft package!
-        # If a window length has not been specified, use 4s, to be sure we can capture 0.5Hz.
-        if "nperseg" not in kwargs:
-            fft_window_length = 4  # seconds
-            kwargs.update({"nperseg": int(fft_window_length * self.fs)})
-
-        freqs, spg_time, spg = tfr.parallel_spectrogram_welch(
-            self.transpose("time", "channel").values, self.fs, **kwargs
-        )
-        time = (
-            self.time.values.min() + spg_time
-        )  # Account for the fact that t[0] might not == 0.
-
-        spgda = xr.DataArray(
-            np.atleast_3d(spg),
-            dims=("frequency", "time", "channel"),
-            coords={
-                "frequency": freqs,
-                "time": time,
-                **self.channel.coords,  # Copy any channel coord data, like x, y pos.
-            },
-        )
-        spgda = spgda.assign_attrs(self.attrs)
-
-        if "timedelta" in self.coords:
-            timedelta = self.timedelta.values.min() + pd.to_timedelta(spg_time, "s")
-            spgda = spgda.assign_coords({"timedelta": ("time", timedelta)})
-        if "datetime" in self.coords:
-            datetime = self.datetime.values.min() + pd.to_timedelta(spg_time, "s")
-            spgda = spgda.assign_coords({"datetime": ("time", datetime)})
-
-        if "units" in spgda.attrs:
-            spgda = spgda.assign_attrs({"units": f"{spgda.units}^2/Hz"})
-
-        return ChannelSpectrograms(spgda)
-
     def butter_bandpass(self, lowcut, highcut, order, plot=True):
         _da = self._da.copy()
         _da.values = filt.butter_bandpass(
             _da.values.T, lowcut, highcut, _da.fs, order, plot
         ).T
         if plot:
-            plot_duration = 1  # seconds
-            plot_time = slice(self.time.min(), self.time.min() + plot_duration)
-            self.sel(time=plot_time).plot.line(
+            plotDur = 1  # seconds
+            plotT = slice(self.time.min(), self.time.min() + plotDur)
+            self.sel(time=plotT).plot.line(
                 x="time", add_legend=False, figsize=(36, 5), alpha=0.1
             )
-            plt.title(f"First {plot_duration}s of original signal")
-            _da.sel(time=plot_time).plot.line(
+            plt.title(f"First {plotDur}s of original signal")
+            _da.sel(time=plotT).plot.line(
                 x="time", add_legend=False, figsize=(36, 5), alpha=0.1
             )
-            plt.title(f"First {plot_duration}s of filtered signal")
+            plt.title(f"First {plotDur}s of filtered signal")
         return self.__class__(_da)
 
-    def kCSD(self, drop_chans=[], do_lcurve=False, **kcsd_kwargs):
+
+class TimeseriesND(Timeseries):
+    """
+    Dimensions: (..., 'time', ..., <signal>).
+    Attributes:
+        fs: Sampling rate
+
+    'time' is seconds from a reference period (usually the start of the experiment).
+    """
+
+    def __init__(self, da):
+        super().__init__(da)
+        self._validate()
+        self._lastdim = self.dims[-1]
+
+    def _validate(self):
+        if not len(self.dims) > 1:
+            raise AttributeError(f"{self.__class__.__name__} must have >1 dimension.")
+        if not "time" in self.dims[:-1]:
+            raise AttributeError(
+                f"{self.__class__.__name__} must include dimension `time` in the first N-1 dimensions."
+            )
+
+
+class Timeseries2D(TimeseriesND):
+    """
+    Dimensions: ('time', <other>).
+    Attributes:
+        fs: Sampling rate
+
+    'time' is seconds from a reference period (usually the start of the experiment).
+    """
+
+    def __init__(self, da):
+        super().__init__(da)
+        self._validate()
+
+    def _validate(self):
+        if not len(self.dims) == 2:
+            raise AttributeError(f"{self.__class__.__name__} must have 2 dimensions.")
+
+    def spectrograms(self, **kwargs):
+        """Get spectrograms for each channel using Welch's method.
+        Extra keyword arguments are passed down to scipy.signal.welch.
+        """
+        # If a window length has not been specified, use 4s, to be sure we can capture 0.5Hz.
+        if "nperseg" not in kwargs:
+            fft_window_length = 4  # seconds
+            kwargs.update({"nperseg": int(fft_window_length * self.fs)})
+
+        freqs, spg_time, spg_vals = tfr.parallel_spectrogram_welch(
+            self.transpose("time", self._lastdim).values, self.fs, **kwargs
+        )
+        time = (
+            self.time.values.min() + spg_time
+        )  # Account for the fact that t[0] might not == 0.
+
+        spgs = xr.DataArray(
+            np.atleast_3d(spg_vals),
+            dims=("frequency", "time", self._lastdim),
+            coords={
+                "frequency": freqs,
+                "time": time,
+                **self[
+                    self._lastdim
+                ].coords,  # Copy any channel coord data, like x, y pos.
+            },
+        )
+        spgs = spgs.assign_attrs(self.attrs)
+
+        if "units" in spgs.attrs:
+            spgs = spgs.assign_attrs({"units": f"{spgs.units}^2/Hz"})
+
+        return spgs
+
+
+class LFPs(Timeseries2D):
+    """Provides methods for operating on LFPs.
+
+    Dimensions: ('time', <signal>).
+    Attributes:
+        fs: Sampling rate
+
+    'time' is seconds from a reference period (usually the start of the experiment).
+    """
+
+    def kCSD(self, drop=[], doLCurve=False, **kCsdKwargs):
         """Compute 1D kernel current source density.
         If signal units are in uV, then CSD units are in nA/mm.
-        Must have a y coordinate on the channel dimension, with units in um.
+
+        Required coords:
+        ----------------
+        y, with units in um
 
         Paramters:
         ----------
@@ -165,42 +221,51 @@ class LocalFieldPotentials(DataArrayWrapper):
             exactly to electrode positions, a `channel` coordinate on the `pos` dimension
             will give corresponding channels for each estimate.
         """
-        um_per_mm = 1000  # Convert um to mm for KCSD package.
-        chans_before_drop = (
-            self.channel.values
-        )  # Save for later, because KCSD will still give us estimates at dropped channels.
-        ele_pos_before_drop = self.y.values / um_per_mm
-        lfda = self.drop_sel(channel=drop_chans, errors="ignore")
-        lfda = lfda.groupby("y").first()
-        lfda = lfda.transpose("y", "time")
-        ele_pos = lfda.y.values / um_per_mm
+        umPerMm = 1000
+        if not "y" in self.coords:
+            raise AttributeError(
+                f"kCSD method requires a y coordinate on the last dimension."
+            )
 
-        k = kcsd.KCSD1D(ele_pos.reshape(-1, 1), lfda.values, **kcsd_kwargs)
+        def get_pitch(y):
+            """Get the vertical spacing between electrode sites, in microns"""
+            vals = np.diff(np.unique(y))
+            assert ece_utils.all_equal(vals), "Electrode pitch is not uniform."
+            return np.absolute(vals[0])
 
-        if do_lcurve:
-            print("Performing L-curve parameter estimation...")
+        # Make sure we get CSD estimates at electrode locations, rather than say, in between electrodes.
+        pitchMm = (
+            get_pitch(self["y"].values) / umPerMm
+        )  # Convert um to mm for KCSD package.
+        gdx = kCsdKwargs.get("gdx", None)
+        if (gdx is not None) and (gdx != pitchMm):
+            raise ValueError("Requested gdx does not match electrode pitch.")
+        else:
+            kCsdKwargs.update(gdx=pitchMm)
+
+        # Drop bad signals and redundant signals
+        sigs = self.drop_sel({self._lastdim: drop}, errors="ignore")
+        sigs = sigs.groupby("y").first()
+
+        # Convert um to mm for KCSD package.
+        elePosMm = sigs["y"].values / umPerMm
+
+        # Compute kCSD
+        sigs = sigs.transpose("y", "time")
+        k = kcsd.KCSD1D(elePosMm.reshape(-1, 1), sigs.values, **kCsdKwargs)
+        if doLCurve:
+            print("Performing L-Curve parameter estimation...")
             k.L_curve()
 
-        csd = xr.DataArray(
-            k.values("CSD"),
-            dims=("pos", "time"),
-            coords={"pos": k.estm_x, "time": lfda.time.values},
-        )
-        if "timedelta" in lfda.coords:
-            csd = csd.assign_coords({"timedelta": ("time", lfda.timedelta.values)})
-        if "datetime" in lfda.coords:
-            csd = csd.assign_coords({"datetime": ("time", lfda.datetime.values)})
+        # Check and format result
+        assert (k.estm_x.size == self["y"].size) and np.allclose(
+            k.estm_x * umPerMm, self["y"].values
+        ), "CSD returned estimates that do not match original signal positions exactly."
+        csd = self._da.copy()
+        csd.values = k.values("CSD").T
+        return csd.assign_attrs(kcsd=k)
 
-        if (k.estm_x.size == ele_pos_before_drop.size) and np.allclose(
-            k.estm_x, ele_pos_before_drop
-        ):
-            csd = csd.assign_coords({"channel": ("pos", chans_before_drop)})
-
-        csd = csd.assign_attrs(kcsd=k, fs=lfda.fs)
-
-        return KernelCurrentSourceDensity(csd)
-
-    def synthetic_emg(self, **emg_kwargs):
+    def synthetic_emg(self, **emgKwargs):
         """Estimate the EMG from LFP signals, using the `emg_from_lfp` subpackage.
 
         Parameters used for the computation are stored as attributes on the returned DataArray.
@@ -216,102 +281,25 @@ class LocalFieldPotentials(DataArrayWrapper):
             EMG with time dimension and timedelta, datetime coords.
         """
         values = lfemg.compute_emg(
-            self.transpose("channel", "time").values, self.fs, **emg_kwargs
+            self.transpose(self._lastdim, "time").values, self.fs, **emgKwargs
         ).flatten()
         time = np.linspace(self.time.min(), self.time.max(), values.size)
-        timedelta = pd.to_timedelta(time, "s")
-        datetime = self.datetime.values.min() + timedelta
 
         emg = xr.DataArray(
             values,
             dims="time",
             coords={
                 "time": time,
-                "timedelta": ("time", timedelta),
-                "datetime": ("time", datetime),
             },
-            attrs={"long_name": "emg_from_lfp", "units": "zero-lag correlation"},
+            attrs={"long_name": "emg_from_lfp", "units": "corr"},
         )
-        for key in emg_kwargs:
-            emg.attrs[key] = emg_kwargs[key]
+        for key in emgKwargs:
+            emg.attrs[key] = emgKwargs[key]
 
         return emg
 
 
-class ChannelSpectrograms(DataArrayWrapper):
-    """Channelwise spectrograms.
-    Dimensions: ('frequency', 'time', 'channel').
-    'time' is seconds from a reference period (usually the start of the experiment)."""
-
-    def __init__(self, da):
-        super().__init__(da)
-        self._validate()
-
-    def _validate(self):
-        expected = ("frequency", "time", "channel")
-        if not self.dims == expected:
-            raise AttributeError(
-                f"{self.__class__.__name__} must have dimensions {expected}.\n"
-                f"Got dimensions {self.dims}."
-            )
-
-    def spectra(self):
-        spectra = self.median(dim="time")
-        return ChannelSpectra(spectra)
-
-    def bandpowers(self, f_range):
-        """Get band-limited power from a spectrogram.
-
-        Parameters
-        ----------
-        f_range: (float, float)
-            Frequency range to restrict to, as [f_low, f_high].
-
-        Returns:
-        --------
-        bandpower: xr.DataArray (time, channel)
-            Sum of the power in `f_range` at each point in time.
-        """
-        bandpower = self.sel(frequency=slice(*f_range)).sum(dim="frequency")
-        bandpower.attrs["f_range"] = f_range
-        return bandpower
-
-    def multiband_powers(self, bands):
-        """Get multiple bandpower series in a single Dataset object.
-
-        Examples
-        --------
-            self.multiband_powers({'delta': (0.5, 4), 'theta': (5, 10)})
-        """
-        return xr.Dataset(
-            {
-                band_name: self.bandpowers(f_range)
-                for band_name, f_range in bands.items()
-            }
-        )
-
-
-class ChannelSpectra(DataArrayWrapper):
-    """Channelwise power spectral densities.
-    Dimensions: ('frequency', 'channel')."""
-
-    def __init__(self, da):
-        super().__init__(da)
-        self._validate()
-
-    def _validate(self):
-        expected = ("frequency", "channel")
-        if not self.dims == expected:
-            raise AttributeError(
-                f"{self.__class__.__name__} must have dimensions {expected}."
-            )
-
-    def bandpower(self, slice):
-        pow = self.sel(frequency=slice).sum(dim="frequency")
-        return ChannelScalars(pow)
-
-
-class ChannelScalars(DataArrayWrapper):
+class LaminarScalars(DataArrayWrapper):
     """Any channelwise scalar data.
 
     Dimensions: ('channel',)."""
@@ -349,56 +337,3 @@ class ChannelScalars(DataArrayWrapper):
             ax.set_yticklabels(boundaries.structure.values)
             for ch in boundaries.channel:
                 ax.axhline(ch, alpha=0.5, color="dimgrey", linestyle="--")
-
-
-class Spectrogram(DataArrayWrapper):
-    """Single spectrogram, for a channel or region.
-    Dimensions: ('frequency', 'time').
-    'time' is seconds from a reference period (usually the start of the experiment)."""
-
-    def __init__(self, da):
-        super().__init__(da)
-        self._validate()
-
-    def _validate(self):
-        expected = ("frequency", "time")
-        if not self.dims == expected:
-            raise AttributeError(
-                f"{self.__class__.__name__} must have dimensions {expected}.\n"
-                f"Got dimensions {self.dims}."
-            )
-
-    def bandpower(self, f_range):
-        pow = self.sel(frequency=slice(*f_range)).sum(dim="frequency")
-        return pow
-
-
-class KernelCurrentSourceDensity(DataArrayWrapper):
-    """kCSD estimates.
-
-    Dimensions: ('time', 'pos').
-    Attributes:
-        fs: Sampling rate
-        kcsd: KCSD1D object
-
-    If the estimation locations requested of KCSD1D correspond
-    exactly to electrode positions, a `channel` coordinate on the `pos` dimension
-    will give corresponding channels for each estimate.
-    """
-
-    def __init__(self, da):
-        super().__init__(da)
-        self._validate()
-
-    def _validate(self):
-        expected_dims = ("pos", "time")
-        expected_attrs = {"fs", "kcsd"}
-        if not self.dims == expected_dims:
-            raise AttributeError(
-                f"{self.__class__.__name__} must have dimensions {expected_dims}."
-            )
-        for attr in expected_attrs:
-            if not attr in self.attrs:
-                raise AttributeError(
-                    f"{self.__class__.__name__} must have attribute {attr}."
-                )
