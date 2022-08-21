@@ -81,13 +81,13 @@ def get_spw_detection_series(
         The minima, at each time, of the locally smoothed CSD.
         The channel of each minimum is preserved.
     """
-    _csd = (
+    dat = (
         csd.sel(channel=coarse_detection_chans)
         .rolling(channel=n_fine_detection_chans, center=True)
         .mean()
         .dropna(dim="channel")
     )
-    return -_csd[_csd.argmin(dim="channel")]
+    return -dat.isel(channel=dat.argmin(dim="channel"))
 
 
 def detect_spws_by_value(
@@ -156,9 +156,8 @@ def detect_spws_by_zscore(
     minimumDuration,
 ):
     """See `detect_by_value`, but using zscores."""
-    csd = csd.swap_dims({"pos": "channel"})
     chans = swr.get_coarse_detection_chans(
-        spwCenter, nCoarse, csd.channel.values.tolist()
+        spwCenter, nCoarse, csd["channel"].values.tolist()
     )
     ser = get_spw_detection_series(csd, chans, nFine)
 
@@ -293,9 +292,7 @@ def spw_explorer_xr(
     chans = utils.get_values_around(lfp.channel.values, center_chan, n_chans)
 
     _lfp = lfp.sel(time=slice(plot_start_time, plot_end_time), channel=chans)
-    _csd = csd.swap_dims({"pos": "channel"}).sel(
-        time=slice(plot_start_time, plot_end_time), channel=chans
-    )
+    _csd = csd.sel(time=slice(plot_start_time, plot_end_time), channel=chans)
 
     # Plot LFP
     lfp_ax.set_facecolor("none")
@@ -315,9 +312,9 @@ def spw_explorer_xr(
     csd_ax.set_zorder(lfp_ax.get_zorder() - 1)
     if show_csd:
         plot.colormesh_explorer(
-            _csd.time.values, _csd.values.T, y=_csd.pos.values, ax=csd_ax, flip_ud=True
+            _csd.time.values, _csd.values, y=_csd.y.values, ax=csd_ax, flip_ud=True
         )
-        csd_ax.set_ylabel("Depth (mm)")
+        csd_ax.set_ylabel("Depth (um)")
         csd_ax.set_xlabel("Time [sec]")
 
     # Highlight each spw
@@ -459,11 +456,11 @@ def lazy_spw_explorer(
 
     # Compute CSD
     if show_csd:
-        lf = xrsig.LocalFieldPotentials(lfp)
+        lf = xrsig.LFPs(lfp)
         csd = lf.kCSD(
             ele_pos=np.asarray(csd_params["ele_pos"]).squeeze(),
-            drop_chans=csd_params["channels_omitted_from_csd_estimation"],
-            do_lcurve=False,
+            rop=csd_params["channels_omitted_from_csd_estimation"],
+            doLCurve=False,
             gdx=csd_params["gdx"],
             R_init=csd_params["R"],
             lambd=csd_params["lambd"],

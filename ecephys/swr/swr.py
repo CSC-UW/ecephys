@@ -1,11 +1,49 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy import signal
-import ripple_detection.core as rdc
 from ..signal import event_detection as evd
 
 
-def apply_ripple_filter(sig, fs):
-    """Apply 150-250Hz ripple filter to multichannel lfp data.
+def plot_filter_response(fs, w, h, title):
+    "Utility function to plot response functions"
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(0.5 * fs * w / np.pi, 20 * np.log10(np.abs(h)))
+    ax.set_ylim(-40, 5)
+    ax.set_xlim(0, 0.5 * fs)
+    ax.grid(True)
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel("Gain (dB)")
+    ax.set_title(title)
+
+
+def ripple_bandpass_filter(sampling_frequency, ripple_band=(125, 250), plot=False):
+    """
+    Notes
+    ------
+    Based on Eric Denovellis' ripple detection package [1].
+    [1] https://github.com/Eden-Kramer-Lab/ripple_detection
+    """
+    ORDER = 101
+    nyquist = 0.5 * sampling_frequency
+    TRANSITION_BAND = 25
+    desired = [
+        0,
+        ripple_band[0] - TRANSITION_BAND,
+        ripple_band[0],
+        ripple_band[1],
+        ripple_band[1] + TRANSITION_BAND,
+        nyquist,
+    ]
+    taps = signal.remez(ORDER, desired, [0, 1, 0], Hz=sampling_frequency)
+    if plot:
+        w, h = signal.freqz(taps, [1], worN=1024)
+        plot_filter_response(sampling_frequency, w, h, "Ripple filter response.")
+    return taps, 1.0
+
+
+def apply_ripple_filter(sig, fs, ripple_band=(125, 250), plot_filter=False):
+    """Apply ripple filter to multichannel lfp data.
 
     Parameters
     ----------
@@ -24,7 +62,9 @@ def apply_ripple_filter(sig, fs):
     Based on Eric Denovellis' ripple detection package [1].
     [1] https://github.com/Eden-Kramer-Lab/ripple_detection
     """
-    filter_numerator, filter_denominator = rdc.ripple_bandpass_filter(fs)
+    filter_numerator, filter_denominator = ripple_bandpass_filter(
+        fs, ripple_band, plot_filter
+    )
     is_nan = np.any(np.isnan(sig), axis=-1)
     filtered_sig = np.full_like(sig, np.nan)
     filtered_sig[~is_nan] = signal.filtfilt(
