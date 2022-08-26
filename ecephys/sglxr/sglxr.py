@@ -236,7 +236,7 @@ def load_contiguous_triggers(bin_paths, chans=None, t0=0.0, dt0="fileCreateTime"
             very first file's metadata is used as t0
     """
     triggers = [load_trigger(bin_paths[0], chans, t0=t0, dt0=dt0)] + [
-        load_trigger(p) for p in bin_paths[1:]
+        load_trigger(p, chans) for p in bin_paths[1:]
     ]
     data = xr.concat(triggers, dim="time")
 
