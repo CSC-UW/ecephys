@@ -1,7 +1,9 @@
 import itertools
 import xarray as xr
-import numpy as np
+import ssqueezepy as ssq
+import matplotlib.pyplot as plt
 from brainbox import lfp as bblfp
+from tqdm.auto import tqdm
 
 
 def single_pair_coherence(lf, chA, chB):
@@ -28,7 +30,7 @@ def sequential_pairwise_coherence(lf):
         },
     )
     lag = coh.copy()
-    for chA, chB in itertools.combinations(lf.channel.values, 2):
+    for chA, chB in tqdm(itertools.combinations(lf.channel.values, 2)):
         freqs, coherence, phase_lag = single_pair_coherence(lf, chA, chB)
         assert all(freqs == freqs_)
         coh.loc[dict(chA=chA, chB=chB)] = coherence
@@ -41,3 +43,23 @@ def sequential_pairwise_coherence(lf):
         lag.loc[dict(chA=ch, chB=ch)] = 0
 
     return coh, lag
+
+
+def ssq_cwt_scale_selection(
+    N, wavelet="gmw", scaletype="log-piecewise", preset="maximal", nv=32, downsample=4
+):
+    M = ssq.utils.p2up(N)[0]
+    wavelet = ssq.Wavelet(wavelet, N=M)
+    min_scale, max_scale = ssq.utils.cwt_scalebounds(wavelet, N=N, preset=preset)
+    scales = ssq.utils.make_scales(
+        N,
+        min_scale,
+        max_scale,
+        nv=nv,
+        scaletype=scaletype,
+        wavelet=wavelet,
+        downsample=downsample,
+    )
+
+    plt.figure(figsize=(22, 6))
+    wavelet.viz("filterbank", scales=scales)
