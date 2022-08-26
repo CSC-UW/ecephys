@@ -155,9 +155,10 @@ def read_npy_as_da(object, dir=None):
     )
 
 
-def save_xarray(xr_obj, path):
+def save_xarray(xr_obj, path, **kwargs):
     """Save an Xarray object to NetCDF, which preserves obj.attrs as long as they are serializable"""
-    assert isinstance(xr_obj, xr.DataArray) or isinstance(xr_obj, xr.Dataset)
+    if not (isinstance(xr_obj, xr.DataArray) or isinstance(xr_obj, xr.Dataset)):
+        raise ValueError(f"Expected DataArray or Dataset, got {type(xr_obj)}.")
     Path(path).parent.mkdir(
         parents=True, exist_ok=True
     )  # Create parent directories if needed.
@@ -165,7 +166,7 @@ def save_xarray(xr_obj, path):
     if isinstance(xr_obj, xr.Dataset):
         for var in xr_obj.variables:
             xr_obj[var].attrs = drop_unserializeable(xr_obj[var].attrs)
-    xr_obj.to_netcdf(path)
+    xr_obj.to_netcdf(path, **kwargs)
     xr_obj.close()
 
 
