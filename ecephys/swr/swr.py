@@ -86,6 +86,8 @@ def get_peak_info(sig, evts):
         The events, with each event's start and end times.
     """
     evts = evts.copy()
+    if len(evts) == 0:
+        return evts
 
     def _get_peak_info(spw):
         spw_sig = sig.sel(time=slice(spw.start_time, spw.end_time))
@@ -93,27 +95,27 @@ def get_peak_info(sig, evts):
         return peak.item(), peak.time.item(), peak.channel.item()
 
     info = list(map(_get_peak_info, evts.itertuples()))
-    evts[["peak_amplitude", "peak_time", "peak_channel"]] = info
+    evts[["peakAmp", "peakTime", "peakChan"]] = info
     return evts
 
 
-def get_coarse_detection_chans(center, n_coarse, chans):
+def get_coarse_detection_chans(center, nCoarse, chans):
     """Given a channel around which to detect events, get the neighboring channels.
 
     Parameters:
     ===========
     center: int
         The channel around which to detect events.
-    n_coarse: int
+    nCoarse: int
         An odd integer, indiciating the number of neighboring channels (inclusive) to use for detecting events.
     chans: np.array
         The channels for which you have data to detect.
     """
-    assert n_coarse % 2, "Must use an odd number of of detection channels."
+    assert nCoarse % 2, "Must use an odd number of of detection channels."
 
     idx = chans.index(center)
-    first = idx - n_coarse // 2
-    last = idx + n_coarse // 2 + 1
+    first = idx - nCoarse // 2
+    last = idx + nCoarse // 2 + 1
 
     assert first >= 0, "Cannot detect events outside the bounds of your data."
     assert last < len(chans), "Cannot detect events outside the bounds of your data."

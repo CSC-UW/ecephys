@@ -46,12 +46,12 @@ def load_spws_and_convert_to_datetime(path):
     assert "t0" in spws.attrs, "No `t0` field present for conversion to datetime."
     assert is_float_dtype(spws.start_time), "Expected float times. Already datetimes?"
     assert is_float_dtype(spws.end_time), "Expected float times. Already datetimes?"
-    assert is_float_dtype(spws.peak_time), "Expected float times. Already datetimes?"
+    assert is_float_dtype(spws.peakTime), "Expected float times. Already datetimes?"
 
     t0 = pd.to_datetime(spws.attrs["t0"])
     spws["start_time"] = t0 + pd.to_timedelta(spws["start_time"], "s")
     spws["end_time"] = t0 + pd.to_timedelta(spws["end_time"], "s")
-    spws["peak_time"] = t0 + pd.to_timedelta(spws["peak_time"], "s")
+    spws["peakTime"] = t0 + pd.to_timedelta(spws["peakTime"], "s")
 
     return spws
 
@@ -59,17 +59,17 @@ def load_spws_and_convert_to_datetime(path):
 # -------------------- Detection related functions --------------------
 
 
-def get_spw_detection_series(
+def get_sink_detection_series(
     csd, coarse_detection_chans=slice(None), n_fine_detection_chans=3
 ):
-    """Get the single timeseries to be threshold for SPW detection.
+    """Get the single timeseries to be threshold for current sink detection.
 
     Parameters
     ==========
     csd: (time, channel) DataArray
         Current source density.
     coarse_detection_chans: DataArray.sel indexer
-        Channels used for SPW detection.
+        Channels used for sink detection.
         Default: Use all channels present in the CSD.
     n_file_detection_chans: int
         The (preferably odd) number of neighboring channels to average over
@@ -90,88 +90,58 @@ def get_spw_detection_series(
     return -dat.isel(channel=dat.argmin(dim="channel"))
 
 
-def detect_spws_by_value(
+def detect_sinks(
     csd,
-    spw_center,
-    n_coarse,
-    n_fine,
-    detection_threshold,
-    boundary_threshold,
-    minimum_duration,
-):
-    """Detect SPWs using thresholds whose absolute values are provided.
-    Return SPWs as a DataFrame.
-
-    Parameters
-    ==========
-    csd: (time, channels) DataArray
-        The CSD to use for detection.
-    initial_peak_channel: int
-        A channel around which to start detecting SPWs at t0.
-    n_coarse_detection_chans: int
-        The odd number of neighboring channels on which to detect SPWs
-    detection_threshold: float
-        If the detection series exceeds this value, a sharp wave is detected.
-    boundary_threshold: float
-        The start and end times of each SPW are defined by when the detection series drops below this value.
-    minimum_duration: float
-        The time that a SPW must exceed the detection threshold.
-    """
-    csd = csd.swap_dims({"pos": "channel"})
-    print("Getting SPW detection channels.")
-    cdc = swr.get_coarse_detection_chans(
-        spw_center, n_coarse, csd.channel.values.tolist()
-    )
-    print("Getting SPW detection timeseries")
-    ser = get_spw_detection_series(csd, cdc, n_fine)
-
-    print("Detecting SPWs...")
-    spws = evd.detect_by_value(
-        ser.values,
-        ser.time.values,
-        detection_threshold,
-        boundary_threshold,
-        minimum_duration,
-    )
-    print(f"{len(spws)} SPWs detected.")
-    # TODO: There really isn't any reason to store attrs here...
-    spws.attrs["center_channel"] = spw_center
-    spws.attrs["n_coarse"] = n_coarse
-    spws.attrs["n_fine"] = n_fine
-    if len(spws) == 0:
-        return spws
-    elif "datetime" in ser.coords:
-        spws.attrs["t0"] = np.datetime_as_string(ser.datetime.values.min())
-        print("Getting info about SPW peaks.")
-        return swr.get_peak_info(ser, spws)
-
-
-def detect_spws_by_zscore(
-    csd,
-    spwCenter,
+    centerChan,
     nCoarse,
     nFine,
     detectionThreshold,
     boundaryThreshold,
     minimumDuration,
+    thresholdType,
 ):
-    """See `detect_by_value`, but using zscores."""
-    chans = swr.get_coarse_detection_chans(
-        spwCenter, nCoarse, csd["channel"].values.tolist()
-    )
-    ser = get_spw_detection_series(csd, chans, nFine)
+    """Detect current sinks, returning them as a dataframe.
 
-    spws = evd.detect_by_zscore(
+    Parameters
+    ==========
+    csd: (time, channels) DataArray
+        The CSD to use for detection.
+    centerChan: int
+        The channel ID of the expected sink centers.
+    nCoarse: int
+        The odd number of neighboring channels on which to detect sinks
+    detectionThreshold: float
+        If the detection series exceeds this value, a sink is detected.
+    boundaryThreshold: float
+        The start and end times of each sink are defined by when the detection series drops below this value.
+    minimumDuration: float
+        The time that a sink must exceed the detection threshold.
+    thresholdType: str
+        If 'zscore', interpret thresholds as zscores. If 'value', use absolute threshold values.
+    """
+    chans = swr.get_coarse_detection_chans(
+        centerChan, nCoarse, csd["channel"].values.tolist()
+    )
+    ser = get_sink_detection_series(csd, chans, nFine)
+
+    if thresholdType == "zscore":
+        fn = evd.detect_by_zscore
+    elif thresholdType == "value":
+        fn = evd.detect_by_value
+    else:
+        raise ValueError(f"thresholdType {thresholdType} not recognized.")
+
+    sinks = fn(
         ser.values,
         ser.time.values,
         detectionThreshold,
         boundaryThreshold,
         minimumDuration,
     )
-    spws.attrs["centerChannel"] = spwCenter
-    spws.attrs["nCoarse"] = nCoarse
-    spws.attrs["nFine"] = nFine
-    return swr.get_peak_info(ser, spws)
+    sinks.attrs["centerChannel"] = centerChan
+    sinks.attrs["nCoarse"] = nCoarse
+    sinks.attrs["nFine"] = nFine
+    return swr.get_peak_info(ser, sinks)
 
 
 # -------------------- Drift related functions --------------------
@@ -214,9 +184,9 @@ def estimate_swr_drift(spws, imec_map, frac=1 / 48, it=3):
         Computation time is a linear function of this valuable, but estimate quality is not.
     """
     um_per_mm = 1000
-    # peak_times = utils.dt_series_to_seconds(spws.peak_time)
-    peak_ycoords = imec_map.chans2coords(spws.peak_channel)[:, 1] / um_per_mm
-    t, y = _estimate_drift(spws.peak_time.values, peak_ycoords, frac=frac, it=it)
+    # peakTimes = utils.dt_series_to_seconds(spws.peakTime)
+    peak_ycoords = imec_map.chans2coords(spws.peakChan)[:, 1] / um_per_mm
+    t, y = _estimate_drift(spws.peakTime.values, peak_ycoords, frac=frac, it=it)
     nearest_y = utils.round_to_values(y, imec_map.y / um_per_mm)
     t0_chan = imec_map.y2chans(nearest_y[0] * um_per_mm)
     nearest_chans = imec_map.y2chans(nearest_y * um_per_mm)
@@ -225,7 +195,7 @@ def estimate_swr_drift(spws, imec_map, frac=1 / 48, it=3):
 
     return pd.DataFrame(
         {
-            # "dt": spws.peak_time.values,
+            # "dt": spws.peakTime.values,
             "t": t,
             "y": y,
             "nearest_y": nearest_y,
@@ -285,10 +255,10 @@ def spw_explorer_xr(
 
     # Compute peri-event window
     spw = spws.loc[event_number]
-    plot_start_time = spw.peak_time - plot_duration / 2
-    plot_end_time = spw.peak_time + plot_duration / 2
+    plot_start_time = spw.peakTime - plot_duration / 2
+    plot_end_time = spw.peakTime + plot_duration / 2
 
-    center_chan = spw.peak_channel if center_chan is None else center_chan
+    center_chan = spw.peakChan if center_chan is None else center_chan
     chans = utils.get_values_around(lfp.channel.values, center_chan, n_chans)
 
     _lfp = lfp.sel(time=slice(plot_start_time, plot_end_time), channel=chans)
@@ -351,7 +321,7 @@ def interactive_spw_explorer(lfp, csd, spws, figsize=(20, 8)):
     )
     center_chan = SelectionSlider(
         options=lfp.channel.values,
-        value=spws.iloc[0].peak_channel,
+        value=spws.iloc[0].peakChan,
         description="Center Ch.",
     )
     n_chans = BoundedIntText(
@@ -421,8 +391,8 @@ def lazy_spw_explorer(
 
     # Compute peri-event window
     spw = spws.loc[event_number]
-    window_start_time = spw.peak_time - window_length / 2
-    window_end_time = spw.peak_time + window_length / 2
+    window_start_time = spw.peakTime - window_length / 2
+    window_end_time = spw.peakTime + window_length / 2
 
     # Load the peri-event data
     lfp = sglxr.load_trigger(
