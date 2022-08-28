@@ -27,6 +27,8 @@ ripple-detection = "^1.1.0"
 spikeinterface = {git = "https://github.com/CSC-UW/spikeinterface.git", rev = "wisc/dev"}
 kcsd = {git = "https://github.com/Neuroinflab/kCSD-python.git", rev = "master"}
 ibllib = "^2.13.3"
+ssqueezepy = "^0.6.3"
+pyfftw = "^0.13.0"
 
 [tool.poetry.dev-dependencies]
 altair = "^4.2.0"
