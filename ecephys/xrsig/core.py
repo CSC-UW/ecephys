@@ -252,9 +252,10 @@ class Timeseries2D(Timeseries):
             plt.title(f"First {plotDur}s of filtered signal")
         return self.__class__(da)
 
-    def spectrograms(self, **kwargs):
+    def scipy_stft(self, **kwargs):
         """Get spectrograms for each channel using Welch's method.
         Extra keyword arguments are passed down to scipy.signal.welch.
+        This is hella slow. Use ssq/pyfftw!
         """
         # If a window length has not been specified, use 4s, to be sure we can capture 0.5Hz.
         if "nperseg" not in kwargs:
@@ -278,13 +279,64 @@ class Timeseries2D(Timeseries):
                     self._sigdim
                 ].coords,  # Copy any channel coord data, like x, y pos.
             },
+            attrs=self.attrs,
         )
-        spgs = spgs.assign_attrs(self.attrs)
 
         if "units" in spgs.attrs:
             spgs = spgs.assign_attrs({"units": f"{spgs.units}^2/Hz"})
 
         return spgs
+
+    def ssq_stft(self, n_fft=None, hop_len=None, **kwargs):
+        """
+        See `help(ssqueezepy.stft)`.
+
+        Useful kwargs:
+        --------------
+        window:
+            If unspecified, use 'hamming'.
+        nfft: int
+            Number of points in the fft. If not specified, defaults to the next_power_of_two(int(self.fs * 4))
+        hop_len:
+            STFT stride, or number of samples to skip/hop over between subsequent
+            windowings. Relates to 'overlap' as `overlap = n_fft - hop_len`
+            Defaults to nfft // 2
+        dtype: str['float32', 'float64'] / None
+            Compute precision; use 'float32` for speed & memory at expense of
+            accuracy (negligible for most purposes).
+            Defaults to 'float32'
+        """
+        if n_fft is None:
+            n_fft = ssq.p2up(int(self.fs * 4))[0]
+        if not "hop_len" in kwargs:
+            kwargs["hop_len"] = n_fft // 2
+        if not "window" in kwargs:
+            kwargs["window"] = "hamming"
+        if not "dtype" in kwargs:
+            kwargs["dtype"] = "float32"
+        if ("fs" in kwargs) and (kwargs["fs"] != self.fs):
+            raise ValueError(f"Was passed fs={kwargs['fs']}, but expected {self.fs}.")
+
+        logger.debug(f"Calling SSQ STFT with the following kwargs: {kwargs}")
+        _, Wx, freqs, _, *_ = ssq.ssq_stft(
+            self.values.T, fs=self.fs, n_fft=n_fft, **kwargs
+        )
+
+        ns = self.time.size
+        time = (np.linspace(0, ns, Wx.shape[-1], endpoint=False) + (n_fft / 2)) / float(
+            self.fs
+        ) + self.time.values.min()
+
+        return xr.DataArray(
+            np.atleast_3d(np.abs(Wx)),
+            dims=(self._sigdim, "frequency", "time"),
+            coords={
+                "frequency": freqs,
+                "time": time,
+                **self[self._sigdim].coords,
+            },
+            attrs=self.attrs,
+        )
 
     def make_trialed(self, tTrials, tPre, tPost, tol=None):
         method = "nearest" if tol is not None else None
