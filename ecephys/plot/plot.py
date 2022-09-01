@@ -240,6 +240,8 @@ def plot_hypnogram_overlay(
     t2_column="end_time",
     ax=None,
     xlim=None,
+    ymin=0,
+    ymax=1,
     figsize=(18, 3),
     alpha=0.3,
 ):
@@ -257,11 +259,6 @@ def plot_hypnogram_overlay(
     ax = check_ax(ax, figsize=figsize)
 
     for _, bout in hypnogram.iterrows():
-        if "ylim" in bout:
-            ymin, ymax = bout.ylim
-            plt.margins(0)  # Remove margin on y axis
-        else:
-            ymin, ymax = 0, 1
         ax.axvspan(
             bout[t1_column],
             bout[t2_column],
