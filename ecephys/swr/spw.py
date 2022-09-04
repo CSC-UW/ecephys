@@ -242,7 +242,8 @@ def spw_explorer_xr(
     plot_duration=1,
     event_number=0,
     center_chan=None,
-    n_chans=5,
+    nChansBelow=2,
+    nChansAbove=2,
     vspace=300,
     show_lfps=True,
     show_csd=True,
@@ -259,7 +260,10 @@ def spw_explorer_xr(
     plot_end_time = spw.peakTime + plot_duration / 2
 
     center_chan = spw.peakChan if center_chan is None else center_chan
-    chans = utils.get_values_around(lfp.channel.values, center_chan, n_chans)
+    ix = utils.find_nearest(lfp.channel.values, center_chan)
+    chans = lfp.isel(
+        channel=slice(ix - nChansBelow, ix + nChansAbove + 1)
+    ).channel.values
 
     _lfp = lfp.sel(time=slice(plot_start_time, plot_end_time), channel=chans)
     _csd = csd.sel(time=slice(plot_start_time, plot_end_time), channel=chans)
@@ -306,6 +310,7 @@ def spw_explorer_xr(
             )
 
 
+# TODO: This needs to be refactored to reflect update arguments of spw_explorer_xr
 def interactive_spw_explorer(lfp, csd, spws, figsize=(20, 8)):
     """Use ipywidgets and ipympl to create a GUI for plotting SPWs."""
     assert all(

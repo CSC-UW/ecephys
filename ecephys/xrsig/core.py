@@ -555,7 +555,7 @@ class LFPs(Timeseries2D, Laminar):
             coords={
                 "time": time,
             },
-            attrs={"long_name": "emg_from_lfp", "units": "corr"},
+            attrs={"units": "corr"},
         )
         for key in emgKwargs:
             emg.attrs[key] = emgKwargs[key]
