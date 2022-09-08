@@ -107,7 +107,9 @@ def get_evoked_firing_rates(spike_times, spike_clusters, unit_ids, events, plot_
     bins = np.arange(-plot_before, plot_after+time_bin, time_bin)
     evoked_firingrate = np.empty((len(unit_ids), len(bins)-1))*np.nan
     for indi, uniti in tqdm.tqdm(enumerate(unit_ids)):
-        spikesi = np.squeeze(spike_times[spike_clusters == uniti])
+        spikesi = np.atleast_1d(
+            np.squeeze(spike_times[spike_clusters == uniti])
+        )
 
         uniti_rates = []
         for E in events:
