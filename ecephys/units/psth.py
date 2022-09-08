@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import numpy as np
+import tqdm
 
 
-def get_normed_data(data, normalize, window=None, binsize=None):
+def get_normed_data(data, normalize, window=None, binsize=None, verbose=True):
     '''Normalizes all PSTH data
 
     Args:
@@ -24,21 +25,25 @@ def get_normed_data(data, normalize, window=None, binsize=None):
 
     # Computes the normalization factors.
     if normalize == 'all':
-        print("Normalize by all")
+        if verbose:
+            print("Normalize by all")
         norm_factors = np.ones([data.shape[0], 1]) * np.amax(max_rates)
         return np.divide(data, norm_factors, where=norm_factors!=0)
     elif normalize == 'each':
-        print("Normalize by each")
+        if verbose:
+            print("Normalize by each")
         norm_factors = (
             np.reshape(max_rates, (max_rates.shape[0], 1)) *
             np.ones((1, data.shape[1]))
         )
         return np.divide(data, norm_factors, where=norm_factors!=0)
     elif normalize is None:
-        print("Don't normalize")
+        if verbose:
+            print("Don't normalize")
         return data
     elif normalize == 'baseline_zscore':
-        print("Zscore by baseline")
+        if verbose:
+            print("Zscore by baseline")
         if window[0] > 0 or window[1] < 0:
             raise ValueError(f"Can't z-score by baseline for window {window}")
         # Baseline is bins < 0
@@ -59,7 +64,8 @@ def get_normed_data(data, normalize, window=None, binsize=None):
             data - baseline_mean, baseline_std, where=baseline_std!=0, out=res
         )
     elif normalize == 'baseline_norm':
-        print("Normalize by baseline average (no z-score)")
+        if verbose:
+            print("Normalize by baseline average (no z-score)")
         if window[0] > 0 or window[1] < 0:
             raise ValueError(f"Can't norm by baseline for window {window}")
         # Baseline is bins < 0
@@ -100,7 +106,7 @@ def get_evoked_firing_rates(spike_times, spike_clusters, unit_ids, events, plot_
 
     bins = np.arange(-plot_before, plot_after+time_bin, time_bin)
     evoked_firingrate = np.empty((len(unit_ids), len(bins)-1))*np.nan
-    for indi, uniti in enumerate(unit_ids):
+    for indi, uniti in tqdm.tqdm(enumerate(unit_ids)):
         spikesi = np.squeeze(spike_times[spike_clusters == uniti])
 
         uniti_rates = []
