@@ -180,9 +180,9 @@ def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_labe
     plt.yticks(rotation=0)
 
     # x ticks: Only 0, first and last value
-    xtic_len = gcd(abs(window[0]), window[1])
-    xtic_labels = range(window[0], window[1] + xtic_len, xtic_len)
-    xtic_locs = [(j - window[0]) / binsize for j in xtic_labels]
+    xtic_len = gcd(int(abs(window[0] * 1000)), int(window[1] * 1000))
+    xtic_labels = range(int(window[0] * 1000), int(window[1] * 1000) + xtic_len, xtic_len)
+    xtic_locs = [(j - (window[0] * 1000)) / (binsize * 1000) for j in xtic_labels] 
     if 0 not in xtic_labels:
         xtic_labels.append(0)
         xtic_locs.append(-window[0] / binsize)
