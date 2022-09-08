@@ -134,13 +134,22 @@ def plot_psth_hist(psth_array, window, binsize, ylabel=None, ylim=None):
     return f, ax
 
 
-def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_label=None):
+def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_label=None, ax=None):
+    """PSTH Heatmap.
+    
+    Args:
+    psth_array (nd-array): (nclusters x nbins) evoked rates
+    ylabels (list-like): Label for each row.
+    window (list-like): (- plot_before, p[ot_after) in sec
+    binsize (float): Size of bins in sec
+    """
     if clim is None:
         vmin, vmax = None, None
     else:
         vmin, vmax = clim
 
-    f, ax = plt.subplots()
+    if ax is None:
+        f, ax = plt.subplots()
 
     # Generate a custom diverging colormap
     cmap = sns.diverging_palette(230, 20, as_cmap=True)
@@ -183,7 +192,7 @@ def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_labe
     # vertical line at t=0
     plt.axvline((-window[0]) / binsize, color="black", linestyle="--", linewidth=2)
 
-    return f, ax
+    return ax
 
 
 def plot_spectrogram(
