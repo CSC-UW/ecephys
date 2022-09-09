@@ -119,9 +119,7 @@ def detect_sinks(
     thresholdType: str
         If 'zscore', interpret thresholds as zscores. If 'value', use absolute threshold values.
     """
-    chans = swr.get_coarse_detection_chans(
-        centerChan, nCoarse, csd["channel"].values.tolist()
-    )
+    chans = swr.get_coarse_detection_chans(centerChan, nCoarse, csd)
     ser = get_sink_detection_series(csd, chans, nFine)
 
     if thresholdType == "zscore":

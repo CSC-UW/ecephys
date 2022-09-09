@@ -1,7 +1,11 @@
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
+from .. import utils
 from ..signal import event_detection as evd
+
+logger = logging.getLogger(__name__)
 
 
 def plot_filter_response(fs, w, h, title):
@@ -99,7 +103,7 @@ def get_peak_info(sig, evts):
     return evts
 
 
-def get_coarse_detection_chans(center, nCoarse, chans):
+def get_coarse_detection_chans(center, nCoarse, xrObj):
     """Given a channel around which to detect events, get the neighboring channels.
 
     Parameters:
@@ -108,19 +112,24 @@ def get_coarse_detection_chans(center, nCoarse, chans):
         The channel around which to detect events.
     nCoarse: int
         An odd integer, indiciating the number of neighboring channels (inclusive) to use for detecting events.
-    chans: np.array
-        The channels for which you have data to detect.
+    xrObj: xr.DataArray
+        The xarray signals with channels for which you have data to detect.
     """
     assert nCoarse % 2, "Must use an odd number of of detection channels."
+    nChansAbove = nChansBelow = nCoarse // 2
+    ix = utils.find_nearest(xrObj.channel.values, center)
 
-    idx = chans.index(center)
-    first = idx - nCoarse // 2
-    last = idx + nCoarse // 2 + 1
+    if (ix - nChansBelow) < 0:
+        ix = nChansBelow
+        logger.warning("Requested channels outside the bounds of your data.")
+    if (ix + nChansAbove + 1) > xrObj.channel.size:
+        ix = xrObj.channel.size - nChansAbove - 1
+        logger.warning("Requested channels outside the bounds of your data.")
+    chans = xrObj.isel(
+        channel=slice(ix - nChansBelow, ix + nChansAbove + 1)
+    ).channel.values
 
-    assert first >= 0, "Cannot detect events outside the bounds of your data."
-    assert last < len(chans), "Cannot detect events outside the bounds of your data."
-
-    return chans[first:last]
+    return chans
 
 
 def _get_epoched_ripple_density(
