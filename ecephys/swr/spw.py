@@ -181,19 +181,16 @@ def estimate_swr_drift(spws, imec_map, frac=1 / 48, it=3):
         The number of residual based reweightings to perform during LOWESS estimation.
         Computation time is a linear function of this valuable, but estimate quality is not.
     """
-    um_per_mm = 1000
-    # peakTimes = utils.dt_series_to_seconds(spws.peakTime)
-    peak_ycoords = imec_map.chans2coords(spws.peakChan)[:, 1] / um_per_mm
+    peak_ycoords = imec_map.chans2coords(spws.peakChan)[:, 1]
     t, y = _estimate_drift(spws.peakTime.values, peak_ycoords, frac=frac, it=it)
-    nearest_y = utils.round_to_values(y, imec_map.y / um_per_mm)
-    t0_chan = imec_map.y2chans(nearest_y[0] * um_per_mm)
-    nearest_chans = imec_map.y2chans(nearest_y * um_per_mm)
+    nearest_y = utils.round_to_values(y, imec_map.y)
+    t0_chan = imec_map.y2chans(nearest_y[0])
+    nearest_chans = imec_map.y2chans(nearest_y)
     nearest_ids = nearest_chans.chan_id.values
     usr_order_shift = nearest_chans.usr_order.values - t0_chan.usr_order
 
     return pd.DataFrame(
         {
-            # "dt": spws.peakTime.values,
             "t": t,
             "y": y,
             "nearest_y": nearest_y,
