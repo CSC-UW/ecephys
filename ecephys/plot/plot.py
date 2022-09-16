@@ -43,6 +43,26 @@ state_colors = {
     "Drug": "white",
 }
 
+_pub_wake = "white"
+_pub_nrem = "lightskyblue"
+_pub_rem = "orangered"
+publication_colors = {
+    "Wake": _pub_wake,
+    "W": _pub_wake,
+    "aWk": _pub_wake,
+    "qWk": _pub_wake,
+    "QWK": _pub_wake,
+    "Arousal": _pub_nrem,
+    "MA": _pub_nrem,
+    "Trans": _pub_nrem,
+    "NREM": _pub_nrem,
+    "N1": _pub_nrem,
+    "N2": _pub_nrem,
+    "IS": _pub_rem,
+    "REM": _pub_rem,
+    "Art": "crimson",
+    "None": "white",
+}
 
 on_off_colors = {
     "on": "tomato",
@@ -134,9 +154,11 @@ def plot_psth_hist(psth_array, window, binsize, ylabel=None, ylim=None):
     return f, ax
 
 
-def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_label=None, ax=None):
+def plot_psth_heatmap(
+    psth_array, ylabels, window, binsize, clim=None, cbar_label=None, ax=None
+):
     """PSTH Heatmap.
-    
+
     Args:
     psth_array (nd-array): (nclusters x nbins) evoked rates
     ylabels (list-like): Label for each row.
@@ -181,8 +203,10 @@ def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_labe
 
     # x ticks: Only 0, first and last value
     xtic_len = gcd(int(abs(window[0] * 1000)), int(window[1] * 1000))
-    xtic_labels = range(int(window[0] * 1000), int(window[1] * 1000) + xtic_len, xtic_len)
-    xtic_locs = [(j - (window[0] * 1000)) / (binsize * 1000) for j in xtic_labels] 
+    xtic_labels = range(
+        int(window[0] * 1000), int(window[1] * 1000) + xtic_len, xtic_len
+    )
+    xtic_locs = [(j - (window[0] * 1000)) / (binsize * 1000) for j in xtic_labels]
     if 0 not in xtic_labels:
         xtic_labels.append(0)
         xtic_locs.append(-window[0] / binsize)
