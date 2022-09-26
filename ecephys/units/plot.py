@@ -3,9 +3,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from IPython.display import display
-from ipywidgets import (BoundedFloatText, BoundedIntText, FloatSlider, HBox,
-                        Label, Layout, SelectMultiple, VBox, fixed,
-                        interactive_output, jslink)
+from ipywidgets import (
+    BoundedFloatText,
+    BoundedIntText,
+    FloatSlider,
+    HBox,
+    Label,
+    Layout,
+    SelectMultiple,
+    VBox,
+    fixed,
+    interactive_output,
+    jslink,
+)
 from matplotlib.colors import is_color_like, to_rgba
 from matplotlib.ticker import IndexLocator
 
@@ -74,6 +84,7 @@ def raster_from_trains(
     ax=None,
     structure_boundaries=True,
     probe_boundaries=True,
+    spikesize=1,
 ):
     """Requires that df  have integer index"""
     MIN_UNITS_FOR_YTICKLABEL = 5
@@ -81,7 +92,7 @@ def raster_from_trains(
     if ax is None:
         fig, ax = plt.subplots(figsize=(36, len(trains) * 0.03))
 
-    ax.eventplot(data=trains, positions="t", colors="rgba", linewidth=1)
+    ax.eventplot(data=trains, positions="t", colors="rgba", linewidth=spikesize)
 
     def _set_yticks(ax, col_name):
         boundary_ilocs = _get_boundary_ilocs(trains, col_name)
@@ -98,7 +109,7 @@ def raster_from_trains(
 
     # Tick every _ rows with depth
     yticks = np.arange(0, len(trains), MIN_UNITS_FOR_YTICKLABEL).astype(int)
-    yticklabels = trains.reset_index()['depth'][yticks].values
+    yticklabels = trains.reset_index()["depth"][yticks].values
     ax.set_yticks(yticks)
     ax.set_yticklabels(yticklabels)
 
@@ -153,7 +164,7 @@ class Raster:
         self._sorting = sorting
         self._plot_start = plot_start
         self._plot_duration = plot_duration
-        self._grouping_col=grouping_col
+        self._grouping_col = grouping_col
         self.update_trains()
         self.events = events
         if selection_levels is None:
@@ -163,7 +174,7 @@ class Raster:
         if selections is None:
             selections = []
         self.selections = selections
-        self.alpha=alpha
+        self.alpha = alpha
 
         self.figsizes = {
             "auto": (23, self._sorting.n_units * 0.03),
@@ -316,22 +327,19 @@ class Raster:
         )
 
         AXVSPAN_KWARGS = {
-            'fc': to_rgba("darkred", 0.1),
-            'ec': to_rgba("darkred", 1.0),
-            'linewidth': 1,
-            'alpha': self.alpha,
+            "fc": to_rgba("darkred", 0.1),
+            "ec": to_rgba("darkred", 1.0),
+            "linewidth": 1,
+            "alpha": self.alpha,
         }
 
         for _, evt_row in self.events[mask].iterrows():
-            if 'ylim' in evt_row:
+            if "ylim" in evt_row:
                 ymin, ymax = evt_row.ylim
-                plt.margins(0) # Remove margin on y axis
+                plt.margins(0)  # Remove margin on y axis
             else:
                 ymin, ymax = 0, 1
-            kwargs = {
-                col: evt_row.get(col, df)
-                for col, df in AXVSPAN_KWARGS.items()
-            }
+            kwargs = {col: evt_row.get(col, df) for col, df in AXVSPAN_KWARGS.items()}
             ax.axvspan(
                 max(evt_row.t1, self.plot_start),
                 min(evt_row.t2, self.plot_end),
