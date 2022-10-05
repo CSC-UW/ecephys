@@ -310,6 +310,29 @@ def validate_sglx_path(path):
     return gate_dir, probe_dir.name, path.name
 
 
+def replace_ftype(path, extension, remove_probe=False, remove_stream=False):
+    """Replace a SpikeGLX filetype extension (i.e. .bin or .meta), and optionally strip
+    the probe and/or stream suffixes (e.g. .imec0 and .lf) while doing so.
+
+    Parameters:
+    -----------
+    path: pathlib.Path
+    extension: str
+        The desired final suffix(es), e.g. '.emg.nc' or '.txt'
+    remove_probe: bool (default: False)
+        If true, strip the probe suffix.
+    remove_stream: bool (default=False)
+        If True, strip the stream suffix.
+    """
+    run, gate, trigger, probe, stream, ftype = parse_sglx_fname(path.name)
+
+    name = path.with_suffix(extension).name
+    name = name.replace(f".{probe}", "") if remove_probe else name
+    name = name.replace(f".{stream}", "") if remove_stream else name
+
+    return path.with_name(name)
+
+
 ###############################################################################
 # The following functions require pandas and other non-core Python packages
 ##############################################################################

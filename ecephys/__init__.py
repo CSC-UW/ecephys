@@ -12,4 +12,5 @@ from . import (
     units,
     utils,
     xrsig,
+    wne,
 )
