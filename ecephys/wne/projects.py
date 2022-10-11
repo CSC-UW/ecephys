@@ -29,7 +29,7 @@ project_directory: /path/to/other_project
 # Only projects.yaml is required to resolve paths?
 # You could name a project the same thing as an experiment
 # You could name a project "Common" or "Scoring" or "Sorting"
-
+import json
 import yaml
 import logging
 from pathlib import Path
@@ -74,6 +74,9 @@ class Project:
     def __init__(self, project_name, project_dir):
         self.name = project_name
         self.dir = Path(project_dir)
+
+    def __repr__(self):
+        return f"{self.name}: {self.dir}"
 
     #####
     # Methods for getting directories
@@ -144,8 +147,7 @@ class Project:
             / fname
         )
 
-    # TODO: Rename this to `get_sglx_counterparts`
-    def get_project_counterparts(
+    def get_sglx_counterparts(
         self,
         subject_name,
         paths,
@@ -181,3 +183,8 @@ class Project:
             for p in counterparts
         ]
         return utils.remove_duplicates(counterparts)
+
+    def load_experiment_subject_json(self, experiment_name, subject_name, fname):
+        path = self.get_experiment_subject_file(experiment_name, subject_name, fname)
+        with open(path) as f:
+            return json.load(f)

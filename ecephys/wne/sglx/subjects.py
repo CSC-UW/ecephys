@@ -33,6 +33,9 @@ class Subject:
         self.name = subject_name
         self.doc = subject_document
 
+    def __repr__(self):
+        return self.name
+
     def get_files_table(
         self,
         experiment_name,
