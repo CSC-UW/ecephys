@@ -33,10 +33,7 @@ import json
 import yaml
 import logging
 from pathlib import Path
-from .. import utils
-from ..sglx import file_mgmt as sglx_file_mgmt
-from .sglx import sessions as sglx_sessions
-
+from ecephys import utils, sglx, wne
 
 logger = logging.getLogger(__name__)
 
@@ -175,11 +172,11 @@ class Project:
         --------
         list of pathlib.Path
         """
-        counterparts = sglx_sessions.mirror_raw_data_paths(
+        counterparts = wne.sglx.sessions.mirror_raw_data_paths(
             self.get_subject_directory(subject_name), paths
         )  # Mirror paths at the project's subject directory
         counterparts = [
-            sglx_file_mgmt.replace_ftype(p, extension, remove_probe, remove_stream)
+            sglx.file_mgmt.replace_ftype(p, extension, remove_probe, remove_stream)
             for p in counterparts
         ]
         return utils.remove_duplicates(counterparts)
@@ -188,3 +185,9 @@ class Project:
         path = self.get_experiment_subject_file(experiment_name, subject_name, fname)
         with open(path) as f:
             return json.load(f)
+
+    def get_all_probes(self, subject_name, experiment_name):
+        opts = self.load_experiment_subject_json(
+            experiment_name, subject_name, wne.constants.EXP_PARAMS_FNAME
+        )
+        return opts["probes"].keys()

@@ -1,9 +1,8 @@
 import logging
 import neurodsp
 import xarray as xr
-from ecephys import sglxr, xrsig, utils
+from ecephys import sglxr, xrsig, utils, wne
 from tqdm.auto import tqdm
-from .... import wne
 
 logger = logging.getLogger(__name__)
 

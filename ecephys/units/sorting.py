@@ -3,7 +3,6 @@ import numpy as np
 import xarray as xr
 import brainbox.singlecell as bbsc
 from abc import ABC, abstractproperty, abstractmethod
-from matplotlib.colors import to_rgba
 from .plot import set_uniform_rgba
 
 
@@ -69,7 +68,7 @@ class SingleProbeSorting(Sorting):
     # TODO: There's probably ways to make this faster
     # TODO: Aggregate other columns when units-to-train merge is not many-to-1
     def get_spike_trains_for_plotting(
-        self, start_time=-float("Inf"), end_time=float("Inf"), grouping_col="cluster_id", 
+        self, start_time=-float("Inf"), end_time=float("Inf"), grouping_col="cluster_id",
     ):
         if grouping_col not in self.spikes:
             # Add groupby column from units to spikes data
