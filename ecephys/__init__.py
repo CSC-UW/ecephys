@@ -1,5 +1,5 @@
 from . import (
-    acute,
+    sharptrack,
     data_mgmt,
     emg_from_lfp,
     hypnogram,

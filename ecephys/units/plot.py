@@ -19,7 +19,7 @@ from ipywidgets import (
 from matplotlib.colors import is_color_like, to_rgba
 from matplotlib.ticker import IndexLocator
 
-from ..acute import SHARPTrack
+from ..sharptrack import SHARPTrack
 
 ##### Functions for adding rgba column to units
 
