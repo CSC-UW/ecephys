@@ -84,7 +84,7 @@ def do_experiment(
             seg = xrsig.NPX1LFPs(seg)
             seg = seg.decimate(q=DOWNSAMPLE_FACTOR)
             seg = seg.dephase()
-            seg = seg.interpolate(opts[lfpFile.probe]["badChannels"])
+            seg = seg.interpolate(opts["probes"][lfpFile.probe]["badChannels"])
             first_valid = 0 if first == 0 else int(wg.overlap / 2 / DOWNSAMPLE_FACTOR)
             last_valid = (
                 seg.time.size
