@@ -32,8 +32,9 @@ project_directory: /path/to/other_project
 import json
 import yaml
 import logging
+import spikeinterface.extractors as se
 from pathlib import Path
-from ecephys import utils, sglx, wne
+from ecephys import utils, sglx, wne, sharptrack
 
 logger = logging.getLogger(__name__)
 
@@ -191,3 +192,50 @@ class Project:
             experiment_name, subject_name, wne.constants.EXP_PARAMS_FNAME
         )
         return opts["probes"].keys()
+
+    # TODO: The probe and sortingName arguments could be replaced by a single probeDir argument.
+    def get_kilosort_extractor(self, subject, experiment, alias, probe, sortingName):
+        """Load the contents of a Kilosort output directory.
+
+        Parameters:
+        ===========
+        wneProj: wne.Project
+            The Project where the sorting output is to be loaded from.
+        subject: str
+        experiment: str
+        alias: str
+        probe: str
+        sortingName:
+            e.g. "ks2_5_catgt_df_postpro_2_metrics_all_isi"
+
+        Returns:
+        ========
+        KilosortSortingExtractor
+        """
+        dir = (
+            self.get_alias_subject_directory(experiment, alias, subject)
+            / f"{sortingName}.{probe}"
+        )
+        assert dir.is_dir(), f"Expected Kilosort directory not found: {dir}"
+        extractor = se.KiloSortSortingExtractor(dir)
+
+        # Check that quality metrics are available
+        # TODO: Figure out how to automatically regenerate cluster_info.tsv without making all of phy a dependency, so we can stop doing this manually.
+        if not any("isi_viol" in prop for prop in extractor.get_property_keys()):
+            msg = "Quality metrics not found. Either they have not been run, or cluster_info.tsv has not been regenerated to include metrics.csv. You can do this manually by opening the data in Phy and clicking 'save'."
+            logger.warn(msg)
+
+        return extractor
+
+    def get_sharptrack(self, subject, experiment, probe):
+        """Load SHARPTrack files.
+
+        experiment_params.json should include a probes->imec0->SHARP-Track->filename.mat field.
+        filename.mat is then to be found in the same location as experiment_params.json (i.e.e the experiment-subject directory)
+        """
+        opts = self.load_experiment_subject_json(
+            experiment, subject, wne.constants.EXP_PARAMS_FNAME
+        )
+        fname = opts["probes"][probe]["SHARP-Track"]
+        file = self.get_experiment_subject_file(experiment, subject, fname)
+        return sharptrack.SHARPTrack(file)

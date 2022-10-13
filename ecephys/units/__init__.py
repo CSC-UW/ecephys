@@ -1,6 +1,5 @@
 from .io import *
 from .utils import *
-from .select import *
 from .plot import *
 from .sorting import *
 from .spikes_accessor import *
