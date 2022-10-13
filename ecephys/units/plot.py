@@ -149,27 +149,29 @@ class Raster:
     def __init__(
         self,
         sorting,
-        plot_start=None,
-        plot_duration=None,
+        plotStart=None,
+        plotDuration=None,
         events=None,
-        selection_levels=None,
+        selectionLevels=None,
         selections=None,
-        grouping_col="cluster_id",
+        groupingCol="cluster_id",
         alpha=0.3,
     ):
         """
-        Kwargs:
-            events (pd.DataFrame): fields 'fc', 'ec', 'alpha'. 'linewidth' passed to plt.axvline
+        Parameters:
+        ===========
+        sorting: units.Sorting
+            NOT a spikeinterface sorting object
         """
         self._sorting = sorting
-        self._plot_start = plot_start
-        self._plot_duration = plot_duration
-        self._grouping_col = grouping_col
+        self._plotStart = plotStart
+        self._plotDuration = plotDuration
+        self._groupingCol = groupingCol
         self.update_trains()
         self.events = events
-        if selection_levels is None:
-            selection_levels = []
-        self.selection_levels = selection_levels
+        if selectionLevels is None:
+            selectionLevels = []
+        self.selectionLevels = selectionLevels
         self.update_selection_options()
         if selections is None:
             selections = []
@@ -177,88 +179,88 @@ class Raster:
         self.alpha = alpha
 
         self.figsizes = {
-            "auto": (23, self._sorting.n_units * 0.03),
+            "auto": (23, self._sorting.nClusters * 0.03),
             "wide": (23, 8),
             "long": (9, 16),
         }
 
     @property
-    def data_start(self):
-        return self._sorting.data_start
+    def firstSpikeTime(self):
+        return self._sorting.firstSpikeTime
 
     @property
-    def data_end(self):
+    def lastSpikeTime(self):
         return self._sorting.data_end
 
     @property
-    def min_plot_duration(self):
-        return min(0.1, self.data_end - self.data_start)  # Try 100ms
+    def minPlotDuration(self):
+        return min(0.1, self.lastSpikeTime - self.firstSpikeTime)  # Try 100ms
 
     @property
-    def max_plot_duration(self):
-        return self.data_end - self.data_start
+    def maxPlotDuration(self):
+        return self.lastSpikeTime - self.firstSpikeTime
 
     @property
-    def min_plot_start(self):
-        return np.floor(self.data_start)
+    def minPlotStart(self):
+        return np.floor(self.firstSpikeTime)
 
     @property
-    def max_plot_start(self):
-        return self.data_end - self.min_plot_duration
+    def maxPlotStart(self):
+        return self.lastSpikeTime - self.minPlotDuration
 
     @property
-    def plot_start(self):
-        if self._plot_start is None:
-            self._plot_start = self.min_plot_start
-        return self._plot_start
+    def plotStart(self):
+        if self._plotStart is None:
+            self._plotStart = self.minPlotStart
+        return self._plotStart
 
-    @plot_start.setter
-    def plot_start(self, val):
-        if val < self.min_plot_start:
-            self._plot_start = self.min_plot_start
-        elif val >= self.max_plot_start:
-            self._plot_start = self.max_plot_start
+    @plotStart.setter
+    def plotStart(self, val):
+        if val < self.minPlotStart:
+            self._plotStart = self.minPlotStart
+        elif val >= self.maxPlotStart:
+            self._plotStart = self.maxPlotStart
         else:
-            self._plot_start = val
+            self._plotStart = val
 
         self.update_trains()
 
     @property
-    def plot_duration(self):
-        if self._plot_duration is None:
-            self._plot_duration = self.min_plot_duration
-        return self._plot_duration
+    def plotDuration(self):
+        if self._plotDuration is None:
+            self._plotDuration = self.minPlotDuration
+        return self._plotDuration
 
-    @plot_duration.setter
-    def plot_duration(self, val):
-        if val > self.max_plot_duration:
-            self._plot_duration = self.max_plot_duration
-        elif val <= self.min_plot_duration:
-            self._plot_duration = self.min_plot_duration
+    @plotDuration.setter
+    def plotDuration(self, val):
+        if val > self.maxPlotDuration:
+            self._plotDuration = self.maxPlotDuration
+        elif val <= self.minPlotDuration:
+            self._plotDuration = self.minPlotDuration
         else:
-            self._plot_duration = val
+            self._plotDuration = val
 
         self.update_trains()
 
     @property
-    def plot_end(self):
-        return self.plot_start + self.plot_duration
+    def plotEnd(self):
+        return self.plotStart + self.plotDuration
 
     @property
-    def selection_levels(self):
-        return self._selection_levels
+    def selectionLevels(self):
+        return self._selectionLevels
 
-    @selection_levels.setter
-    def selection_levels(self, val):
+    @selectionLevels.setter
+    def selectionLevels(self, val):
         assert set(val).issubset(
             self._trains.columns
         ), f"val={val}, cols={self._trains.columns}"
-        self._selection_levels = list(val)
+        self._selectionLevels = list(val)
 
     def update_selection_options(self):
-        if self.selection_levels:
+        if self.selectionLevels:
             self._selection_options = (
-                self._trains.set_index(self.selection_levels)
+                self._trains.set_index(self.selectionLevels)
                 .index.to_flat_index()
                 .unique()
                 .to_list()
@@ -283,8 +285,8 @@ class Raster:
 
     @property
     def trains(self):
-        if self.selection_levels:
-            trains = self._trains.set_index(self.selection_levels, drop=False)
+        if self.selectionLevels:
+            trains = self._trains.set_index(self.selectionLevels, drop=False)
             trains.index = trains.index.to_flat_index()
             return trains.drop(self.selections).reset_index(drop=True)
         else:
@@ -292,9 +294,9 @@ class Raster:
 
     def update_trains(self):
         self._trains = self._sorting.get_spike_trains_for_plotting(
-            start_time=self.plot_start,
-            end_time=self.plot_end,
-            grouping_col=self._grouping_col,
+            start_time=self.plotStart,
+            end_time=self.plotEnd,
+            grouping_col=self._groupingCol,
         )
 
     def plot(self, figsize="auto"):
@@ -304,7 +306,7 @@ class Raster:
         fig.canvas.header_visible = False
         fig.canvas.toolbar_visible = False
         ax = raster_from_trains(
-            self.trains, xlim=[self.plot_start, self.plot_end], ax=ax
+            self.trains, xlim=[self.plotStart, self.plotEnd], ax=ax
         )
         if self.events is not None:
             self.add_event_overlay(ax)
@@ -313,16 +315,16 @@ class Raster:
     def add_event_overlay(self, ax):
         mask = (
             (
-                (self.events["t1"] >= self.plot_start)
-                & (self.events["t1"] <= self.plot_end)
+                (self.events["t1"] >= self.plotStart)
+                & (self.events["t1"] <= self.plotEnd)
             )
             | (
-                (self.events["t2"] >= self.plot_start)
-                & (self.events["t2"] <= self.plot_end)
+                (self.events["t2"] >= self.plotStart)
+                & (self.events["t2"] <= self.plotEnd)
             )
             | (
-                (self.events["t1"] <= self.plot_start)
-                & (self.events["t2"] >= self.plot_end)
+                (self.events["t1"] <= self.plotStart)
+                & (self.events["t2"] >= self.plotEnd)
             )
         )
 
@@ -341,8 +343,8 @@ class Raster:
                 ymin, ymax = 0, 1
             kwargs = {col: evt_row.get(col, df) for col, df in AXVSPAN_KWARGS.items()}
             ax.axvspan(
-                max(evt_row.t1, self.plot_start),
-                min(evt_row.t2, self.plot_end),
+                max(evt_row.t1, self.plotStart),
+                min(evt_row.t2, self.plotEnd),
                 ymin=ymin,
                 ymax=ymax,
                 **kwargs,
@@ -350,11 +352,11 @@ class Raster:
 
     def _interact(self, plot_start, plot_duration, selections, ax):
         ax.cla()
-        self.plot_start = plot_start
-        self.plot_duration = plot_duration
+        self.plotStart = plot_start
+        self.plotDuration = plot_duration
         self.selections = selections
         ax = raster_from_trains(
-            self.trains, xlim=[self.plot_start, self.plot_end], ax=ax
+            self.trains, xlim=[self.plotStart, self.plotEnd], ax=ax
         )
         if self.events is not None:
             self.add_event_overlay(ax)
@@ -362,19 +364,19 @@ class Raster:
 
     def get_time_controls(self):
         plot_start_slider = FloatSlider(
-            min=self.min_plot_start,
-            max=self.max_plot_start,
-            step=self.min_plot_duration,
-            value=self.plot_start,
+            min=self.minPlotStart,
+            max=self.maxPlotStart,
+            step=self.minPlotDuration,
+            value=self.plotStart,
             description="t=",
             continuous_update=False,
             layout=Layout(width="95%"),
         )
         plot_start_box = BoundedFloatText(
-            min=self.min_plot_start,
-            max=self.max_plot_start,
-            step=self.min_plot_duration,
-            value=self.plot_start,
+            min=self.minPlotStart,
+            max=self.maxPlotStart,
+            step=self.minPlotDuration,
+            value=self.plotStart,
             description="t=",
             layout=Layout(width="150px"),
         )
@@ -383,10 +385,10 @@ class Raster:
         )  # Allow control from either widget for easy navigation
 
         plot_duration_box = BoundedFloatText(
-            min=self.min_plot_duration,
-            max=self.max_plot_duration,
-            step=self.min_plot_duration,
-            value=self.plot_duration,
+            min=self.minPlotDuration,
+            max=self.maxPlotDuration,
+            step=self.minPlotDuration,
+            value=self.plotDuration,
             description="Secs",
             layout=Layout(width="150px"),
         )
@@ -448,7 +450,7 @@ class Raster:
                 [plot_start_slider, HBox([plot_start_box, plot_duration_box])]
             )
 
-        if self.selection_levels:
+        if self.selectionLevels:
             menu = SelectMultiple(
                 options=[(str(opt), opt) for opt in reversed(self.selection_options)],
                 value=self.selections,

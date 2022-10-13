@@ -5,3 +5,4 @@ from .sorting import *
 from .spikes_accessor import *
 from .units_accessor import *
 from .trains_accessor import *
+from .spikes import *

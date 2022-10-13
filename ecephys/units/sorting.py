@@ -36,9 +36,10 @@ class SingleProbeSorting(Sorting):
         """
         self._si = siSorting
         self._timeConverter = timeConverter
-        self.spikes = self.spikeinterface_sorting_to_dataframe(siSorting)
-        if timeConverter is not None:
-            self.spikes["t"] = timeConverter(self.spikes["t"].values)
+        self.spikes = self.spikeinterface_sorting_to_dataframe(siSorting, timeConverter)
+
+    def __repr__(self):
+        return repr(self.si)
 
     @property
     def si(self):
@@ -73,17 +74,18 @@ class SingleProbeSorting(Sorting):
         pass
 
     @staticmethod
-    def spikeinterface_sorting_to_dataframe(siSorting):
+    def spikeinterface_sorting_to_dataframe(siSorting, timeConverter=None):
         [(spikeSamples, clusterIDs)] = siSorting.get_all_spike_trains()
         spikeTimes = spikeSamples / siSorting.get_sampling_frequency()
-        df = pd.DataFrame(
+        spikes = pd.DataFrame(
             {
                 "t": spikeTimes,
                 "cluster_id": clusterIDs,
             }
         )
-        df.index.name = "spike"
-        return df
+        if timeConverter is not None:
+            spikes["t"] = timeConverter(spikes["t"].values)
+        return spikes
 
 
 class MultiProbeSorting(Sorting):
