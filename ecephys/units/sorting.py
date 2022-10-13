@@ -1,9 +1,7 @@
 import pandas as pd
-import numpy as np
-import xarray as xr
-import brainbox.singlecell as bbsc
-from abc import ABC, abstractproperty, abstractmethod
-from .plot import set_uniform_rgba
+from abc import ABC, abstractproperty
+
+# I am not convinced these classes should exist at all.
 
 
 class Sorting(ABC):
@@ -17,10 +15,6 @@ class Sorting(ABC):
 
     @abstractproperty
     def nClusters(self):
-        pass
-
-    @abstractmethod
-    def get_spike_trains_for_plotting(self, start_time, end_time):
         pass
 
 
@@ -70,9 +64,6 @@ class SingleProbeSorting(Sorting):
     def clone(self):
         return SingleProbeSorting(self.si.clone(), self._timeConverter)
 
-    def get_spike_trains_for_plotting(self, start_time, end_time):
-        pass
-
     @staticmethod
     def spikeinterface_sorting_to_dataframe(siSorting, timeConverter=None):
         [(spikeSamples, clusterIDs)] = siSorting.get_all_spike_trains()
@@ -114,6 +105,3 @@ class MultiProbeSorting(Sorting):
         return MultiProbeSorting(
             {probe: sorting.clone() for probe, sorting in self.sortings.items()}
         )
-
-    def get_spike_trains_for_plotting(self, start_time, end_time):
-        pass

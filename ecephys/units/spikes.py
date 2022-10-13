@@ -55,6 +55,7 @@ def add_cluster_info(spikes, clusterInfo, propertiesToAdd):
 
 @takes_spikes_frame
 def as_trains(spikes, oneTrainPer="cluster_id"):
+    "Returns a dataframe grouped (i.e. indexed) by `oneTrainPer`. Will contain a `t` column containing, for each train, the spike times."
     return pd.DataFrame(
         spikes.groupby(
             oneTrainPer,

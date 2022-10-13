@@ -17,7 +17,7 @@ from ipywidgets import (
     jslink,
 )
 from matplotlib.colors import is_color_like, to_rgba
-from matplotlib.ticker import IndexLocator
+from ecephys.units import sorting, spikes
 
 from ..sharptrack import SHARPTrack
 
@@ -77,8 +77,23 @@ def _get_boundary_ilocs(df, col_name):
     return np.where(np.isin(df.index, boundary_locs))[0]
 
 
+def _set_yticks_at_boundaries(
+    ax, trns, boundariesBetween="structure", minSizeRequiredForLabel=5
+):
+    # Plot YTicks that mark boundaries between levels of a property, e.g. structure or probe.
+    ilocs = _get_boundary_ilocs(trns, boundariesBetween)
+    ax.set_yticks(ilocs)
+    do_label = np.diff(ilocs, prepend=0) > minSizeRequiredForLabel
+    ax.set_yticklabels(
+        [
+            trns[boundariesBetween].iloc[iloc] if label else ""
+            for label, iloc in zip(do_label, ilocs)
+        ]
+    )
+
+
 def raster_from_trains(
-    trains,
+    trns,
     title=None,
     xlim=None,
     ax=None,
@@ -87,41 +102,32 @@ def raster_from_trains(
     spikesize=1,
 ):
     """Requires that df  have integer index"""
-    MIN_UNITS_FOR_YTICKLABEL = 5
-
     if ax is None:
-        fig, ax = plt.subplots(figsize=(36, len(trains) * 0.03))
+        fig, ax = plt.subplots(figsize=(36, len(trns) * 0.03))
 
-    ax.eventplot(data=trains, positions="t", colors="rgba", linewidth=spikesize)
+    if "rgba" not in trns.columns:
+        set_uniform_rgba(trns, "black")
 
-    def _set_yticks(ax, col_name):
-        boundary_ilocs = _get_boundary_ilocs(trains, col_name)
-        ax.set_yticks(boundary_ilocs)
-        do_label = np.diff(boundary_ilocs, prepend=0) > MIN_UNITS_FOR_YTICKLABEL
-        ax.set_yticklabels(
-            [
-                trains[col_name].iloc[iloc] if label else ""
-                for label, iloc in zip(do_label, boundary_ilocs)
-            ]
-        )
+    ax.eventplot(data=trns, positions="t", colors="rgba", linewidth=spikesize)
+    ax.set_ylabel(f"One train per {trns.index.name}")
 
-    ax.set_ylabel(f"Spikes grouped by {trains.index.name}, labelled by depth.")
-
-    # Tick every _ rows with depth
-    yticks = np.arange(0, len(trains), MIN_UNITS_FOR_YTICKLABEL).astype(int)
-    yticklabels = trains.reset_index()["depth"][yticks].values
-    ax.set_yticks(yticks)
-    ax.set_yticklabels(yticklabels)
-
-    if structure_boundaries and "structure" in trains.columns:
-        _set_yticks(ax, "structure")
+    minYLabelSpacing = 5
+    if structure_boundaries and "structure" in trns.columns:
+        _set_yticks_at_boundaries(ax, trns, "structure", minYLabelSpacing)
+    elif (
+        trns.index.name == "depth"
+    ):  # This is ugly. Find a better way, or separate funtions for depth-indexed trains and clusters-indexed trains.
+        yticks = np.arange(0, len(trns), minYLabelSpacing).astype(int)
+        yticklabels = trns.reset_index()["depth"][yticks].values
+        ax.set_yticks(yticks)
+        ax.set_yticklabels(yticklabels)
 
     if xlim is not None:
         ax.set_xlim(xlim)
 
-    if probe_boundaries and "probe" in trains.columns:
+    if probe_boundaries and "probe" in trns.columns:
         secy = ax.secondary_yaxis("right")
-        _set_yticks(secy, "probe")
+        _set_yticks_at_boundaries(secy, trns, "probe", minYLabelSpacing)
         ax.hlines(
             secy.get_yticks()[:-1],
             *ax.get_xlim(),
@@ -130,11 +136,6 @@ def raster_from_trains(
             linewidth=1,
             zorder=1,
         )
-        # n_probes = len(trains["probe"].unique())
-        # probe_edges = np.insert(secy.get_yticks(), 0, 0)
-        # probe_colors = (["whitesmoke", "lightgrey"] * n_probes)[:n_probes]
-        # for lo, hi, c in zip(probe_edges, probe_edges[1:], probe_colors):
-        #    ax.axhspan(lo, hi, color=c, alpha=0.1, ec=None, zorder=1)
 
     if title is not None:
         ax.set_title(title, loc="left")
@@ -154,7 +155,7 @@ class Raster:
         events=None,
         selectionLevels=None,
         selections=None,
-        groupingCol="cluster_id",
+        oneTrainPer="cluster_id",
         alpha=0.3,
     ):
         """
@@ -166,7 +167,7 @@ class Raster:
         self._sorting = sorting
         self._plotStart = plotStart
         self._plotDuration = plotDuration
-        self._groupingCol = groupingCol
+        self._oneTrainPer = oneTrainPer
         self.update_trains()
         self.events = events
         if selectionLevels is None:
@@ -190,7 +191,7 @@ class Raster:
 
     @property
     def lastSpikeTime(self):
-        return self._sorting.data_end
+        return self._sorting.lastSpikeTime
 
     @property
     def minPlotDuration(self):
@@ -257,20 +258,23 @@ class Raster:
         ), f"val={val}, cols={self._trains.columns}"
         self._selectionLevels = list(val)
 
+    # TODO: This will no longer work, unless trains already include selection levels
+    # TODO: Separate ClusterRaster and DepthRaster?
+    # Most of the complexity in this class comes from the selection levels, which are rarely used.
     def update_selection_options(self):
         if self.selectionLevels:
-            self._selection_options = (
+            self._selectionOptions = (
                 self._trains.set_index(self.selectionLevels)
                 .index.to_flat_index()
                 .unique()
                 .to_list()
             )
         else:
-            self._selection_options = []
+            self._selectionOptions = []
 
     @property
-    def selection_options(self):
-        return self._selection_options
+    def selectionOptions(self):
+        return self._selectionOptions
 
     @property
     def selections(self):
@@ -279,25 +283,34 @@ class Raster:
     @selections.setter
     def selections(self, val):
         assert set(val).issubset(
-            self.selection_options
-        ), f"val={val}, selection_options={self.selection_options}"
+            self.selectionOptions
+        ), f"val={val}, selection_options={self.selectionOptions}"
         self._selections = list(val)
 
     @property
     def trains(self):
         if self.selectionLevels:
-            trains = self._trains.set_index(self.selectionLevels, drop=False)
-            trains.index = trains.index.to_flat_index()
-            return trains.drop(self.selections).reset_index(drop=True)
+            trns = self._trains.set_index(self.selectionLevels, drop=False)
+            trns.index = trns.index.to_flat_index()
+            return trns.drop(self.selections).reset_index(drop=True)
         else:
             return self._trains
 
     def update_trains(self):
-        self._trains = self._sorting.get_spike_trains_for_plotting(
-            start_time=self.plotStart,
-            end_time=self.plotEnd,
-            grouping_col=self._groupingCol,
-        )
+        if isinstance(self._sorting, sorting.SingleProbeSorting):
+            # Get spikes between the requested times
+            spks = spikes.between_time(
+                self._sorting.spikes, self.plotStart, self.plotEnd
+            )
+            # If spike trains should be grouped by something other than cluster_id, we need to add that info to the spikes frame.
+            if self._oneTrainPer != "cluster_id":
+                spks = spikes.add_cluster_info(
+                    spks, self._sorting.clusterInfo, self._oneTrainPer
+                )
+            # Get the spike trains
+            self._trains = spikes.as_trains(spks, self._oneTrainPer)
+        else:
+            raise NotImplementedError("MultiProbeSorting not yet implemented")
 
     def plot(self, figsize="auto"):
         figsize = self.figsizes.get(figsize, figsize)
@@ -305,9 +318,7 @@ class Raster:
 
         fig.canvas.header_visible = False
         fig.canvas.toolbar_visible = False
-        ax = raster_from_trains(
-            self.trains, xlim=[self.plotStart, self.plotEnd], ax=ax
-        )
+        ax = raster_from_trains(self.trains, xlim=[self.plotStart, self.plotEnd], ax=ax)
         if self.events is not None:
             self.add_event_overlay(ax)
         return ax
@@ -355,15 +366,13 @@ class Raster:
         self.plotStart = plot_start
         self.plotDuration = plot_duration
         self.selections = selections
-        ax = raster_from_trains(
-            self.trains, xlim=[self.plotStart, self.plotEnd], ax=ax
-        )
+        ax = raster_from_trains(self.trains, xlim=[self.plotStart, self.plotEnd], ax=ax)
         if self.events is not None:
             self.add_event_overlay(ax)
         return ax
 
     def get_time_controls(self):
-        plot_start_slider = FloatSlider(
+        plotStartSlider = FloatSlider(
             min=self.minPlotStart,
             max=self.maxPlotStart,
             step=self.minPlotDuration,
@@ -372,7 +381,7 @@ class Raster:
             continuous_update=False,
             layout=Layout(width="95%"),
         )
-        plot_start_box = BoundedFloatText(
+        plotStartBox = BoundedFloatText(
             min=self.minPlotStart,
             max=self.maxPlotStart,
             step=self.minPlotDuration,
@@ -381,10 +390,10 @@ class Raster:
             layout=Layout(width="150px"),
         )
         jslink(
-            (plot_start_slider, "value"), (plot_start_box, "value")
+            (plotStartSlider, "value"), (plotStartBox, "value")
         )  # Allow control from either widget for easy navigation
 
-        plot_duration_box = BoundedFloatText(
+        plotDurationBox = BoundedFloatText(
             min=self.minPlotDuration,
             max=self.maxPlotDuration,
             step=self.minPlotDuration,
@@ -393,18 +402,18 @@ class Raster:
             layout=Layout(width="150px"),
         )
         # Slider step equal to plot duration for easier scrolling
-        jslink((plot_duration_box, "value"), (plot_start_box, "step"))
-        jslink((plot_start_box, "step"), (plot_start_slider, "step"))
+        jslink((plotDurationBox, "value"), (plotStartBox, "step"))
+        jslink((plotStartBox, "step"), (plotStartSlider, "step"))
 
-        return [plot_start_slider, plot_start_box, plot_duration_box]
+        return [plotStartSlider, plotStartBox, plotDurationBox]
 
-    def get_event_controls(self, plot_start_box, plot_duration_box):
+    def get_event_controls(self, plotStartBox, plotDurationBox):
         assert self.events.index.dtype == "int64"
         if "t2" not in self.events.columns:
             self.events = self.events.copy()
             self.events["t2"] = self.events["t1"]
 
-        event_box = BoundedIntText(
+        eventBox = BoundedIntText(
             value=self.events.index.min(),
             min=self.events.index.min(),
             max=self.events.index.max(),
@@ -412,18 +421,18 @@ class Raster:
             description="EVT",
             layout=Layout(width="150px"),
         )
-        event_description_label = Label(value=self.events.iloc[0]["description"])
+        eventDescriptionLabel = Label(value=self.events.iloc[0]["description"])
 
         def _on_event_change(change):
             evt = change["new"]
             t1 = self.events.loc[evt, "t1"]
             desc = self.events.loc[evt, "description"]
-            event_description_label.value = desc
-            plot_start_box.value = t1 - plot_duration_box.value / 2
+            eventDescriptionLabel.value = desc
+            plotStartBox.value = t1 - plotDurationBox.value / 2
 
-        event_box.observe(_on_event_change, names="value")
+        eventBox.observe(_on_event_change, names="value")
 
-        return [event_box, event_description_label]
+        return [eventBox, eventDescriptionLabel]
 
     def interact(self, figsize="auto"):
         figsize = self.figsizes.get(figsize, figsize)
@@ -432,30 +441,28 @@ class Raster:
         fig.canvas.toolbar_visible = False
 
         [
-            plot_start_slider,
-            plot_start_box,
-            plot_duration_box,
+            plotStartSlider,
+            plotStartBox,
+            plotDurationBox,
         ] = self.get_time_controls()
 
         if self.events is not None:
-            event_controls = self.get_event_controls(plot_start_box, plot_duration_box)
+            eventControls = self.get_event_controls(plotStartBox, plotDurationBox)
             navigation = VBox(
                 [
-                    plot_start_slider,
-                    HBox([plot_start_box, plot_duration_box] + event_controls),
+                    plotStartSlider,
+                    HBox([plotStartBox, plotDurationBox] + eventControls),
                 ]
             )
         else:
-            navigation = VBox(
-                [plot_start_slider, HBox([plot_start_box, plot_duration_box])]
-            )
+            navigation = VBox([plotStartSlider, HBox([plotStartBox, plotDurationBox])])
 
         if self.selectionLevels:
             menu = SelectMultiple(
-                options=[(str(opt), opt) for opt in reversed(self.selection_options)],
+                options=[(str(opt), opt) for opt in reversed(self.selectionOptions)],
                 value=self.selections,
                 description="Hide:",
-                rows=min(10, len(self.selection_options)),
+                rows=min(10, len(self.selectionOptions)),
                 disabled=False,
             )
             ui = VBox([menu, navigation])
@@ -466,8 +473,8 @@ class Raster:
         out = interactive_output(
             self._interact,
             {
-                "plot_start": plot_start_box,
-                "plot_duration": plot_duration_box,
+                "plot_start": plotStartBox,
+                "plot_duration": plotDurationBox,
                 "selections": menu,
                 "ax": fixed(ax),
             },

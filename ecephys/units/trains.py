@@ -25,7 +25,8 @@ def silent(trains):
 
 
 def takes_unit_trains(func):
-    """A decorator you can use on your own functions to ensure that the first argument passed is a valid unit trains frame."""
+    """A decorator you can use on your own functions to ensure that the first argument passed is a valid unit trains frame.
+    A valid unit trains frame is indexed by cluster_id."""
 
     @takes_trains
     def wrapped_function(unitTrains, *args, **kwargs):
@@ -42,6 +43,21 @@ def takes_unit_trains(func):
 # TODO: Allow many-to-1  units-to-train merge
 @takes_unit_trains
 def add_cluster_info(unitTrains, clusterInfo, propertiesToAdd):
+    """Add column(s) with cluster properties to a unit trains frame.
+
+    Parameters:
+    ===========
+    unitTrains: DataFrame
+        Unit spike triains. Cannot be depth trains, structure trains, etc.
+    clusterInfo DataFrame
+        One column per cluster property. Must contain a 'cluster_id' column.
+    propertiesToAdd: DataFrame column indexer
+        The properties from clusterInfo to add.
+
+    Returns:
+    ========
+    unitTrains, still indexed by cluster_id, but with properties added as additional columns.
+    """
     if isinstance(propertiesToAdd, str):
         propertiesToAdd = [propertiesToAdd]
     if not isinstance(propertiesToAdd, list):
