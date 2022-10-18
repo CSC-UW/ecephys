@@ -1,6 +1,8 @@
 import colorcet as cc
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import logging
 import seaborn as sns
 from IPython.display import display
 from ipywidgets import (
@@ -20,6 +22,8 @@ from matplotlib.colors import is_color_like, to_rgba
 from ecephys.units import sorting, spikes
 
 from ..sharptrack import SHARPTrack
+
+logger = logging.getLogger(__name__)
 
 ##### Functions for adding rgba column to units
 
@@ -259,6 +263,8 @@ class Raster:
         self._selectionLevels = list(val)
 
     # TODO: This will no longer work, unless trains already include selection levels
+    # To fix, should probably check if selection levels (filters) are present in clusterInfo
+    # Then, actually do addition of filters to trains in update_trains()
     # TODO: Separate ClusterRaster and DepthRaster?
     # Most of the complexity in this class comes from the selection levels, which are rarely used.
     def update_selection_options(self):
@@ -310,7 +316,25 @@ class Raster:
             # Get the spike trains
             self._trains = spikes.as_trains(spks, self._oneTrainPer)
         else:
-            raise NotImplementedError("MultiProbeSorting not yet implemented")
+            # Get spikes between the requested times
+            spks = {
+                prb: spikes.between_time(srt.spikes, self.plotStart, self.plotEnd)
+                for prb, srt in self._sorting.sortings.items()
+            }
+            # If spike trains should be grouped by something other than cluster_id, we need to add that info to the spikes frame.
+            if self._oneTrainPer != "cluster_id":
+                spks = {
+                    prb: spikes.add_cluster_info(
+                        spks[prb], srt.clusterInfo, self._oneTrainPer
+                    )
+                    for prb, srt in self._sorting.sortings.items()
+                }
+
+            # Get the spike trains
+            trns = {prb: spikes.as_trains(spks[prb], self._oneTrainPer) for prb in spks}
+            self._trains = pd.concat(
+                [trns[prb] for prb in trns], keys=trns.keys(), names=["probe"]
+            ).reset_index()
 
     def plot(self, figsize="auto"):
         figsize = self.figsizes.get(figsize, figsize)

@@ -31,10 +31,12 @@ project_directory: /path/to/other_project
 # You could name a project "Common" or "Scoring" or "Sorting"
 import json
 import yaml
+import pickle
 import logging
+import numpy as np
 import spikeinterface.extractors as se
 from pathlib import Path
-from ecephys import utils, sglx, wne, sharptrack
+from ecephys import utils, sglx, wne, sharptrack, sync, units
 
 logger = logging.getLogger(__name__)
 
@@ -239,3 +241,106 @@ class Project:
         fname = opts["probes"][probe]["SHARP-Track"]
         file = self.get_experiment_subject_file(experiment, subject, fname)
         return sharptrack.SHARPTrack(file)
+
+    def remap_probe_times(self, subject, experiment, fromProbe, times, toProbe="imec0"):
+        """Remap a vector of probe times to the canonical experiment timebase, using a subject's precomputed sync models.
+
+        Parameters:
+        ===========
+        subject: str
+        experiment: str
+        fromProbe: str
+            The probe whose times need remapping.
+        times: (nTimes,)
+            A vector of times to renamp
+        toProbe: str
+            The probe whose timebase defines the experiment's canonical time. Always imec0.
+
+        Returns:
+        ========
+        newTimes: (nTimes,)
+        """
+        if fromProbe == toProbe:
+            return times
+
+        sync_models_file = self.get_experiment_subject_file(
+            experiment, subject, "sync_models.pickle"
+        )
+        assert sync_models_file.is_file(), "Sync models file not found."
+        with open(sync_models_file, "rb") as f:
+            sync_models = pickle.load(f)
+
+        assert "prb2prb" in sync_models, "Probe-to-probe sync models not found in file."
+        model = sync_models["prb2prb"][fromProbe][toProbe]
+        return sync.remap_times(times, model)
+
+    def load_singleprobe_sorting(
+        self,
+        subject,
+        experiment,
+        probe,
+        alias="full",
+        sortingID="ks2_5_catgt_df_postpro_2_metrics_all_isi",
+        filters={"n_spikes": (2, np.Inf), "quality": {"good", "mua"}},
+        sharptrack=True,
+        remapTimes=True,
+    ):
+        """Load a single probe's sorted spikes, optionally filtered and augmented with additional information.
+
+        Parameters:
+        ===========
+        subject: str
+        experiment: str
+        probe: str
+            The probe to load, e.g. "imec1"
+        alias: str
+        sortingID: str
+            See `Project.get_kilosort_extractor()`
+        filters: dict
+            See `ecephys.units.refine_clusters`
+        sharptrack: True/False
+            Load SHARPTrack data for this subject, and use it to add augment the sorting data with anatomical structures.
+        remap_times: True/False
+            Use precomputed sync models to remap this probe's spike times to the experiment's canonical timebase.
+
+        Returns:
+        ========
+        sps: ecephys.units.SingleProbeSorting
+        """
+        extractor = self.get_kilosort_extractor(
+            subject, experiment, alias, probe, sortingID
+        )
+        sorting = units.refine_clusters(extractor, filters)
+        if sharptrack:
+            st = self.get_sharptrack(subject, experiment, probe)
+            units.add_structures_from_sharptrack(sorting, st)
+        if remapTimes:
+            remapper = lambda t: self.remap_probe_times(subject, experiment, probe, t)
+            return units.SingleProbeSorting(sorting, remapper)
+        else:
+            return units.SingleProbeSorting(sorting)
+
+    def load_multiprobe_sorting(self, subject, experiment, probes=None, **kwargs):
+        """Load sorted spikes from multiple probes, optionally filtered and augmented with additional information.
+
+        Parameters:
+        ===========
+        subject: str
+        experiment: str
+        probes: [str] or None
+            If None, load all probes. Otherwise, takes a list of probe names to load.
+        **kwargs:
+            See `Project.load_singleprobe_sorting`.
+
+        Returns:
+        ========
+        mps: ecephys.units.MultiProbeSorting
+        """
+        if probes is None:
+            probes = self.get_all_probes(subject, experiment)
+        return units.MultiProbeSorting(
+            {
+                prb: self.load_singleprobe_sorting(subject, experiment, prb, **kwargs)
+                for prb in probes
+            }
+        )

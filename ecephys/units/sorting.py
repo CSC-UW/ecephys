@@ -2,6 +2,7 @@ import pandas as pd
 from abc import ABC, abstractproperty
 
 # I am not convinced these classes should exist at all.
+# TODO: Cache certain properties that only need to be computed once.
 
 
 class Sorting(ABC):
