@@ -23,13 +23,6 @@ def do_alias(wneProject, wneSubject, experiment, alias=None, **kwargs):
 
     lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, **kwargs)
 
-    # Process each file, and concatenate results
-    for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [outFile] = wneProject.get_sglx_counterparts(
-            wneSubject.name, [lfpFile.path], ece.wne.constants.NETCDF_EXT
-        )
-        outFile.parent.mkdir(parents=True, exist_ok=True)
-
     for lfpFile in tqdm(list(lfpTable.itertuples())):
         [emgFile] = wneProject.get_sglx_counterparts(
             wneSubject.name, [lfpFile.path], ece.wne.constants.EMG_EXT
