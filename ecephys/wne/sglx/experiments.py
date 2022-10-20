@@ -122,19 +122,19 @@ def get_start_times_relative_to_experiment(ftab, tol=1, method="rigorous"):
         # Check these expected 'firstSample' values against actual 'firstSample' values.
         # This tells us whether any file is actually contiguous with the one preceeding it.
         # A tolerance is used, because even in continuous recordings, files can overlap or gap by a sample.
-        is_continuation = np.abs(firstSample.values[1:] - nextSample.values[:-1]) <= tol
-        is_continuation = np.insert(
-            is_continuation, 0, False
-        )  # The first file is, by definition, not a contination.
+        sampleMismatch = firstSample.values[1:] - nextSample.values[:-1]
+        isContinuation = np.abs(sampleMismatch) <= tol
+        isContinuation = np.insert(
+            isContinuation, 0, False
+        )  # The first file is, by definition, not a continuation.
 
-        sampleDiff = firstSample.values[1:] - nextSample.values[:-1]
-        sampleDiff = np.insert(
-            sampleDiff, 0, False
-        )  # The first file is, by definition, not a contination.
+        sampleMismatch = np.insert(
+            sampleMismatch, 0, 0
+        )  # The first file comes with no expectations, and therefore no mismatch.
 
         # For each 'series' of continuous files, get the first datetime (i.e. `fileCreateTime`) in that series.
         ser_dt0 = _ftab["fileCreateTime"].copy()
-        ser_dt0[is_continuation] = np.NaN
+        ser_dt0[isContinuation] = np.NaN
         ser_dt0 = ser_dt0.fillna(method="ffill")
 
         # For each 'series' of continuous files, use the first datetime to compute the timedelta to the start of the experiment.
@@ -150,7 +150,7 @@ def get_start_times_relative_to_experiment(ftab, tol=1, method="rigorous"):
 
         # Now account for samples collected before we started writing to disk.
         ser_t0 = file_t0.copy()
-        ser_t0[is_continuation] = np.NaN
+        ser_t0[isContinuation] = np.NaN
         ser_t0 = ser_t0.fillna(method="ffill")
         file_ser_t = (
             file_t0 - ser_t0
@@ -162,8 +162,8 @@ def get_start_times_relative_to_experiment(ftab, tol=1, method="rigorous"):
         ftab.loc[mask, "dtExperiment"] = exp_dt0 + pd.to_timedelta(
             ftab.loc[mask, "tExperiment"], "s"
         )
-        ftab.loc[mask, "isContinuation"] = is_continuation
-        ftab.loc[mask, "sampleDiff"] = sampleDiff
+        ftab.loc[mask, "isContinuation"] = isContinuation
+        ftab.loc[mask, "sampleDiff"] = sampleMismatch
     return ftab
 
 
