@@ -30,8 +30,5 @@ def do_alias(wneProject, wneSubject, experiment, alias, probe):
 
     if artifacts:
         df = hg.FloatHypnogram(pd.concat(artifacts, ignore_index=True))
-        artFile = wneProject.get_alias_subject_file()
-        artFile = wet.get_alias_subject_file(
-            experiment, alias, wneSubject.name, ece.wne.constants.ARTIFACTS_FNAME
-        )
+        artFile = wneProject.get_alias_subject_file(experiment, alias, wneSubject.name, ece.wne.constants.ARTIFACTS_FNAME)
         df.write_htsv(artFile)

@@ -107,3 +107,10 @@ class Subject:
         return self.get_files_table(
             experiment, alias, stream="ap", ftype="bin", **kwargs
         ).sort_values("fileCreateTime", ascending=True)
+
+    def get_alias_start(self, experiment, alias, **kwargs):
+        fTable = self.get_files_table(experiment, alias, **kwargs)
+        return fTable.tExperiment.min(), fTable.dtExperiment.min()
+
+    def get_experiment_start(self, experiment, **kwargs):
+        return self.get_alias_start(experiment, alias=None, **kwargs)
