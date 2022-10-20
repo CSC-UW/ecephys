@@ -127,6 +127,11 @@ def get_start_times_relative_to_experiment(ftab, tol=1, method="rigorous"):
             is_continuation, 0, False
         )  # The first file is, by definition, not a contination.
 
+        sampleDiff = firstSample.values[1:] - nextSample.values[:-1]
+        sampleDiff = np.insert(
+            sampleDiff, 0, False
+        )  # The first file is, by definition, not a contination.
+
         # For each 'series' of continuous files, get the first datetime (i.e. `fileCreateTime`) in that series.
         ser_dt0 = _ftab["fileCreateTime"].copy()
         ser_dt0[is_continuation] = np.NaN
@@ -158,6 +163,7 @@ def get_start_times_relative_to_experiment(ftab, tol=1, method="rigorous"):
             ftab.loc[mask, "tExperiment"], "s"
         )
         ftab.loc[mask, "isContinuation"] = is_continuation
+        ftab.loc[mask, "sampleDiff"] = sampleDiff
     return ftab
 
 
