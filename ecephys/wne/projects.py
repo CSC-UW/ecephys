@@ -36,7 +36,7 @@ import logging
 import numpy as np
 import spikeinterface.extractors as se
 from pathlib import Path
-from ecephys import utils, sglx, wne, sharptrack, sync, units
+import ecephys as ece
 
 logger = logging.getLogger(__name__)
 
@@ -175,14 +175,14 @@ class Project:
         --------
         list of pathlib.Path
         """
-        counterparts = wne.sglx.sessions.mirror_raw_data_paths(
+        counterparts = ece.wne.sglx.sessions.mirror_raw_data_paths(
             self.get_subject_directory(subject_name), paths
         )  # Mirror paths at the project's subject directory
         counterparts = [
-            sglx.file_mgmt.replace_ftype(p, extension, remove_probe, remove_stream)
+            ece.sglx.file_mgmt.replace_ftype(p, extension, remove_probe, remove_stream)
             for p in counterparts
         ]
-        return utils.remove_duplicates(counterparts)
+        return ece.utils.remove_duplicates(counterparts)
 
     def load_experiment_subject_json(self, experiment_name, subject_name, fname):
         path = self.get_experiment_subject_file(experiment_name, subject_name, fname)
@@ -191,7 +191,7 @@ class Project:
 
     def get_all_probes(self, subject_name, experiment_name):
         opts = self.load_experiment_subject_json(
-            experiment_name, subject_name, wne.constants.EXP_PARAMS_FNAME
+            experiment_name, subject_name, ece.wne.constants.EXP_PARAMS_FNAME
         )
         return opts["probes"].keys()
 
@@ -236,11 +236,11 @@ class Project:
         filename.mat is then to be found in the same location as experiment_params.json (i.e.e the experiment-subject directory)
         """
         opts = self.load_experiment_subject_json(
-            experiment, subject, wne.constants.EXP_PARAMS_FNAME
+            experiment, subject, ece.wne.constants.EXP_PARAMS_FNAME
         )
         fname = opts["probes"][probe]["SHARP-Track"]
         file = self.get_experiment_subject_file(experiment, subject, fname)
-        return sharptrack.SHARPTrack(file)
+        return ece.sharptrack.SHARPTrack(file)
 
     def remap_probe_times(self, subject, experiment, fromProbe, times, toProbe="imec0"):
         """Remap a vector of probe times to the canonical experiment timebase, using a subject's precomputed sync models.
@@ -272,7 +272,7 @@ class Project:
 
         assert "prb2prb" in sync_models, "Probe-to-probe sync models not found in file."
         model = sync_models["prb2prb"][fromProbe][toProbe]
-        return sync.remap_times(times, model)
+        return ece.sync.remap_times(times, model)
 
     def load_singleprobe_sorting(
         self,
@@ -310,15 +310,15 @@ class Project:
         extractor = self.get_kilosort_extractor(
             subject, experiment, alias, probe, sortingID
         )
-        sorting = units.refine_clusters(extractor, filters)
+        sorting = ece.units.refine_clusters(extractor, filters)
         if sharptrack:
             st = self.get_sharptrack(subject, experiment, probe)
-            units.add_structures_from_sharptrack(sorting, st)
+            ece.units.add_structures_from_sharptrack(sorting, st)
         if remapTimes:
             remapper = lambda t: self.remap_probe_times(subject, experiment, probe, t)
-            return units.SingleProbeSorting(sorting, remapper)
+            return ece.units.SingleProbeSorting(sorting, remapper)
         else:
-            return units.SingleProbeSorting(sorting)
+            return ece.units.SingleProbeSorting(sorting)
 
     def load_multiprobe_sorting(self, subject, experiment, probes=None, **kwargs):
         """Load sorted spikes from multiple probes, optionally filtered and augmented with additional information.
@@ -338,7 +338,7 @@ class Project:
         """
         if probes is None:
             probes = self.get_all_probes(subject, experiment)
-        return units.MultiProbeSorting(
+        return ece.units.MultiProbeSorting(
             {
                 prb: self.load_singleprobe_sorting(subject, experiment, prb, **kwargs)
                 for prb in probes

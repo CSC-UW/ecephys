@@ -1,1 +1,1 @@
-from . import preprocess_lfps
+from . import preprocess_lfps, emg_from_lfp, utils

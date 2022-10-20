@@ -11,16 +11,20 @@ CHUNK_SIZE = 2**16
 CHUNK_OVERLAP = 2**10
 
 
-def do_experiment(
-    subjectName,
-    subjectsDir,
-    experimentName,
-    projectName,
-    projectsFile,
+def do_alias(
+    wneProject,
+    wneSubject,
+    experiment,
     alias=None,
     **kwargs,
 ):
     """
+    Parameters:
+    -----------
+    alias: str or None
+        If None, do whole experiment
+
+
     IBL LFP pipeline
     -----
     1. 2-200Hz 3rd order butter bandpass, applied with filtfilt
@@ -51,21 +55,16 @@ def do_experiment(
     - Time to write float32 and float64 files are the same (~20s), but time to read float32 is twice as fast (5 vs 10s).
     - I have not yet tested whether using overlapping windows is truly necessary. It may not be, since the only filter here is the FIR antialiasing filter.
     - Note that the data here are NOT de-meaned.
-
     """
-    subjLib = wne.sglx.SubjectLibrary(subjectsDir)
-    subj = subjLib.get_subject(subjectName)
-
-    projLib = wne.ProjectLibrary(projectsFile)
-    proj = projLib.get_project(projectName)
-
-    opts = proj.load_experiment_subject_json(
-        experimentName, subj.name, wne.constants.EXP_PARAMS_FNAME
+    opts = wneProject.load_experiment_subject_json(
+        experiment, wneSubject.name, wne.constants.EXP_PARAMS_FNAME
     )
 
-    lfpTable = subj.get_lfp_bin_table(experimentName, alias, **kwargs)
+    lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, **kwargs)
     for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [outFile] = proj.get_sglx_counterparts(subj.name, [lfpFile.path], ".nc")
+        [outFile] = wneProject.get_sglx_counterparts(
+            wneSubject.name, [lfpFile.path], ".nc"
+        )
         outFile.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Loading {lfpFile.path.name}...")

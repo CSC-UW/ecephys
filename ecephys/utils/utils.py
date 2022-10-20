@@ -117,6 +117,7 @@ def drop_unserializeable(d):
         return ""
 
 
+# TODO: Move to ecephys.one
 def write_da_as_npy(da, object, dir=None):
     dir = Path().cwd() if dir is None else Path(dir)
     np.save(dir / f"{object}.data.npy", da.to_numpy())
@@ -133,6 +134,7 @@ def write_da_as_npy(da, object, dir=None):
         json.dump(metadata, f)
 
 
+# TODO: Move to ecephys.one
 def read_npy_as_da(object, dir=None):
     dir = Path().cwd() if dir is None else Path(dir)
     metafile = dir / f"{object}.metadata.json"
