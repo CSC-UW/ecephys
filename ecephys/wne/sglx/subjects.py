@@ -1,8 +1,10 @@
-import yaml
 import logging
-import pandas as pd
-import ecephys as ece
 from pathlib import Path
+
+import ecephys as ece
+import pandas as pd
+import spikeinterface.extractors as se
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +36,7 @@ class Subject:
         self.doc = subject_document
 
     def __repr__(self):
-        return self.name
+        return f"wneSubject: {self.name}"
 
     def get_files_table(
         self,
