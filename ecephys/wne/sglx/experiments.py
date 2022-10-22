@@ -11,9 +11,10 @@ data using 'aliases'.
 Aliases contain a list of {'start_file': <...>, 'end_file': <...>} dictionaries
 each specifying a continuous subset of data.
 """
-import re
-import logging
 import itertools as it
+import logging
+import re
+
 import numpy as np
 import pandas as pd
 
@@ -63,6 +64,39 @@ def parse_trigger_stem(stem):
 
     return (run, gate, trigger)
 
+
+def get_gate_dir_trigger_file_index(ftab):
+    """Get index of trigger file relative to all files of same stream/prb/gate_folder.
+
+    This is relative to files currently present in the directory, so we can't
+    just parse trigger index (doesn't work if some files are moved).
+
+    Useful to instantiate spikeinterface extractor objects, since they require
+    subselecting segments of interest (ie trigger files) after instantiation.
+    See https://github.com/SpikeInterface/spikeinterface/issues/628#issuecomment-1130232542
+
+    """
+    ftab["gate_dir"] = ftab.apply(lambda row: row["path"].parent, axis=1)
+    for gate_dir, prb, stream, ftype in it.product(
+        ftab.gate_dir.unique(),
+        ftab.probe.unique(),
+        ftab.stream.unique(),
+        ftab.ftype.unique()
+    ):
+        mask = (
+            (ftab["gate_dir"] == gate_dir)
+            & (ftab["probe"] == prb)
+            & (ftab["stream"] == stream)
+            & (ftab["ftype"] == ftype)
+        )
+        mask_n_triggers = int(mask.sum())
+        ftab.loc[mask, "gate_dir_n_trigger_files"] = mask_n_triggers
+        ftab.loc[mask, "gate_dir_trigger_file_idx"] = np.arange(0, mask_n_triggers)
+    
+    ftab['gate_dir_n_trigger_files'] = ftab['gate_dir_n_trigger_files'].astype(int)
+    ftab['gate_dir_trigger_file_idx'] = ftab['gate_dir_trigger_file_idx'].astype(int)
+
+    return ftab
 
 def get_start_times_relative_to_experiment(ftab, tol=1, method="rigorous"):
     """Get a series containing the time of each file start, in seconds, relative to the beginning of the experiment.
@@ -208,7 +242,11 @@ def get_experiment_files_table(sessions, experiment):
             for session in get_experiment_sessions(sessions, experiment)
         )
     )
-    return get_start_times_relative_to_experiment(sglx.filelist_to_frame(files))
+    return get_gate_dir_trigger_file_index(
+        get_start_times_relative_to_experiment(
+            sglx.filelist_to_frame(files)
+        )
+    )
 
 
 def _get_subalias_files(files_df, start_file, end_file, subalias_idx=None):

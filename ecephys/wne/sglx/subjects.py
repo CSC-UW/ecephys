@@ -1,8 +1,13 @@
-import yaml
 import logging
-import pandas as pd
-import ecephys as ece
 from pathlib import Path
+
+import ecephys as ece
+import pandas as pd
+import spikeinterface.extractors as se
+import spikeinterface as si
+import yaml
+
+from ecephys.wne.sglx.spikeinterface_utils import load_single_segment_sglx_recording
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +39,7 @@ class Subject:
         self.doc = subject_document
 
     def __repr__(self):
-        return self.name
+        return f"wneSubject: {self.name}"
 
     def get_files_table(
         self,
@@ -120,3 +125,27 @@ class Subject:
     def t2dt(self, experiment, probe, t):
         _, dt0 = self.get_experiment_start(experiment, probe)
         return pd.to_timedelta(t, "s") + dt0
+
+    # SpikeInterface loaders
+
+    def get_multisegment_si_recording(
+        self,
+        experiment,
+        alias,
+        stream,
+        probe,
+        sampling_frequency_max_diff=0
+    ):
+        ftable = self.get_files_table(experiment, alias, probe=probe, stream=stream, ftype="bin")
+        stream_id = f"{probe}.{stream}"
+        single_segment_recorders = []
+        for _, row in ftable.iterrows():
+            single_segment_recorders.append(
+                load_single_segment_sglx_recording(
+                    row.gate_dir, row.gate_dir_trigger_file_idx, stream_id
+                )
+            )
+        return si.append_recordings(
+            single_segment_recorders,
+            sampling_frequency_max_diff=sampling_frequency_max_diff,
+        )
