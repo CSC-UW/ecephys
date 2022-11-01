@@ -5,4 +5,6 @@ from . import (
     generate_scoring_edf,
     consolidate_artifact_annotations,
     consolidate_visbrain_hypnograms,
+    sorting_pipeline,
+    preprocess_si_rec,
 )

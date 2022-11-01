@@ -1,0 +1,49 @@
+output_dirname: 'ks_df'
+preprocessing:
+  # All preprocessing steps
+  # As list because run order is preserved
+  # All params are passed to relevant function in spikeinterface
+  - 
+    step_name: bandpass_filter # si.bandpass_filter
+    step_params: 
+      freq_min: 300
+      # freq_max: float("Inf")
+  -
+    step_name: phase_shift # si.phase_shift
+    step_params: {}
+  -
+    step_name: common_reference # si.common_reference
+    step_params:
+      reference: 'global'
+      operator: 'median'
+  -
+    step_name: whiten # si.whiten, NB: Need to scale if whitening!
+    step_params: {}
+  -
+    step_name: scale # si.scale, NB: Only if whitening
+    step_params:
+      gain: 200.0
+      offset: 0.0
+sorting:
+  - kilosort2_5 # Sorter name
+  - # Sorter params
+    ks_path: "/Volumes/scratch/neuropixels/matlab/external/Kilosort-wisc-v2.5"
+    detect_threshold: 6
+    projection_threshold: [10, 4]
+    preclust_threshold: 8
+    car: True
+    minFR: 0.1
+    minfr_goodchannels: 0.1
+    nblocks: 5
+    do_correction: True
+    sig: 20
+    lam: 10
+    freq_min: 150
+    sigmaMask: 30
+    nPCs: 3
+    ntbuff: 64
+    nfilt_factor: 4
+    NT: null
+    keep_good_only: False
+postprocessing: {}
+metrics: {}

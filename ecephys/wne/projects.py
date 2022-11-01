@@ -189,6 +189,11 @@ class Project:
         with open(path) as f:
             return json.load(f)
 
+    def load_experiment_subject_yaml(self, experiment_name, subject_name, fname):
+        path = self.get_experiment_subject_file(experiment_name, subject_name, fname)
+        with open(path) as f:
+            return yaml.load(f, Loader=yaml.SafeLoader)
+
     def get_all_probes(self, subject_name, experiment_name):
         opts = self.load_experiment_subject_json(
             experiment_name, subject_name, ece.wne.constants.EXP_PARAMS_FNAME
