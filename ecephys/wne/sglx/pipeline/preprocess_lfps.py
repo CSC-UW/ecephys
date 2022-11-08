@@ -69,7 +69,7 @@ def do_alias(
 
         logger.info(f"Loading {lfpFile.path.name}...")
         lfp = sglxr.load_trigger(
-            lfpFile.path, t0=lfpFile.tExperiment, dt0=lfpFile.dtExperiment
+            lfpFile.path, t0=lfpFile.wneFileStartTime, dt0=lfpFile.wneFileStartDatetime
         )
 
         logger.info("Processing chunks...")

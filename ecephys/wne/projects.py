@@ -89,15 +89,14 @@ class Project:
     def get_experiment_directory(self, experiment_name):
         return self.dir / experiment_name
 
-    # TODO: Can we make a separate `get_subalias_directory` function?
-    def get_alias_directory(self, experiment_name, alias_name, subalias_idx=None):
-        if (subalias_idx is None) or (subalias_idx == -1):
-            return self.get_experiment_directory(experiment_name) / alias_name
-        else:
-            return (
-                self.get_experiment_directory(experiment_name)
-                / f"{alias_name}_{subalias_idx}"
-            )
+    def get_alias_directory(self, experiment_name, alias_name):
+        return self.get_experiment_directory(experiment_name) / alias_name
+
+    def get_subalias_directory(self, experiment_name, alias_name, subalias_idx):
+        return (
+            self.get_experiment_directory(experiment_name)
+            / f"{alias_name}_{subalias_idx}"
+        )
 
     def get_experiment_subject_directory(self, experiment_name, subject_name):
         return self.get_experiment_directory(experiment_name) / subject_name
@@ -105,13 +104,14 @@ class Project:
     def get_alias_subject_directory(self, experiment_name, alias_name, subject_name):
         return self.get_alias_directory(experiment_name, alias_name) / subject_name
 
-    def get_alias_subject_directory(
-        self, experiment_name, alias_name, subject_name, subalias_idx=None
+    def get_alias_subject_directory(self, experiment_name, alias_name, subject_name):
+        return self.get_alias_directory(experiment_name, alias_name) / subject_name
+
+    def get_subalias_subject_directory(
+        self, experiment_name, alias_name, subject_name, subalias_idx
     ):
         return (
-            self.get_alias_directory(
-                experiment_name, alias_name, subalias_idx=subalias_idx
-            )
+            self.get_subalias_directory(experiment_name, alias_name, subalias_idx)
             / subject_name
         )
 

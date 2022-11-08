@@ -76,12 +76,13 @@ def get_gate_dir_trigger_file_index(ftab):
     See https://github.com/SpikeInterface/spikeinterface/issues/628#issuecomment-1130232542
 
     """
+    # TODO: Is this function still necessary now that the relevant SI issues has been closed?
     ftab["gate_dir"] = ftab.apply(lambda row: row["path"].parent, axis=1)
     for gate_dir, prb, stream, ftype in it.product(
         ftab.gate_dir.unique(),
         ftab.probe.unique(),
         ftab.stream.unique(),
-        ftab.ftype.unique()
+        ftab.ftype.unique(),
     ):
         mask = (
             (ftab["gate_dir"] == gate_dir)
@@ -92,13 +93,14 @@ def get_gate_dir_trigger_file_index(ftab):
         mask_n_triggers = int(mask.sum())
         ftab.loc[mask, "gate_dir_n_trigger_files"] = mask_n_triggers
         ftab.loc[mask, "gate_dir_trigger_file_idx"] = np.arange(0, mask_n_triggers)
-    
-    ftab['gate_dir_n_trigger_files'] = ftab['gate_dir_n_trigger_files'].astype(int)
-    ftab['gate_dir_trigger_file_idx'] = ftab['gate_dir_trigger_file_idx'].astype(int)
+
+    ftab["gate_dir_n_trigger_files"] = ftab["gate_dir_n_trigger_files"].astype(int)
+    ftab["gate_dir_trigger_file_idx"] = ftab["gate_dir_trigger_file_idx"].astype(int)
 
     return ftab
 
-def get_start_times_relative_to_experiment(ftab, tol=1, method="rigorous"):
+
+def add_wne_times(ftab: pd.DataFrame, tol=1, method="rigorous"):
     """Get a series containing the time of each file start, in seconds, relative to the beginning of the experiment.
 
     ftab: pd.DataFrame
@@ -110,7 +112,7 @@ def get_start_times_relative_to_experiment(ftab, tol=1, method="rigorous"):
     """
     ftab = ftab.sort_values("fileCreateTime")
     if method == "approximate":
-        ftab["tExperiment"] = (
+        ftab["wneFileStartTime"] = (
             ftab["fileCreateTime"] - ftab["fileCreateTime"].min()
         ).dt.total_seconds()
         return ftab
@@ -144,12 +146,13 @@ def get_start_times_relative_to_experiment(ftab, tol=1, method="rigorous"):
                 "File found with metadata that could not be cast as an integer. This likely indicates an incomplete .meta produced by a crash. Please repair."
             )
             logger.warn(
-                "Attempting to proceed anyway. This is experimental and could affect tExperiment values. Proceed with caution."
+                "Attempting to proceed anyway. This is experimental and could affect wneFileStartTime values. Proceed with caution."
             )
             _ftab.loc[:, "fileSizeBytes"] = _ftab["fileSizeBytes"].fillna(-1)
             _ftab.loc[:, "firstSample"] = _ftab["firstSample"].fillna(-1)
             nFileSamp, firstSample = _get_sample_info(_ftab)
 
+        ftab.loc[mask, "nFileSamp"] = nFileSamp
         # Get the expected 'firstSample' of the next file in a continous recording.
         nextSample = nFileSamp + firstSample
 
@@ -192,12 +195,20 @@ def get_start_times_relative_to_experiment(ftab, tol=1, method="rigorous"):
 
         # Finally, combine the (super-precise) offset of each file within its continuous series, with the (less precise*) offset of each series from the start of the experiment.
         # *(If there is only one series --i.e. no crashes or gaps -- there is no loss of precision. Otherwise, tests indicate that this value is precise to within a few msec.)
-        ftab.loc[mask, "tExperiment"] = file_ser_t + ser_exp_td.dt.total_seconds()
-        ftab.loc[mask, "dtExperiment"] = exp_dt0 + pd.to_timedelta(
-            ftab.loc[mask, "tExperiment"], "s"
+        ftab.loc[mask, "wneFileStartTime"] = file_ser_t + ser_exp_td.dt.total_seconds()
+        ftab.loc[mask, "wneFileStartDatetime"] = exp_dt0 + pd.to_timedelta(
+            ftab.loc[mask, "wneFileStartTime"], "s"
         )
         ftab.loc[mask, "isContinuation"] = isContinuation
         ftab.loc[mask, "sampleDiff"] = sampleMismatch
+
+    # Add information about file duration and end time as well, for convenience
+    ftab["wneFileTimeSecs"] = ftab["nFileSamp"] / ftab["imSampRate"].astype("float")
+    ftab["wneFileEndTime"] = ftab["wneFileStartTime"] + ftab["wneFileTimeSecs"]
+    ftab["wneFileEndDatetime"] = ftab["wneFileStartDatetime"] + pd.to_timedelta(
+        ftab["wneFileTimeSecs"], "s"
+    )
+
     return ftab
 
 
@@ -242,25 +253,41 @@ def get_experiment_files_table(sessions, experiment):
             for session in get_experiment_sessions(sessions, experiment)
         )
     )
-    return get_gate_dir_trigger_file_index(
-        get_start_times_relative_to_experiment(
-            sglx.filelist_to_frame(files)
+    return get_gate_dir_trigger_file_index(add_wne_times(sglx.filelist_to_frame(files)))
+
+
+def get_subalias_files_table(expTable: pd.DataFrame, subalias: dict):
+    if ("start_file" in subalias) and ("end_file" in subalias):
+        expTable = (
+            sglx.set_index(expTable).reset_index(level=0).sort_index()
+        )  # Make df sliceable using (run, gate, trigger)
+        return expTable[
+            parse_trigger_stem(subalias["start_file"]) : parse_trigger_stem(
+                subalias["end_file"]
+            )
+        ].reset_index()
+
+    if ("start_time" in subalias) and ("end_time" in subalias):
+        start = pd.to_datetime(subalias["start_time"])
+        end = pd.to_datetime(subalias["end_time"])
+        mask = (
+            (
+                (start <= expTable["wneFileStartDatetime"])
+                & (end >= expTable["wneFileEndDatetime"])
+            )  # Subalias starts before file and ends after it, OR...
+            | (
+                (end >= expTable["wneFileStartDatetime"])
+                & (end <= expTable["wneFileEndDatetime"])
+            )  # Subalias ends during file, OR...
+            | (  #
+                (start >= expTable["wneFileStartDatetime"])
+                & (start <= expTable["wneFileEndDatetime"])
+            )  # Subalias starts during file
         )
-    )
+        return expTable.loc[mask].reset_index(drop=True)
 
 
-def _get_subalias_files(files_df, start_file, end_file, subalias_idx=None):
-    # If there is no subalias (aka a single subalias).
-    if subalias_idx is None:
-        subalias_idx = -1
-    subalias_df = files_df[
-        parse_trigger_stem(start_file) : parse_trigger_stem(end_file)
-    ].reset_index()
-    subalias_df["subalias_idx"] = subalias_idx
-    return subalias_df
-
-
-def get_alias_files_table(sessions, experiment, alias):
+def get_alias_files_table(sessions: list, experiment: dict, alias: list):
     """Get all SpikeGLX files belonging to a single alias.
 
     Parameters:
@@ -291,27 +318,14 @@ def get_alias_files_table(sessions, experiment, alias):
     pd.DataFrame:
         All files in each of the sub-aliases, in sorted order, inclusive of both start_file and end_file.
     """
-    df = get_experiment_files_table(sessions, experiment)
-    df = (
-        sglx.set_index(df).reset_index(level=0).sort_index()
-    )  # Make df sliceable using (run, gate, trigger)
+    expTable = get_experiment_files_table(sessions, experiment)
 
-    if (
-        isinstance(alias, list) and len(alias) == 1
-    ):  # Single subalias ("subalias_idx" is set to -1)
-        return _get_subalias_files(
-            df, alias[0]["start_file"], alias[0]["end_file"], subalias_idx=None
-        )
+    if not isinstance(alias, list):
+        raise ValueError(f"Alias {alias} must be specified as a YAML list.")
 
-    elif isinstance(alias, list):  # Multiple subaliases.
-        return pd.concat(
-            [
-                _get_subalias_files(
-                    df, subalias["start_file"], subalias["end_file"], subalias_idx=i
-                )
-                for i, subalias in enumerate(alias)
-            ]
-        ).reset_index()
-
-    else:
-        raise ValueError("Unrecognized format for alias:\n {alias}")
+    saTables = [get_subalias_files_table(expTable, subalias) for subalias in alias]
+    for idx, table in enumerate(saTables):
+        table[
+            "subalias_idx"
+        ] = idx  # Why not just call this "subalias"? Why do we keep track of it?
+    return pd.concat(saTables).reset_index(drop=True)

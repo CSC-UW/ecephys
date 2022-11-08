@@ -41,6 +41,22 @@ class Subject:
     def __repr__(self):
         return f"wneSubject: {self.name}"
 
+    def get_alias_datetimes(self, experiment_name, alias_name):
+        experiment = self.doc["experiments"][experiment_name]
+        alias = experiment["aliases"][alias_name]
+
+        def get_subalias_datetimes(subalias):
+            if not ("start_time" in subalias) and ("end_time" in subalias):
+                raise NotImplementedError(
+                    f"All subaliases of {alias_name} must have start_time and end_time fields."
+                )
+            return (
+                pd.to_datetime(subalias["start_time"]),
+                pd.to_datetime(subalias["end_time"]),
+            )
+
+        return [get_subalias_datetimes(subalias) for subalias in alias]
+
     def get_files_table(
         self,
         experiment_name,
@@ -85,58 +101,51 @@ class Subject:
                 1:
             ].all(), "Files are not contiguous to within the specified tolerance."
 
-        return files_df
+        return files_df.reset_index(drop=True)
 
-    # TODO: Values should already be sorted by fileCreateTime. Check that the sort here is unnecessary
     def get_lfp_bin_paths(self, experiment, alias=None, **kwargs):
-        return (
-            self.get_files_table(experiment, alias, stream="lf", ftype="bin", **kwargs)
-            .sort_values("fileCreateTime", ascending=True)
-            .path.values
-        )
+        return self.get_files_table(
+            experiment, alias, stream="lf", ftype="bin", **kwargs
+        ).path.values
 
-    # TODO: Values should already be sorted by fileCreateTime. Check that the sort here is unnecessary
     def get_ap_bin_paths(self, experiment, alias=None, **kwargs):
-        return (
-            self.get_files_table(experiment, alias, stream="ap", ftype="bin", **kwargs)
-            .sort_values("fileCreateTime", ascending=True)
-            .path.values
-        )
+        return self.get_files_table(
+            experiment, alias, stream="ap", ftype="bin", **kwargs
+        ).path.values
 
-    # TODO: Values should already be sorted by fileCreateTime. Check that the sort here is unnecessary
     def get_lfp_bin_table(self, experiment, alias=None, **kwargs):
         return self.get_files_table(
             experiment, alias, stream="lf", ftype="bin", **kwargs
-        ).sort_values("fileCreateTime", ascending=True)
+        )
 
-    # TODO: Values should already be sorted by fileCreateTime. Check that the sort here is unnecessary
     def get_ap_bin_table(self, experiment, alias=None, **kwargs):
         return self.get_files_table(
             experiment, alias, stream="ap", ftype="bin", **kwargs
-        ).sort_values("fileCreateTime", ascending=True)
+        )
 
-    def get_alias_start(self, experiment, alias, probe):
-        fTable = self.get_files_table(experiment, alias, probe=probe)
-        return fTable.tExperiment.min(), fTable.dtExperiment.min()
-
-    def get_experiment_start(self, experiment, probe):
-        return self.get_alias_start(experiment, alias=None, probe=probe)
+    def get_experiment_data_times(self, experiment, probe, as_datetimes=False):
+        fTable = self.get_files_table(experiment, probe=probe)
+        if as_datetimes:
+            return (fTable.wneFileStartDatetime.min(), fTable.wneFileEndDatetime.max())
+        else:
+            return (fTable.wneFileStartTime.min(), fTable.wneFileEndTime.max())
 
     def t2dt(self, experiment, probe, t):
-        _, dt0 = self.get_experiment_start(experiment, probe)
+        dt0, _ = self.get_experiment_data_times(experiment, probe, as_datetimes=True)
         return pd.to_timedelta(t, "s") + dt0
+
+    def dt2t(self, experiment, probe, dt):
+        dt0, _ = self.get_experiment_data_times(experiment, probe, as_datetimes=True)
+        return (dt - dt0) / pd.to_timedelta("1s")
 
     # SpikeInterface loaders
 
     def get_multisegment_si_recording(
-        self,
-        experiment,
-        alias,
-        stream,
-        probe,
-        sampling_frequency_max_diff=0
+        self, experiment, alias, stream, probe, sampling_frequency_max_diff=0
     ):
-        ftable = self.get_files_table(experiment, alias, probe=probe, stream=stream, ftype="bin")
+        ftable = self.get_files_table(
+            experiment, alias, probe=probe, stream=stream, ftype="bin"
+        )
         stream_id = f"{probe}.{stream}"
         single_segment_recorders = []
         for _, row in ftable.iterrows():

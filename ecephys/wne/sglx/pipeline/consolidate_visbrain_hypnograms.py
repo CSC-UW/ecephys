@@ -19,7 +19,7 @@ def do_alias(wneProject, wneSubject, experiment, alias, probe):
         if vbFile.is_file():
             logger.debug(f"Loading file {vbFile.name}")
             vbHg = ece.hypnogram.FloatHypnogram.from_visbrain(vbFile)
-            vbHg[["start_time", "end_time"]] += lfpFile.tExperiment
+            vbHg[["start_time", "end_time"]] += lfpFile.wneFileStartTime
             vbHgs.append(vbHg)
         else:
             logger.warning(f"Hypnogram {vbFile.name} not found. Skipping.")

@@ -30,8 +30,8 @@ def do_alias(wneProject, wneSubject, experiment, alias=None, **kwargs):
         sig = ece.sglxr.load_trigger(
             lfpFile.path,
             opts["probes"][lfpFile.probe]["emgFromLfpChans"],
-            t0=lfpFile.tExperiment,
-            dt0=lfpFile.dtExperiment,
+            t0=lfpFile.wneFileStartTime,
+            dt0=lfpFile.wneFileStartDatetime,
         )
         emg = ece.xrsig.LFPs(sig).synthetic_emg(**DEFAULT_EMG_OPTIONS)
         ece.utils.save_xarray(emg, emgFile)
