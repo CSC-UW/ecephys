@@ -6,15 +6,15 @@ preprocessing:
   - 
     step_name: bandpass_filter # si.bandpass_filter
     step_params: 
-      freq_min: 300
-      # freq_max: float("Inf")
+      freq_min: 300.0
+      freq_max: 6000.0
   -
     step_name: phase_shift # si.phase_shift
     step_params: {}
   -
     step_name: common_reference # si.common_reference
     step_params:
-      reference: 'global'
+      reference: 'local'
       operator: 'median'
   -
     step_name: whiten # si.whiten, NB: Need to scale if whitening!
@@ -28,6 +28,7 @@ sorting:
   - kilosort2_5 # Sorter name
   - # Sorter params
     ks_path: "/Volumes/scratch/neuropixels/matlab/external/Kilosort-wisc-v2.5"
+    do_preprocessing: False # MANDATORY FALSE
     detect_threshold: 6
     projection_threshold: [10, 4]
     preclust_threshold: 8
@@ -45,5 +46,8 @@ sorting:
     nfilt_factor: 4
     NT: null
     keep_good_only: False
+    # SI params (parallelize preprocessing/dumping)
+    n_jobs: 20  # TODO: benchmark
+    chunk_duration: "1s"  # TODO: benchmark
 postprocessing: {}
 metrics: {}
