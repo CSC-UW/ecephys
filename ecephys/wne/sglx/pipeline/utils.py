@@ -1,5 +1,13 @@
 import ecephys as ece
 import xarray as xr
+import pandas as pd
+from pathlib import Path
+from ..subjects import Subject
+from ...projects import Project
+
+#####
+# DataArray functions
+#####
 
 
 def gather_alias_dataarray(wneProject, wneSubject, experiment, alias, probe, daExt):
@@ -23,3 +31,50 @@ def gather_and_save_alias_dataarray(
         ece.utils.write_da_as_npy(da, outputName, saveDir)
     else:
         ece.utils.save_xarray(da, saveDir / outputName)
+
+
+#####
+# HTSV functions
+#####
+
+
+def write_htsv(df, file):
+    assert Path(file).suffix == ".htsv", "File must use extension .htsv"
+    df.to_csv(file, sep="\t", header=True, index=(df.index.name is not None))
+
+
+def read_htsv(file):
+    assert Path(file).suffix == ".htsv", "File must use extension .htsv"
+    return pd.read_csv(file, sep="\t", header=0)
+
+
+def gather_alias_htsv(
+    wneProject: Project,
+    wneSubject: Subject,
+    experiment,
+    alias,
+    probe,
+    ext,
+):
+    lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
+    htsvFiles = wneProject.get_sglx_counterparts(
+        wneSubject.name, lfpTable.path.values, ext
+    )
+    dfs = [read_htsv(f) for f in htsvFiles if f.is_file()]
+    return pd.concat(dfs).reset_index(drop=True)
+
+
+def gather_and_save_alias_htsv(
+    wneProject: Project,
+    wneSubject: Subject,
+    experiment,
+    alias,
+    probe,
+    inExt,
+    outFname,
+):
+    df = gather_alias_htsv(wneProject, wneSubject, experiment, alias, probe, inExt)
+    savefile = wneProject.get_alias_subject_file(
+        experiment, alias, wneSubject.name, outFname
+    )
+    write_htsv(df, savefile)
