@@ -160,6 +160,24 @@ class Hypnogram:
                 f"Argument `how` should be either 'sel' or 'other'. Got {how}."
             )
 
+    def trim(self, start, end):
+        """Trim a spectrogram to start and end within a specified time range.
+        Actually will truncate bouts if they extend beyond the range."""
+        df = self._df.copy()
+        starts_before = df["start_time"] < start
+        df.loc[starts_before, "start_time"] = start
+        ends_after = df["end_time"] > end
+        df.loc[ends_after, "end_time"] = end
+        starts_after = df["start_time"] >= end
+        df = df[~starts_after]
+        df["duration"] = df["end_time"] - df["start_time"]
+        df = df.reset_index(drop=True)
+        return self.__class__(df)
+
+    def replace_states(self, replacement_dict):
+        """Takes a dict where keys are current states and values are desired states, and updates the hypnogram accoridngly."""
+        return self.__class__(self._df.replace(replacement_dict))
+
 
 class FloatHypnogram(Hypnogram):
     def write_visbrain(self, path):
