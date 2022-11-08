@@ -38,8 +38,10 @@ state_colors = {
     "IS": _dark[5],
     "REM": _colorblind[1],
     "Art": "crimson",
+    "Artifact": "crimson",
     "?": "crimson",
     "None": _colorblind[8],
+    "Other": _colorblind[8],
     "Drug": "white",
 }
 
@@ -61,7 +63,9 @@ publication_colors = {
     "IS": _pub_rem,
     "REM": _pub_rem,
     "Art": "crimson",
+    "Artifact": "crimson",
     "None": "white",
+    "Other": "white",
 }
 
 on_off_colors = {
@@ -277,7 +281,7 @@ def plot_hypnogram_overlay(
     ymax=1,
     figsize=(18, 3),
     alpha=0.3,
-):
+) -> plt.Axes:
     """Shade plot background using hypnogram state.
 
     Parameters
