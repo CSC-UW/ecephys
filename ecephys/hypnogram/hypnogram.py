@@ -178,6 +178,80 @@ class Hypnogram:
         """Takes a dict where keys are current states and values are desired states, and updates the hypnogram accoridngly."""
         return self.__class__(self._df.replace(replacement_dict))
 
+    def get_consolidated(
+        self,
+        states,
+        minimum_time,
+        minimum_endpoint_bout_duration,
+        maximum_antistate_bout_duration,
+        frac=0.8,
+    ):
+        """Get periods of consolidated sleep, wake, or any arbitrary set of states.
+
+        A period is considered consolidated if more than a given fraction of its duration
+        (e.g. frac=0.8 or 80%) is spent in the state(s) of interest, and the cumulative
+        amount of time spent in the state(s) of interest exceeds `minimum_time`.
+        Additionally, a consolidated period must be maximal, i.e. it cannot be contained by
+        a longer consolidated period.
+
+        Parameters:
+        -----------
+        states: list of str
+            The states of interest.
+        minimum_time:
+            The minimum cumulative time that must be spent in the states of interest for
+            a given period to be considered consolidated.
+        minimum_endpoint_bout_duration:
+            The minimum length of any bout that can be used as the start or end of a consolidated period.
+            This prevents picking bouts from fragmented periods (e.g. falling asleep after a period of extended wake), and also drastically reduces computaiton time.
+        maximum_antistate_bout_duration:
+            Do not allow periods to contain any bouts of unwanted states longer
+            than a given duration.
+        frac: float between 0 and 1
+            The minimum fraction of a given period that must be spent in the states of
+            interest for that period to be considered consolidated.
+
+        Returns:
+        --------
+        matches: list of pd.DataFrame
+            Each DataFrame is a slice of the hypnogram, corresponding to a consolidated
+            period.
+        """
+        # This method would be easy to adapt for FloatHypnogram types.
+        zero = np.array([0], dtype=self.duration.dtype)[
+            0
+        ]  # Represents duration of length 0, regardless of dtype
+        assert (
+            self.start_time.is_monotonic_increasing
+        ), "Hypnogram must be sorted by start_time."
+        endpoint_bouts = self.keep_states(states).keep_longer(
+            minimum_endpoint_bout_duration
+        )
+        k = endpoint_bouts.index.min() - 1
+        matches = list()
+        # i = period start, j = period end, k = end of last consolidated period
+        for i in endpoint_bouts.index:
+            if i <= k:
+                continue
+            for j in endpoint_bouts.index[::-1]:
+                if j < np.max([i, k]):
+                    break
+                isostate_bouts = self.__class__(self.loc[i:j]).keep_states(states)
+                time_in_states = np.max([isostate_bouts.duration.sum(), zero])
+                if time_in_states < minimum_time:
+                    break  # because all other periods in the loop will also fail
+                antistate_bouts = self.__class__(self.loc[i:j]).drop_states(states)
+                if antistate_bouts.duration.max() > maximum_antistate_bout_duration:
+                    continue
+                total_time = (
+                    self.loc[i:j].end_time.max() - self.loc[i:j].start_time.min()
+                )
+                if (time_in_states / total_time) >= frac:
+                    matches.append(self.__class__(self.loc[i:j]))
+                    k = j
+                    break  # don't bother checking subperiods of good periods
+        return matches
+
 
 class FloatHypnogram(Hypnogram):
     def write_visbrain(self, path):
@@ -294,6 +368,24 @@ class FloatHypnogram(Hypnogram):
         df = df[["state", "start_time", "end_time", "duration"]]
         return cls(df)
 
+    def get_consolidated(
+        self,
+        states,
+        minimum_time=0,
+        minimum_endpoint_bout_duration=0,
+        maximum_antistate_bout_duration=np.inf,
+        frac=0.8,
+    ):
+        """See Hypnogram.get_consolidated"""
+        return Hypnogram.get_consolidated(
+            self,
+            states,
+            minimum_time,
+            minimum_endpoint_bout_duration,
+            maximum_antistate_bout_duration,
+            frac=frac,
+        )
+
 
 class DatetimeHypnogram(Hypnogram):
     def as_float(self):
@@ -375,76 +467,20 @@ class DatetimeHypnogram(Hypnogram):
     def get_consolidated(
         self,
         states,
-        frac=0.8,
         minimum_time="0S",
         minimum_endpoint_bout_duration="0S",
         maximum_antistate_bout_duration=pd.Timedelta.max,
+        frac=0.8,
     ):
-        """Get periods of consolidated sleep, wake, or any arbitrary set of states.
-
-        A period is considered consolidated if more than a given fraction of its duration
-        (e.g. frac=0.8 or 80%) is spent in the state(s) of interest, and the cumulative
-        amount of time spent in the state(s) of interest exceeds `minimum_time`.
-        Additionally, a consolidated period must be maximal, i.e. it cannot be contained by
-        a longer consolidated period.
-
-        Parameters:
-        -----------
-        states: list of str
-            The states of interest.
-        frac: float between 0 and 1
-            The minimum fraction of a given period that must be spent in the states of
-            interest for that period to be considered consolidated.
-        minimum_time: timedelta format string
-            The minimum cumulative time that must be spent in the states of interest for
-            a given period to be considered consolidated.
-        maximum_antistate_bout_duration: timedelta format string
-            Do not allow periods to contain any bouts of unwanted states longer
-            than a given duration.
-
-        Returns:
-        --------
-        matches: list of pd.DataFrame
-            Each DataFrame is a slice of the hypnogram, corresponding to a consolidated
-            period.
-        """
-        # This method would be easy to adapt for FloatHypnogram types.
-        assert (
-            self.start_time.is_monotonic_increasing
-        ), "Hypnogram must be sorted by start_time."
-        minimum_time = pd.to_timedelta(minimum_time)
-        maximum_antistate_bout_duration = pd.to_timedelta(
-            maximum_antistate_bout_duration
+        """See Hypnogram.get_consolidated"""
+        return Hypnogram.get_consolidated(
+            self,
+            states,
+            pd.to_timedelta(minimum_time),
+            pd.to_timedelta(minimum_endpoint_bout_duration),
+            pd.to_timedelta(maximum_antistate_bout_duration),
+            frac=frac,
         )
-        endpoint_bouts = self.keep_states(states).keep_longer(
-            minimum_endpoint_bout_duration
-        )
-        k = endpoint_bouts.index.min() - 1
-        matches = list()
-        # i = period start, j = period end, k = end of last consolidated period
-        for i in endpoint_bouts.index:
-            if i <= k:
-                continue
-            for j in endpoint_bouts.index[::-1]:
-                if j < np.max([i, k]):
-                    break
-                isostate_bouts = self.__class__(self.loc[i:j]).keep_states(states)
-                time_in_states = np.max(
-                    [isostate_bouts.duration.sum(), pd.to_timedelta(0, "s")]
-                )
-                if time_in_states < minimum_time:
-                    break  # because all other periods in the loop will also fail
-                antistate_bouts = self.__class__(self.loc[i:j]).drop_states(states)
-                if antistate_bouts.duration.max() > maximum_antistate_bout_duration:
-                    continue
-                total_time = (
-                    self.loc[i:j].end_time.max() - self.loc[i:j].start_time.min()
-                )
-                if (time_in_states / total_time) >= frac:
-                    matches.append(self.__class__(self.loc[i:j]))
-                    k = j
-                    break  # don't bother checking subperiods of good periods
-        return matches
 
     def get_gaps(self, tolerance="0s"):
         """Get all unscored gaps in the hypnogram.
