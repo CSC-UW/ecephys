@@ -21,6 +21,7 @@ class AbstractSortingPipeline:
         experimentName,
         aliasName,
         probe,
+        time_ranges=None,
         opts_filepath=None,
         output_dirname=None,
         rerun_existing=True,
@@ -33,6 +34,13 @@ class AbstractSortingPipeline:
         self.aliasName = aliasName
         self.experimentName = experimentName
         self.probe = probe
+        self.time_ranges = time_ranges
+        if self.time_ranges is not None:
+            if not len(self.time_ranges) == len(self.raw_ap_bin_table):
+                raise ValueError(
+                    f"`time_ranges` should be a list of length "
+                    f"{len(self.raw_ap_bin_table)}"
+                )
 
         # Pipeline options
         if opts_filepath is None:
@@ -46,6 +54,7 @@ class AbstractSortingPipeline:
             assert opts_filepath.exists()
             with open(opts_filepath, 'r') as f:
                 self.opts = yaml.load(f, Loader=yaml.SafeLoader)
+        self.rerun_existing = rerun_existing
 
         # Input/Output
         self._raw_ap_bin_table = None
@@ -63,6 +72,7 @@ class AbstractSortingPipeline:
         {self.__class__.__name__}:
         {self.wneSubject.name}, {self.probe}
         {self.experimentName} - {self.aliasName}
+        Segment time ranges (s): {self.time_ranges}
         output_dir: {self.output_dir}
         """
 
@@ -148,11 +158,13 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
     ######### Pipeline steps ##########
 
     def load_raw_si_recording(self):
-        return self.wneSubject.get_multisegment_si_recording(
+        # return self.wneSubject.get_multi_segment_si_recording(
+        return self.wneSubject.get_single_segment_si_recording(
             self.experimentName,
             self.aliasName,
             'ap',
             self.probe,
+            time_ranges=self.time_ranges,
         )
 
     def run_preprocessing(self):

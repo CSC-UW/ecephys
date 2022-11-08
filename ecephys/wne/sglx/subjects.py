@@ -128,24 +128,73 @@ class Subject:
 
     # SpikeInterface loaders
 
-    def get_multisegment_si_recording(
+    def get_si_single_segments(
         self,
         experiment,
         alias,
         stream,
         probe,
-        sampling_frequency_max_diff=0
+        time_ranges=None,
     ):
         ftable = self.get_files_table(experiment, alias, probe=probe, stream=stream, ftype="bin")
         stream_id = f"{probe}.{stream}"
-        single_segment_recorders = []
-        for _, row in ftable.iterrows():
-            single_segment_recorders.append(
-                load_single_segment_sglx_recording(
+        if time_ranges is not None:
+            assert len(time_ranges) == len(ftable)
+        single_segment_recordings = []
+        for i, (_, row) in enumerate(ftable.iterrows()):
+            rec = load_single_segment_sglx_recording(
                     row.gate_dir, row.gate_dir_trigger_file_idx, stream_id
-                )
             )
+            if time_ranges is not None:
+                segment_time_range = time_ranges[i]
+                rec = rec.frame_slice(
+                    int(segment_time_range[0] * rec.get_sampling_frequency()), 
+                    int(segment_time_range[1] * rec.get_sampling_frequency()),
+                )
+                print(f"Add segment: time_range={segment_time_range}", rec)
+            single_segment_recordings.append(
+                rec
+            )
+        return single_segment_recordings
+
+    def get_single_segment_si_recording(
+        self,
+        experiment,
+        alias,
+        stream,
+        probe,
+        sampling_frequency_max_diff=0,
+        time_ranges=None,
+    ):
+        single_segment_recordings = self.get_si_single_segments(
+            experiment,
+            alias,
+            stream,
+            probe,
+            time_ranges=time_ranges,
+        )
+        return si.concatenate_recordings(
+            single_segment_recordings,
+            sampling_frequency_max_diff=sampling_frequency_max_diff,
+        )
+
+    def get_multi_segment_si_recording(
+        self,
+        experiment,
+        alias,
+        stream,
+        probe,
+        sampling_frequency_max_diff=0,
+        time_ranges=None,
+    ):
+        single_segment_recordings = self.get_si_single_segments(
+            experiment,
+            alias,
+            stream,
+            probe,
+            time_ranges=time_ranges,
+        )
         return si.append_recordings(
-            single_segment_recorders,
+            single_segment_recordings,
             sampling_frequency_max_diff=sampling_frequency_max_diff,
         )
