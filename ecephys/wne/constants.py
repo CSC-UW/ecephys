@@ -5,6 +5,7 @@ ARTIFACTS_EXT = ".artifacts.csv"
 VISBRAIN_EXT = ".hypnogram.txt"
 
 EXP_PARAMS_FNAME = "experiment_params.json"
+SORTING_PIPELINE_PARAMS_FNAME = "sorting_pipeline_params.yaml"
 EMG_FNAME = "emg.nc"
 ARTIFACTS_FNAME = "artifacts.htsv"
 HYPNOGRAM_FNAME = "hypnogram.htsv"

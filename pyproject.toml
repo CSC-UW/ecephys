@@ -30,6 +30,7 @@ ibllib = "^2.13.3"
 ssqueezepy = "^0.6.3"
 pyfftw = "^0.13.0"
 pyEDFlib = "^0.1.30"
+horology = "^1.2.0"
 
 [tool.poetry.dev-dependencies]
 altair = "^4.2.0"
