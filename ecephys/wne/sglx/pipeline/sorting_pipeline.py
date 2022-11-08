@@ -186,6 +186,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
         self.output_dir.mkdir(exist_ok=True, parents=True)
         if sorter_name == "kilosort2_5":
+            sorter_params = sorter_params.copy() # Allow rerunning since we pop
             ss.sorter_dict[sorter_name].set_kilosort2_5_path(sorter_params.pop("ks_path"))
 
         with Timing(name="Run spikeinterface sorter"):
