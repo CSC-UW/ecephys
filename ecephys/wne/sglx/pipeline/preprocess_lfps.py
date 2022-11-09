@@ -12,9 +12,9 @@ CHUNK_OVERLAP = 2**10
 
 
 def do_alias(
-    wneProject: wne.Project,
-    wneSubject: wne.sglx.Subject,
-    experiment: str,
+    wneProject,
+    wneSubject,
+    experiment,
     alias=None,
     **kwargs,
 ):
