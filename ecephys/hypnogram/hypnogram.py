@@ -114,6 +114,11 @@ class Hypnogram:
         )
         return self.groupby("state").duration.sum() / total_time
 
+    def condense(self, tolerance):
+        bouts = list(self.to_dict("records"))
+        new = pd.DataFrame(_condense(bouts, tolerance))
+        return self.__class__(new)
+
     def write_htsv(self, file):
         """Write as HTSV."""
         file = Path(file)
@@ -125,13 +130,6 @@ class Hypnogram:
             header=True,
             index=False,
         )
-
-    # TODO: Deprecated. Remove.
-    def write(self, file):
-        warnings.warn(
-            "Hypnogram.write is deprecated and will be removed. Use Hypnogram.write_htsv instead."
-        )
-        self.write_htsv(file)
 
     def reconcile(self, other, how="self"):
         """Reconcile this hypnogram with another, per `reconcile_hypnograms`.
@@ -217,7 +215,6 @@ class Hypnogram:
             Each DataFrame is a slice of the hypnogram, corresponding to a consolidated
             period.
         """
-        # This method would be easy to adapt for FloatHypnogram types.
         zero = np.array([0], dtype=self.duration.dtype)[
             0
         ]  # Represents duration of length 0, regardless of dtype
@@ -252,6 +249,65 @@ class Hypnogram:
                     break  # don't bother checking subperiods of good periods
         return matches
 
+    def get_gaps(self, longerThan):
+        """Get all unscored gaps in the hypnogram.
+
+        Parameters:
+        -----------
+        longerThan:
+            Only get gaps greater than a given duration.
+
+        Returns:
+        --------
+        gaps: list of dict
+            Each gap detected, with start_time, end_time, and duration.
+        """
+        gaps = list()
+        for i in range(len(self) - 1):
+            current_bout_end = self.iloc[i].end_time
+            next_bout_start = self.iloc[i + 1].start_time
+            gap = next_bout_start - current_bout_end
+            if gap > longerThan:
+                gaps.append(
+                    dict(
+                        start_time=current_bout_end,
+                        end_time=next_bout_start,
+                        duration=gap,
+                    )
+                )
+
+        return gaps
+
+    def fill_gaps(self, longerThan, **kwargs):
+        """Fill all unscored gaps in the hypnogram.
+
+        Parameters:
+        -----------
+        longerThan:
+            Only fill gaps greater than a given duration.
+        kwargs:
+            See pd.DataFrame.fillna()
+
+        Returns:
+        --------
+        hypnogram: DatetimeHypnogram
+            The hypnogram, with gaps filled.
+
+        Examples:
+        ---------
+        To mark all gaps >1s as "Unscored", then fill all smaller gaps in with the preceeding state:
+        hg.fill_gaps(longerThan=1, value="Unscored").fill_gaps(longerThan=0, method="ffill")
+        """
+        gaps = self.get_gaps(longerThan)
+        for gap in gaps:
+            gap.update({"state": np.nan})
+        new = (
+            pd.concat([self._df, pd.DataFrame.from_records(gaps)])
+            .sort_values("start_time", ignore_index=True)
+            .fillna(**kwargs)
+        )
+        return self.__class__(new)
+
 
 class FloatHypnogram(Hypnogram):
     def write_visbrain(self, path):
@@ -275,6 +331,42 @@ class FloatHypnogram(Hypnogram):
         duration: float
         """
         return self.__class__(self.loc[self.duration > duration])
+
+    def get_gaps(self, longerThan=0):
+        return Hypnogram.get_gaps(self, longerThan)
+
+    def fill_gaps(self, longerThan=0, **kwargs):
+        return Hypnogram.fill_gaps(self, longerThan, **kwargs)
+
+    def get_consolidated(
+        self,
+        states,
+        minimum_time=0,
+        minimum_endpoint_bout_duration=0,
+        maximum_antistate_bout_duration=np.inf,
+        frac=0.8,
+    ):
+        """See Hypnogram.get_consolidated"""
+        return Hypnogram.get_consolidated(
+            self,
+            states,
+            minimum_time,
+            minimum_endpoint_bout_duration,
+            maximum_antistate_bout_duration,
+            frac=frac,
+        )
+
+    def condense(self, tolerance=1):
+        return Hypnogram.condense(self, tolerance)
+
+    def clean(self):
+        """Combine consecutive bouts with the same state, fill large gaps as missing, and forward fill reamining small gaps."""
+        return (
+            self.condense(tolerance=1)
+            .fill_gaps(longerThan=1, value="NoData")
+            .fill_gaps(longerThan=0, method="ffill")
+            .condense(tolerance=1)
+        )
 
     @classmethod
     def get_dummy(cls, start_time=0.0, end_time=np.Inf):
@@ -368,24 +460,6 @@ class FloatHypnogram(Hypnogram):
         df = df[["state", "start_time", "end_time", "duration"]]
         return cls(df)
 
-    def get_consolidated(
-        self,
-        states,
-        minimum_time=0,
-        minimum_endpoint_bout_duration=0,
-        maximum_antistate_bout_duration=np.inf,
-        frac=0.8,
-    ):
-        """See Hypnogram.get_consolidated"""
-        return Hypnogram.get_consolidated(
-            self,
-            states,
-            minimum_time,
-            minimum_endpoint_bout_duration,
-            maximum_antistate_bout_duration,
-            frac=frac,
-        )
-
 
 class DatetimeHypnogram(Hypnogram):
     def as_float(self):
@@ -472,7 +546,6 @@ class DatetimeHypnogram(Hypnogram):
         maximum_antistate_bout_duration=pd.Timedelta.max,
         frac=0.8,
     ):
-        """See Hypnogram.get_consolidated"""
         return Hypnogram.get_consolidated(
             self,
             states,
@@ -482,58 +555,24 @@ class DatetimeHypnogram(Hypnogram):
             frac=frac,
         )
 
-    def get_gaps(self, tolerance="0s"):
-        """Get all unscored gaps in the hypnogram.
+    def get_gaps(self, longerThan="0S"):
+        return Hypnogram.get_gaps(self, pd.to_timdelta(longerThan))
 
-        Parameters:
-        -----------
-        tolterance: timedelta format string
-            Optionally ignore gaps that are less than a given duration.
+    def fill_gaps(self, longerThan="0S", **kwargs):
+        return Hypnogram.fill_gaps(self, pd.to_datetime(longerThan), **kwargs)
 
-        Returns:
-        --------
-        gaps: list of dict
-            Each gap detected, with start_time, end_time, and duration.
-        """
-        gaps = list()
-        for i in range(len(self) - 1):
-            current_bout_end = self.iloc[i].end_time
-            next_bout_start = self.iloc[i + 1].start_time
-            gap = next_bout_start - current_bout_end
-            if gap > pd.to_timedelta(tolerance):
-                gaps.append(
-                    dict(
-                        start_time=current_bout_end,
-                        end_time=next_bout_start,
-                        duration=gap,
-                    )
-                )
+    def condense(self, tolerance="1S"):
+        return Hypnogram.condense(self, pd.to_datetime(tolerance))
 
-        return gaps
-
-    def fill_gaps(self, tolerance="0s", fill_state="None"):
-        """Fill all unscored gaps in the hypnogram with a specified state.
-
-        Parameters:
-        -----------
-        tolerance: timedelta format string
-            Optionally ignore gaps that are less than a given duration.
-        fill_state: string
-            The state to fill each gap with.
-
-        Returns:
-        --------
-        hypnogram: DatetimeHypnogram
-            The hypnogram, with gaps filled.
-        """
-        gaps = self.get_gaps(tolerance)
-        for gap in gaps:
-            gap.update({"state": fill_state})
-
-        return self.__class__(
-            pd.concat([self._df, pd.DataFrame.from_records(gaps)]).sort_values(
-                "start_time", ignore_index=True
-            )
+    def clean(self):
+        """Combine consecutive bouts with the same state, fill large gaps as missing, and forward fill reamining small gaps."""
+        one = pd.to_timedelta("1s")
+        zero = pd.to_timedelta("0s")
+        return (
+            self.condense(tolerance=one)
+            .fill_gaps(longerThan=one, value="NoData")
+            .fill_gaps(longerThan=zero, method="ffill")
+            .condense(tolerance=one)
         )
 
     @classmethod
@@ -731,39 +770,35 @@ def _check_time(t):
     raise ValueError("Unexpected time of day type.")
 
 
-#####
-# Deprecated loading functions.
-# TODO: Remove
-#####
+def _condense(bouts, tolerance):
+    """Recursively condense a Hypnogram so that consecutive bouts with matching states,
+    separated by a small gap, are combined into a single hypnogram entry.
 
+    Parameters:
+    ===========
+    bouts: list of dict
+        Records for each bout, e.g. list(hg.to_dict('records'))
+    tolerance:
+        Gaps between consecutive bouts with matching states, less than or equal to this value, are incorporated as that state.
 
-def load_visbrain_hypnogram(path):
-    """Load a Visbrain formatted hypnogram."""
-    warnings.warn(
-        "load_visbrain_hypnogram is deprecated and will be removed. Use FloatHypnogram.from_visbrain instead."
-    )
-    return FloatHypnogram.from_visbrain(path)
-
-
-def load_spike2_hypnogram(path):
-    """Load a Spike2 formatted hypnogram."""
-    warnings.warn(
-        "load_spike2_hypnogram is deprecated and will be removed. Use FloatHypnogram.from_Spike2 instead."
-    )
-    return FloatHypnogram.from_Spike2(path)
-
-
-def load_sleepsign_hypnogram(path):
-    """Load a SleepSign hypnogram, exported using the `trend` function."""
-    warnings.warn(
-        "load_sleepsign_hypnogram is deprecated and will be removed. Use FloatHypnogram.from_SleepSign instead."
-    )
-    return FloatHypnogram.from_SleepSign(path)
-
-
-def load_datetime_hypnogram(path):
-    """Load a hypnogram whose entries are valid datetime strings."""
-    warnings.warn(
-        "load_datetime_hypnogram is deprecated and will be removed. Use DatetimeHypnogram.from_htsv instead."
-    )
-    return DatetimeHypnogram.from_htsv(path)
+    Returns:
+    ========
+    list of dict, like bouts, but condensed.
+    """
+    if len(bouts) == 1:
+        return bouts
+    curr = bouts[0]
+    rest = _condense(bouts[1:], tolerance)
+    next = bouts[1]
+    if (curr["state"] == next["state"]) and (
+        next["start_time"] - curr["end_time"]
+    ) <= tolerance:
+        new = {
+            "state": curr["state"],
+            "start_time": curr["start_time"],
+            "end_time": next["end_time"],
+            "duration": next["end_time"] - curr["start_time"],
+        }
+        return [new] + rest[1:]
+    else:
+        return [curr] + rest
