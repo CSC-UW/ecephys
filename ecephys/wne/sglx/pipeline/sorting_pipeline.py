@@ -125,8 +125,6 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         # And because all preprocessing is done in a lazy way anyways
         self._raw_si_recording =  None
         self._processed_si_recording = None
-        self._processed_saved_bin_si_recording = None
-        self._processed_bin_path = None
         self._final_sorting_output_dir = None  # With metrics and waveforms
 
         # Pipeline steps, specific to SI
@@ -198,7 +196,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                 **sorter_params,
             )
         self._is_sorted = True
-    
+
     def run_pipeline(self):
         self.run_preprocessing()
         self.run_sorting()
