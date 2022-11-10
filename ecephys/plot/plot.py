@@ -41,6 +41,7 @@ state_colors = {
     "Artifact": "crimson",
     "?": "crimson",
     "None": _colorblind[8],
+    "NoData": "black",
     "Other": _colorblind[8],
     "Drug": "white",
 }

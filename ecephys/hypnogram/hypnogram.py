@@ -87,7 +87,7 @@ class Hypnogram:
             times_in_bout = (times >= bout.start_time) & (times <= bout.end_time)
             labels.values[times_in_bout] = bout.state
 
-        return labels
+        return labels.values
 
     def covers_time(self, times):
         """Given an array of times, return True where that time is covered by
