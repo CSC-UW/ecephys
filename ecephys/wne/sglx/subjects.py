@@ -50,6 +50,9 @@ class Subject:
             self.cache["session"].isin(sessionIDs)
         ]  # Get the cache slice corresponding to this experiment.
         frame = ece.wne.sglx.add_wne_times(frame)
+        # TODO: The following is not a function of the experiment, so should probably be done elsewhere.
+        # Also, this exists to get around limitations of SpikeInterface, so can hopefully be removed one day.
+        frame = ece.wne.sglx.get_gate_dir_trigger_file_index(frame)
 
         if aliasName is not None:
             subaliases = self.doc["experiments"][experimentName]["aliases"][aliasName]
