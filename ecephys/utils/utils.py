@@ -175,6 +175,16 @@ def save_xarray(xr_obj, path, **kwargs):
 # -------------------- Pandas utilities --------------------
 
 
+def write_htsv(df, file):
+    assert Path(file).suffix == ".htsv", "File must use extension .htsv"
+    df.to_csv(file, sep="\t", header=True, index=(df.index.name is not None))
+
+
+def read_htsv(file):
+    assert Path(file).suffix == ".htsv", "File must use extension .htsv"
+    return pd.read_csv(file, sep="\t", header=0)
+
+
 def store_pandas_netcdf(pd_obj, path):
     """Save a pandas object, including attrs, to a NetCDF file."""
     xr_obj = pd_obj.to_xarray()

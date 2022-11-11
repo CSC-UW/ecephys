@@ -1,7 +1,6 @@
 import ecephys as ece
 import xarray as xr
 import pandas as pd
-from pathlib import Path
 from ..subjects import Subject
 from ...projects import Project
 
@@ -38,16 +37,6 @@ def gather_and_save_alias_dataarray(
 #####
 
 
-def write_htsv(df, file):
-    assert Path(file).suffix == ".htsv", "File must use extension .htsv"
-    df.to_csv(file, sep="\t", header=True, index=(df.index.name is not None))
-
-
-def read_htsv(file):
-    assert Path(file).suffix == ".htsv", "File must use extension .htsv"
-    return pd.read_csv(file, sep="\t", header=0)
-
-
 def gather_alias_htsv(
     wneProject: Project,
     wneSubject: Subject,
@@ -60,7 +49,7 @@ def gather_alias_htsv(
     htsvFiles = wneProject.get_sglx_counterparts(
         wneSubject.name, lfpTable.path.values, ext
     )
-    dfs = [read_htsv(f) for f in htsvFiles if f.is_file()]
+    dfs = [ece.utils.read_htsv(f) for f in htsvFiles if f.is_file()]
     return pd.concat(dfs).reset_index(drop=True)
 
 
@@ -77,4 +66,4 @@ def gather_and_save_alias_htsv(
     savefile = wneProject.get_alias_subject_file(
         experiment, alias, wneSubject.name, outFname
     )
-    write_htsv(df, savefile)
+    ece.utils.write_htsv(df, savefile)

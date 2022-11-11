@@ -383,6 +383,9 @@ def filelist_to_frame(files):
     --------
     pd.DataFrame with columns [run, gate, trigger, probe, stream, ftype, path].
     """
+    if not files:
+        return pd.DataFrame()
+
     meta_df = (
         read_metadata(files)
         .astype({"fileCreateTime": "datetime64[ns]"})

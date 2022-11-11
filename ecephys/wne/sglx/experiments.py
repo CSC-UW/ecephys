@@ -65,6 +65,7 @@ def parse_trigger_stem(stem):
     return (run, gate, trigger)
 
 
+# TODO: Deprecated. Remove.
 def get_gate_dir_trigger_file_index(ftab):
     """Get index of trigger file relative to all files of same stream/prb/gate_folder.
 
@@ -212,6 +213,7 @@ def add_wne_times(ftab: pd.DataFrame, tol=1, method="rigorous"):
     return ftab
 
 
+# TODO: Deprecated. Remove.
 def get_experiment_sessions(sessions, experiment):
     """Get the subset of sessions needed by an experiment.
 
@@ -233,6 +235,7 @@ def get_experiment_sessions(sessions, experiment):
     ]
 
 
+# TODO: Deprecated. Remove.
 def get_experiment_files_table(sessions, experiment):
     """Get all SpikeGLX files belonging to a single experiment.
 
@@ -256,12 +259,12 @@ def get_experiment_files_table(sessions, experiment):
     return get_gate_dir_trigger_file_index(add_wne_times(sglx.filelist_to_frame(files)))
 
 
-def get_subalias_files_table(expTable: pd.DataFrame, subalias: dict):
+def get_subalias_frame(expFrame: pd.DataFrame, subalias: dict):
     if ("start_file" in subalias) and ("end_file" in subalias):
-        expTable = (
-            sglx.set_index(expTable).reset_index(level=0).sort_index()
+        expFrame = (
+            sglx.set_index(expFrame).reset_index(level=0).sort_index()
         )  # Make df sliceable using (run, gate, trigger)
-        return expTable[
+        return expFrame[
             parse_trigger_stem(subalias["start_file"]) : parse_trigger_stem(
                 subalias["end_file"]
             )
@@ -272,21 +275,22 @@ def get_subalias_files_table(expTable: pd.DataFrame, subalias: dict):
         end = pd.to_datetime(subalias["end_time"])
         mask = (
             (
-                (start <= expTable["wneFileStartDatetime"])
-                & (end >= expTable["wneFileEndDatetime"])
+                (start <= expFrame["wneFileStartDatetime"])
+                & (end >= expFrame["wneFileEndDatetime"])
             )  # Subalias starts before file and ends after it, OR...
             | (
-                (end >= expTable["wneFileStartDatetime"])
-                & (end <= expTable["wneFileEndDatetime"])
+                (end >= expFrame["wneFileStartDatetime"])
+                & (end <= expFrame["wneFileEndDatetime"])
             )  # Subalias ends during file, OR...
             | (  #
-                (start >= expTable["wneFileStartDatetime"])
-                & (start <= expTable["wneFileEndDatetime"])
+                (start >= expFrame["wneFileStartDatetime"])
+                & (start <= expFrame["wneFileEndDatetime"])
             )  # Subalias starts during file
         )
-        return expTable.loc[mask].reset_index(drop=True)
+        return expFrame.loc[mask].reset_index(drop=True)
 
 
+# TODO: Deprecated. Remove.
 def get_alias_files_table(sessions: list, experiment: dict, alias: list):
     """Get all SpikeGLX files belonging to a single alias.
 
@@ -323,7 +327,7 @@ def get_alias_files_table(sessions: list, experiment: dict, alias: list):
     if not isinstance(alias, list):
         raise ValueError(f"Alias {alias} must be specified as a YAML list.")
 
-    saTables = [get_subalias_files_table(expTable, subalias) for subalias in alias]
+    saTables = [get_subalias_frame(expTable, subalias) for subalias in alias]
     for idx, table in enumerate(saTables):
         table[
             "subalias_idx"

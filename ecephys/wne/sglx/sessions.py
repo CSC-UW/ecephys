@@ -105,12 +105,21 @@ def get_session_files_from_multiple_locations(session):
     ap_files = filter_files(
         get_session_files_from_single_location(Path(session["ap"])), stream="ap"
     )
+    if not ap_files:
+        logger.warning(
+            f"No AP files found in directory: {session['ap']}. Do you need to update this subject's YAML file?"
+        )
     lf_files = filter_files(
         get_session_files_from_single_location(Path(session["lf"])), stream="lf"
     )
+    if not lf_files:
+        logger.warning(
+            f"No LF files found in directory: {session['lf']}. Do you need to update this subject's YAML file?"
+        )
     return ap_files + lf_files
 
 
+# TODO: Deprecated. Remove?
 def get_subject_files(sessions):
     """Get all SpikeGLX files belonging to a single subject's YAML document.
 
