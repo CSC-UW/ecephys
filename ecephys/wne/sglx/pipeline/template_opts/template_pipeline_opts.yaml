@@ -24,6 +24,46 @@ preprocessing:
     step_params:
       gain: 200.0
       offset: 0.0
+  -
+    step_name: drift_correction # preprocess_si_rec._prepro_drift_correction
+    step_params:
+      job_kwargs:
+        # SI params (parallelize preprocessing/dumping)
+        n_jobs: 150
+        chunk_duration: "1s"
+      # One param dict for each substep
+      noise_level_params: {}
+      peak_detection_params:
+        method: 'locally_exclusive'
+        local_radius_um: 150
+        peak_sign: 'neg'
+        detect_threshold: 5
+        exclude_sweep_ms: 0.1
+      peak_localization_method: 'center_of_mass'
+      peak_localization_params:
+        # Common to "monopolar_triangulation" and "center_of_mass" methods
+        ms_before: 0.3
+        ms_after: 0.6
+        local_radius_um: 150.0
+        # Below only for "monopolar_triangulation" method
+        # max_distance_um: 1000
+        # optimizer: 'minimize_with_log_penality'
+      motion_method_params:
+        pairwise_displacement_method: 'conv'
+        # pairwise_displacement_method: 'phase_cross_correlation'
+        # convergence_method: 'gradient_descent'
+        convergence_method: 'lsqr_robust'
+        # conv_engine: 'torch'
+        conv_engine: 'numpy'
+        corr_threshold: 0.7
+      non_rigid_params:
+        bin_step_um: 1000.0  # Size of y-axis chunks
+      clean_motion_params: null  # No motion cleaning if null. Probably a good idea for concatenated bouts
+        # speed_threshold: 30  # um/sec
+        # sigma_smooth_s: 5.0
+      motion_params: 
+        bin_duration_s: 10.0
+        bin_um: 200.0  # Should be smaller than non_rigid_params.bin_step_um
 sorting:
   - kilosort2_5 # Sorter name
   - # Sorter params
