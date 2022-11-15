@@ -197,14 +197,17 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                 **sorter_params,
             )
         self._is_sorted = True
-    
+
     def dump_opts(self):
+        opts_to_dump = self.opts.copy()
+        opts_to_dump['time_ranges'] = self.time_ranges
         with open(self.output_dir/"sorting_pipeline_opts.yaml", 'w') as f:
-            yaml.dump(self.opts, f)
+            yaml.dump(opts_to_dump, f)
 
     def run_pipeline(self):
         self.run_preprocessing()
         self.run_sorting()
+        self.dump_opts()
 
     def run_postprocessing(self):
         if not self._is_dumped:
