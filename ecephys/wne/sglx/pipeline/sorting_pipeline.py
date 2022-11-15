@@ -163,6 +163,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             'ap',
             self.probe,
             time_ranges=self.time_ranges,
+            sampling_frequency_max_diff=1e-06,
         )
 
     def run_preprocessing(self):
