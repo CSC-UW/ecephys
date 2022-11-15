@@ -197,6 +197,10 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                 **sorter_params,
             )
         self._is_sorted = True
+    
+    def dump_opts(self):
+        with open(self.output_dir/"sorting_pipeline_opts.yaml", 'w') as f:
+            yaml.dump(self.opts, f)
 
     def run_pipeline(self):
         self.run_preprocessing()
