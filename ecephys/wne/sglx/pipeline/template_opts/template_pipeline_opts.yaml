@@ -7,7 +7,7 @@ preprocessing:
     step_name: bandpass_filter # si.bandpass_filter
     step_params: 
       freq_min: 300.0
-      freq_max: 6000.0
+      freq_max: 12000.0
   -
     step_name: phase_shift # si.phase_shift
     step_params: {}
