@@ -63,7 +63,7 @@ preprocessing:
         # sigma_smooth_s: 5.0
       motion_params: 
         bin_duration_s: 10.0
-        bin_um: 200.0  # Should be smaller than non_rigid_params.bin_step_um
+        bin_um: 10.0  # Should be smaller than non_rigid_params.bin_step_um
 sorting:
   - kilosort2_5 # Sorter name
   - # Sorter params
