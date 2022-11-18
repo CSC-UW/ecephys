@@ -106,8 +106,6 @@ def _prepro_drift_correction(
             direction="y",
             **motion_params,
         )
-        print(motion.shape)
-        print(spatial_bins)
 
     with Timing(name="Get corrected peaks (debugging figure): "):
         times = si_rec.get_times()
