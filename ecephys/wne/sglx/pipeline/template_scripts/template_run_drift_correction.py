@@ -41,4 +41,4 @@ if __name__ == "__main__":
 
     print(f"Pipeline opts: {sorting_pipeline.opts}")
     print(f"Raw recording:\n {sorting_pipeline.raw_si_recording}")
-    sorting_pipeline.run_pipeline()
+    sorting_pipeline.run_preprocessing()
