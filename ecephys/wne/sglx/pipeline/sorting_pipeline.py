@@ -76,7 +76,7 @@ class AbstractSortingPipeline:
         {self.experimentName} - {self.aliasName}
         Segment time ranges (s): {self.time_ranges}
         Sorting output_dir: {self.sorting_output_dir}
-        Preprocessing output_dir: {self.sorting_output_dir}
+        Preprocessing output_dir: {self.preprocessing_output_dir}
         """
 
     ######### Input output ####################
@@ -187,6 +187,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             self.raw_si_recording,
             self.opts,
             output_dir=self.preprocessing_output_dir,
+            rerun_existing=self.rerun_existing,
         )
 
         self.dump_opts(self.preprocessing_output_dir)
