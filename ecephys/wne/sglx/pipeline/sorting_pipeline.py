@@ -65,6 +65,7 @@ class AbstractSortingPipeline:
                     "Specify 'output_dirname' as kwarg or under 'output_dirname' key in opts file."
                 )
             self._output_dirname = self.opts["output_dirname"]
+        self._output_dirname = f"{self._output_dirname}.{self.probe}"
         self._sorting_output_dirname = self._output_dirname
         self._preprocessing_output_dirname = f"prepro_{self._output_dirname}"
         self._output_dir = None
