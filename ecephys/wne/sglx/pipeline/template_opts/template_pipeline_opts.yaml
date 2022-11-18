@@ -7,7 +7,7 @@ preprocessing:
     step_name: bandpass_filter # si.bandpass_filter
     step_params: 
       freq_min: 300.0
-      freq_max: 6000.0
+      freq_max: 12000.0
   -
     step_name: phase_shift # si.phase_shift
     step_params: {}
@@ -63,7 +63,7 @@ preprocessing:
         # sigma_smooth_s: 5.0
       motion_params: 
         bin_duration_s: 10.0
-        bin_um: 200.0  # Should be smaller than non_rigid_params.bin_step_um
+        bin_um: 10.0  # Should be smaller than non_rigid_params.bin_step_um
 sorting:
   - kilosort2_5 # Sorter name
   - # Sorter params
