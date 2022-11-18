@@ -2,6 +2,7 @@ import json
 import numpy as np
 import pandas as pd
 import xarray as xr
+import itertools as it
 from pandas.api.types import is_datetime64_ns_dtype
 from scipy.stats import median_abs_deviation
 from pathlib import Path
@@ -77,6 +78,24 @@ def flatten(l):
             yield from flatten(el)
         else:
             yield el
+
+
+# -------------------- Iterator utilities --------------------
+
+
+def roundrobin(*iterables):
+    "roundrobin('ABC', 'D', 'EF') --> A D E B F C"
+    # Recipe credited to George Sakkis
+    num_active = len(iterables)
+    nexts = it.cycle(iter(it).__next__ for it in iterables)
+    while num_active:
+        try:
+            for next in nexts:
+                yield next()
+        except StopIteration:
+            # Remove the iterator we just exhausted from the cycle.
+            num_active -= 1
+            nexts = it.cycle(it.islice(nexts, num_active))
 
 
 # -------------------- Dict utilities --------------------

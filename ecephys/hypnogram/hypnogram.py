@@ -1,3 +1,4 @@
+from __future__ import annotations
 import numpy as np
 import pandas as pd
 import datetime
@@ -35,6 +36,24 @@ class Hypnogram:
             raise AttributeError(
                 "Required columns `state`, `start_time`, `end_time`, and `duration` are not present."
             )
+        if not all(self._df["start_time"] <= self._df["end_time"]):
+            raise ValueError("Not all start times precede end times.")
+        if not self._df["start_time"].is_monotonic_increasing:
+            raise ValueError("Hypnogram start times are not monotonically increasing.")
+        if not self._df["end_time"].is_monotonic_increasing:
+            raise ValueError("Hypnogram end times are not monotonically increasing.")
+
+    def write_htsv(self, file):
+        """Write as HTSV."""
+        file = Path(file)
+        assert file.suffix == ".htsv", "File must use extension .htsv"
+        file.parent.mkdir(parents=True, exist_ok=True)
+        self.to_csv(
+            file,
+            sep="\t",
+            header=True,
+            index=False,
+        )
 
     def keep_states(self, states):
         """Return all bouts of the given states.
@@ -51,6 +70,10 @@ class Hypnogram:
         states: list of str
         """
         return self.__class__(self._df[~self._df["state"].isin(states)])
+
+    def replace_states(self, replacement_dict):
+        """Takes a dict where keys are current states and values are desired states, and updates the hypnogram accoridngly."""
+        return self.__class__(self._df.replace(replacement_dict))
 
     def mask_times_by_state(self, times, states):
         """Return a mask that is true where times belong to specific states.
@@ -114,23 +137,6 @@ class Hypnogram:
         )
         return self.groupby("state").duration.sum() / total_time
 
-    def condense(self, tolerance):
-        bouts = list(self.to_dict("records"))
-        new = pd.DataFrame(_condense(bouts, tolerance))
-        return self.__class__(new)
-
-    def write_htsv(self, file):
-        """Write as HTSV."""
-        file = Path(file)
-        assert file.suffix == ".htsv", "File must use extension .htsv"
-        file.parent.mkdir(parents=True, exist_ok=True)
-        self.to_csv(
-            file,
-            sep="\t",
-            header=True,
-            index=False,
-        )
-
     def reconcile(self, other, how="self"):
         """Reconcile this hypnogram with another, per `reconcile_hypnograms`.
 
@@ -150,31 +156,13 @@ class Hypnogram:
             other
         ), "Cannot reconcile hypnograms of different types."
         if how == "self":
-            return reconcile_hypnograms(self, other)
+            return self.__class__(reconcile_hypnograms(self, other))
         elif how == "other":
-            return reconcile_hypnograms(other, self)
+            return self.__class__(reconcile_hypnograms(other, self))
         else:
             raise ValueError(
                 f"Argument `how` should be either 'sel' or 'other'. Got {how}."
             )
-
-    def trim(self, start, end):
-        """Trim a spectrogram to start and end within a specified time range.
-        Actually will truncate bouts if they extend beyond the range."""
-        df = self._df.copy()
-        starts_before = df["start_time"] < start
-        df.loc[starts_before, "start_time"] = start
-        ends_after = df["end_time"] > end
-        df.loc[ends_after, "end_time"] = end
-        starts_after = df["start_time"] >= end
-        df = df[~starts_after]
-        df["duration"] = df["end_time"] - df["start_time"]
-        df = df.reset_index(drop=True)
-        return self.__class__(df)
-
-    def replace_states(self, replacement_dict):
-        """Takes a dict where keys are current states and values are desired states, and updates the hypnogram accoridngly."""
-        return self.__class__(self._df.replace(replacement_dict))
 
     def get_consolidated(
         self,
@@ -249,65 +237,6 @@ class Hypnogram:
                     break  # don't bother checking subperiods of good periods
         return matches
 
-    def get_gaps(self, longerThan):
-        """Get all unscored gaps in the hypnogram.
-
-        Parameters:
-        -----------
-        longerThan:
-            Only get gaps greater than a given duration.
-
-        Returns:
-        --------
-        gaps: list of dict
-            Each gap detected, with start_time, end_time, and duration.
-        """
-        gaps = list()
-        for i in range(len(self) - 1):
-            current_bout_end = self.iloc[i].end_time
-            next_bout_start = self.iloc[i + 1].start_time
-            gap = next_bout_start - current_bout_end
-            if gap > longerThan:
-                gaps.append(
-                    dict(
-                        start_time=current_bout_end,
-                        end_time=next_bout_start,
-                        duration=gap,
-                    )
-                )
-
-        return gaps
-
-    def fill_gaps(self, longerThan, **kwargs):
-        """Fill all unscored gaps in the hypnogram.
-
-        Parameters:
-        -----------
-        longerThan:
-            Only fill gaps greater than a given duration.
-        kwargs:
-            See pd.DataFrame.fillna()
-
-        Returns:
-        --------
-        hypnogram: DatetimeHypnogram
-            The hypnogram, with gaps filled.
-
-        Examples:
-        ---------
-        To mark all gaps >1s as "Unscored", then fill all smaller gaps in with the preceeding state:
-        hg.fill_gaps(longerThan=1, value="Unscored").fill_gaps(longerThan=0, method="ffill")
-        """
-        gaps = self.get_gaps(longerThan)
-        for gap in gaps:
-            gap.update({"state": np.nan})
-        new = (
-            pd.concat([self._df, pd.DataFrame.from_records(gaps)])
-            .sort_values("start_time", ignore_index=True)
-            .fillna(**kwargs)
-        )
-        return self.__class__(new)
-
 
 class FloatHypnogram(Hypnogram):
     def write_visbrain(self, path):
@@ -332,12 +261,6 @@ class FloatHypnogram(Hypnogram):
         """
         return self.__class__(self.loc[self.duration > duration])
 
-    def get_gaps(self, longerThan=0):
-        return Hypnogram.get_gaps(self, longerThan)
-
-    def fill_gaps(self, longerThan=0, **kwargs):
-        return Hypnogram.fill_gaps(self, longerThan, **kwargs)
-
     def get_consolidated(
         self,
         states,
@@ -356,17 +279,9 @@ class FloatHypnogram(Hypnogram):
             frac=frac,
         )
 
-    def condense(self, tolerance=1):
-        return Hypnogram.condense(self, tolerance)
-
-    def clean(self):
-        """Combine consecutive bouts with the same state, fill large gaps as missing, and forward fill reamining small gaps."""
-        return (
-            self.condense(tolerance=1)
-            .fill_gaps(longerThan=1, value="NoData")
-            .fill_gaps(longerThan=0, method="ffill")
-            .condense(tolerance=1)
-        )
+    @classmethod
+    def clean(cls, df: pd.DataFrame) -> FloatHypnogram:
+        return cls(clean(df, condenseTol=1, missingDataTol=1, zero=0))
 
     @classmethod
     def get_dummy(cls, start_time=0.0, end_time=np.Inf):
@@ -401,7 +316,11 @@ class FloatHypnogram(Hypnogram):
     def from_visbrain(cls, file):
         """Load a Visbrain formatted hypnogram."""
         df = pd.read_csv(file, sep="\t", names=["state", "end_time"], comment="*")
-        df["start_time"] = df.apply(lambda row: _infer_bout_start(df, row), axis=1)
+
+        def _infer_start(df: pd.DataFrame, bout: pd.Series) -> float:
+            return 0.0 if bout.name == 0 else df.loc[bout.name - 1].end_time
+
+        df["start_time"] = df.apply(lambda row: _infer_start(df, row), axis=1)
         df["duration"] = df.apply(lambda row: row.end_time - row.start_time, axis=1)
         return cls(df)
 
@@ -555,24 +474,15 @@ class DatetimeHypnogram(Hypnogram):
             frac=frac,
         )
 
-    def get_gaps(self, longerThan="0S"):
-        return Hypnogram.get_gaps(self, pd.to_timdelta(longerThan))
-
-    def fill_gaps(self, longerThan="0S", **kwargs):
-        return Hypnogram.fill_gaps(self, pd.to_datetime(longerThan), **kwargs)
-
-    def condense(self, tolerance="1S"):
-        return Hypnogram.condense(self, pd.to_datetime(tolerance))
-
-    def clean(self):
-        """Combine consecutive bouts with the same state, fill large gaps as missing, and forward fill reamining small gaps."""
-        one = pd.to_timedelta("1s")
-        zero = pd.to_timedelta("0s")
-        return (
-            self.condense(tolerance=one)
-            .fill_gaps(longerThan=one, value="NoData")
-            .fill_gaps(longerThan=zero, method="ffill")
-            .condense(tolerance=one)
+    @classmethod
+    def clean(cls, df: pd.DataFrame):
+        return cls(
+            clean(
+                df,
+                condenseTol=pd.to_timedelta("1s"),
+                missingDataTol=pd.to_timedelta("1s"),
+                zero=pd.to_timedelta("0s"),
+            )
         )
 
     @classmethod
@@ -593,29 +503,6 @@ class DatetimeHypnogram(Hypnogram):
 #####
 # Misc. module functions
 #####
-
-
-def _infer_bout_start(df, bout):
-    """Infer a bout's start time from the previous bout's end time.
-
-    Parameters
-    ----------
-    h: DataFrame, (n_bouts, ?)
-        Hypogram in Visbrain format with 'start_time'.
-    row: Series
-        A row from `h`, representing the bout that you want the start time of.
-
-    Returns
-    -------
-    start_time: float
-        The start time of the bout from `row`.
-    """
-    if bout.name == 0:
-        start_time = 0.0
-    else:
-        start_time = df.loc[bout.name - 1].end_time
-
-    return start_time
 
 
 def get_separated_wake_hypnogram(qwk_intervals, awk_intervals):
@@ -652,16 +539,15 @@ def get_separated_wake_hypnogram(qwk_intervals, awk_intervals):
     return Hypnogram(df)
 
 
-def reconcile_hypnograms(h1, h2):
+def reconcile_hypnograms(h1: pd.DataFrame, h2: pd.DataFrame) -> pd.DataFrame:
     """Combine two hypnograms such that any conflicts are resolved in favor of h1."""
-    # Work with dataframes until the return, when we will cast as h1.__class__
-    h1 = h1._df.copy()
-    h2 = h2._df.copy()
+    h1 = h1.copy()
+    h2 = h2.copy()
 
     for index, row in h1.iterrows():
         # If h2 contains any interval exactly equivalent to this one, drop it.
-        identical_intervals = (h2.start_time == row.start_time) & (
-            h2.end_time == row.end_time
+        identical_intervals = (h2["start_time"] == row["start_time"]) & (
+            h2["end_time"] == row["end_time"]
         )
         if any(identical_intervals):
             assert (
@@ -670,15 +556,15 @@ def reconcile_hypnograms(h1, h2):
             h2 = h2[~identical_intervals]
 
         # If h2 contains any intervals wholly contained by this one, drop them.
-        sub_intervals = (h2.start_time >= row.start_time) & (
-            h2.end_time <= row.end_time
+        sub_intervals = (h2["start_time"] >= row["start_time"]) & (
+            h2["end_time"] <= row["end_time"]
         )
         if any(sub_intervals):
             h2 = h2[~sub_intervals]
 
         # If h2 contains any interval that whole contains this one, split it into preceeding (left) and succeeding (right) intervals.
-        super_intervals = (h2.start_time <= row.start_time) & (
-            h2.end_time >= row.end_time
+        super_intervals = (h2["start_time"] <= row["start_time"]) & (
+            h2["end_time"] >= row["end_time"]
         )
         if any(super_intervals):
             assert (
@@ -686,12 +572,14 @@ def reconcile_hypnograms(h1, h2):
             ), "More than one interval in h2 wholly contains an interval found in h1. Is h2 well formed?"
             super_interval = h2[super_intervals]
             left_interval = super_interval.copy()
-            left_interval.end_time = row.start_time
-            left_interval.duration = left_interval.end_time - left_interval.start_time
+            left_interval["end_time"] = row["start_time"]
+            left_interval["duration"] = (
+                left_interval["end_time"] - left_interval["start_time"]
+            )
             right_interval = super_interval.copy()
-            right_interval.start_time = row.end_time
-            right_interval.duration = (
-                right_interval.end_time - right_interval.start_time
+            right_interval["start_time"] = row["end_time"]
+            right_interval["duration"] = (
+                right_interval["end_time"] - right_interval["start_time"]
             )
             h2 = h2[~super_intervals]
             h2 = (
@@ -702,37 +590,39 @@ def reconcile_hypnograms(h1, h2):
 
         # If h2 contains any interval that overlaps the start of this interval, truncate it.
         left_intervals = (
-            (h2.start_time < row.start_time)
-            & (h2.end_time > row.start_time)
-            & (h2.end_time < row.end_time)
+            (h2["start_time"] < row["start_time"])
+            & (h2["end_time"] > row["start_time"])
+            & (h2["end_time"] < row["end_time"])
         )
         if any(left_intervals):
             assert (
                 sum(left_intervals) == 1
             ), "More than one interval in h2 overlaps the start of an interval found in h1. Is h2 well formed?"
             left_interval = h2[left_intervals]
-            left_interval.end_time = row.start_time
-            left_interval.duration = left_interval.end_time - left_interval.start_time
+            left_interval["end_time"] = row["start_time"]
+            left_interval["duration"] = (
+                left_interval["end_time"] - left_interval["start_time"]
+            )
             h2[left_intervals] = left_interval
 
         # If h2 contains any interval that overlaps the endof this interval, adjust its start time.
         right_intervals = (
-            (h2.start_time > row.start_time)
-            & (h2.start_time < row.end_time)
-            & (h2.end_time > row.end_time)
+            (h2["start_time"] > row["start_time"])
+            & (h2["start_time"] < row["end_time"])
+            & (h2["end_time"] > row["end_time"])
         )
         if any(right_intervals):
             assert (
                 sum(right_intervals) == 1
             ), "More than one interval in h2 overlaps the end of an interval found in h1. Is h2 well formed?"
             right_interval = h2[right_intervals]
-            right_interval.start_time = row.end_time
-            right_interval.duration = (
-                right_interval.end_time - right_interval.start_time
+            right_interval["start_time"] = row["end_time"]
+            right_interval["duration"] = (
+                right_interval["end_time"] - right_interval["start_time"]
             )
             h2[right_intervals] = right_interval
 
-    return h1.__class(h2.append(h1).sort_values("start_time").reset_index(drop=True))
+    return h2.append(h1).sort_values("start_time").reset_index(drop=True)
 
 
 def _check_datetime(dt):
@@ -770,35 +660,228 @@ def _check_time(t):
     raise ValueError("Unexpected time of day type.")
 
 
-def _condense(bouts, tolerance):
-    """Recursively condense a Hypnogram so that consecutive bouts with matching states,
+def remove_subsumed(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove bouts that are wholly subsumed by other bouts."""
+    if not {"state", "start_time", "end_time", "duration"}.issubset(df):
+        raise AttributeError(
+            "Required columns `state`, `start_time`, `end_time`, and `duration` are not present."
+        )
+    if not all(df["start_time"] <= df["end_time"]):
+        raise ValueError("Not all start times precede end times.")
+
+    keep = list()
+    for i in range(len(df)):
+        contains = (df["start_time"] <= df.iloc[i]["start_time"]) & (
+            df["end_time"] >= df.iloc[i]["end_time"]
+        )
+        if not contains.sum() > 1:
+            keep.append(i)
+
+    return df.iloc[keep].reset_index(drop=True)
+
+
+def condense(df: pd.DataFrame, tolerance) -> pd.DataFrame:
+    """Condense a Hypnogram so that consecutive bouts with matching states,
     separated by a small gap, are combined into a single hypnogram entry.
 
     Parameters:
-    ===========
-    bouts: list of dict
-        Records for each bout, e.g. list(hg.to_dict('records'))
+    -----------
     tolerance:
         Gaps between consecutive bouts with matching states, less than or equal to this value, are incorporated as that state.
 
-    Returns:
-    ========
-    list of dict, like bouts, but condensed.
+    Note that this will also condense if consecutive matching bouts overlap!
+    But, of course, it will not touch overlaps between non-matching states! This is desired behavior!
     """
-    if len(bouts) == 1:
-        return bouts
-    curr = bouts[0]
-    rest = _condense(bouts[1:], tolerance)
-    next = bouts[1]
-    if (curr["state"] == next["state"]) and (
-        next["start_time"] - curr["end_time"]
-    ) <= tolerance:
-        new = {
-            "state": curr["state"],
-            "start_time": curr["start_time"],
-            "end_time": next["end_time"],
-            "duration": next["end_time"] - curr["start_time"],
-        }
-        return [new] + rest[1:]
-    else:
-        return [curr] + rest
+    if not {"state", "start_time", "end_time", "duration"}.issubset(df):
+        raise AttributeError(
+            "Required columns `state`, `start_time`, `end_time`, and `duration` are not present."
+        )
+    if not all(df["start_time"] <= df["end_time"]):
+        raise ValueError("Not all start times precede end times.")
+    if not df["start_time"].is_monotonic_increasing:
+        raise ValueError("Hypnogram start times are not monotonically increasing.")
+    if not df["end_time"].is_monotonic_increasing:
+        raise ValueError("Hypnogram end times are not monotonically increasing.")
+
+    result = list()
+    i = 0
+    while i < len(df):
+        curr = df.iloc[i].to_dict()
+        j = i + 1
+        while (
+            (j < len(df))
+            and (df.iloc[j]["state"] == curr["state"])
+            and (df.iloc[j]["start_time"] - curr["end_time"] <= tolerance)
+        ):
+            curr = {
+                "state": curr["state"],
+                "start_time": curr["start_time"],
+                "end_time": df.iloc[j]["end_time"],
+                "duration": df.iloc[j]["end_time"] - curr["start_time"],
+            }
+            j += 1
+        result.append(curr)
+        i = j
+
+    return pd.DataFrame(result)
+
+
+def _trim_overlap(df: pd.DataFrame) -> pd.DataFrame:
+    """Helper function for `trim_overlap`. Does the actual reconciliation of bouts."""
+    if len(df) <= 1:
+        return df
+    df = df.sort_values("duration", ascending=False)
+    longestBout = df.iloc[0]
+    rest = df.iloc[1:].copy()  # copy() just to avoid SettingithCopyWarning
+    trimTail = (rest["start_time"] < longestBout["start_time"]) & (
+        rest["end_time"] > longestBout["start_time"]
+    )
+    trimHead = (rest["end_time"] > longestBout["end_time"]) & (
+        rest["start_time"] < longestBout["end_time"]
+    )
+    rest.loc[trimTail, "end_time"] = longestBout["start_time"]
+    rest.loc[trimHead, "start_time"] = longestBout["end_time"]
+    rest["duration"] = rest["end_time"] - rest["start_time"]
+
+    return (
+        pd.concat([longestBout.to_frame().T, _trim_overlap(rest)])
+        .sort_values("start_time")
+        .reset_index(drop=True)
+    )
+
+
+def trim_overlap(df: pd.DataFrame) -> pd.DataFrame:
+    """Trim bouts so that they do not overlap, resolving conflicts in favor of longer bouts.
+
+    Works by finding sets of bouts such that each bout in a set overlaps with at least one other bout in that set.
+    For example, in {(0, 2), (1, 4}, (3, 5)}, (0, 2) and (3, 5) do not directly overlap, but both share overlap with (1, 4).
+    Once a set is found, take the longest bout within that set, trim others to fit it, repeat with the next longest bout, and so on."""
+    if not {"state", "start_time", "end_time", "duration"}.issubset(df):
+        raise AttributeError(
+            "Required columns `state`, `start_time`, `end_time`, and `duration` are not present."
+        )
+    if not all(df["start_time"] <= df["end_time"]):
+        raise ValueError("Not all start times precede end times.")
+    if not df["start_time"].is_monotonic_increasing:
+        raise ValueError("Hypnogram start times are not monotonically increasing.")
+
+    result = list()
+    i = 0
+    while i < len(df):
+        end = df.iloc[i]["end_time"]
+        j = i + 1
+        while (j < len(df)) and (df.iloc[j]["start_time"] < end):
+            end = df.iloc[j]["end_time"]
+            j += 1
+        result.append(_trim_overlap(df.iloc[i:j]))
+        i = j
+
+    return pd.concat(result, ignore_index=True)
+
+
+def get_gaps(df: pd.DataFrame, longerThan) -> list[dict]:
+    """Get all unscored gaps in the hypnogram.
+
+    Parameters:
+    -----------
+    longerThan:
+        Only get gaps greater than a given duration.
+
+    Returns:
+    --------
+    gaps: list of dict
+        Each gap detected, with start_time, end_time, and duration.
+    """
+    if not {"state", "start_time", "end_time", "duration"}.issubset(df):
+        raise AttributeError(
+            "Required columns `state`, `start_time`, `end_time`, and `duration` are not present."
+        )
+    if not all(df["start_time"] <= df["end_time"]):
+        raise ValueError("Not all start times precede end times.")
+    if not df["start_time"].is_monotonic_increasing:
+        raise ValueError("Hypnogram start times are not monotonically increasing.")
+    if not df["end_time"].is_monotonic_increasing:
+        raise ValueError("Hypnogram end times are not monotonically increasing.")
+
+    gaps = list()
+    for i in range(len(df) - 1):
+        current_bout_end = df.iloc[i].end_time
+        next_bout_start = df.iloc[i + 1].start_time
+        gap = next_bout_start - current_bout_end
+        if gap > longerThan:
+            gaps.append(
+                dict(
+                    start_time=current_bout_end,
+                    end_time=next_bout_start,
+                    duration=gap,
+                )
+            )
+
+    return gaps
+
+
+def fill_gaps(df: pd.DataFrame, longerThan, **kwargs) -> pd.DataFrame:
+    """Fill all unscored gaps in the hypnogram.
+
+    Parameters:
+    -----------
+    longerThan:
+        Only fill gaps greater than a given duration.
+    kwargs:
+        See pd.DataFrame.fillna()
+
+    Examples:
+    ---------
+    To mark all gaps >1s as "Unscored", then fill all smaller gaps in with the preceeding state:
+    df = fill_gaps(df, longerThan=1, value="Unscored")
+    df = fill_gaps(df, longerthan=0, method="ffill)
+    """
+    if not {"state", "start_time", "end_time", "duration"}.issubset(df):
+        raise AttributeError(
+            "Required columns `state`, `start_time`, `end_time`, and `duration` are not present."
+        )
+    if not all(df["start_time"] <= df["end_time"]):
+        raise ValueError("Not all start times precede end times.")
+    if not df["start_time"].is_monotonic_increasing:
+        raise ValueError("Hypnogram start times are not monotonically increasing.")
+    if not df["end_time"].is_monotonic_increasing:
+        raise ValueError("Hypnogram end times are not monotonically increasing.")
+
+    gaps = get_gaps(df, longerThan)
+    for gap in gaps:
+        gap.update({"state": np.nan})
+    return (
+        pd.concat([df, pd.DataFrame.from_records(gaps)])
+        .sort_values("start_time", ignore_index=True)
+        .fillna(**kwargs)
+    )
+
+
+def trim(df: pd.DataFrame, start, end) -> pd.DataFrame:
+    """Trim a hypnogram to start and end within a specified time range.
+    Actually will truncate bouts if they extend beyond the range."""
+    if not {"state", "start_time", "end_time", "duration"}.issubset(df):
+        raise AttributeError(
+            "Required columns `state`, `start_time`, `end_time`, and `duration` are not present."
+        )
+    if not all(df["start_time"] <= df["end_time"]):
+        raise ValueError("Not all start times precede end times.")
+
+    df = df.copy()
+    starts_before = df["start_time"] < start
+    df.loc[starts_before, "start_time"] = start
+    ends_after = df["end_time"] > end
+    df.loc[ends_after, "end_time"] = end
+    starts_after = df["start_time"] >= end
+    df = df[~starts_after]
+    df["duration"] = df["end_time"] - df["start_time"]
+    return df.reset_index(drop=True)
+
+
+def clean(df: pd.DataFrame, condenseTol, missingDataTol, zero) -> pd.DataFrame:
+    df = remove_subsumed(df)
+    df = condense(df, condenseTol)
+    df = trim_overlap(df)
+    df = fill_gaps(df, missingDataTol, value="NoData")
+    df = fill_gaps(df, longerThan=zero, method="ffill")
+    return condense(df, tolerance=condenseTol)

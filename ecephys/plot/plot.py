@@ -67,6 +67,7 @@ publication_colors = {
     "Artifact": "crimson",
     "None": "white",
     "Other": "white",
+    "NoData": "black",
 }
 
 on_off_colors = {
