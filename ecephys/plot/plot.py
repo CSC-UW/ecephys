@@ -49,6 +49,8 @@ state_colors = {
 _pub_wake = "white"
 _pub_nrem = "lightskyblue"
 _pub_rem = "orangered"
+_pub_nodata = "black"
+_pub_unscored = "pink"
 publication_colors = {
     "Wake": _pub_wake,
     "W": _pub_wake,
@@ -63,11 +65,11 @@ publication_colors = {
     "N2": _pub_nrem,
     "IS": _pub_rem,
     "REM": _pub_rem,
-    "Art": "crimson",
-    "Artifact": "crimson",
-    "None": "white",
-    "Other": "white",
-    "NoData": "black",
+    "Art": _pub_nodata,
+    "Artifact": _pub_nodata,
+    "None": _pub_unscored,
+    "Other": _pub_unscored,
+    "NoData": _pub_nodata,
 }
 
 on_off_colors = {
