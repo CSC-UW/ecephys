@@ -29,7 +29,7 @@ preprocessing:
     step_params:
       job_kwargs:
         # SI params (parallelize preprocessing/dumping)
-        n_jobs: 150
+        n_jobs: 20  # Possibly errors if too much compared to #chunks
         chunk_duration: "1s"
       # One param dict for each substep
       noise_level_params: {}
