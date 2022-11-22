@@ -20,8 +20,27 @@ def gather_alias_dataarray(wneProject, wneSubject, experiment, alias, probe, daE
     return xr.concat(daList, dim="time")
 
 
+def remove_alias_dataarrays(wneProject, wneSubject, experiment, alias, probe, daExt):
+    "Remove netCDFs."
+    assert daExt.endswith(".nc"), "Files to gather must use extension .nc"
+    lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
+    daFiles = wneProject.get_sglx_counterparts(
+        wneSubject.name, lfpTable.path.values, daExt
+    )
+    for f in daFiles:
+        f.unlink(missing_ok=True)
+
+
 def gather_and_save_alias_dataarray(
-    wneProject, wneSubject, experiment, alias, probe, daExt, outputName, to_npy=False
+    wneProject,
+    wneSubject,
+    experiment,
+    alias,
+    probe,
+    daExt,
+    outputName,
+    to_npy=False,
+    removeAfter=False,
 ):
     """Gather netCDF, save as ONE NPY."""
     da = gather_alias_dataarray(wneProject, wneSubject, experiment, alias, probe, daExt)
@@ -30,6 +49,8 @@ def gather_and_save_alias_dataarray(
         ece.utils.write_da_as_npy(da, outputName, saveDir)
     else:
         ece.utils.save_xarray(da, saveDir / outputName)
+    if removeAfter:
+        remove_alias_dataarrays(wneProject, wneSubject, experiment, alias, probe, daExt)
 
 
 #####
