@@ -5,7 +5,7 @@ import numpy as np
 from horology import Timing
 import spikeinterface.full as si
 from spikeinterface.sortingcomponents.motion_correction import (CorrectMotionRecording, correct_motion_on_peaks)
-from spikeinterface.sortingcomponents.motion_estimation import estimate_motion
+from spikeinterface.sortingcomponents.motion_estimation import estimate_motion, clean_motion_vector
 from spikeinterface.sortingcomponents.peak_detection import detect_peaks
 from spikeinterface.sortingcomponents.peak_localization import ( LocalizeCenterOfMass, LocalizeMonopolarTriangulation, localize_peaks)
 from spikeinterface.widgets import (plot_displacement, plot_pairwise_displacement)
@@ -76,7 +76,6 @@ def _compute_motion(
     peak_locations,
     motion_method_params,
     non_rigid_params,
-    clean_motion_params,
     motion_params,
 ):
     with Timing(name="Estimate motion: "):
@@ -87,8 +86,8 @@ def _compute_motion(
             method="decentralized_registration",
             method_kwargs=motion_method_params,
             non_rigid_kwargs=non_rigid_params,
-            clean_motion_kwargs=clean_motion_params,
-            upsample_to_histogram_bin=False,
+            clean_motion_kwargs=None,
+            upsample_to_histogram_bin=False,  # Keep false if we clean motion separately
             output_extra_check=True,
             progress_bar=True,
             verbose=False,
@@ -97,6 +96,21 @@ def _compute_motion(
         )
     return motion, temporal_bins, spatial_bins, extra_check
 
+
+def _clean_motion(
+    motion,
+    temporal_bins,
+    clean_motion_params,
+    bin_duration_s,
+):
+    with Timing(name="Clean motion: "):
+        motion = clean_motion_vector(
+            motion,
+            temporal_bins,
+            bin_duration_s,
+            **clean_motion_params
+        )
+    return motion
 
 
 def _prepro_drift_correction(
@@ -136,6 +150,7 @@ def _prepro_drift_correction(
     peaks_path = output_dir/'peaks.npy'
     peak_locations_path = output_dir/'peak_locations.npy'
     motion_path = output_dir/'motion_non_rigid.npz'
+    clean_motion_path = output_dir/'motion_non_rigid_clean.npz'
 
     compute_peaks = (
         rerun_existing 
@@ -143,7 +158,7 @@ def _prepro_drift_correction(
         or not peak_locations_path.exists()
     )
     if compute_peaks:
-        print("Recompute peaks")
+        print("(Re)compute peaks")
         peaks, peak_locations = _compute_peaks(
             si_rec,
             noise_level_params,
@@ -170,17 +185,16 @@ def _prepro_drift_correction(
         or not motion_path.exists()
     )
     if compute_motion:
-        print("Recompute motion")
+        print("(Re)compute motion (no cleaning)")
         motion, temporal_bins, spatial_bins, extra_check = _compute_motion(
             si_rec,
             peaks,
             peak_locations,
             motion_method_params,
             non_rigid_params,
-            clean_motion_params,
             motion_params,
         )
-        print("Save motion at :")
+        print("Save uncleaned motion at :")
         print(motion_path)
         np.savez(
             motion_path, 
@@ -190,7 +204,7 @@ def _prepro_drift_correction(
             **extra_check
         )
     else:
-        print("Load motion from :")
+        print("Load uncleaned motion from :")
         print(motion_path)
         npz = np.load(motion_path)
         motion = npz['motion']
@@ -202,7 +216,48 @@ def _prepro_drift_correction(
             temporal_hist_bins=npz['temporal_hist_bins'],
         )
 
+    clean_motion = (
+        rerun_existing
+        or compute_motion
+        or not clean_motion_path.exists()
+    )
+    if clean_motion:
+        print("(Re)clean motion")
+        if clean_motion_params is not None:
+            assert "bin_duration_s" in motion_params
+            motion_clean = _clean_motion(
+                motion,
+                temporal_bins,
+                clean_motion_params,
+                motion_params["bin_duration_s"]
+            )
+        else:
+            motion_clean = motion
+        print("Save clean motion at :")
+        print(clean_motion_path)
+        np.savez(
+            clean_motion_path, 
+            motion=motion_clean,
+            temporal_bins=temporal_bins,
+            spatial_bins=spatial_bins,
+            **extra_check
+        )
+    else:
+        print("Load clean motion from :")
+        print(clean_motion_path)
+        npz = np.load(motion_path)
+        motion_clean = npz['motion']
+        temporal_bins = npz['temporal_bins']
+        spatial_bins = npz['spatial_bins']
+        extra_check=dict(
+            motion_histogram=npz['motion_histogram'],
+            spatial_hist_bins=npz['spatial_hist_bins'],
+            temporal_hist_bins=npz['temporal_hist_bins'],
+        )
+    motion = motion_clean
+
     with Timing(name="Get corrected peaks (debugging figure): "):
+        print("Correct motion on peaks")
         times = si_rec.get_times()
         peak_locations_corrected = correct_motion_on_peaks(
             peaks,
@@ -215,6 +270,7 @@ def _prepro_drift_correction(
         )
 
     with Timing(name="Plot peak displacement and corrected peaks: "):
+        print("Plot motion")
         fig, _ = get_peak_displacement_fig(
             si_rec, peaks, peak_locations, peak_locations_corrected,
             motion, temporal_bins, spatial_bins, extra_check,
