@@ -295,6 +295,7 @@ def _prepro_drift_correction(
             temporal_bins,
             spatial_bins,
             direction=1,
+            border_mode="remove_channels",
         )
         print(motion.shape)
         print(temporal_bins.shape)
