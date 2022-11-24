@@ -14,18 +14,23 @@ logger = logging.getLogger(__name__)
 
 
 def get_peak_displacement_fig(si_rec, peaks, peak_locations, peak_locations_corrected, motion, temporal_bins, spatial_bins, extra_check):
-    fig, axes = plt.subplots(figsize=(15, 20), nrows=3)
+    fig, axes = plt.subplots(figsize=(60, 20), ncols=3)
+    ALPHA = 0.002 # >= 0.002 or invisible
+    DECIMATE_RATIO = 10
 
     # Peak motion
-    x = peaks['sample_ind'] / si_rec.get_sampling_frequency()
-    y = peak_locations['y']
-    axes[0].scatter(x, y, s=1, color='k', alpha=0.005)
-    plot_displacement(motion, temporal_bins, spatial_bins, extra_check, with_histogram=False, ax=axes[0])
-    axes[0].set_title("Original peaks and estimated motion")
+    x = peaks[::DECIMATE_RATIO]['sample_ind'] / si_rec.get_sampling_frequency()
+    y = peak_locations[::DECIMATE_RATIO]['y']
+    y_corrected = peak_locations_corrected[::DECIMATE_RATIO]['y']
 
-    x = peaks['sample_ind'] / si_rec.get_sampling_frequency()
-    y = peak_locations_corrected['y']
-    axes[1].scatter(x, y, s=1, color='k', alpha=0.005)
+    axes[0].scatter(x, y, s=1, color='k', alpha=ALPHA)
+    plot_displacement(motion, temporal_bins, spatial_bins, extra_check, with_histogram=False, ax=axes[0])
+    axes[0].set_title(
+        f"Original peaks and estimated motion \n"
+        f"Total N={len(peaks)} peaks. Plot {100/DECIMATE_RATIO}% of peaks."
+    )
+
+    axes[1].scatter(x, y_corrected, s=1, color='k', alpha=ALPHA)
     axes[1].set_title("Corrected peaks")
 
     # Peak motion
