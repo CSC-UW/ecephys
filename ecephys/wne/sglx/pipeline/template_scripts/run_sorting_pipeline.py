@@ -12,7 +12,8 @@ Usage:
 Options:
   -h --help                          Show this screen.
   --prepro_only                      Run only preprocessing, not full pipeline (drift correction) [default False]
-  --opts_filepath==<fp>              Path to options file [default: {OPTS_FILEPATH}]
+  --opts_dirpath==<odp>              Path to directory containing option file [default: {OPTS_DIRPATH}]
+  --opts_filename==<ofn>             Name of options file [default: {OPTS_FILENAME}]
   --projectName==<pn>                Project name [default: {PROJECT_NAME}]
   --experimentName==<en>             Exp name [default: {EXPERIMENT_NAME}]
   --aliasName==<an>                  Alias name [default: {ALIAS_NAME}]
@@ -20,9 +21,13 @@ Options:
   --output_dirname==<dn>             Name of output dir. Pulled from opts file if None. [default: {OUTPUT_DIRNAME}]
 
 """
+from pathlib import Path
+
 from docopt import docopt
-from ecephys.wne.sglx.pipeline.sorting_pipeline import SortingPipeline, SpikeInterfaceSortingPipeline
+
 import wisc_ecephys_tools as wet
+from ecephys.wne.sglx.pipeline.sorting_pipeline import \
+    SpikeInterfaceSortingPipeline
 
 subjectsDir = wet.get_subjects_directory()
 projectsFile = wet.get_projects_file()
@@ -31,7 +36,8 @@ DEFAULT_VALUES = {
   "PROJECT_NAME": "my_project",
   "EXPERIMENT_NAME": "my_experiment",
   "ALIAS_NAME": "my_alias",
-  "OPTS_FILEPATH": "/path/to/opts/such/as/ecephys/wne/sglx/pipeline/template_opts/template_pipeline_opts.yaml",
+  "OPTS_DIRPATH": "/path/to/opts/such/as/ecephys/wne/sglx/pipeline/template_opts",
+  "OPTS_FILENAME": "template_pipeline_opts.yaml",
   "RERUN_EXISTING": False,
   "OUTPUT_DIRNAME": None,
 }
@@ -42,6 +48,8 @@ if __name__ == "__main__":
 
     args = docopt(__doc__.format(**DEFAULT_VALUES), version='Naval Fate 2.0')
 
+    opts_filepath = Path(args["--OPTS_DIRPATH"])/args["--OPTS_FILENAME"]
+
     sorting_pipeline = SpikeInterfaceSortingPipeline(
         args["<subjectName>"],
         subjectsDir,
@@ -51,7 +59,7 @@ if __name__ == "__main__":
         args["--aliasName"],
         args["<probeName>"],
         time_ranges=TIME_RANGES,
-        opts_filepath=args["--opts_filepath"],
+        opts_filepath=opts_filepath,
         rerun_existing=args["--rerun_existing"],
         output_dirname=args["--output_dirname"],
     )
