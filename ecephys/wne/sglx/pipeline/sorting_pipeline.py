@@ -216,6 +216,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                 self.processed_si_recording,
                 output_folder=self.sorting_output_dir,
                 verbose=True,
+                with_output=False,
                 **sorter_params,
             )
 
