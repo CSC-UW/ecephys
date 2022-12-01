@@ -13,31 +13,76 @@ from spikeinterface.widgets import (plot_displacement, plot_pairwise_displacemen
 logger = logging.getLogger(__name__)
 
 
-def get_peak_displacement_fig(si_rec, peaks, peak_locations, peak_locations_corrected, motion, temporal_bins, spatial_bins, extra_check):
-    fig, axes = plt.subplots(figsize=(60, 20), ncols=3)
+def get_raw_peak_fig(si_rec, peaks, peak_locations, motion, temporal_bins, spatial_bins, extra_check):
     ALPHA = 0.002 # >= 0.002 or invisible
-    DECIMATE_RATIO = 10
+    DECIMATE_RATIO = 5
+
+    fig, ax = plt.subplots(figsize=(20, 60))
+
+    # Peak motion
+    x = peaks[::DECIMATE_RATIO]['sample_ind'] / si_rec.get_sampling_frequency()
+    y = peak_locations[::DECIMATE_RATIO]['y']
+
+    ax.scatter(x, y, s=1, color='k', alpha=ALPHA)
+    
+    plot_displacement(
+        motion,
+        temporal_bins,
+        spatial_bins,
+        extra_check,
+        with_histogram=False,
+        ax=ax
+    )
+    ax.set_title(
+        f"Original peaks and estimated motion \n"
+        f"Total N={len(peaks)} peaks. Plot {100/DECIMATE_RATIO}% of peaks."
+    )
+
+    return fig
+
+
+def get_peak_displacement_fig(si_rec, peaks, peak_locations, peak_locations_corrected, motion, temporal_bins, spatial_bins, extra_check):
+    ALPHA = 0.002 # >= 0.002 or invisible
+    DECIMATE_RATIO = 5
+
+    fig = plt.figure(figsize=(60, 20), layout="constrained")
+    spec = fig.add_gridspec(2, 3)
 
     # Peak motion
     x = peaks[::DECIMATE_RATIO]['sample_ind'] / si_rec.get_sampling_frequency()
     y = peak_locations[::DECIMATE_RATIO]['y']
     y_corrected = peak_locations_corrected[::DECIMATE_RATIO]['y']
 
-    axes[0].scatter(x, y, s=1, color='k', alpha=ALPHA)
-    plot_displacement(motion, temporal_bins, spatial_bins, extra_check, with_histogram=False, ax=axes[0])
-    axes[0].set_title(
+    ax = fig.add_subplot(spec[:, 0]) # Left
+    ax.scatter(x, y, s=1, color='k', alpha=ALPHA)
+    plot_displacement(
+        motion,
+        temporal_bins,
+        spatial_bins,
+        extra_check,
+        with_histogram=False,
+        ax=ax
+    )
+    ax.set_title(
         f"Original peaks and estimated motion \n"
         f"Total N={len(peaks)} peaks. Plot {100/DECIMATE_RATIO}% of peaks."
     )
 
-    axes[1].scatter(x, y_corrected, s=1, color='k', alpha=ALPHA)
-    axes[1].set_title("Corrected peaks")
+    ax = fig.add_subplot(spec[:, 1])
+    ax.scatter(x, y_corrected, s=1, color='k', alpha=ALPHA)
+    ax.set_title("Corrected peaks")
 
     # Peak motion
-    axes[2].plot(motion)
-    axes[2].set_title("Motion estimates")
+    ax = fig.add_subplot(spec[0, 2]) # Top right
+    ax.plot(motion)
+    ax.set_title("Motion estimates")
 
-    return fig, axes
+    ax = fig.add_subplot(spec[1, 2]) # Bottom right
+    ax.plot(motion)
+    ax.set_ylim(-100, 100)
+    ax.set_title("Motion estimates")
+
+    return fig
 
 
 def _compute_peaks(
@@ -276,16 +321,24 @@ def _prepro_drift_correction(
 
     with Timing(name="Plot peak displacement and corrected peaks: "):
         print("Plot motion")
-        fig, _ = get_peak_displacement_fig(
+        fig = get_peak_displacement_fig(
             si_rec, peaks, peak_locations, peak_locations_corrected,
             motion, temporal_bins, spatial_bins, extra_check,
         )
         savepath = output_dir/"peak_displacement.png"
+        savepath_hq = output_dir/"peak_displacement_hq.png"
         print(f"Save debugging fig at {savepath}")
-        fig.savefig(
-            savepath,
-            bbox_inches="tight",
+        fig.savefig( savepath, bbox_inches="tight")
+        fig.savefig( savepath_hq, bbox_inches="tight", dpi=500)
+        print("Plot peaks")
+        fig = get_raw_peak_fig(
+            si_rec, peaks, peak_locations, motion, temporal_bins, spatial_bins, extra_check,
         )
+        savepath = output_dir/"peak_uncorrected.png"
+        savepath = output_dir/"peak_uncorrected_hq.png"
+        print(f"Save debugging fig at {savepath}")
+        fig.savefig( savepath, bbox_inches="tight")
+        fig.savefig( savepath_hq, bbox_inches="tight", dpi=500)
 
     with Timing(name="Correct motion on traces: "):
         print(si_rec.get_traces(start_frame=0, end_frame=100).shape)
