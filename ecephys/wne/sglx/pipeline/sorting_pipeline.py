@@ -1,12 +1,15 @@
 import logging
 from pathlib import Path
-from ecephys import wne
-import spikeinterface.sorters as ss
-from horology import Timing, timed
+
+import probeinterface as pi
 import yaml
+from horology import Timing, timed
+
+import spikeinterface.sorters as ss
+from ecephys import wne
+
 from .. import spikeinterface_utils as si_utils
 from .preprocess_si_rec import preprocess_si_recording
-
 
 logger = logging.getLogger(__name__)
 
@@ -166,8 +169,16 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         return self._processed_si_recording
 
     @property
+    def processed_si_probe(self):
+        return self.processed_si_recording.get_probe()
+
+    @property
     def processed_bin_path(self):
-        return self.output_dir/'recording.dat'
+        return self.sorting_output_dir/'recording.dat'
+
+    @property
+    def processed_si_probe_path(self):
+        return self.sorting_output_dir/'processed_si_probe.json'
 
     ######### Pipeline steps ##########
 
@@ -220,9 +231,33 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                 **sorter_params,
             )
 
+        self.dump_si_probe()
         self.dump_opts(self.sorting_output_dir)
 
         self._is_sorted = True
+
+    def dump_si_probe(self):
+        # Used to load probe when running waveform extractor/quality metrics
+        # NB: The probe used for sorting may differ from the raw SGLX probe,
+        # Since somme channels may be dropped during motion correction
+        self.processed_si_probe_path.parent.mkdir(exist_ok=True, parents=True)
+        pi.write_probeinterface(
+            self.processed_si_probe_path,
+            self.processed_si_probe,
+        )
+        print(f"Save processed SI probe at {self.processed_si_probe_path}")
+
+    def load_si_probe(self):
+        # Used to load probe when running waveform extractor/quality metrics
+        # NB: The probe used for sorting may differ from the raw SGLX probe,
+        # Since somme channels may be dropped during motion correction
+        if not self.processed_si_probe_path.exists():
+            raise FileNotFoundError(
+                f"Could not find spikeinterface probe object at {self.processed_si_probe_path}"
+            )
+        prb_grp = pi.read_probeinterface(self.processed_si_probe_path)
+        assert len(prb_grp.probes) == 1
+        return prb_grp.probes[0]
 
     def dump_opts(self, output_dir=None):
         if output_dir is None:
