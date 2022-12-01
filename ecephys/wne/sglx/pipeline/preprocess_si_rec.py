@@ -410,6 +410,7 @@ PREPRO_FUNCTIONS = {
     "bandpass_filter": si.bandpass_filter,
     "common_reference": si.common_reference,
     "whiten": si.whiten,
+    "zscore": si.zscore,
     "drift_correction": _prepro_drift_correction,
 }
 
