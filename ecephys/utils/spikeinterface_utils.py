@@ -5,9 +5,10 @@ from probeinterface.io import read_spikeglx
 from pathlib import Path
 
 
-def load_postprocessed_bin_as_si_recording(
+def load_kilosort_bin_as_si_recording(
     ks_output_dir,
     fname="temp_wh.dat",
+    si_probe=None,
 ):
     ks_output_dir = Path(ks_output_dir)
     recording_path = ks_output_dir/fname
@@ -36,24 +37,11 @@ def load_postprocessed_bin_as_si_recording(
     )
     assert d["hp_filtered"]
 
-    # return set_probe_and_locations(rec)
+    if si_probe is not None:
+        rec = rec.set_probe(si_probe)
+
     return rec
 
-
-def load_si_waveform_extractor(
-    ks_output_dir,
-):
-
-    sorting = se.read_kilosort(ks_output_dir)
-    recording = load_postprocessed_bin_as_si_recording(ks_output_dir)
-
-    waveform_dir = Path(ks_output_dir)/'waveforms'
-    return extract_waveforms(
-        recording,
-        sorting,
-        folder=waveform_dir,
-        load_if_exists=True,
-    )
 
 def load_single_segment_sglx_recording(
     gate_dir, segment_idx, stream_id,
@@ -66,40 +54,3 @@ def load_single_segment_sglx_recording(
     return all_segments_rec.select_segments(
         [segment_idx]
     )
-
-# TODO
-def run_si_metrics(si_sorting, opts):
-    pass
-
-
-
-
-# def set_probe_and_locations(recording, binpath):
-
-#     idx, x, y = get_xy_coords(binpath)
-
-#     locations = np.array([(x[i], y[i]) for i in range(len(idx))])
-#     shape = "square"
-#     shape_params = {"width": 8}
-
-#     prb = Probe()
-#     if "#SY0" in recording.channel_ids[-1]:
-#         print("FOUND SY0")
-#         ids = recording.channel_ids[:-1]  # Remove last (SY0)
-#     else:
-#         ids = recording.channel_ids
-#     prb.set_contacts(locations[: len(ids), :], shapes=shape, shape_params=shape_params)
-#     prb.set_contact_ids(ids)  # Must go after prb.set_contacts
-#     prb.set_device_channel_indices(
-#         np.arange(len(ids))
-#     )  # Mandatory. I did as in recording.set_dummy_probe_from_locations
-#     assert prb._contact_positions.shape[0] == len(
-#         prb._contact_ids
-#     )  # Shouldn't be needed
-
-#     recording = recording.set_probe(prb)  # TODO: Use in_place=True ?
-
-#     if any(["#SY0" in id for id in recording.channel_ids]):
-#         assert False, "Did not expect to find SYNC channel"
-
-#     return recording
