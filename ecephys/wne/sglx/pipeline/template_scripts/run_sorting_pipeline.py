@@ -12,12 +12,12 @@ Usage:
 Options:
   -h --help                          Show this screen.
   --prepro_only                      Run only preprocessing, not full pipeline (drift correction) [default False]
+  --rerun_existing                   Rerun things
   --opts_dirpath==<odp>              Path to directory containing option file [default: {OPTS_DIRPATH}]
   --opts_filename==<ofn>             Name of options file [default: {OPTS_FILENAME}]
   --projectName==<pn>                Project name [default: {PROJECT_NAME}]
   --experimentName==<en>             Exp name [default: {EXPERIMENT_NAME}]
   --aliasName==<an>                  Alias name [default: {ALIAS_NAME}]
-  --rerun_existing==<re>             Rerun things [default: {RERUN_EXISTING}]
   --output_dirname==<dn>             Name of output dir. Pulled from opts file if None. [default: {OUTPUT_DIRNAME}]
 
 """
@@ -38,7 +38,6 @@ DEFAULT_VALUES = {
   "ALIAS_NAME": "my_alias",
   "OPTS_DIRPATH": "/path/to/opts/such/as/ecephys/wne/sglx/pipeline/template_opts",
   "OPTS_FILENAME": "template_pipeline_opts.yaml",
-  "RERUN_EXISTING": False,
   "OUTPUT_DIRNAME": None,
 }
 
