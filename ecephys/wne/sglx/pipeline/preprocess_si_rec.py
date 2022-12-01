@@ -350,10 +350,6 @@ def _prepro_drift_correction(
             direction=1,
             border_mode="remove_channels",
         )
-        print(motion.shape)
-        print(temporal_bins.shape)
-        print(spatial_bins.shape)
-        print(rec_corrected.get_traces(start_frame=0, end_frame=100).shape)
     
     return rec_corrected
 

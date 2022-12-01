@@ -51,7 +51,7 @@ class AbstractSortingPipeline:
             )
         else:
             opts_filepath = Path(opts_filepath)
-            assert opts_filepath.exists()
+            assert opts_filepath.exists(), f"{opts_filepath}"
             with open(opts_filepath, 'r') as f:
                 self.opts = yaml.load(f, Loader=yaml.SafeLoader)
         self.rerun_existing = rerun_existing
@@ -191,7 +191,9 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             rerun_existing=self.rerun_existing,
         )
 
-        self.dump_opts(self.preprocessing_output_dir)
+        # Save if opts if we did some preprocessing
+        if self.preprocessing_output_dir.exists():
+            self.dump_opts(self.preprocessing_output_dir)
 
         self._is_preprocessed = True
 
