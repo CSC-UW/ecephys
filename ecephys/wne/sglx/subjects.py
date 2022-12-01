@@ -4,7 +4,7 @@ import pandas as pd
 import ecephys as ece
 import spikeinterface as si
 from pathlib import Path
-from ecephys.wne.sglx.spikeinterface_utils import load_single_segment_sglx_recording
+from ecephys.utils.spikeinterface_utils import load_single_segment_sglx_recording
 
 logger = logging.getLogger(__name__)
 
