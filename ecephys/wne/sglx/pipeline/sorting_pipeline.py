@@ -83,6 +83,8 @@ class AbstractSortingPipeline:
         Segment time ranges (s): {self.time_ranges}
         Sorting output_dir: {self.sorting_output_dir}
         Preprocessing output_dir: {self.preprocessing_output_dir}
+        First file full path: \n{self.raw_ap_bin_table.path.values[0]}
+        AP table: \n{self.raw_ap_bin_table}
         """
 
     ######### Input output ####################
