@@ -235,6 +235,9 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         )
 
     def load_si_waveform_extractor(self, multipro_params=None):
+        MS_BEFORE=1.5
+        MS_AFTER=2.5
+        MAX_SPIKES_PER_UNIT=2000
         if self.waveforms_dir.exists() and (self.sorting_output_dir/"metrics.csv").exists():
             print("Loading pre-computed waveforms")
             we = si.WaveformExtractor.load_from_folder(
@@ -253,6 +256,9 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                     self.si_sorting_extractor,
                     folder=self.waveforms_dir,
                     load_if_exists=True,
+                    ms_before=MS_BEFORE,
+                    ms_after=MS_AFTER,
+                    max_spikes_per_unit=MAX_SPIKES_PER_UNIT,
                     **multipro_params,
                 )
                 we.run_extract_waveforms(**multipro_params)
