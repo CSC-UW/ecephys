@@ -92,18 +92,21 @@ sorting:
 postprocessing: {}
 metrics:
   # https://allensdk.readthedocs.io/en/latest/_static/examples/nb/ecephys_quality_metrics.html
-    firing_rate: {}
-    amplitude_cutoff: {}
-    presence_ratio: {}
-    isi_violation: {}
-    snr: {}
-    # nn_hit_rate: {}
-    # nn_miss_rate: {}
-    # nn_isolation: {}
-    # nn_noise_overlap: {}
-    # d_prime: {}
-    # ...  # https://spikeinterface.readthedocs.io/en/latest/module_qualitymetrics.html
-    _multipro_params:
-      n_jobs: 40  # TODO: benchmark
-      chunk_duration: "1s"  # TODO: benchmark
-      progress_bar: True
+  firing_rate: {}
+  amplitude_cutoff: {}
+  presence_ratio: {}
+  isi_violation:
+    isi_threshold_ms: 1.5
+  snr: {}
+  nn_hit_rate: {}
+  nn_miss_rate: {}
+  nn_isolation: {}
+  nn_noise_overlap: {}
+  d_prime: {}
+  isolation_distance: {}
+  l_ratio: {}
+  # ...  # https://spikeinterface.readthedocs.io/en/latest/module_qualitymetrics.html
+  _multipro_params:
+    n_jobs: 40  # TODO: benchmark
+    chunk_duration: "1s"  # TODO: benchmark
+    progress_bar: True

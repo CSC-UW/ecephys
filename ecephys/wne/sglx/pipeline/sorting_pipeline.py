@@ -5,9 +5,10 @@ import probeinterface as pi
 import yaml
 from horology import Timing, timed
 
-import spikeinterface as si
+import spikeinterface.full as si
 import spikeinterface.extractors as se
 import spikeinterface.sorters as ss
+import spikeinterface.qualitymetrics as sq
 from ecephys import wne
 from ecephys.utils import spikeinterface_utils as si_utils
 
@@ -149,8 +150,8 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         self._raw_si_recording =  None
         self._processed_si_recording = None
         self._dumped_bin_si_recording = None
-        self._sorting_extractor = None
-        self._waveform_extractor = None
+        self._si_sorting_extractor = None
+        self._si_waveform_extractor = None
 
         # Pipeline steps, specific to SI
         self._is_preprocessed = False
@@ -199,16 +200,16 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         return self.processed_si_recording.get_probe()
     
     @property
-    def sorting_extractor(self):
-        if self._sorting_extractor is None:
-            self._sorting_extractor = self.load_sorting_extractor()
-        return self._sorting_extractor
+    def si_sorting_extractor(self):
+        if self._si_sorting_extractor is None:
+            self._si_sorting_extractor = self.load_si_sorting_extractor()
+        return self._si_sorting_extractor
 
     @property
     def si_waveform_extractor(self):
-        if self._waveform_extractor is None:
-            self._waveform_extractro = self.load_waveform_extractor()
-        return self._waveform_extractor
+        if self._si_waveform_extractor is None:
+            self._si_waveform_extractor = self.load_si_waveform_extractor()
+        return self._si_waveform_extractor
 
     ######### IO ##########
 
@@ -223,29 +224,46 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             sampling_frequency_max_diff=1e-06,
         )
 
-    def load_sorting_extractor(self):
+    def load_si_sorting_extractor(self):
         return se.read_kilosort(self.sorting_output_dir) 
 
     def load_dumped_bin_si_recording(self):
         return si_utils.load_kilosort_bin_as_si_recording(
             self.sorting_output_dir,
-            fname=processed_bin_path.name,
-            si_probe=self.load_si_probe,
+            fname=self.processed_bin_path.name,
+            si_probe=self.load_si_probe(),
         )
 
-    def load_waveform_extractor(self):
-        return si.extract_waveforms(
-            self.dumped_bin_si_recording,
-            self.sorting_extractor,
-            folder=self.waveforms_dir,
-            load_if_exists=True,
-        )
+    def load_si_waveform_extractor(self, multipro_params=None):
+        if self.waveforms_dir.exists() and (self.sorting_output_dir/"metrics.csv").exists():
+            print("Loading pre-computed waveforms")
+            we = si.WaveformExtractor.load_from_folder(
+                self.waveforms_dir,
+                with_recording=False,
+                sorting=self.si_sorting_extractor,
+            )
+        else:
+            with Timing(name="Extract waveforms: "):
+                if multipro_params is None:
+                    multipro_params = {
+                        'progress_bar': True
+                    }
+                we = si.extract_waveforms(
+                    self.dumped_bin_si_recording,
+                    self.si_sorting_extractor,
+                    folder=self.waveforms_dir,
+                    load_if_exists=True,
+                    **multipro_params,
+                )
+                we.run_extract_waveforms(**multipro_params)
+        print(we)
+        return we
 
     def dump_si_probe(self):
         # Used to load probe when running waveform extractor/quality metrics
         # NB: The probe used for sorting may differ from the raw SGLX probe,
         # Since somme channels may be dropped during motion correction
-        self.processed_si_probe_path.parent.mkdir(exist_ok=True, parents=True)
+        # self.processed_si_probe_path.parent.mkdir(exist_ok=True, parents=True)
         pi.write_probeinterface(
             self.processed_si_probe_path,
             self.processed_si_probe,
@@ -257,19 +275,25 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         # NB: The probe used for sorting may differ from the raw SGLX probe,
         # Since somme channels may be dropped during motion correction
         if not self.processed_si_probe_path.exists():
-            raise FileNotFoundError(
-                f"Could not find spikeinterface probe object at {self.processed_si_probe_path}"
+            import warnings
+            warnings.warn(
+            # raise FileNotFoundError(
+                f"Find no spikeinterface probe object at {self.processed_si_probe_path}"
+                f"\nRe-dumping probe"
             )
+            self.dump_si_probe()
         prb_grp = pi.read_probeinterface(self.processed_si_probe_path)
         assert len(prb_grp.probes) == 1
-        return prb_grp.probes[0]
+        prb = prb_grp.probes[0]
+        print(prb)
+        return prb
 
-    def dump_opts(self, output_dir=None):
+    def dump_opts(self, output_dir=None, fname="sorting_pipeline_opts.yaml"):
         if output_dir is None:
             output_dir = self.output_dir
         opts_to_dump = self.opts.copy()
         opts_to_dump['time_ranges'] = self.time_ranges
-        with open(output_dir/"sorting_pipeline_opts.yaml", 'w') as f:
+        with open(output_dir/fname, 'w') as f:
             yaml.dump(opts_to_dump, f)
 
     ######### Pipeline steps ##########
@@ -329,33 +353,46 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         raise NotImplementedError()
 
     def run_metrics(self):
-        print(f"Running metrics with params {metrics_opts}")
 
         # Extract joblib params
         # Get list of metrics
         # get set of params across metrics
-        metrics_opts = self.opts['metrics']['metrics_names'].copy()
+        metrics_opts = self.opts['metrics'].copy()
         multipro_params = metrics_opts.pop('_multipro_params', {})
         metrics_names = list(metrics_opts.keys())
-        params = {
-            **metric_dict
-            for metric_dict in metrics_opts.values()
-        }
+        params = {}
+        for metric_dict in metrics_opts.values():
+            params.update(metric_dict)
 
-        metrics = sq.compute_quality_metrics(
-            waveform_extractor,
-            metric_names=metrics_names,
-            **params,
-            **multipro_params
-        )
+        print(f"Running metrics: {metrics_names}")
+        print(f"Metrics params: {params}")
+        print(f"Multipro params: {multipro_params}")
+
+        # TODO: This block is to use joblib params from metrics params
+        # TODO centralize all joblib
+        if self._si_waveform_extractor is None:
+            self._si_waveform_extracor = self.load_si_waveform_extractor(
+                multipro_params=multipro_params
+            )
+
+        print("Computing metrics")
+        with Timing(name="Compute metrics: "):
+            metrics_df = sq.compute_quality_metrics(
+                self.si_waveform_extractor,
+                metric_names=metrics_names,
+                **params,
+                **multipro_params
+            )
 
         print("Save metrics dataframe as `metrics.csv` in kilosort dir")
         metrics_df.to_csv(
-            ks_output_dir/"metrics.csv",
+            self.sorting_output_dir/"metrics.csv",
             # sep="\t",
             index=True,
             index_label="cluster_id"
         )
+
+        self.dump_opts(self.sorting_output_dir, fname="metrics_opts.yaml")
         print("Done")
 
 

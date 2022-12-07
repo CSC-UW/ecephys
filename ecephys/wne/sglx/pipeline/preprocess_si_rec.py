@@ -1,14 +1,20 @@
 import logging
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 from horology import Timing
+
 import spikeinterface.full as si
-from spikeinterface.sortingcomponents.motion_correction import (CorrectMotionRecording, correct_motion_on_peaks)
-from spikeinterface.sortingcomponents.motion_estimation import estimate_motion, clean_motion_vector
+from spikeinterface.sortingcomponents.motion_correction import (
+    CorrectMotionRecording, correct_motion_on_peaks)
+from spikeinterface.sortingcomponents.motion_estimation import (
+    clean_motion_vector, estimate_motion)
 from spikeinterface.sortingcomponents.peak_detection import detect_peaks
-from spikeinterface.sortingcomponents.peak_localization import ( LocalizeCenterOfMass, LocalizeMonopolarTriangulation, localize_peaks)
-from spikeinterface.widgets import (plot_displacement, plot_pairwise_displacement)
+from spikeinterface.sortingcomponents.peak_localization import (
+    LocalizeCenterOfMass, LocalizeMonopolarTriangulation, localize_peaks)
+from spikeinterface.widgets import (plot_displacement,
+                                    plot_pairwise_displacement)
 
 logger = logging.getLogger(__name__)
 
