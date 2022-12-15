@@ -238,7 +238,11 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         MS_BEFORE=1.5
         MS_AFTER=2.5
         MAX_SPIKES_PER_UNIT=2000
-        if self.waveforms_dir.exists() and (self.sorting_output_dir/"metrics.csv").exists():
+        if (
+            not self.rerun_existing 
+            and self.waveforms_dir.exists() 
+            and (self.sorting_output_dir/"metrics.csv").exists()
+        ):
             print("Loading pre-computed waveforms")
             we = si.WaveformExtractor.load_from_folder(
                 self.waveforms_dir,
@@ -255,7 +259,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                     self.dumped_bin_si_recording,
                     self.si_sorting_extractor,
                     folder=self.waveforms_dir,
-                    load_if_exists=True,
+                    load_if_exists=self.rerun_existing,
                     ms_before=MS_BEFORE,
                     ms_after=MS_AFTER,
                     max_spikes_per_unit=MAX_SPIKES_PER_UNIT,
@@ -378,7 +382,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         # TODO centralize all joblib
         if self._si_waveform_extractor is None:
             self._si_waveform_extracor = self.load_si_waveform_extractor(
-                multipro_params=multipro_params
+                multipro_params=multipro_params, 
             )
 
         print("Computing metrics")
