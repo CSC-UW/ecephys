@@ -261,11 +261,12 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             )
         else:
             with Timing(name="Extract waveforms: "):
+                load_if_exists = not self.rerun_existing
                 we = si.extract_waveforms(
                     self.dumped_bin_si_recording,
                     self.si_sorting_extractor,
                     folder=self.waveforms_dir,
-                    load_if_exists=self.rerun_existing,
+                    load_if_exists=load_if_exists,
                     ms_before=MS_BEFORE,
                     ms_after=MS_AFTER,
                     max_spikes_per_unit=MAX_SPIKES_PER_UNIT,
