@@ -7,14 +7,17 @@ Modify script to change default argument values
 
 Usage:
   run_sorting_pipeline.py --help
-  run_sorting_pipeline.py <subjectName> <probeName> [options]
+  run_sorting_pipeline.py [options] [--input <subjectName>,<probeName>]... 
+  run_sorting_pipeline.py [options] (--prepro_only|--metrics_only) [--input <subjectName>,<probeName>]... 
 
 Options:
   -h --help                          Show this screen.
-  --prepro_only                      Run only preprocessing, not full pipeline (drift correction) [default False]
-  --rerun_existing                   Rerun things
+  --input==<subjectName,probeName>   (Repeatable) Comma-separated pair of the form `<subjectName>,<probeName>`
+  --prepro_only                      Run only preprocessing, not full pipeline (drift correction)
+  --metrics_only                     Run only waveform extraction and metrics, not full pipeline.
+  --rerun_existing                   Rerun rather than load things.
   --opts_dirpath==<odp>              Path to directory containing option file [default: {OPTS_DIRPATH}]
-  --opts_filename==<ofn>             Name of options file [default: {OPTS_FILENAME}]
+  --opts_filename==<ofn>             Name of options file (applied to all input datasets) [default: {OPTS_FILENAME}]
   --projectName==<pn>                Project name [default: {PROJECT_NAME}]
   --experimentName==<en>             Exp name [default: {EXPERIMENT_NAME}]
   --aliasName==<an>                  Alias name [default: {ALIAS_NAME}]
