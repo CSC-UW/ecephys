@@ -31,6 +31,7 @@ class AbstractSortingPipeline:
         opts_filepath=None,
         output_dirname=None,
         rerun_existing=True,
+        n_jobs=1,
     ):
         # Project and data
         subjLib = wne.sglx.SubjectLibrary(subjectsDir)
@@ -61,6 +62,7 @@ class AbstractSortingPipeline:
             with open(opts_filepath, 'r') as f:
                 self.opts = yaml.load(f, Loader=yaml.SafeLoader)
         self.rerun_existing = rerun_existing
+        self.n_jobs = n_jobs
 
         # Input/Output
         self._raw_ap_bin_table = None
@@ -81,10 +83,12 @@ class AbstractSortingPipeline:
         {self.__class__.__name__}:
         {self.wneSubject.name}, {self.probe}
         {self.experimentName} - {self.aliasName}
+        N_jobs: {self.n_jobs}
         Segment time ranges (s): {self.time_ranges}
         Sorting output_dir: {self.sorting_output_dir}
         Preprocessing output_dir: {self.preprocessing_output_dir}
         First file full path: \n{self.raw_ap_bin_table.path.values[0]}
+        Total sorting duration: \n{self.raw_ap_bin_table.fileTimeSecs.sum()}(s)
         AP table: \n{self.raw_ap_bin_table}
         """
 
@@ -161,6 +165,12 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         self._is_curated = False
         self._is_run_metrics = False
 
+        self.job_kwargs = {
+            "n_jobs": self.n_jobs,
+            "chunk_duration": "1s",
+            "progress_bar": True,
+        }
+
     ######### Paths ##########
 
     @property
@@ -234,7 +244,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             si_probe=self.load_si_probe(),
         )
 
-    def load_si_waveform_extractor(self, multipro_params=None):
+    def load_si_waveform_extractor(self):
         MS_BEFORE=1.5
         MS_AFTER=2.5
         MAX_SPIKES_PER_UNIT=2000
@@ -251,10 +261,6 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             )
         else:
             with Timing(name="Extract waveforms: "):
-                if multipro_params is None:
-                    multipro_params = {
-                        'progress_bar': True
-                    }
                 we = si.extract_waveforms(
                     self.dumped_bin_si_recording,
                     self.si_sorting_extractor,
@@ -263,9 +269,9 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                     ms_before=MS_BEFORE,
                     ms_after=MS_AFTER,
                     max_spikes_per_unit=MAX_SPIKES_PER_UNIT,
-                    **multipro_params,
+                    **self.job_kwargs,
                 )
-                we.run_extract_waveforms(**multipro_params)
+                we.run_extract_waveforms(**self.job_kwargs)
         print(we)
         return we
 
@@ -315,6 +321,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             self.opts,
             output_dir=self.preprocessing_output_dir,
             rerun_existing=self.rerun_existing,
+            job_kwargs=self.job_kwargs,
         )
 
         # Save if opts if we did some preprocessing
@@ -344,6 +351,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                 verbose=True,
                 with_output=False,
                 **sorter_params,
+                **self.job_kwargs,
             )
 
         self.dump_si_probe()
@@ -368,7 +376,6 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         # Get list of metrics
         # get set of params across metrics
         metrics_opts = self.opts['metrics'].copy()
-        multipro_params = metrics_opts.pop('_multipro_params', {})
         metrics_names = list(metrics_opts.keys())
         params = {}
         for metric_dict in metrics_opts.values():
@@ -376,14 +383,6 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
         print(f"Running metrics: {metrics_names}")
         print(f"Metrics params: {params}")
-        print(f"Multipro params: {multipro_params}")
-
-        # TODO: This block is to use joblib params from metrics params
-        # TODO centralize all joblib
-        if self._si_waveform_extractor is None:
-            self._si_waveform_extracor = self.load_si_waveform_extractor(
-                multipro_params=multipro_params, 
-            )
 
         print("Computing metrics")
         with Timing(name="Compute metrics: "):
@@ -391,7 +390,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                 self.si_waveform_extractor,
                 metric_names=metrics_names,
                 **params,
-                **multipro_params
+                **self.job_kwargs,
             )
 
         print("Save metrics dataframe as `metrics.csv` in kilosort dir")

@@ -372,7 +372,14 @@ def preprocess_si_recording(
     opts,
     output_dir=None,
     rerun_existing=True,
+    job_kwargs=None,
 ):
+    if job_kwargs is None:
+        job_kwargs = {
+            "n_jobs": 1,
+            "chunk_duration": "1s",
+            "progress_bar": True,
+        }
     prepro_opts = opts['preprocessing']
 
     for step in prepro_opts:
@@ -403,7 +410,6 @@ def preprocess_si_recording(
                 non_rigid_params = step_params.get('non_rigid_params', None),
                 clean_motion_params = step_params.get('clean_motion_params', None),
                 motion_params = step_params.get('motion_params', None),
-                job_kwargs=step_params.get('job_kwargs', None),
                 rerun_existing=rerun_existing,
             )
         else:
