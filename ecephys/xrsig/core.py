@@ -120,7 +120,7 @@ class LaminarScalars(Laminar):
 
 
 class LaminarVectors(Laminar):
-    """Any channelwise 2D data.
+    """Any channelwise vector data.
 
     Dimensions: ('channel', <other>), or (<other>, 'channel').
     """
@@ -374,7 +374,7 @@ class Timeseries2D(Timeseries):
             dims=(*self.dims, "event"),
             coords={
                 "time": winTime,
-                "event": trials.index,
+                "event": tTrials,
                 **self[self._sigdim].coords,
             },
             attrs=self.attrs,
@@ -391,7 +391,7 @@ class Timeseries2D(Timeseries):
                 f"You requested a synchrosqueezed complex wavelet transform with > {1e6} points. Maybe you want a STFT..."
             )
 
-        Tx, Wx, freqs, scales, *_ = ssq.ssq_cwt(self.T.values, fs=self.fs)
+        Tx, Wx, freqs, scales, *_ = ssq.ssq_cwt(self.T.values, fs=self.fs, **kwargs)
         if plot_filterbank and kwargs.get("wavelet") is not None:
             plt.figure(figsize=(22, 6))
             ssq.Wavelet(kwargs.get("wavelet"), ssq.p2up(self.time.size)[0]).viz(
