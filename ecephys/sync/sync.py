@@ -258,6 +258,11 @@ def extract_ttl_edges_from_tdt(block_path, store_name):
     return rising, falling
 
 
+def get_tdt_barcodes(block_path, store_name, bar_duration=0.029):
+    rising, falling = extract_ttl_edges_from_tdt(block_path, store_name)
+    return extract_barcodes_from_times(rising, falling, bar_duration=bar_duration)
+
+
 #####
 # SpikeGLX specific functions
 #####
