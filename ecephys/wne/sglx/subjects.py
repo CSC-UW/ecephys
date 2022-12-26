@@ -227,7 +227,7 @@ class SubjectLibrary:
 
     def refresh_cache(self) -> pd.DataFrame:
         names = self.get_subject_names()
-        subjectCaches = [self.get_subject(name).cache for name in names]
+        subjectCaches = [Subject(self.get_subject_file(name)).cache for name in names]
         self.cache = pd.concat(
             subjectCaches, keys=names, names=["subject"]
         ).reset_index(level=0)
