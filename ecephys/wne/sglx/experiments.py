@@ -132,6 +132,10 @@ def add_wne_times(ftab: pd.DataFrame, tol=1, method="rigorous"):
         )
         _ftab = ftab.loc[mask]
 
+        if not len(_ftab):
+            # In case we changed session path for only one of the probes
+            continue
+
         # Get the number of samples in each file.
         # fileTimeSec is not precise enough. We must use fileSizeBytes.
         def _get_sample_info(_ftab):
