@@ -5,7 +5,8 @@ description = "\"Python tools for extracellular electrophysiology\""
 authors = ["Graham Findlay <gfindlay@wisc.edu>"]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.12"
+# Type annotations of the form list[tuple] require Python >=3.9. Numba and llvmlite currently require Python <3.11.
+python = "~3.10"
 black = "^22.6.0"
 scipy = "^1.8.1"
 numpy = "^1.18"
