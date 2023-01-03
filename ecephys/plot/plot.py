@@ -305,7 +305,7 @@ def plot_hypnogram_overlay(
             bout[t2_column],
             alpha=alpha,
             color=state_colors[bout["state"]],
-            zorder=1000,
+            zorder=-1,
             ec="none",
             ymin=ymin,
             ymax=ymax,
