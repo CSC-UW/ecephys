@@ -285,8 +285,8 @@ class Project:
         experiment,
         probe,
         alias="full",
-        sortingID="ks2_5_catgt_df_postpro_2_metrics_all_isi",
-        filters={"n_spikes": (2, np.Inf), "quality": {"good", "mua"}},
+        sortingID="ks2_5_catgt_df_postpro_2_metrics_all_isi",  # TODO: This should probably no longer be the default
+        filters={"n_spikes": (2, np.Inf), "quality": {"good", "mua"}}, #TODO: n_spikes should probably start at 100
         sharptrack=True,
         remapTimes=True,
     ):
