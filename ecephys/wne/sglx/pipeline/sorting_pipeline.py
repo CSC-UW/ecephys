@@ -389,8 +389,8 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             metrics_df = sq.compute_quality_metrics(
                 self.si_waveform_extractor,
                 metric_names=metrics_names,
+                n_jobs=self.n_jobs,
                 **params,
-                **self.job_kwargs,
             )
 
         print("Save metrics dataframe as `metrics.csv` in kilosort dir")
