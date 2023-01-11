@@ -74,7 +74,6 @@ class AbstractSortingPipeline:
                 )
             self._output_dirname = self.opts["output_dirname"]
         self._output_dirname = f"{self._output_dirname}.{self.probe}"
-        self._sorting_output_dirname = self._output_dirname
         self._preprocessing_output_dirname = f"prepro_{self._output_dirname}"
         self._output_dir = None
 
@@ -104,7 +103,7 @@ class AbstractSortingPipeline:
 
     @property
     def sorting_output_dir(self):
-        return self.output_dir
+        return self.output_dir/'sorter_output'
 
     @property
     def preprocessing_output_dir(self):
@@ -179,11 +178,11 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
     @property
     def processed_si_probe_path(self):
-        return self.sorting_output_dir/'processed_si_probe.json'
+        return self.output_dir/'processed_si_probe.json'
 
     @property
     def waveforms_dir(self):
-        return self.sorting_output_dir/'waveforms'
+        return self.output_dir/'waveforms'
 
     ######### SI objects ##########
 
@@ -339,7 +338,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
         sorter_name, sorter_params = self.opts["sorting"]
 
-        self.sorting_output_dir.mkdir(exist_ok=True, parents=True)
+        self.output_dir.mkdir(exist_ok=True, parents=True)
         if sorter_name == "kilosort2_5":
             sorter_params = sorter_params.copy() # Allow rerunning since we pop
             ss.sorter_dict[sorter_name].set_kilosort2_5_path(sorter_params.pop("ks_path"))
@@ -348,7 +347,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             ss.run_sorter(
                 sorter_name,
                 self.processed_si_recording,
-                output_folder=self.sorting_output_dir,
+                output_folder=self.output_dir,
                 verbose=True,
                 with_output=False,
                 **sorter_params,
@@ -402,7 +401,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             index_label="cluster_id"
         )
 
-        self.dump_opts(self.sorting_output_dir, fname="metrics_opts.yaml")
+        self.dump_opts(self.output_dir, fname="metrics_opts.yaml")
         print("Done")
 
 
