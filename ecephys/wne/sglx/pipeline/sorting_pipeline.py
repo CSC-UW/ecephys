@@ -62,7 +62,7 @@ class AbstractSortingPipeline:
             with open(opts_filepath, 'r') as f:
                 self.opts = yaml.load(f, Loader=yaml.SafeLoader)
         self.rerun_existing = rerun_existing
-        self.n_jobs = n_jobs
+        self.n_jobs = int(n_jobs)
 
         # Input/Output
         self._raw_ap_bin_table = None
