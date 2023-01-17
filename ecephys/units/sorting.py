@@ -18,6 +18,21 @@ class Sorting(ABC):
     def nClusters(self):
         pass
 
+    # TODO: This is 4/3 slower than getting individual unit trains 1 by 1, especially if unit trains are the ultimate desired format.
+    @staticmethod
+    def get_all_spike_times_from_si_obj(siSorting, timeConverter=None):
+        [(spikeSamples, clusterIDs)] = siSorting.get_all_spike_trains()
+        spikeTimes = spikeSamples / siSorting.get_sampling_frequency()
+        spikes = pd.DataFrame(
+            {
+                "t": spikeTimes,
+                "cluster_id": clusterIDs,
+            }
+        )
+        if timeConverter is not None:
+            spikes["t"] = timeConverter(spikes["t"].values)
+        return spikes
+
 
 class SingleProbeSorting(Sorting):
     def __init__(self, siSorting, timeConverter=None):
@@ -31,7 +46,7 @@ class SingleProbeSorting(Sorting):
         """
         self._si = siSorting
         self._timeConverter = timeConverter
-        self.spikes = self.spikeinterface_sorting_to_dataframe(siSorting, timeConverter)
+        self.spikes = self.get_all_spike_times_from_si_obj(siSorting, timeConverter)
 
     def __repr__(self):
         return repr(self.si)
@@ -64,20 +79,6 @@ class SingleProbeSorting(Sorting):
 
     def clone(self):
         return SingleProbeSorting(self.si.clone(), self._timeConverter)
-
-    @staticmethod
-    def spikeinterface_sorting_to_dataframe(siSorting, timeConverter=None):
-        [(spikeSamples, clusterIDs)] = siSorting.get_all_spike_trains()
-        spikeTimes = spikeSamples / siSorting.get_sampling_frequency()
-        spikes = pd.DataFrame(
-            {
-                "t": spikeTimes,
-                "cluster_id": clusterIDs,
-            }
-        )
-        if timeConverter is not None:
-            spikes["t"] = timeConverter(spikes["t"].values)
-        return spikes
 
 
 class MultiProbeSorting(Sorting):

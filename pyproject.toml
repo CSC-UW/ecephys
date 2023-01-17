@@ -1,3 +1,6 @@
+[tool.isort]
+profile = "black"
+
 [tool.poetry]
 name = "ecephys"
 version = "0.0.2"
@@ -33,6 +36,8 @@ pyfftw = "^0.13.0"
 pyEDFlib = "^0.1.30"
 horology = "^1.2.0"
 docopt = "^0.6.2"
+netcdf4 = "^1.6.2"
+isort = "^5.11.4"
 
 [tool.poetry.dev-dependencies]
 altair = "^4.2.0"

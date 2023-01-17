@@ -225,6 +225,8 @@ class Project:
         )
         assert dir.is_dir(), f"Expected Kilosort directory not found: {dir}"
         extractor = se.KiloSortSortingExtractor(dir)
+        # Equivalent to extractor = si.extractors.read_kilosort(sorting_dir, keep_good_only=False),
+        # which is the form used in the docs.
 
         # Check that quality metrics are available
         # TODO: Figure out how to automatically regenerate cluster_info.tsv without making all of phy a dependency, so we can stop doing this manually.
@@ -286,7 +288,10 @@ class Project:
         probe,
         alias="full",
         sortingID="ks2_5_catgt_df_postpro_2_metrics_all_isi",  # TODO: This should probably no longer be the default
-        filters={"n_spikes": (2, np.Inf), "quality": {"good", "mua"}}, #TODO: n_spikes should probably start at 100
+        filters={
+            "n_spikes": (2, np.Inf),
+            "quality": {"good", "mua"},
+        },  # TODO: n_spikes should probably start at 100
         sharptrack=True,
         remapTimes=True,
     ):
