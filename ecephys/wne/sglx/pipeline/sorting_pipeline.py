@@ -247,6 +247,8 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         MS_BEFORE=1.5
         MS_AFTER=2.5
         MAX_SPIKES_PER_UNIT=2000
+        SPARSITY_RADIUS=400
+        NUM_SPIKES_FOR_SPARSITY=500
         if (
             not self.rerun_existing 
             and self.waveforms_dir.exists() 
@@ -269,6 +271,10 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                     ms_before=MS_BEFORE,
                     ms_after=MS_AFTER,
                     max_spikes_per_unit=MAX_SPIKES_PER_UNIT,
+                    sparse=True,
+                    num_spikes_for_sparsity=NUM_SPIKES_FOR_SPARSITY,
+                    method="radius",
+                    radius_um=SPARSITY_RADIUS,
                     **self.job_kwargs,
                 )
                 we.run_extract_waveforms(**self.job_kwargs)
