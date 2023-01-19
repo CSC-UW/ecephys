@@ -138,24 +138,22 @@ def _compute_motion(
     peaks,
     peak_locations,
     motion_method_params,
-    non_rigid_params,
     motion_params,
 ):
+    """Estimate motion without cleaning."""
     with Timing(name="Estimate motion: "):
         motion, temporal_bins, spatial_bins, extra_check = estimate_motion(
             si_rec,
             peaks,
             peak_locations=peak_locations,
-            method="decentralized_registration",
-            method_kwargs=motion_method_params,
-            non_rigid_kwargs=non_rigid_params,
-            clean_motion_kwargs=None,
-            upsample_to_histogram_bin=False,  # Keep false if we clean motion separately
             output_extra_check=True,
             progress_bar=True,
             verbose=False,
             direction="y",
+            upsample_to_histogram_bin=False,  # Keep false if we clean motion separately
+            post_clean=False, # We clean in separate step
             **motion_params,
+            **motion_method_params,
         )
     return motion, temporal_bins, spatial_bins, extra_check
 
@@ -183,10 +181,9 @@ def _prepro_drift_correction(
     peak_detection_params=None,
     peak_localization_method='center_of_mass',
     peak_localization_params=None,
-    motion_method_params=None,
-    non_rigid_params=None,
-    clean_motion_params=None,
     motion_params=None,
+    motion_method_params=None,
+    clean_motion_params=None,
     job_kwargs=None,
     rerun_existing=True,
 ):
@@ -201,8 +198,6 @@ def _prepro_drift_correction(
         peak_localization_params = {}
     if motion_method_params is None:
         motion_method_params = {}
-    if non_rigid_params is None:
-        non_rigid_params = {}
     if motion_params is None:
         motion_params = {}
     if job_kwargs is None:
@@ -222,6 +217,7 @@ def _prepro_drift_correction(
     )
     if compute_peaks:
         print("(Re)compute peaks")
+        print(job_kwargs)
         peaks, peak_locations = _compute_peaks(
             si_rec,
             noise_level_params,
@@ -254,7 +250,6 @@ def _prepro_drift_correction(
             peaks,
             peak_locations,
             motion_method_params,
-            non_rigid_params,
             motion_params,
         )
         print("Save uncleaned motion at :")
@@ -274,9 +269,9 @@ def _prepro_drift_correction(
         temporal_bins = npz['temporal_bins']
         spatial_bins = npz['spatial_bins']
         extra_check=dict(
-            motion_histogram=npz['motion_histogram'],
-            spatial_hist_bins=npz['spatial_hist_bins'],
-            temporal_hist_bins=npz['temporal_hist_bins'],
+            # motion_histogram=npz['motion_histogram'],
+            # spatial_hist_bins=npz['spatial_hist_bins'],
+            # temporal_hist_bins=npz['temporal_hist_bins'],
         )
 
     clean_motion = (
@@ -313,9 +308,9 @@ def _prepro_drift_correction(
         temporal_bins = npz['temporal_bins']
         spatial_bins = npz['spatial_bins']
         extra_check=dict(
-            motion_histogram=npz['motion_histogram'],
-            spatial_hist_bins=npz['spatial_hist_bins'],
-            temporal_hist_bins=npz['temporal_hist_bins'],
+            # motion_histogram=npz['motion_histogram'],
+            # spatial_hist_bins=npz['spatial_hist_bins'],
+            # temporal_hist_bins=npz['temporal_hist_bins'],
         )
     motion = motion_clean
 
@@ -406,11 +401,11 @@ def preprocess_si_recording(
                 peak_detection_params = step_params.get('peak_detection_params', None),
                 peak_localization_method = step_params.get('peak_localization_method', None),
                 peak_localization_params = step_params.get('peak_localization_params', None),
-                motion_method_params = step_params.get('motion_method_params', None),
-                non_rigid_params = step_params.get('non_rigid_params', None),
-                clean_motion_params = step_params.get('clean_motion_params', None),
                 motion_params = step_params.get('motion_params', None),
+                motion_method_params = step_params.get('motion_method_params', None),
+                clean_motion_params = step_params.get('clean_motion_params', None),
                 rerun_existing=rerun_existing,
+                job_kwargs=job_kwargs,
             )
         else:
             si_rec = PREPRO_FUNCTIONS[step_name](
