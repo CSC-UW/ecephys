@@ -87,8 +87,8 @@ class AbstractSortingPipeline:
         Sorting output_dir: {self.sorting_output_dir}
         Preprocessing output_dir: {self.preprocessing_output_dir}
         First file full path: \n{self.raw_ap_bin_table.path.values[0]}
-        Total sorting duration: \n{self.raw_ap_bin_table.fileTimeSecs.sum()}(s)
-        AP table: \n{self.raw_ap_bin_table}
+        Total sorting duration: \n{self.raw_ap_bin_table.fileTimeSecs.astype(float).sum()}(s)
+        AP table: \n{self.raw_ap_bin_table.loc[:,['run', 'gate', 'trigger', 'probe', 'fileTimeSecs']]}
         """
 
     ######### Input output ####################
