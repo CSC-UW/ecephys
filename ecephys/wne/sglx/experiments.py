@@ -101,13 +101,15 @@ def get_gate_dir_trigger_file_index(ftab):
     return ftab
 
 
-def add_wne_times(ftab: pd.DataFrame, tol=1, method="rigorous"):
+def add_wne_times(ftab: pd.DataFrame, tol=100, method="rigorous"):
     """Get a series containing the time of each file start, in seconds, relative to the beginning of the experiment.
 
     ftab: pd.DataFrame
         ALL files from the experiment.
     tol: int
         The number of samples that continuous files are allowed to be overlapped or gapped by.
+        This needs to be fairly high since, when recording with multiple probes, one will be nearly perfect (tol=1),
+        while the other will be much sloppier -- perhaps due to the different sampling rates on the two probes.
     method: "rigorous" or "approximate"
         How to determine timestamps. Rigorous is fast.
     """
