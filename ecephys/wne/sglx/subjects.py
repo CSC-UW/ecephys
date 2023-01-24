@@ -34,6 +34,9 @@ class Subject:
         ).reset_index(level=0)
         return self.cache
 
+    def get_experiment_names(self) -> list[str]:
+        return list(self.doc["experiments"].keys())
+
     def get_file_frame(
         self,
         experimentName: str,
