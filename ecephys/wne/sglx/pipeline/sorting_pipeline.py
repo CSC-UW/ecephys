@@ -381,7 +381,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             )
 
         self.dump_si_probe()
-        self.dump_opts(self.sorting_output_dir)
+        self.dump_opts()
 
         self._is_sorted = True
 
