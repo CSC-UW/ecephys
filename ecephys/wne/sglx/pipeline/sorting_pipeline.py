@@ -69,11 +69,7 @@ class AbstractSortingPipeline:
         self._raw_ap_bin_table = None
         self._output_dirname = output_dirname
         if self._output_dirname is None:
-            if not "output_dirname" in self.opts:
-                raise ValueError(
-                    "Specify 'output_dirname' as kwarg or under 'output_dirname' key in opts file."
-                )
-            self._output_dirname = self.opts["output_dirname"]
+            raise ValueError("Please specify 'output_dirname' kwarg")
         self._output_dirname = f"{self._output_dirname}.{self.probe}"
         self._preprocessing_output_dirname = f"prepro_{self._output_dirname}"
         self._output_dir = None
