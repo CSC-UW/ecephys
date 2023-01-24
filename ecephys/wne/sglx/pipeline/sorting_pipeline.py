@@ -258,7 +258,8 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         if self.processed_bin_path.exists():
             waveform_recording = self.dumped_bin_si_recording
         else:
-            waveform_recording = self.processed_si_recording
+            # Make sure we preprocess in the same way as during sorting
+            waveform_recording = self.run_preprocessing(load_existing=True)
 
         if load_precomputed:
             print(f"Loading waveforms from folder. Will use this recording: {waveform_recording}")
@@ -324,14 +325,28 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         opts_to_dump['time_ranges'] = self.time_ranges
         with open(output_dir/fname, 'w') as f:
             yaml.dump(opts_to_dump, f)
+    
+    def load_opts(self, output_dir=None, fname="sorting_pipeline_opts.yaml"):
+        if output_dir is None:
+            output_dir = self.output_dir
+        with open(output_dir/fname, 'r') as f:
+            return yaml.load(f, Loader=yaml.SafeLoader)
 
     ######### Pipeline steps ##########
 
-    def run_preprocessing(self):
+    def run_preprocessing(self, load_existing=False):
         assert self.raw_si_recording is not None
+
+        if load_existing:
+            # Ensures we use the same opts as previously during postprocessing
+            print("Preprocessing: load_existing=True: Use preexisting opts!")
+            prepro_opts = self.load_opts()
+        else:
+            prepro_opts = self.opts
+
         self._processed_si_recording = preprocess_si_recording(
             self.raw_si_recording,
-            self.opts,
+            prepro_opts,
             output_dir=self.preprocessing_output_dir,
             rerun_existing=self.rerun_existing,
             job_kwargs=self.job_kwargs,
@@ -342,6 +357,8 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             self.dump_opts(self.preprocessing_output_dir)
 
         self._is_preprocessed = True
+
+        return self._processed_si_recording
 
     def run_sorting(self):
 
