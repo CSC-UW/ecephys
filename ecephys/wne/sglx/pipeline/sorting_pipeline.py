@@ -9,6 +9,7 @@ import spikeinterface.full as si
 import spikeinterface.extractors as se
 import spikeinterface.sorters as ss
 import spikeinterface.qualitymetrics as sq
+import spikeinterface.postprocessing as sp
 from ecephys import wne
 from ecephys.utils import spikeinterface_utils as si_utils
 
@@ -249,25 +250,33 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         MAX_SPIKES_PER_UNIT=2000
         SPARSITY_RADIUS=400
         NUM_SPIKES_FOR_SPARSITY=500
-        if (
+        load_precomputed = (
             not self.rerun_existing 
             and self.waveforms_dir.exists() 
-            and (self.sorting_output_dir/"metrics.csv").exists()
-        ):
-            print("Loading pre-computed waveforms")
+            and (self.sorting_output_dir/'metrics.csv').exists()
+        )
+        if self.processed_bin_path.exists():
+            waveform_recording = self.dumped_bin_si_recording
+        else:
+            waveform_recording = self.processed_si_recording
+
+        if load_precomputed:
+            print(f"Loading waveforms from folder. Will use this recording: {waveform_recording}")
             we = si.WaveformExtractor.load_from_folder(
                 self.waveforms_dir,
                 with_recording=False,
                 sorting=self.si_sorting_extractor,
             )
+            # Hack to have recording even if we deleted or moved the data,
+            # because load_from_folder(.., with_recording=True) assumes same recording file locations etc
+            we._recording = waveform_recording
         else:
             with Timing(name="Extract waveforms: "):
-                load_if_exists = not self.rerun_existing
                 we = si.extract_waveforms(
-                    self.dumped_bin_si_recording,
+                    waveform_recording,
                     self.si_sorting_extractor,
                     folder=self.waveforms_dir,
-                    load_if_exists=load_if_exists,
+                    overwrite=True,
                     ms_before=MS_BEFORE,
                     ms_after=MS_AFTER,
                     max_spikes_per_unit=MAX_SPIKES_PER_UNIT,
@@ -277,8 +286,6 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                     radius_um=SPARSITY_RADIUS,
                     **self.job_kwargs,
                 )
-                we.run_extract_waveforms(**self.job_kwargs)
-        print(we)
         return we
 
     def dump_si_probe(self):
