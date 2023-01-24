@@ -314,39 +314,46 @@ def _prepro_drift_correction(
         )
     motion = motion_clean
 
-    with Timing(name="Get corrected peaks (debugging figure): "):
-        print("Correct motion on peaks")
-        times = si_rec.get_times()
-        peak_locations_corrected = correct_motion_on_peaks(
-            peaks,
-            peak_locations,
-            times,
-            motion,
-            temporal_bins,
-            spatial_bins,
-            direction='y',
-        )
+    # Only plot if we changed the motions and can't find the plots already
+    plot_filepaths = {
+        'displacement': output_dir/"peak_displacement.png",
+        'displacement_hq': output_dir/"peak_displacement_hq.png",
+        'raw_peaks_hq': output_dir/"peak_uncorrected_hq.png",
+    }
+    make_debugging_plots = (
+        rerun_existing
+        or clean_motion
+        or not all([f.exists() for f in plot_filepaths.values()])
+    )
+    if make_debugging_plots:
 
-    with Timing(name="Plot peak displacement and corrected peaks: "):
-        print("Plot motion")
-        fig = get_peak_displacement_fig(
-            si_rec, peaks, peak_locations, peak_locations_corrected,
-            motion, temporal_bins, spatial_bins, extra_check,
-        )
-        savepath = output_dir/"peak_displacement.png"
-        savepath_hq = output_dir/"peak_displacement_hq.png"
-        print(f"Save debugging fig at {savepath}")
-        fig.savefig( savepath, bbox_inches="tight")
-        fig.savefig( savepath_hq, bbox_inches="tight", dpi=500)
-        print("Plot peaks")
-        fig = get_raw_peak_fig(
-            si_rec, peaks, peak_locations, motion, temporal_bins, spatial_bins, extra_check,
-        )
-        savepath = output_dir/"peak_uncorrected.png"
-        savepath = output_dir/"peak_uncorrected_hq.png"
-        print(f"Save debugging fig at {savepath}")
-        fig.savefig( savepath, bbox_inches="tight")
-        fig.savefig( savepath_hq, bbox_inches="tight", dpi=500)
+        with Timing(name="Get corrected peaks (debugging figure): "):
+            print("Correct motion on peaks")
+            times = si_rec.get_times()
+            peak_locations_corrected = correct_motion_on_peaks(
+                peaks,
+                peak_locations,
+                times,
+                motion,
+                temporal_bins,
+                spatial_bins,
+                direction='y',
+            )
+
+        with Timing(name="Plot peak displacement and corrected peaks: "):
+            print(f"Save debugging figs at {plot_filepaths}")
+            fig = get_peak_displacement_fig(
+                si_rec, peaks, peak_locations, peak_locations_corrected,
+                motion, temporal_bins, spatial_bins, extra_check,
+            )
+            fig.savefig( plot_filepaths["displacement"], bbox_inches="tight")
+            fig.savefig( plot_filepaths["displacement_hq"], bbox_inches="tight", dpi=500)
+            fig = get_raw_peak_fig(
+                si_rec, peaks, peak_locations, motion, temporal_bins, spatial_bins, extra_check,
+            )
+            savepath = output_dir/"peak_uncorrected_hq.png"
+            print(f"Save debugging fig at {savepath}")
+            fig.savefig( plot_filepaths["raw_peaks_hq"], bbox_inches="tight", dpi=500)
 
     with Timing(name="Correct motion on traces: "):
         print(si_rec.get_traces(start_frame=0, end_frame=100).shape)
