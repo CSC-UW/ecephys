@@ -434,7 +434,6 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
     def run_metrics(self):
 
-        # Extract joblib params
         # Get list of metrics
         # get set of params across metrics
         metrics_opts = self.opts['metrics'].copy()
@@ -452,6 +451,8 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                 self.si_waveform_extractor,
                 metric_names=metrics_names,
                 n_jobs=self.n_jobs,
+                progress_bar=True,
+                verbose=True,
                 **params,
             )
 
