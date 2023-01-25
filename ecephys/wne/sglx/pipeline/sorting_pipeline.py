@@ -118,6 +118,16 @@ class AbstractSortingPipeline:
             probe=self.probe,
         )
 
+    ######### Pipeline steps ####################
+    
+    @property
+    def is_sorted(self):
+        raise NotImplementedError()
+
+    @property
+    def is_postprocessed(self):
+        raise NotImplementedError()
+
     ######### Dump / load full pipeline ##########
 
     def to_pickle():
@@ -153,6 +163,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         self._si_sorting_extractor = None
         self._si_waveform_extractor = None
 
+        # TODO use only properties
         # Pipeline steps, specific to SI
         self._is_preprocessed = False
         self._is_dumped = False
@@ -180,6 +191,46 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
     @property
     def waveforms_dir(self):
         return self.output_dir/'waveforms'
+    
+
+    ######### Pipeline steps ######
+    
+    def check_finished_sorting(self):
+        required_output_files = [
+            self.sorting_output_dir/"amplitudes.npy",
+            self.output_dir/"sorting_pipeline_opts.yaml",
+            self.output_dir/"processed_si_probe.json",
+        ]
+        if not all([f.exists() for f in required_output_files]):
+            raise FileNotFoundError(
+                "Sorting seems to be finished: expected to find all of the following files: \n"
+                f"{required_output_files}"
+            )
+
+    def check_finished_postprocessing(self):
+        #TODO
+        pass
+
+    @property
+    def is_sorted(self):
+        sorted = (
+            self.sorting_output_dir.exists()
+            and (self.sorting_output_dir/"spike_amplitudes.npy").exists()
+        )
+        if sorted:
+            self.check_finished_sorting()
+        return sorted
+
+    @property
+    def is_postprocessed(self):
+        postprocessed = (
+            self.is_sorted
+            and self.waveforms_dir.exists()
+            and (self.sorting_output_dir/"metrics.csv").exists()
+        )
+        if postprocessed:
+            self.check_finished_postprocessing()
+        return postprocessed
 
     ######### SI objects ##########
 
@@ -246,10 +297,11 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         MAX_SPIKES_PER_UNIT=2000
         SPARSITY_RADIUS=400
         NUM_SPIKES_FOR_SPARSITY=500
+
+        assert self.is_sorted
         load_precomputed = (
             not self.rerun_existing 
-            and self.waveforms_dir.exists() 
-            and (self.sorting_output_dir/'metrics.csv').exists()
+            and self.is_postprocessed
         )
         if self.processed_bin_path.exists():
             waveform_recording = self.dumped_bin_si_recording
@@ -335,7 +387,8 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
         if load_existing:
             # Ensures we use the same opts as previously during postprocessing
-            print("Preprocessing: load_existing=True: Use preexisting opts!")
+            print("Preprocessing: load_existing=True: Use preexisting opts! Ignore provided preprocessing opts")
+            assert self.is_sorted
             prepro_opts = self.load_opts()
         else:
             prepro_opts = self.opts
@@ -358,7 +411,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
     def run_sorting(self):
 
-        if (self.sorting_output_dir / "spike_times.npy").exists() and not self.rerun_existing:
+        if self.is_sorted and not self.rerun_existing:
             print(f"Passing: output directory is already done: {self.sorting_output_dir}\n\n")
             return True
 
