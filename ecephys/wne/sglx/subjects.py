@@ -21,7 +21,7 @@ class Subject:
     def refresh_cache(self) -> pd.DataFrame:
         sessionFrames = [
             ece.sglx.filelist_to_frame(
-                ece.wne.sglx.get_session_files_from_multiple_locations(
+                ece.wne.sglx.sessions.get_session_files_from_multiple_locations(
                     sessionDict
                 )
             )
