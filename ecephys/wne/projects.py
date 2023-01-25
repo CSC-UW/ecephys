@@ -82,34 +82,38 @@ class Project:
     # Methods for getting directories
     #####
 
-    def get_subject_directory(self, subject_name):
+    def get_subject_directory(self, subject_name) -> Path:
         """Get a subject's directory for this project."""
         return self.dir / subject_name
 
-    def get_experiment_directory(self, experiment_name):
+    def get_experiment_directory(self, experiment_name) -> Path:
         return self.dir / experiment_name
 
-    def get_alias_directory(self, experiment_name, alias_name):
+    def get_alias_directory(self, experiment_name, alias_name) -> Path:
         return self.get_experiment_directory(experiment_name) / alias_name
 
-    def get_subalias_directory(self, experiment_name, alias_name, subalias_idx):
+    def get_subalias_directory(self, experiment_name, alias_name, subalias_idx) -> Path:
         return (
             self.get_experiment_directory(experiment_name)
             / f"{alias_name}_{subalias_idx}"
         )
 
-    def get_experiment_subject_directory(self, experiment_name, subject_name):
+    def get_experiment_subject_directory(self, experiment_name, subject_name) -> Path:
         return self.get_experiment_directory(experiment_name) / subject_name
 
-    def get_alias_subject_directory(self, experiment_name, alias_name, subject_name):
+    def get_alias_subject_directory(
+        self, experiment_name, alias_name, subject_name
+    ) -> Path:
         return self.get_alias_directory(experiment_name, alias_name) / subject_name
 
-    def get_alias_subject_directory(self, experiment_name, alias_name, subject_name):
+    def get_alias_subject_directory(
+        self, experiment_name, alias_name, subject_name
+    ) -> Path:
         return self.get_alias_directory(experiment_name, alias_name) / subject_name
 
     def get_subalias_subject_directory(
         self, experiment_name, alias_name, subject_name, subalias_idx
-    ):
+    ) -> Path:
         return (
             self.get_subalias_directory(experiment_name, alias_name, subalias_idx)
             / subject_name
@@ -119,16 +123,18 @@ class Project:
     # Methods for getting files
     #####
 
-    def get_project_file(self, fname):
+    def get_project_file(self, fname) -> Path:
         return self.dir / fname
 
-    def get_project_subject_file(self, subject_name, fname):
+    def get_project_subject_file(self, subject_name, fname) -> Path:
         return self.get_subject_directory(subject_name) / fname
 
-    def get_experiment_file(self, experiment_name, fname):
+    def get_experiment_file(self, experiment_name, fname) -> Path:
         return self.get_experiment_directory(experiment_name) / fname
 
-    def get_alias_file(self, experiment_name, alias_name, fname, subalias_idx=None):
+    def get_alias_file(
+        self, experiment_name, alias_name, fname, subalias_idx=None
+    ) -> Path:
         return (
             self.get_alias_directory(
                 experiment_name, alias_name, subalias_idx=subalias_idx
@@ -136,12 +142,14 @@ class Project:
             / fname
         )
 
-    def get_experiment_subject_file(self, experiment_name, subject_name, fname):
+    def get_experiment_subject_file(self, experiment_name, subject_name, fname) -> Path:
         return (
             self.get_experiment_subject_directory(experiment_name, subject_name) / fname
         )
 
-    def get_alias_subject_file(self, experiment_name, alias_name, subject_name, fname):
+    def get_alias_subject_file(
+        self, experiment_name, alias_name, subject_name, fname
+    ) -> Path:
         return (
             self.get_alias_subject_directory(experiment_name, alias_name, subject_name)
             / fname
@@ -154,7 +162,7 @@ class Project:
         extension,
         remove_probe=False,
         remove_stream=False,
-    ):
+    ) -> list[Path]:
         """Get counterparts to SpikeGLX raw data files.
 
         Counterparts are mirrored at the project's subject directory, and likely
@@ -184,24 +192,30 @@ class Project:
         ]
         return ece.utils.remove_duplicates(counterparts)
 
-    def load_experiment_subject_json(self, experiment_name, subject_name, fname):
+    def load_experiment_subject_json(
+        self, experiment_name, subject_name, fname
+    ) -> dict:
         path = self.get_experiment_subject_file(experiment_name, subject_name, fname)
         with open(path) as f:
             return json.load(f)
 
-    def load_experiment_subject_yaml(self, experiment_name, subject_name, fname):
+    def load_experiment_subject_yaml(
+        self, experiment_name, subject_name, fname
+    ) -> dict:
         path = self.get_experiment_subject_file(experiment_name, subject_name, fname)
         with open(path) as f:
             return yaml.load(f, Loader=yaml.SafeLoader)
 
-    def get_all_probes(self, subject_name, experiment_name):
+    def get_all_probes(self, subject_name, experiment_name) -> list[str]:
         opts = self.load_experiment_subject_json(
             experiment_name, subject_name, ece.wne.constants.EXP_PARAMS_FNAME
         )
-        return opts["probes"].keys()
+        return list(opts["probes"].keys())
 
     # TODO: The probe and sortingName arguments could be replaced by a single probeDir argument.
-    def get_kilosort_extractor(self, subject, experiment, alias, probe, sortingName):
+    def get_kilosort_extractor(
+        self, subject, experiment, alias, probe, sortingName
+    ) -> se.KiloSortSortingExtractor:
         """Load the contents of a Kilosort output directory.
 
         Parameters:
@@ -236,7 +250,7 @@ class Project:
 
         return extractor
 
-    def get_sharptrack(self, subject, experiment, probe):
+    def get_sharptrack(self, subject, experiment, probe) -> ece.sharptrack.SHARPTrack:
         """Load SHARPTrack files.
 
         experiment_params.json should include a probes->imec0->SHARP-Track->filename.mat field.
@@ -249,7 +263,9 @@ class Project:
         file = self.get_experiment_subject_file(experiment, subject, fname)
         return ece.sharptrack.SHARPTrack(file)
 
-    def remap_probe_times(self, subject, experiment, fromProbe, times, toProbe="imec0"):
+    def remap_probe_times(
+        self, subject, experiment, fromProbe, times, toProbe="imec0"
+    ) -> np.ndarray:
         """Remap a vector of probe times to the canonical experiment timebase, using a subject's precomputed sync models.
 
         Parameters:
@@ -294,7 +310,7 @@ class Project:
         },  # TODO: n_spikes should probably start at 100
         sharptrack=True,
         remapTimes=True,
-    ):
+    ) -> ece.units.SingleProbeSorting:
         """Load a single probe's sorted spikes, optionally filtered and augmented with additional information.
 
         Parameters:
@@ -330,7 +346,9 @@ class Project:
         else:
             return ece.units.SingleProbeSorting(sorting)
 
-    def load_multiprobe_sorting(self, subject, experiment, probes=None, **kwargs):
+    def load_multiprobe_sorting(
+        self, subject, experiment, probes=None, **kwargs
+    ) -> ece.units.MultiProbeSorting:
         """Load sorted spikes from multiple probes, optionally filtered and augmented with additional information.
 
         Parameters:
