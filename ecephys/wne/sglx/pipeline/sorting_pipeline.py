@@ -215,7 +215,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
     def is_sorted(self):
         sorted = (
             self.sorting_output_dir.exists()
-            and (self.sorting_output_dir/"spike_amplitudes.npy").exists()
+            and (self.sorting_output_dir/"spike_times.npy").exists()
         )
         if sorted:
             self.check_finished_sorting()
