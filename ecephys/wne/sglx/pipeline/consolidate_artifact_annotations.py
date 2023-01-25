@@ -7,11 +7,11 @@ from ecephys import hypnogram as hg
 logger = logging.getLogger(__name__)
 
 
-def do_alias(wneProject, wneSubject, experiment, alias, probe):
+def do_alias(srcProject, destProject, wneSubject, experiment, alias, probe):
     artifacts = list()
     lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
     for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [artFile] = wneProject.get_sglx_counterparts(
+        [artFile] = srcProject.get_sglx_counterparts(
             wneSubject.name,
             [lfpFile.path],
             ece.wne.constants.ARTIFACTS_EXT,
@@ -29,7 +29,7 @@ def do_alias(wneProject, wneSubject, experiment, alias, probe):
 
     if artifacts:
         df = hg.FloatHypnogram(pd.concat(artifacts, ignore_index=True))
-        artFile = wneProject.get_alias_subject_file(
+        artFile = destProject.get_alias_subject_file(
             experiment, alias, wneSubject.name, ece.wne.constants.ARTIFACTS_FNAME
         )
         df.write_htsv(artFile)

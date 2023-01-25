@@ -46,16 +46,13 @@ def do_file(lfpPath, emgPath, edfPath, scoringChans):
 
 
 # TODO: EDF has limited precision, and automatic determination of bit resolution often fails at long (e.g. 24h) timescales.
-def do_alias(wneProject, wneSubject, experiment, alias, **kwargs):
-    opts = wneProject.load_experiment_subject_json(
-        experiment, wneSubject.name, ece.wne.constants.EXP_PARAMS_FNAME
-    )
+def do_alias(opts, destProject, wneSubject, experiment, alias, **kwargs):
     lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, **kwargs)
     for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [emgFile] = wneProject.get_sglx_counterparts(
+        [emgFile] = destProject.get_sglx_counterparts(
             wneSubject.name, [lfpFile.path], ece.wne.constants.EMG_EXT
         )
-        [edfFile] = wneProject.get_sglx_counterparts(
+        [edfFile] = destProject.get_sglx_counterparts(
             wneSubject.name,
             [lfpFile.path],
             ece.wne.constants.EDF_EXT,

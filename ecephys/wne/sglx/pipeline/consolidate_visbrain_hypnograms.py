@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 def do_alias(
-    wneProject: projects.Project,
+    srcProject: projects.Project,
+    destProject: projects.Project,
     wneSubject: subjects.Subject,
     experiment: str,
     alias: str,
@@ -18,7 +19,7 @@ def do_alias(
     vbHgs = list()
     lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
     for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [vbFile] = wneProject.get_sglx_counterparts(
+        [vbFile] = srcProject.get_sglx_counterparts(
             wneSubject.name,
             [lfpFile.path],
             wne.constants.VISBRAIN_EXT,
@@ -35,21 +36,22 @@ def do_alias(
     if vbHgs:
         hg = pd.concat(vbHgs).sort_values("start_time").reset_index(drop=True)
         hg = hypnogram.FloatHypnogram.clean(hg)
-        hypnoFile = wneProject.get_alias_subject_file(
+        hypnoFile = destProject.get_alias_subject_file(
             experiment, alias, wneSubject.name, wne.constants.HYPNOGRAM_FNAME
         )
         hg.write_htsv(hypnoFile)
 
-        # TODO: Probably shouldn't do this, but kept for now for the sake of backwards compatibility.
-        dtHypnoFile = wneProject.get_alias_subject_file(
-            experiment,
-            alias,
-            wneSubject.name,
-            wne.constants.DATETIME_HYPNOGRAM_FNAME,
-        )
+        # Deprecated. Convert as needed using get_experiment_data_times.
+        #
+        # dtHypnoFile = destProject.get_alias_subject_file(
+        #    experiment,
+        #    alias,
+        #    wneSubject.name,
+        #    wne.constants.DATETIME_HYPNOGRAM_FNAME,
+        # )
 
-        dt0, _ = wneSubject.get_experiment_data_times(
-            experiment, probe, as_datetimes=True
-        )
-        dtHg = hg.as_datetime(dt0)
-        dtHg.write_htsv(dtHypnoFile)
+        # dt0, _ = wneSubject.get_experiment_data_times(
+        #    experiment, probe, as_datetimes=True
+        # )
+        # dtHg = hg.as_datetime(dt0)
+        # fdtHg.write_htsv(dtHypnoFile)

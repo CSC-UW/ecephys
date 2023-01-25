@@ -16,15 +16,11 @@ DEFAULT_EMG_OPTIONS = dict(
 )
 
 
-def do_alias(wneProject, wneSubject, experiment, alias=None, **kwargs):
-    opts = wneProject.load_experiment_subject_json(
-        experiment, wneSubject.name, ece.wne.constants.EXP_PARAMS_FNAME
-    )
-
+def do_alias(opts, destProject, wneSubject, experiment, alias=None, **kwargs):
     lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, **kwargs)
 
     for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [emgFile] = wneProject.get_sglx_counterparts(
+        [emgFile] = destProject.get_sglx_counterparts(
             wneSubject.name, [lfpFile.path], ece.wne.constants.EMG_EXT
         )
         sig = ece.sglxr.load_trigger(
@@ -38,7 +34,7 @@ def do_alias(wneProject, wneSubject, experiment, alias=None, **kwargs):
 
     for probe in lfpTable.probe.unique():
         utils.gather_and_save_alias_dataarray(
-            wneProject,
+            destProject,
             wneSubject,
             experiment,
             alias,

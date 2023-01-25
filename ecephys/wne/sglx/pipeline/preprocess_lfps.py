@@ -12,7 +12,8 @@ CHUNK_OVERLAP = 2**10
 
 
 def do_alias(
-    wneProject,
+    opts,
+    destProject,
     wneSubject,
     experiment,
     alias=None,
@@ -56,13 +57,9 @@ def do_alias(
     - I have not yet tested whether using overlapping windows is truly necessary. It may not be, since the only filter here is the FIR antialiasing filter.
     - Note that the data here are NOT de-meaned.
     """
-    opts = wneProject.load_experiment_subject_json(
-        experiment, wneSubject.name, wne.constants.EXP_PARAMS_FNAME
-    )
-
     lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, **kwargs)
     for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [outFile] = wneProject.get_sglx_counterparts(
+        [outFile] = destProject.get_sglx_counterparts(
             wneSubject.name, [lfpFile.path], ".nc"
         )
         outFile.parent.mkdir(parents=True, exist_ok=True)
