@@ -8,13 +8,13 @@ Modify script to change default argument values
 Usage:
   run_sorting_pipeline.py --help
   run_sorting_pipeline.py [options] [--input <subjectName>,<probeName>]... 
-  run_sorting_pipeline.py [options] (--prepro_only|--metrics_only) [--input <subjectName>,<probeName>]... 
+  run_sorting_pipeline.py [options] (--prepro_only|--postpro_only) [--input <subjectName>,<probeName>]... 
 
 Options:
   -h --help                          Show this screen.
   --input==<subjectName,probeName>   (Repeatable) Comma-separated pair of the form `<subjectName>,<probeName>`
   --prepro_only                      Run only preprocessing, not full pipeline (drift correction)
-  --metrics_only                     Run only waveform extraction and metrics, not full pipeline.
+  --postpro_only                     Run only waveform extraction, postpro and metrics, not sorting.
   --rerun_existing                   Rerun rather than load things.
   --opts_dirpath==<odp>              Path to directory containing option file [default: {OPTS_DIRPATH}]
   --opts_filename==<ofn>             Name of options file (applied to all input datasets) [default: {OPTS_FILENAME}]
@@ -81,9 +81,9 @@ if __name__ == "__main__":
       if args["--prepro_only"]:
           print("--prepro_only==True: Run only preprocessing")
           sorting_pipeline.run_preprocessing()
-      elif args["--metrics_only"]:
-          print("--metrics_only==True: Run only preprocessing")
-          sorting_pipeline.run_metrics()
+      elif args["--postpro_only"]:
+          print("--postpro_only==True: Run only postprocessing and metrics")
+          sorting_pipeline.run_postprocessing()
       else:
           print("--prepro_only==False: Run full pipeline")
           sorting_pipeline.run_pipeline()

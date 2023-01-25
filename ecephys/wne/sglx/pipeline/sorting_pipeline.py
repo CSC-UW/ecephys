@@ -5,11 +5,11 @@ import probeinterface as pi
 import yaml
 from horology import Timing, timed
 
-import spikeinterface.full as si
 import spikeinterface.extractors as se
-import spikeinterface.sorters as ss
-import spikeinterface.qualitymetrics as sq
+import spikeinterface.full as si
 import spikeinterface.postprocessing as sp
+import spikeinterface.qualitymetrics as sq
+import spikeinterface.sorters as ss
 from ecephys import wne
 from ecephys.utils import spikeinterface_utils as si_utils
 
@@ -394,7 +394,43 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         self.run_sorting()
 
     def run_postprocessing(self):
-        raise NotImplementedError()
+
+        UNIT_LOCATIONS_METHOD = "center_of_mass"
+
+        with Timing(name="Compute principal components: "):
+            print("Computing principal components.")
+            sp.compute_principal_components(
+                self.si_waveform_extractor,
+                load_if_exists=True,
+                n_components=5,
+                mode="by_channel_local",
+                n_jobs=self.n_jobs,
+            )
+
+        with Timing(name="Compute spike amplitudes: "):
+            print("Computing spike amplitudes.")
+            sp.compute_spike_amplitudes(
+                self.si_waveform_extractor,
+                load_if_exists=True,
+                n_jobs=self.n_jobs,
+            )
+
+        with Timing(name="Compute unit locations: "):
+            print(f"Computing unit locations (method={UNIT_LOCATIONS_METHOD}")
+            sp.compute_unit_locations(
+                self.si_waveform_extractor,
+                load_if_exists=True,
+                method=UNIT_LOCATIONS_METHOD,
+            )
+
+        with Timing(name="Compute template metrics: "):
+            print("Computing template metrics")
+            sp.compute_template_metrics(
+                self.si_waveform_extractor,
+                load_if_exists=True,
+            )
+        
+        self.run_metrics()
 
     def run_metrics(self):
 
