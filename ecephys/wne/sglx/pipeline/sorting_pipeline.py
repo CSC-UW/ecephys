@@ -100,7 +100,7 @@ class AbstractSortingPipeline:
         First segment full path: \n{self.raw_ap_bin_segment_frame.path.values[0]}
         Artifacts: {self.artifacts_frame}
         Total sorting duration: \n{self.raw_si_recording.get_total_duration()}(s)
-        AP segment table: \n{self.raw_ap_bin_segment_frame.loc[:,['run', 'gate', 'trigger', 'probe', 'segment_idx', 'segmentTimeSecs', 'segmentFileSizeRatio']]}
+        AP segment table: \n{self.raw_ap_bin_segment_frame.loc[:,['run', 'gate', 'trigger', 'probe', 'wneSegmentStartTime', 'segment_idx', 'segmentTimeSecs', 'segmentFileSizeRatio']]}
         """
 
 
@@ -303,7 +303,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         if self._raw_si_recording is None:
             self._raw_si_recording = self.load_raw_si_recording()
             if not self.time_ranges:
-                assert self._raw_si_recording.get_total_duration() == self.raw_ap_bin_segment_frame.segmentTimeSecs.astype(float).sum()
+                # assert self._raw_si_recording.get_total_duration() == self.raw_ap_bin_segment_frame.segmentTimeSecs.astype(float).sum()
                 assert self._raw_si_recording.get_total_samples() == self.raw_ap_bin_segment_frame.nSegmentSamp.astype(int).sum()
         return self._raw_si_recording
     

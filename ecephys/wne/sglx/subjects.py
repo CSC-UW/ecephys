@@ -163,6 +163,7 @@ class Subject:
                 
                 aStart = float(arow["start"])
                 assert aStart >= wneFileStartTime + currentSegmentFileStartTime
+                assert aStart < float(frow["wneFileEndTime"])
                 aStop = float(arow["stop"])
                 if aStop >= float(frow["wneFileEndTime"]):
                     # Trim to end of file
@@ -307,11 +308,14 @@ class Subject:
         # Sanity check
         for i, srec in enumerate(segment_recordings):
             if artifacts_frame is not None:
-                assert srec.get_total_duration() == sframe["segmentTimeSecs"].values[i]
+                npt.assert_almost_equal(srec.get_total_duration(), float(sframe["segmentTimeSecs"].values[i]), decimal=6)
+                assert srec.get_total_duration() == float(sframe["segmentTimeSecs"].values[i])
+                assert srec.get_total_samples() == int(sframe["nSegmentSamp"].values[i])
             elif time_ranges is not None:
                 npt.assert_almost_equal(srec.get_total_duration(), (time_ranges[i][1] - time_ranges[i][0]), decimal=3)
             else:
-                assert srec.get_total_duration() == sframe["fileTimeSecs"].values[i]
+                # assert srec.get_total_duration() == float(sframe["fileTimeSecs"].values[i])  # Sometimes fileTimeSecs doesn't match nFileSamp
+                assert srec.get_total_samples() == int(sframe["nFileSamp"].values[i])
 
         return segment_recordings
 
