@@ -35,12 +35,17 @@ depend on any organization schema beyond that of official SpikeGLX tools.
 """
 
 import re
+import ast
+import logging
+import pathlib
 from itertools import chain
 
 # Non-core imports
 import pandas as pd
 from pandas.api.types import CategoricalDtype
 from .external.readSGLX import readMeta
+
+logger = logging.getLogger(__name__)
 
 
 def parse_sglx_fname(fname):
@@ -338,10 +343,127 @@ def replace_ftype(path, extension, remove_probe=False, remove_stream=False):
 ##############################################################################
 
 
+def _try_casting(df, col, cast_to, fill_value):
+    try:
+        df = df.astype({col: cast_to})
+    except ValueError:
+        logger.warning(
+            f"File found with {col} that could not be cast as {cast_to}. This likely indicates an incomplete .meta produced by a crash. Please repair."
+        )
+        logger.warning(
+            "Attempting to proceed anyway. This is experimental and could affect downstream results. Proceed with caution."
+        )
+        df[col] = df[col].fillna(fill_value)
+    return df
+
+
 def read_metadata(files):
-    """Takes a list of pathlib.Path"""
+    """Takes a list of pathlib.Path
+    See https://billkarsh.github.io/SpikeGLX/Sgl_help/Metadata_30.html"""
     meta_dict = [readMeta(f) for f in files]
-    return pd.DataFrame(meta_dict).assign(path=files)
+    df = pd.DataFrame(meta_dict).assign(path=files)
+
+    meta_types = dict()
+    meta_types["always_present"] = {
+        "appVersion": object,
+        "fileCreateTime": "datetime64[ns]",
+        "fileName": object,
+        "fileSHA1": object,
+        "fileSizeBytes": int,
+        "fileTimeSecs": float,
+        "firstSample": int,
+        "gateMode": object,
+        "nSavedChans": int,
+        "snsSaveChanSubset": object,
+        "syncSourceIdx": int,
+        "syncSourcePeriod": float,
+        "trigMode": object,
+        "typeImEnabled": int,
+        "typeNiEnabled": int,
+        "typeThis": object,
+        "userNotes": object,
+        "snsShankMap": object,
+        "snsChanMap": object,
+        "path": object,
+    }
+    meta_types["if_using_imec"] = {
+        "acqApLfSy": object,
+        "imAiRangeMax": float,
+        "imAiRangeMin": float,
+        "imCalibrated": bool,
+        "imDatApi": object,
+        "imDatBs_fw": object,
+        "imDatBsc_fw": object,
+        "imDatBsc_hw": object,
+        "imDatBsc_pn": object,
+        "imDatBsc_sn": object,
+        "imDatFx_hw": object,
+        "imDatFx_pn": object,
+        "imDatFx_sn": object,
+        "imDatHs_fw": object,  # Not documented in SpikeGLX manual, but present.
+        "imDatHs_hw": object,
+        "imDatHs_pn": object,
+        "imDatHs_sn": object,
+        "imDatPrb_dock": int,
+        "imDatPrb_pn": object,
+        "imDatPrb_port": int,
+        "imDatPrb_slot": int,
+        "imDatPrb_sn": object,
+        "imDatPrb_type": int,
+        "imLEDEnable": bool,
+        "imRoFile": object,
+        "imSampRate": float,
+        "imTrgRising": bool,
+        "imTrgSource": int,
+        "snsApLfSy": object,
+        "syncImInputSlot": int,
+        "imroTbl": object,
+    }
+    meta_types["if_using_timed_trigger"] = {
+        "trgTimIsHInf": bool,
+        "trgTimIsNInf": bool,
+        "trgTimNH": float,
+        "trgTimTH": float,
+        "trgTimTL": float,
+        "trgTimTL0": float,
+    }
+    meta_types["maybe_present"] = {
+        "nDataDirs": int,
+        "rmt_USERTYPE": object,
+        "typeObEnabled": int,
+        "imIsSvyRun": bool,
+        "imMaxInt": int,
+        "imStdby": object,
+        "imSvyMaxBnk": object,
+    }
+
+    for group, types in meta_types.items():
+        missing = set(types) - set(df.columns)
+        if missing:
+            logger.debug(f"Metadata fields {missing} from group {group} not found.")
+            for field in missing:
+                types.pop(field, None)
+        try:
+            df = df.astype(types)
+        except ValueError:
+            df = _try_casting(df, "fileSizeBytes", int, -1)
+            df = _try_casting(df, "firstSample", int, -1)
+            df = df.astype(types)
+
+    extra = set(df.columns) - set.union(
+        *(set(types) for group, types in meta_types.items())
+    )
+    if extra:
+        print(f"Found unexpected metadata fields: {extra}")
+
+    df["acqApLfSy"] = df["acqApLfSy"].apply(ast.literal_eval)
+    df["snsApLfSy"] = df["snsApLfSy"].apply(ast.literal_eval)
+    df["fileName"] = df["fileName"].apply(pathlib.Path)
+    df["imRoFile"] = df["imRoFile"].apply(pathlib.Path)
+
+    # Create nFileSamp column, since it is so useful
+    df["nFileSamp"] = df["fileSizeBytes"] / (2 * df["nSavedChans"])
+    return df.sort_values("fileCreateTime", ascending=True).reset_index(drop=True)
 
 
 def _filelist_to_frame(files):
@@ -386,12 +508,7 @@ def filelist_to_frame(files):
     if not files:
         return pd.DataFrame()
 
-    meta_df = (
-        read_metadata(files)
-        .astype({"fileCreateTime": "datetime64[ns]"})
-        .sort_values("fileCreateTime", ascending=True)
-        .reset_index(drop=True)
-    )
+    meta_df = read_metadata(files)
     files_df = _filelist_to_frame(files)
     return meta_df.merge(files_df, on="path")
 

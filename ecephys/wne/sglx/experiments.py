@@ -138,35 +138,13 @@ def add_wne_times(ftab: pd.DataFrame, tol=100, method="rigorous"):
             # In case we changed session path for only one of the probes
             continue
 
-        # Get the number of samples in each file.
-        # fileTimeSec is not precise enough. We must use fileSizeBytes.
-        def _get_sample_info(_ftab):
-            nFileChan = _ftab["nSavedChans"].astype("int")
-            nFileSamp = _ftab["fileSizeBytes"].astype("int") / (2 * nFileChan)
-            firstSample = _ftab["firstSample"].astype("int")
-            return nFileSamp, firstSample
-
-        try:
-            nFileSamp, firstSample = _get_sample_info(_ftab)
-        except ValueError:
-            logger.warn(
-                "File found with metadata that could not be cast as an integer. This likely indicates an incomplete .meta produced by a crash. Please repair."
-            )
-            logger.warn(
-                "Attempting to proceed anyway. This is experimental and could affect wneFileStartTime values. Proceed with caution."
-            )
-            _ftab.loc[:, "fileSizeBytes"] = _ftab["fileSizeBytes"].fillna(-1)
-            _ftab.loc[:, "firstSample"] = _ftab["firstSample"].fillna(-1)
-            nFileSamp, firstSample = _get_sample_info(_ftab)
-
-        ftab.loc[mask, "nFileSamp"] = nFileSamp
         # Get the expected 'firstSample' of the next file in a continous recording.
-        nextSample = nFileSamp + firstSample
+        nextSample = _ftab["nFileSamp"] + _ftab["firstSample"]
 
         # Check these expected 'firstSample' values against actual 'firstSample' values.
         # This tells us whether any file is actually contiguous with the one preceeding it.
         # A tolerance is used, because even in continuous recordings, files can overlap or gap by a sample.
-        sampleMismatch = firstSample.values[1:] - nextSample.values[:-1]
+        sampleMismatch = _ftab["firstSample"].values[1:] - nextSample.values[:-1]
         isContinuation = np.abs(sampleMismatch) <= tol
         isContinuation = np.insert(
             isContinuation, 0, False
@@ -188,9 +166,7 @@ def add_wne_times(ftab: pd.DataFrame, tol=100, method="rigorous"):
         # For each file, get the number of seconds from the start of that series, NOT accounting for samples
         # collected before we started saving to disk.*
         # *(SGLX starts counting samples as soon as acquisition starts, even before data is written to disk)
-        file_t0 = _ftab["firstSample"].astype("float") / _ftab["imSampRate"].astype(
-            "float"
-        )
+        file_t0 = _ftab["firstSample"].astype("float") / _ftab["imSampRate"]
 
         # Now account for samples collected before we started writing to disk.
         ser_t0 = file_t0.copy()
@@ -210,7 +186,7 @@ def add_wne_times(ftab: pd.DataFrame, tol=100, method="rigorous"):
         ftab.loc[mask, "sampleDiff"] = sampleMismatch
 
     # Add information about file duration and end time as well, for convenience
-    ftab["wneFileTimeSecs"] = ftab["nFileSamp"] / ftab["imSampRate"].astype("float")
+    ftab["wneFileTimeSecs"] = ftab["nFileSamp"] / ftab["imSampRate"]
     ftab["wneFileEndTime"] = ftab["wneFileStartTime"] + ftab["wneFileTimeSecs"]
     ftab["wneFileEndDatetime"] = ftab["wneFileStartDatetime"] + pd.to_timedelta(
         ftab["wneFileTimeSecs"], "s"
