@@ -5,10 +5,11 @@ import probeinterface as pi
 import yaml
 from horology import Timing, timed
 
-import spikeinterface.full as si
 import spikeinterface.extractors as se
-import spikeinterface.sorters as ss
+import spikeinterface.full as si
+import spikeinterface.postprocessing as sp
 import spikeinterface.qualitymetrics as sq
+import spikeinterface.sorters as ss
 from ecephys import wne
 from ecephys.utils import spikeinterface_utils as si_utils
 
@@ -68,11 +69,7 @@ class AbstractSortingPipeline:
         self._raw_ap_bin_table = None
         self._output_dirname = output_dirname
         if self._output_dirname is None:
-            if not "output_dirname" in self.opts:
-                raise ValueError(
-                    "Specify 'output_dirname' as kwarg or under 'output_dirname' key in opts file."
-                )
-            self._output_dirname = self.opts["output_dirname"]
+            raise ValueError("Please specify 'output_dirname' kwarg")
         self._output_dirname = f"{self._output_dirname}.{self.probe}"
         self._preprocessing_output_dirname = f"prepro_{self._output_dirname}"
         self._output_dir = None
@@ -121,6 +118,16 @@ class AbstractSortingPipeline:
             probe=self.probe,
         )
 
+    ######### Pipeline steps ####################
+    
+    @property
+    def is_sorted(self):
+        raise NotImplementedError()
+
+    @property
+    def is_postprocessed(self):
+        raise NotImplementedError()
+
     ######### Dump / load full pipeline ##########
 
     def to_pickle():
@@ -156,6 +163,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         self._si_sorting_extractor = None
         self._si_waveform_extractor = None
 
+        # TODO use only properties
         # Pipeline steps, specific to SI
         self._is_preprocessed = False
         self._is_dumped = False
@@ -183,6 +191,46 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
     @property
     def waveforms_dir(self):
         return self.output_dir/'waveforms'
+    
+
+    ######### Pipeline steps ######
+    
+    def check_finished_sorting(self):
+        required_output_files = [
+            self.sorting_output_dir/"amplitudes.npy",
+            self.output_dir/"sorting_pipeline_opts.yaml",
+            self.output_dir/"processed_si_probe.json",
+        ]
+        if not all([f.exists() for f in required_output_files]):
+            raise FileNotFoundError(
+                "Sorting seems to be finished: expected to find all of the following files: \n"
+                f"{required_output_files}"
+            )
+
+    def check_finished_postprocessing(self):
+        #TODO
+        pass
+
+    @property
+    def is_sorted(self):
+        sorted = (
+            self.sorting_output_dir.exists()
+            and (self.sorting_output_dir/"spike_amplitudes.npy").exists()
+        )
+        if sorted:
+            self.check_finished_sorting()
+        return sorted
+
+    @property
+    def is_postprocessed(self):
+        postprocessed = (
+            self.is_sorted
+            and self.waveforms_dir.exists()
+            and (self.sorting_output_dir/"metrics.csv").exists()
+        )
+        if postprocessed:
+            self.check_finished_postprocessing()
+        return postprocessed
 
     ######### SI objects ##########
 
@@ -249,25 +297,35 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         MAX_SPIKES_PER_UNIT=2000
         SPARSITY_RADIUS=400
         NUM_SPIKES_FOR_SPARSITY=500
-        if (
+
+        assert self.is_sorted
+        load_precomputed = (
             not self.rerun_existing 
-            and self.waveforms_dir.exists() 
-            and (self.sorting_output_dir/"metrics.csv").exists()
-        ):
-            print("Loading pre-computed waveforms")
+            and self.is_postprocessed
+        )
+        if self.processed_bin_path.exists():
+            waveform_recording = self.dumped_bin_si_recording
+        else:
+            # Make sure we preprocess in the same way as during sorting
+            waveform_recording = self.run_preprocessing(load_existing=True)
+
+        if load_precomputed:
+            print(f"Loading waveforms from folder. Will use this recording: {waveform_recording}")
             we = si.WaveformExtractor.load_from_folder(
                 self.waveforms_dir,
                 with_recording=False,
                 sorting=self.si_sorting_extractor,
             )
+            # Hack to have recording even if we deleted or moved the data,
+            # because load_from_folder(.., with_recording=True) assumes same recording file locations etc
+            we._recording = waveform_recording
         else:
             with Timing(name="Extract waveforms: "):
-                load_if_exists = not self.rerun_existing
                 we = si.extract_waveforms(
-                    self.dumped_bin_si_recording,
+                    waveform_recording,
                     self.si_sorting_extractor,
                     folder=self.waveforms_dir,
-                    load_if_exists=load_if_exists,
+                    overwrite=True,
                     ms_before=MS_BEFORE,
                     ms_after=MS_AFTER,
                     max_spikes_per_unit=MAX_SPIKES_PER_UNIT,
@@ -277,8 +335,6 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                     radius_um=SPARSITY_RADIUS,
                     **self.job_kwargs,
                 )
-                we.run_extract_waveforms(**self.job_kwargs)
-        print(we)
         return we
 
     def dump_si_probe(self):
@@ -317,14 +373,29 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         opts_to_dump['time_ranges'] = self.time_ranges
         with open(output_dir/fname, 'w') as f:
             yaml.dump(opts_to_dump, f)
+    
+    def load_opts(self, output_dir=None, fname="sorting_pipeline_opts.yaml"):
+        if output_dir is None:
+            output_dir = self.output_dir
+        with open(output_dir/fname, 'r') as f:
+            return yaml.load(f, Loader=yaml.SafeLoader)
 
     ######### Pipeline steps ##########
 
-    def run_preprocessing(self):
+    def run_preprocessing(self, load_existing=False):
         assert self.raw_si_recording is not None
+
+        if load_existing:
+            # Ensures we use the same opts as previously during postprocessing
+            print("Preprocessing: load_existing=True: Use preexisting opts! Ignore provided preprocessing opts")
+            assert self.is_sorted
+            prepro_opts = self.load_opts()
+        else:
+            prepro_opts = self.opts
+
         self._processed_si_recording = preprocess_si_recording(
             self.raw_si_recording,
-            self.opts,
+            prepro_opts,
             output_dir=self.preprocessing_output_dir,
             rerun_existing=self.rerun_existing,
             job_kwargs=self.job_kwargs,
@@ -336,9 +407,11 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
         self._is_preprocessed = True
 
+        return self._processed_si_recording
+
     def run_sorting(self):
 
-        if (self.sorting_output_dir / "spike_times.npy").exists() and not self.rerun_existing:
+        if self.is_sorted and not self.rerun_existing:
             print(f"Passing: output directory is already done: {self.sorting_output_dir}\n\n")
             return True
 
@@ -361,7 +434,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             )
 
         self.dump_si_probe()
-        self.dump_opts(self.sorting_output_dir)
+        self.dump_opts()
 
         self._is_sorted = True
 
@@ -374,11 +447,46 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         self.run_sorting()
 
     def run_postprocessing(self):
-        raise NotImplementedError()
+
+        UNIT_LOCATIONS_METHOD = "center_of_mass"
+
+        with Timing(name="Compute principal components: "):
+            print("Computing principal components.")
+            sp.compute_principal_components(
+                self.si_waveform_extractor,
+                load_if_exists=True,
+                n_components=5,
+                mode="by_channel_local",
+                n_jobs=self.n_jobs,
+            )
+
+        with Timing(name="Compute spike amplitudes: "):
+            print("Computing spike amplitudes.")
+            sp.compute_spike_amplitudes(
+                self.si_waveform_extractor,
+                load_if_exists=True,
+                n_jobs=self.n_jobs,
+            )
+
+        with Timing(name="Compute unit locations: "):
+            print(f"Computing unit locations (method={UNIT_LOCATIONS_METHOD}")
+            sp.compute_unit_locations(
+                self.si_waveform_extractor,
+                load_if_exists=True,
+                method=UNIT_LOCATIONS_METHOD,
+            )
+
+        with Timing(name="Compute template metrics: "):
+            print("Computing template metrics")
+            sp.compute_template_metrics(
+                self.si_waveform_extractor,
+                load_if_exists=True,
+            )
+        
+        self.run_metrics()
 
     def run_metrics(self):
 
-        # Extract joblib params
         # Get list of metrics
         # get set of params across metrics
         metrics_opts = self.opts['metrics'].copy()
@@ -396,6 +504,8 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                 self.si_waveform_extractor,
                 metric_names=metrics_names,
                 n_jobs=self.n_jobs,
+                progress_bar=True,
+                verbose=True,
                 **params,
             )
 
