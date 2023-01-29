@@ -196,6 +196,9 @@ def save_xarray(xr_obj, path, **kwargs):
 
 def write_htsv(df, file):
     assert Path(file).suffix == ".htsv", "File must use extension .htsv"
+    Path(file).parent.mkdir(
+        parents=True, exist_ok=True
+    )  # Make parent directories if they do not exist
     df.to_csv(file, sep="\t", header=True, index=(df.index.name is not None))
 
 
