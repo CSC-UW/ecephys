@@ -37,6 +37,9 @@ class Subject:
     def get_experiment_names(self) -> list[str]:
         return list(self.doc["experiments"].keys())
 
+    def get_experiment_probes(self, experimentName) -> list[str]:
+        return list(self.get_file_frame(experimentName)["probe"].unique())
+
     def get_file_frame(
         self,
         experimentName: str,
