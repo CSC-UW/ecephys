@@ -514,13 +514,13 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                 n_jobs=self.n_jobs,
             )
 
-        with Timing(name="Compute spike amplitudes: "):
-            print("Computing spike amplitudes.")
-            sp.compute_spike_amplitudes(
-                self.si_waveform_extractor,
-                load_if_exists=True,
-                n_jobs=self.n_jobs,
-            )
+        # with Timing(name="Compute spike amplitudes: "):
+        #     print("Computing spike amplitudes.")
+        #     sp.compute_spike_amplitudes(
+        #         self.si_waveform_extractor,
+        #         load_if_exists=True,
+        #         n_jobs=self.n_jobs,
+        #     )
 
         with Timing(name="Compute unit locations: "):
             print(f"Computing unit locations (method={UNIT_LOCATIONS_METHOD}")
