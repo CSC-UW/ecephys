@@ -297,6 +297,19 @@ def load_sync_channel_from_sglx_imec(bin_path):
     return sync, time
 
 
+def extract_ttl_edges_from_sglx_imec(bin_path):
+    sglx_sync_in, sglx_times = load_sync_channel_from_sglx_imec(bin_path)
+
+    rising_samples = get_rising_edges_from_binary_signal(sglx_sync_in)
+    falling_samples = get_falling_edges_from_binary_signal(sglx_sync_in)
+
+    rising = sglx_times[rising_samples]
+    falling = sglx_times[falling_samples]
+
+    check_edges(rising, falling)
+    return rising, falling
+
+
 def get_sglx_imec_barcodes(bin_path, bar_duration=0.029):
     """Get SpikeGLX barcodes and times
 
@@ -304,17 +317,8 @@ def get_sglx_imec_barcodes(bin_path, bar_duration=0.029):
     --------
     (barcode_start_times, barcode_values)
     """
-    sglx_barcode_in, sglx_times = load_sync_channel_from_sglx_imec(bin_path)
-
-    sglx_rising_edge_samples = get_rising_edges_from_binary_signal(sglx_barcode_in)
-    sglx_falling_edge_samples = get_falling_edges_from_binary_signal(sglx_barcode_in)
-
-    sglx_rising_edge_times = sglx_times[sglx_rising_edge_samples]
-    sglx_falling_edge_times = sglx_times[sglx_falling_edge_samples]
-
-    return extract_barcodes_from_times(
-        sglx_rising_edge_times, sglx_falling_edge_times, bar_duration=bar_duration
-    )
+    rising, falling = extract_ttl_edges_from_sglx_imec(bin_path)
+    return extract_barcodes_from_times(rising, falling, bar_duration=bar_duration)
 
 
 def get_sglx_nidq_barcodes(bin_path, sync_channel, bar_duration=0.029, threshold=4000):
@@ -327,7 +331,7 @@ def get_sglx_nidq_barcodes(bin_path, sync_channel, bar_duration=0.029, threshold
 
     nidq_rising_edge_times = sig.time.values[nidq_rising_edge_samples]
     nidq_falling_edge_times = sig.time.values[nidq_falling_edge_samples]
-
+    check_edges(nidq_rising_edge_times, nidq_falling_edge_times)
     return extract_barcodes_from_times(
         nidq_rising_edge_times, nidq_falling_edge_times, bar_duration=bar_duration
     )

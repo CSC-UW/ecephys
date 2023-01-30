@@ -1,4 +1,5 @@
 from . import (
+    extract_imec_sync,
     utils,
     preprocess_lfps,
     emg_from_lfp,
