@@ -18,8 +18,8 @@ from .preprocess_si_rec import preprocess_si_recording
 
 logger = logging.getLogger(__name__)
 
-class AbstractSortingPipeline:
 
+class AbstractSortingPipeline:
     def __init__(
         self,
         subjectName,
@@ -55,7 +55,7 @@ class AbstractSortingPipeline:
         else:
             opts_filepath = Path(opts_filepath)
             assert opts_filepath.exists(), f"{opts_filepath}"
-            with open(opts_filepath, 'r') as f:
+            with open(opts_filepath, "r") as f:
                 self.opts = yaml.load(f, Loader=yaml.SafeLoader)
         self.rerun_existing = rerun_existing
         self.n_jobs = int(n_jobs)
@@ -77,7 +77,7 @@ class AbstractSortingPipeline:
                     f" Artifacts file saved at {self.output_artifacts_filepath} will be used."
                 )
             artifacts_filepath = self.output_artifacts_filepath
-        self.artifacts_frame=self.load_artifacts_frame(artifacts_filepath)
+        self.artifacts_frame = self.load_artifacts_frame(artifacts_filepath)
         self.time_ranges = time_ranges
         if self.time_ranges is not None:
             if not len(self.time_ranges) == len(self.raw_ap_bin_segment_frame):
@@ -86,7 +86,6 @@ class AbstractSortingPipeline:
                     f"{len(self.raw_ap_bin_segment_frame)}"
                 )
         assert self.time_ranges is None or self.artifacts_frame is None
-
 
     def __repr__(self):
         return f"""
@@ -102,7 +101,6 @@ class AbstractSortingPipeline:
         Total sorting duration: \n{self.raw_si_recording.get_total_duration()}(s)
         AP segment table: \n{self.raw_ap_bin_segment_frame.loc[:,['run', 'gate', 'trigger', 'probe', 'wneSegmentStartTime', 'segment_idx', 'segmentTimeSecs', 'segmentFileSizeRatio']]}
         """
-
 
     ######### Data
 
@@ -121,32 +119,33 @@ class AbstractSortingPipeline:
 
     @property
     def output_dir(self):
-        return self.wneProject.get_alias_subject_directory(
-            self.experimentName,
-            self.aliasName,
-            self.wneSubject.name
-        )/self._output_dirname
+        return (
+            self.wneProject.get_alias_subject_directory(
+                self.experimentName, self.aliasName, self.wneSubject.name
+            )
+            / self._output_dirname
+        )
 
     @property
     def sorting_output_dir(self):
-        return self.output_dir/'sorter_output'
+        return self.output_dir / "sorter_output"
 
     @property
     def preprocessing_output_dir(self):
-        return self.wneProject.get_alias_subject_directory(
-            self.experimentName,
-            self.aliasName,
-            self.wneSubject.name
-        )/self._preprocessing_output_dirname
+        return (
+            self.wneProject.get_alias_subject_directory(
+                self.experimentName, self.aliasName, self.wneSubject.name
+            )
+            / self._preprocessing_output_dirname
+        )
 
     @property
     def output_artifacts_filepath(self):
-        return self.output_dir/"artifacts.{self.probe}.tsv}"
+        return self.output_dir / "artifacts.{self.probe}.tsv}"
 
     def dump_segment_frame(self):
         self.raw_ap_bin_segment_frame.to_csv(
-            self.output_dir/"segments_frame.tsv",
-            sep="\t"
+            self.output_dir / "segments_frame.tsv", sep="\t"
         )
 
     def dump_artifacts_frame(self):
@@ -163,7 +162,7 @@ class AbstractSortingPipeline:
         fpath = Path(fpath)
         assert fpath.name.endswith(".tsv")
         assert fpath.exists()
-        df = pd.read_csv(fpath, sep='\t')
+        df = pd.read_csv(fpath, sep="\t")
         assert set(df.columns) == set(["start", "stop", "file"])
         return df
 
@@ -171,19 +170,18 @@ class AbstractSortingPipeline:
         if output_dir is None:
             output_dir = self.output_dir
         opts_to_dump = self.opts.copy()
-        opts_to_dump['time_ranges'] = self.time_ranges
-        with open(output_dir/fname, 'w') as f:
+        opts_to_dump["time_ranges"] = self.time_ranges
+        with open(output_dir / fname, "w") as f:
             yaml.dump(opts_to_dump, f)
-    
+
     def load_opts(self, output_dir=None, fname="sorting_pipeline_opts.yaml"):
         if output_dir is None:
             output_dir = self.output_dir
-        with open(output_dir/fname, 'r') as f:
+        with open(output_dir / fname, "r") as f:
             return yaml.load(f, Loader=yaml.SafeLoader)
 
-
     ######### Pipeline steps ####################
-    
+
     @property
     def is_sorted(self):
         raise NotImplementedError()
@@ -214,14 +212,13 @@ class AbstractSortingPipeline:
 
 # All relying on spikeinterface
 class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Input, output files and folders, specific to SI
         # All as properties in case we change project for SortingPipeline object
         # And because all preprocessing is done in a lazy way anyways
-        self._raw_si_recording =  None
+        self._raw_si_recording = None
         self._processed_si_recording = None
         self._dumped_bin_si_recording = None
         self._si_sorting_extractor = None
@@ -246,24 +243,23 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
     @property
     def processed_bin_path(self):
-        return self.sorting_output_dir/'recording.dat'
+        return self.sorting_output_dir / "recording.dat"
 
     @property
     def processed_si_probe_path(self):
-        return self.output_dir/'processed_si_probe.json'
+        return self.output_dir / "processed_si_probe.json"
 
     @property
     def waveforms_dir(self):
-        return self.output_dir/'waveforms'
-    
+        return self.output_dir / "waveforms"
 
     ######### Pipeline steps ######
-    
+
     def check_finished_sorting(self):
         required_output_files = [
-            self.sorting_output_dir/"amplitudes.npy",
-            self.output_dir/"sorting_pipeline_opts.yaml",
-            self.output_dir/"processed_si_probe.json",
+            self.sorting_output_dir / "amplitudes.npy",
+            self.output_dir / "sorting_pipeline_opts.yaml",
+            self.output_dir / "processed_si_probe.json",
         ]
         if not all([f.exists() for f in required_output_files]):
             raise FileNotFoundError(
@@ -272,14 +268,14 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             )
 
     def check_finished_postprocessing(self):
-        #TODO
+        # TODO
         pass
 
     @property
     def is_sorted(self):
         sorted = (
             self.sorting_output_dir.exists()
-            and (self.sorting_output_dir/"spike_times.npy").exists()
+            and (self.sorting_output_dir / "spike_times.npy").exists()
         )
         if sorted:
             self.check_finished_sorting()
@@ -290,7 +286,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         postprocessed = (
             self.is_sorted
             and self.waveforms_dir.exists()
-            and (self.sorting_output_dir/"metrics.csv").exists()
+            and (self.sorting_output_dir / "metrics.csv").exists()
         )
         if postprocessed:
             self.check_finished_postprocessing()
@@ -304,9 +300,12 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             self._raw_si_recording = self.load_raw_si_recording()
             if not self.time_ranges:
                 # assert self._raw_si_recording.get_total_duration() == self.raw_ap_bin_segment_frame.segmentTimeSecs.astype(float).sum()
-                assert self._raw_si_recording.get_total_samples() == self.raw_ap_bin_segment_frame.nSegmentSamp.astype(int).sum()
+                assert (
+                    self._raw_si_recording.get_total_samples()
+                    == self.raw_ap_bin_segment_frame.nSegmentSamp.astype(int).sum()
+                )
         return self._raw_si_recording
-    
+
     @property
     def processed_si_recording(self):
         if self._processed_si_recording is None:
@@ -322,7 +321,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
     @property
     def processed_si_probe(self):
         return self.processed_si_recording.get_probe()
-    
+
     @property
     def si_sorting_extractor(self):
         if self._si_sorting_extractor is None:
@@ -338,19 +337,19 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
     ######### IO ##########
 
     def load_raw_si_recording(self):
-        # return self.wneSubject.get_multi_segment_si_recording(
-        return self.wneSubject.get_single_segment_si_recording(
+        return self.wneSubject.get_si_recording(
             self.experimentName,
             self.aliasName,
-            'ap',
+            "ap",
             self.probe,
             time_ranges=self.time_ranges,
             artifacts_frame=self.artifacts_frame,
             sampling_frequency_max_diff=1e-06,
+            how="concatenate",
         )
 
     def load_si_sorting_extractor(self):
-        return se.read_kilosort(self.sorting_output_dir) 
+        return se.read_kilosort(self.sorting_output_dir)
 
     def load_dumped_bin_si_recording(self):
         return si_utils.load_kilosort_bin_as_si_recording(
@@ -360,17 +359,14 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         )
 
     def load_si_waveform_extractor(self):
-        MS_BEFORE=1.5
-        MS_AFTER=2.5
-        MAX_SPIKES_PER_UNIT=2000
-        SPARSITY_RADIUS=400
-        NUM_SPIKES_FOR_SPARSITY=500
+        MS_BEFORE = 1.5
+        MS_AFTER = 2.5
+        MAX_SPIKES_PER_UNIT = 2000
+        SPARSITY_RADIUS = 400
+        NUM_SPIKES_FOR_SPARSITY = 500
 
         assert self.is_sorted
-        load_precomputed = (
-            not self.rerun_existing 
-            and self.is_postprocessed
-        )
+        load_precomputed = not self.rerun_existing and self.is_postprocessed
         if self.processed_bin_path.exists():
             waveform_recording = self.dumped_bin_si_recording
         else:
@@ -378,7 +374,9 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             waveform_recording = self.run_preprocessing(load_existing=True)
 
         if load_precomputed:
-            print(f"Loading waveforms from folder. Will use this recording: {waveform_recording}")
+            print(
+                f"Loading waveforms from folder. Will use this recording: {waveform_recording}"
+            )
             we = si.WaveformExtractor.load_from_folder(
                 self.waveforms_dir,
                 with_recording=False,
@@ -422,8 +420,9 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         # Since somme channels may be dropped during motion correction
         if not self.processed_si_probe_path.exists():
             import warnings
+
             warnings.warn(
-            # raise FileNotFoundError(
+                # raise FileNotFoundError(
                 f"Find no spikeinterface probe object at {self.processed_si_probe_path}"
                 f"\nRe-dumping probe"
             )
@@ -441,7 +440,9 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
         if load_existing:
             # Ensures we use the same opts as previously during postprocessing
-            print("Preprocessing: load_existing=True: Use preexisting opts! Ignore provided preprocessing opts")
+            print(
+                "Preprocessing: load_existing=True: Use preexisting opts! Ignore provided preprocessing opts"
+            )
             assert self.is_sorted
             prepro_opts = self.load_opts()
         else:
@@ -466,15 +467,19 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
     def run_sorting(self):
 
         if self.is_sorted and not self.rerun_existing:
-            print(f"Passing: output directory is already done: {self.sorting_output_dir}\n\n")
+            print(
+                f"Passing: output directory is already done: {self.sorting_output_dir}\n\n"
+            )
             return True
 
         sorter_name, sorter_params = self.opts["sorting"]
 
         self.output_dir.mkdir(exist_ok=True, parents=True)
         if sorter_name == "kilosort2_5":
-            sorter_params = sorter_params.copy() # Allow rerunning since we pop
-            ss.sorter_dict[sorter_name].set_kilosort2_5_path(sorter_params.pop("ks_path"))
+            sorter_params = sorter_params.copy()  # Allow rerunning since we pop
+            ss.sorter_dict[sorter_name].set_kilosort2_5_path(
+                sorter_params.pop("ks_path")
+            )
 
         with Timing(name="Run spikeinterface sorter"):
             ss.run_sorter(
@@ -536,14 +541,14 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                 self.si_waveform_extractor,
                 load_if_exists=True,
             )
-        
+
         self.run_metrics()
 
     def run_metrics(self):
 
         # Get list of metrics
         # get set of params across metrics
-        metrics_opts = self.opts['metrics'].copy()
+        metrics_opts = self.opts["metrics"].copy()
         metrics_names = list(metrics_opts.keys())
         params = {}
         for metric_dict in metrics_opts.values():
@@ -565,10 +570,10 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
         print("Save metrics dataframe as `metrics.csv` in kilosort dir")
         metrics_df.to_csv(
-            self.sorting_output_dir/"metrics.csv",
+            self.sorting_output_dir / "metrics.csv",
             # sep="\t",
             index=True,
-            index_label="cluster_id"
+            index_label="cluster_id",
         )
 
         self.dump_opts(self.output_dir, fname="metrics_opts.yaml")
@@ -576,7 +581,6 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
 
 class SortingPipeline(SpikeInterfaceSortingPipeline):
-    
     def __init__(*args, **kwargs):
         super().__init__(*args, **kwargs)
 
