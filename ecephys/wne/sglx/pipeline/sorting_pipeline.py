@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+import pandas as pd
 import probeinterface as pi
 import yaml
 from horology import Timing, timed
@@ -30,6 +31,7 @@ class AbstractSortingPipeline:
         probe,
         time_ranges=None,
         opts_filepath=None,
+        artifacts_filepath=None,
         output_dirname=None,
         rerun_existing=True,
         n_jobs=1,
@@ -42,13 +44,6 @@ class AbstractSortingPipeline:
         self.aliasName = aliasName
         self.experimentName = experimentName
         self.probe = probe
-        self.time_ranges = time_ranges
-        if self.time_ranges is not None:
-            if not len(self.time_ranges) == len(self.raw_ap_bin_table):
-                raise ValueError(
-                    f"`time_ranges` should be a list of length "
-                    f"{len(self.raw_ap_bin_table)}"
-                )
 
         # Pipeline options
         if opts_filepath is None:
@@ -65,14 +60,33 @@ class AbstractSortingPipeline:
         self.rerun_existing = rerun_existing
         self.n_jobs = int(n_jobs)
 
-        # Input/Output
-        self._raw_ap_bin_table = None
+        # Output
+        self._raw_ap_bin_segment_frame = None
         self._output_dirname = output_dirname
         if self._output_dirname is None:
             raise ValueError("Please specify 'output_dirname' kwarg")
         self._output_dirname = f"{self._output_dirname}.{self.probe}"
         self._preprocessing_output_dirname = f"prepro_{self._output_dirname}"
         self._output_dir = None
+
+        # Sub-segments
+        if self.output_artifacts_filepath.exists():
+            if artifacts_filepath is not None:
+                raise ValueError(
+                    f"Some artifacts were already provided for this sorting, please don't set 'artifacts_filepath' kwarg."
+                    f" Artifacts file saved at {self.output_artifacts_filepath} will be used."
+                )
+            artifacts_filepath = self.output_artifacts_filepath
+        self.artifacts_frame=self.load_artifacts_frame(artifacts_filepath)
+        self.time_ranges = time_ranges
+        if self.time_ranges is not None:
+            if not len(self.time_ranges) == len(self.raw_ap_bin_segment_frame):
+                raise ValueError(
+                    f"`time_ranges` should be a list of length "
+                    f"{len(self.raw_ap_bin_segment_frame)}"
+                )
+        assert self.time_ranges is None or self.artifacts_frame is None
+
 
     def __repr__(self):
         return f"""
@@ -83,10 +97,25 @@ class AbstractSortingPipeline:
         Segment time ranges (s): {self.time_ranges}
         Sorting output_dir: {self.sorting_output_dir}
         Preprocessing output_dir: {self.preprocessing_output_dir}
-        First file full path: \n{self.raw_ap_bin_table.path.values[0]}
-        Total sorting duration: \n{self.raw_ap_bin_table.fileTimeSecs.astype(float).sum()}(s)
-        AP table: \n{self.raw_ap_bin_table.loc[:,['run', 'gate', 'trigger', 'probe', 'fileTimeSecs']]}
+        First segment full path: \n{self.raw_ap_bin_segment_frame.path.values[0]}
+        Artifacts: {self.artifacts_frame}
+        Total sorting duration: \n{self.raw_si_recording.get_total_duration()}(s)
+        AP segment table: \n{self.raw_ap_bin_segment_frame.loc[:,['run', 'gate', 'trigger', 'probe', 'wneSegmentStartTime', 'segment_idx', 'segmentTimeSecs', 'segmentFileSizeRatio']]}
         """
+
+
+    ######### Data
+
+    @property
+    def raw_ap_bin_segment_frame(self):
+        return self.wneSubject.get_segment_frame(
+            self.experimentName,
+            aliasName=self.aliasName,
+            probe=self.probe,
+            ftype="bin",
+            stream="ap",
+            artifacts_frame=self.artifacts_frame,
+        )
 
     ######### Input output ####################
 
@@ -111,12 +140,47 @@ class AbstractSortingPipeline:
         )/self._preprocessing_output_dirname
 
     @property
-    def raw_ap_bin_table(self):
-        return self.wneSubject.get_ap_bin_table(
-            self.experimentName,
-            alias=self.aliasName,
-            probe=self.probe,
+    def output_artifacts_filepath(self):
+        return self.output_dir/"artifacts.{self.probe}.tsv}"
+
+    def dump_segment_frame(self):
+        self.raw_ap_bin_segment_frame.to_csv(
+            self.output_dir/"segments_frame.tsv",
+            sep="\t"
         )
+
+    def dump_artifacts_frame(self):
+        if self.artifacts_frame is None:
+            return
+        self.artifacts_frame.to_csv(
+            self.output_artifacts_filepath,
+            sep="\t",
+        )
+
+    def load_artifacts_frame(self, fpath):
+        if fpath is None:
+            return None
+        fpath = Path(fpath)
+        assert fpath.name.endswith(".tsv")
+        assert fpath.exists()
+        df = pd.read_csv(fpath, sep='\t')
+        assert set(df.columns) == set(["start", "stop", "file"])
+        return df
+
+    def dump_opts(self, output_dir=None, fname="sorting_pipeline_opts.yaml"):
+        if output_dir is None:
+            output_dir = self.output_dir
+        opts_to_dump = self.opts.copy()
+        opts_to_dump['time_ranges'] = self.time_ranges
+        with open(output_dir/fname, 'w') as f:
+            yaml.dump(opts_to_dump, f)
+    
+    def load_opts(self, output_dir=None, fname="sorting_pipeline_opts.yaml"):
+        if output_dir is None:
+            output_dir = self.output_dir
+        with open(output_dir/fname, 'r') as f:
+            return yaml.load(f, Loader=yaml.SafeLoader)
+
 
     ######### Pipeline steps ####################
     
@@ -215,7 +279,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
     def is_sorted(self):
         sorted = (
             self.sorting_output_dir.exists()
-            and (self.sorting_output_dir/"spike_amplitudes.npy").exists()
+            and (self.sorting_output_dir/"spike_times.npy").exists()
         )
         if sorted:
             self.check_finished_sorting()
@@ -238,6 +302,9 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
     def raw_si_recording(self):
         if self._raw_si_recording is None:
             self._raw_si_recording = self.load_raw_si_recording()
+            if not self.time_ranges:
+                # assert self._raw_si_recording.get_total_duration() == self.raw_ap_bin_segment_frame.segmentTimeSecs.astype(float).sum()
+                assert self._raw_si_recording.get_total_samples() == self.raw_ap_bin_segment_frame.nSegmentSamp.astype(int).sum()
         return self._raw_si_recording
     
     @property
@@ -278,6 +345,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             'ap',
             self.probe,
             time_ranges=self.time_ranges,
+            artifacts_frame=self.artifacts_frame,
             sampling_frequency_max_diff=1e-06,
         )
 
@@ -366,20 +434,6 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         print(prb)
         return prb
 
-    def dump_opts(self, output_dir=None, fname="sorting_pipeline_opts.yaml"):
-        if output_dir is None:
-            output_dir = self.output_dir
-        opts_to_dump = self.opts.copy()
-        opts_to_dump['time_ranges'] = self.time_ranges
-        with open(output_dir/fname, 'w') as f:
-            yaml.dump(opts_to_dump, f)
-    
-    def load_opts(self, output_dir=None, fname="sorting_pipeline_opts.yaml"):
-        if output_dir is None:
-            output_dir = self.output_dir
-        with open(output_dir/fname, 'r') as f:
-            return yaml.load(f, Loader=yaml.SafeLoader)
-
     ######### Pipeline steps ##########
 
     def run_preprocessing(self, load_existing=False):
@@ -460,13 +514,13 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
                 n_jobs=self.n_jobs,
             )
 
-        with Timing(name="Compute spike amplitudes: "):
-            print("Computing spike amplitudes.")
-            sp.compute_spike_amplitudes(
-                self.si_waveform_extractor,
-                load_if_exists=True,
-                n_jobs=self.n_jobs,
-            )
+        # with Timing(name="Compute spike amplitudes: "):
+        #     print("Computing spike amplitudes.")
+        #     sp.compute_spike_amplitudes(
+        #         self.si_waveform_extractor,
+        #         load_if_exists=True,
+        #         n_jobs=self.n_jobs,
+        #     )
 
         with Timing(name="Compute unit locations: "):
             print(f"Computing unit locations (method={UNIT_LOCATIONS_METHOD}")
