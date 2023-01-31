@@ -1,5 +1,7 @@
 import logging
 import yaml
+import itertools as it
+import numpy as np
 import pandas as pd
 import ecephys as ece
 import spikeinterface as si
@@ -38,27 +40,22 @@ class Subject:
         return list(self.doc["experiments"].keys())
 
     def get_experiment_probes(self, experimentName) -> list[str]:
-        return list(self.get_file_frame(experimentName)["probe"].unique())
+        return list(self.get_experiment_frame(experimentName)["probe"].unique())
 
-    def get_file_frame(
+    def get_experiment_frame(
         self,
         experimentName: str,
         aliasName=None,
         **kwargs,
     ) -> pd.DataFrame:
-        """Get all SpikeGLX files matching selection criteria.
-
-        To check that all returned files are continguous (to within the default tolerance of `add_wne_times`, i.e. 1 sample):
-        assert frame["isContinuation"][1:].all()
-        """
+        """Get all SpikeGLX files matching selection criteria."""
         sessionIDs = self.doc["experiments"][experimentName]["recording_session_ids"]
         frame = self.cache[
             self.cache["session"].isin(sessionIDs)
-        ]  # Get the cache slice corresponding to this experiment.
-        frame = ece.wne.sglx.add_wne_times(frame)
-        # TODO: The following is not a function of the experiment, so should probably be done elsewhere.
-        # Also, this exists to get around limitations of SpikeInterface, so can hopefully be removed one day.
-        frame = ece.wne.sglx.get_gate_dir_trigger_file_index(frame)
+        ]  # Get the cache slice containing this experiment.
+        frame = ece.wne.sglx.add_experiment_times(frame)
+        # This exists to get around limitations of SpikeInterface, so can hopefully be removed one day.
+        frame = _get_gate_dir_trigger_file_index(frame)
 
         if aliasName is not None:
             subaliases = self.doc["experiments"][experimentName]["aliases"][aliasName]
@@ -67,41 +64,43 @@ class Subject:
                     f"Alias {aliasName} must be specified as a list of subaliases, even if there is only a single subalias."
                 )
             subaliasFrames = [
-                ece.wne.sglx.experiments.get_subalias_frame(frame, sa)
-                for sa in subaliases
+                ece.wne.sglx.sessions.get_subalias_frame(frame, sa) for sa in subaliases
             ]
             frame = pd.concat(subaliasFrames).reset_index(drop=True)
 
         return ece.sglx.loc(frame, **kwargs).reset_index(drop=True)
 
     def get_lfp_bin_paths(self, experiment: str, alias=None, **kwargs) -> list[Path]:
-        return self.get_file_frame(
+        return self.get_experiment_frame(
             experiment, alias, stream="lf", ftype="bin", **kwargs
         ).path.values
 
     def get_ap_bin_paths(self, experiment: str, alias=None, **kwargs) -> list[Path]:
-        return self.get_file_frame(
+        return self.get_experiment_frame(
             experiment, alias, stream="ap", ftype="bin", **kwargs
         ).path.values
 
     def get_lfp_bin_table(self, experiment: str, alias=None, **kwargs) -> pd.DataFrame:
-        return self.get_file_frame(
+        return self.get_experiment_frame(
             experiment, alias, stream="lf", ftype="bin", **kwargs
         )
 
     def get_ap_bin_table(self, experiment: str, alias=None, **kwargs) -> pd.DataFrame:
-        return self.get_file_frame(
+        return self.get_experiment_frame(
             experiment, alias, stream="ap", ftype="bin", **kwargs
         )
 
     def get_experiment_data_times(
         self, experiment: str, probe: str, as_datetimes=False
     ) -> tuple:
-        df = self.get_file_frame(experiment, probe=probe)
+        df = self.get_experiment_frame(experiment, probe=probe)
         if as_datetimes:
-            return (df["wneFileStartDatetime"].min(), df["wneFileEndDatetime"].max())
+            return (
+                df["expmtPrbAcqFirstDatetime"].min(),
+                df["expmtPrbAcqLastDatetime"].max(),
+            )
         else:
-            return (df["wneFileStartTime"].min(), df["wneFileEndTime"].max())
+            return (df["expmtPrbAcqFirstTime"].min(), df["expmtPrbAcqLastTime"].max())
 
     def t2dt(self, experiment: str, probe: str, t):
         dt0, _ = self.get_experiment_data_times(experiment, probe, as_datetimes=True)
@@ -136,7 +135,7 @@ class Subject:
         probe,
         time_ranges=None,
     ):
-        ftable = self.get_file_frame(
+        ftable = self.get_experiment_frame(
             experiment, alias, probe=probe, stream=stream, ftype="bin"
         )
         stream_id = f"{probe}.{stream}"
@@ -244,3 +243,39 @@ class SubjectLibrary:
         if self.cache is None:
             self.refresh_cache()
         self.cache.to_pickle(self.cachefile)
+
+
+# TODO: Remove as soon as SpikeInterface adds this functionality.
+# 1/30/2023 Tom says It is still necessary, because although the relevant GitHub issues seem to have been closed, the API has not changed.
+def _get_gate_dir_trigger_file_index(ftab: pd.DataFrame) -> pd.DataFrame:
+    """Get index of trigger file relative to all files of same stream/prb/gate_folder.
+
+    This is relative to files currently present in the directory, so we can't
+    just parse trigger index (doesn't work if some files are moved).
+
+    Useful to instantiate spikeinterface extractor objects, since they require
+    subselecting segments of interest (ie trigger files) after instantiation.
+    See https://github.com/SpikeInterface/spikeinterface/issues/628#issuecomment-1130232542
+
+    """
+    ftab["gate_dir"] = ftab.apply(lambda row: row["path"].parent, axis=1)
+    for gate_dir, prb, stream, ftype in it.product(
+        ftab.gate_dir.unique(),
+        ftab.probe.unique(),
+        ftab.stream.unique(),
+        ftab.ftype.unique(),
+    ):
+        mask = (
+            (ftab["gate_dir"] == gate_dir)
+            & (ftab["probe"] == prb)
+            & (ftab["stream"] == stream)
+            & (ftab["ftype"] == ftype)
+        )
+        mask_n_triggers = int(mask.sum())
+        ftab.loc[mask, "gate_dir_n_trigger_files"] = mask_n_triggers
+        ftab.loc[mask, "gate_dir_trigger_file_idx"] = np.arange(0, mask_n_triggers)
+
+    ftab["gate_dir_n_trigger_files"] = ftab["gate_dir_n_trigger_files"].astype(int)
+    ftab["gate_dir_trigger_file_idx"] = ftab["gate_dir_trigger_file_idx"].astype(int)
+
+    return ftab

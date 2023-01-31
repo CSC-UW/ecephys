@@ -41,6 +41,7 @@ import pathlib
 from itertools import chain
 
 # Non-core imports
+import numpy as np
 import pandas as pd
 from pandas.api.types import CategoricalDtype
 from .external.readSGLX import readMeta
@@ -350,6 +351,11 @@ def _try_casting(df, col, cast_to, fill_value):
         logger.warning(
             f"File found with {col} that could not be cast as {cast_to}. This likely indicates an incomplete .meta produced by a crash. Please repair."
         )
+        for i, item in enumerate(df[col]):
+            try:
+                df[col].iloc[i : i + 1].astype(cast_to)
+            except ValueError:
+                logger.warning(f"Problematic file: {df['path'].iloc[i]}")
         logger.warning(
             "Attempting to proceed anyway. This is experimental and could affect downstream results. Proceed with caution."
         )
@@ -461,12 +467,10 @@ def read_metadata(files):
     df["fileName"] = df["fileName"].apply(pathlib.Path)
     df["imRoFile"] = df["imRoFile"].apply(pathlib.Path)
 
-    # Create nFileSamp column, since it is so useful
-    df["nFileSamp"] = df["fileSizeBytes"] / (2 * df["nSavedChans"])
     return df.sort_values("fileCreateTime", ascending=True).reset_index(drop=True)
 
 
-def _filelist_to_frame(files):
+def parse_sglx_fnames(files):
     """Return a list of files in as a dataframe for easy slicing, selecting, etc.
 
     Parameters:
@@ -509,8 +513,90 @@ def filelist_to_frame(files):
         return pd.DataFrame()
 
     meta_df = read_metadata(files)
-    files_df = _filelist_to_frame(files)
-    return meta_df.merge(files_df, on="path")
+    files_df = parse_sglx_fnames(files)
+    df = meta_df.merge(files_df, on="path")
+
+    # Create nFileSamp column, since it is so useful
+    df["nFileSamp"] = df["fileSizeBytes"] / (2 * df["nSavedChans"])
+    # Last sample, measured from the start of that probe's acquisition, in that probe's samplebase.
+    df["lastSample"] = df["firstSample"] + df["nFileSamp"] - 1
+    df["fileDuration"] = (
+        df["nFileSamp"] / df["imSampRate"]
+    )  # More precise than fileTimeSecs
+
+    # First timestamp, measured from the start of that probe's acquisition, in that probe's timebase.
+    df["firstTime"] = df["firstSample"].astype("float") / df["imSampRate"]
+    # Last timestamp, measured from the start of that probe's acquisition, in that probe's timebase.
+    df["lastTime"] = df["lastSample"].astype("float") / df["imSampRate"]
+
+    return df
+
+
+def get_semicontinuous_segments(df: pd.DataFrame, tol=100):
+    """Get semicontinuous rows of a file frame.
+    We call these `semicontinuous`, because files can be overlapped or gapped.
+
+    Parameters
+    ==========
+    tol: int
+        The number of samples that continuous files are allowed to be overlapped or gapped by.
+        This needs to be fairly high since, when recording with multiple probes, one will be nearly perfect (tol=1),
+        while the other will be much sloppier -- perhaps due to the different sampling rates on the two probes.
+
+    Returns
+    =======
+    acqs: list[pd.DataFrame]
+        The input frame, sliced into blocks of semicontinuous files
+    segments: list[pd.Series]
+        Summary info about each semicontinuous segment
+    """
+    assert len(df["probe"].unique()) == 1, "Frame include exactly 1 probe."
+    assert len(df["stream"].unique()) == 1, "Frame include exactly 1 stream."
+    assert len(df["ftype"].unique()) == 1, "Frame include exactly 1 filetype."
+    df = df.copy()
+
+    # Get the expected 'firstSample' of the next file in a continous recording.
+    nextSample = df["lastSample"] + 1
+
+    # Check these expected 'firstSample' values against actual 'firstSample' values.
+    # This tells us whether any file is actually contiguous with the one preceeding it.
+    sampleMismatch = df["firstSample"].values[1:] - nextSample.values[:-1]
+    sampleMismatch = np.insert(
+        sampleMismatch, 0, 0
+    )  # The first file comes with no expectations, and therefore no mismatch.
+
+    # A tolerance is used, because even in continuous recordings, files can overlap or gap by a sample.
+    isContinuation = np.abs(sampleMismatch) <= tol
+    isContinuation[0] = False  # The first file is, by definition, not a continuation.
+
+    # Group files by their acquisiton ID, so that all files in a semicontinious acquisition block have the same ID.
+    df["acquisitionID"] = (~isContinuation).cumsum() - 1
+    acqs = [
+        df.loc[df["acquisitionID"] == id] for id in sorted(df["acquisitionID"].unique())
+    ]
+    acqs = [acq.drop(columns="acquisitionID") for acq in acqs]
+
+    # Get summary information about each segment
+    segments = list()
+    for acq in acqs:
+        # Keep all metadata fields if their value is the same for every file in the segment
+        seg = acq.loc[:, acq.nunique() == 1].iloc[0].copy()
+        # Number of samples written to disk in this semicontinuous block
+        seg["nPrbAcqSamples"] = acq["nFileSamp"].sum()
+        # First sample, measured from the start of this probe's acquisition, in this probe's samplebase.
+        seg["firstPrbAcqSample"] = acq["firstSample"].min()
+        # Last sample, measured from the start of this probe's acquisition, in this probe's samplebase.
+        seg["lastPrbAcqSample"] = acq["lastSample"].max()
+        seg["nDuplicateSamples"] = seg["nPrbAcqSamples"] - (
+            seg["lastPrbAcqSample"] - seg["firstPrbAcqSample"] + 1
+        )  # Negative values imply dropped samples
+        # Datetime start of the recording, NOT acquisition.
+        seg["prbRecDatetime"] = acq["fileCreateTime"].min()
+        # First timestamp, measured from the start of this probe's acquisition, in this probe's samplebase.
+        seg["firstTime"] = acq["firstTime"].min()
+        segments.append(seg)
+
+    return acqs, segments
 
 
 def set_index(df):

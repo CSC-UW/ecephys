@@ -24,7 +24,9 @@ def do_alias(srcProject, destProject, wneSubject, experiment, alias, probe):
         df = pd.read_csv(artFile)
         df["duration"] = df.apply(lambda row: row.end_time - row.start_time, axis=1)
         df["state"] = "Artifact"
-        df[["start_time", "end_time"]] += lfpFile.wneFileStartTime
+        df[["start_time", "end_time"]] += lfpFile[
+            "expmtPrbAcqFirstTime"
+        ]  # TODO: Sync times BEFORE saving
         artifacts.append(df)
 
     if artifacts:

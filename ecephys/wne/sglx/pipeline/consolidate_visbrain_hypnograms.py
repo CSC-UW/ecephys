@@ -28,7 +28,9 @@ def do_alias(
         if vbFile.is_file():
             logger.debug(f"Loading file {vbFile.name}")
             vbHg = hypnogram.FloatHypnogram.from_visbrain(vbFile)
-            vbHg[["start_time", "end_time"]] += lfpFile.wneFileStartTime
+            vbHg[["start_time", "end_time"]] += lfpFile[
+                "expmtPrbAcqFirstTime"
+            ]  # TODO: Sync times BEFORE saving
             vbHgs.append(vbHg)
         else:
             logger.warning(f"Hypnogram {vbFile.name} not found. Skipping.")

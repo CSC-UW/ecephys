@@ -1,4 +1,5 @@
 import tdt
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
@@ -7,6 +8,8 @@ from ..sglx.external.readSGLX import readMeta, SampRate, makeMemMapRaw, ExtractD
 from ..sglx import load_nidq_analog
 from .external.barcodes import extract_barcodes_from_times
 from ..utils import warn
+
+logger = logging.getLogger(__name__)
 
 # TODO: System-specific packages should be in system-specific repos (e.g. tdt_xarray, sglxarray, acute, etc.)
 
@@ -48,10 +51,51 @@ def visualize_mapping(x, y, model, nPulsesToPlot=10, xname="X", yname="Y"):
 
 
 def check_edges(rising, falling):
-    assert (
-        rising.size == falling.size
-    ), "Number of rising and falling edges do not match."
-    assert all(np.less(rising, falling)), "Falling edges occur before rising edges."
+    """Attempt to pair rising and falling edges, such that rising edges always precede falling edges.
+
+    Returns
+    =======
+    rising, falling:
+        The sizes of these arrays may be different than the sizes of the input arrays.
+    """
+    mismatch = rising.size - falling.size
+    if mismatch > 0:  # More rising edges than falling edges
+        logger.warning(
+            f"Number of rising and falling edges do not match. Rising - falling = {mismatch}."
+        )
+        if all(
+            np.less(rising[mismatch:], falling)
+        ):  # Rising edges occur before falling edges
+            return rising[mismatch:], falling
+        elif all(np.less(rising[:-mismatch], falling)):
+            return rising[:-mismatch], falling
+        else:
+            raise ValueError(
+                "Could not reconcile mismatched numbers of rising and falling edges such that rising edges always precede falling edges."
+            )
+    elif mismatch < 0:  # More falling edges than rising edges
+        logger.warning(
+            f"Number of rising and falling edges do not match. Rising - falling = {mismatch}."
+        )
+        if all(np.less(rising, falling[:mismatch])):
+            return rising, falling[:mismatch]
+        elif all(np.less(rising, falling[-mismatch:])):
+            return rising, falling[-mismatch:]
+        else:
+            raise ValueError(
+                "Could not reconcile mismatched numbers of rising and falling edges such that rising edges always precede falling edges."
+            )
+    else:  # Number of rising edges matches number of falling edges
+        if all(np.less(rising, falling)):
+            return rising, falling
+        elif all(
+            np.less(rising[:-1], falling[1:])
+        ):  # If first edge recorded was falling, and last was rising
+            return rising[:-1], falling[1:]
+        else:
+            raise ValueError(
+                "Could not find a rising-falling edge pairing such that rising edges always precede falling edges."
+            )
 
 
 def fit_times(x, y, visualize=True, xname="X", yname="Y"):
@@ -156,7 +200,7 @@ def get_e3v_pulse_width_threshold_from_fps(fps):
 
 def get_frame_times_from_e3v(rising, falling, fps):
     """Get frame start times from frame capture pulse edges."""
-    check_edges(rising, falling)
+    rising, falling = check_edges(rising, falling)
     threshold = get_e3v_pulse_width_threshold_from_fps(fps)
     pulse_width = falling - rising
     saved_frames = np.where(pulse_width > threshold)
@@ -254,8 +298,7 @@ def extract_ttl_edges_from_tdt(block_path, store_name):
         store.offset = store.offset[:-1]
     rising = get_rising_edges_from_tdt(store.onset)
     falling = get_falling_edges_from_tdt(store.offset)
-    check_edges(rising, falling)
-    return rising, falling
+    return check_edges(rising, falling)
 
 
 def get_tdt_barcodes(block_path, store_name, bar_duration=0.029):
@@ -306,8 +349,7 @@ def extract_ttl_edges_from_sglx_imec(bin_path):
     rising = sglx_times[rising_samples]
     falling = sglx_times[falling_samples]
 
-    check_edges(rising, falling)
-    return rising, falling
+    return check_edges(rising, falling)
 
 
 def get_sglx_imec_barcodes(bin_path, bar_duration=0.029):
@@ -329,9 +371,7 @@ def get_sglx_nidq_barcodes(bin_path, sync_channel, bar_duration=0.029, threshold
     nidq_rising_edge_samples = get_rising_edges_from_binary_signal(nidq_barcode_in)
     nidq_falling_edge_samples = get_falling_edges_from_binary_signal(nidq_barcode_in)
 
-    nidq_rising_edge_times = sig.time.values[nidq_rising_edge_samples]
-    nidq_falling_edge_times = sig.time.values[nidq_falling_edge_samples]
-    check_edges(nidq_rising_edge_times, nidq_falling_edge_times)
-    return extract_barcodes_from_times(
-        nidq_rising_edge_times, nidq_falling_edge_times, bar_duration=bar_duration
-    )
+    rising = sig.time.values[nidq_rising_edge_samples]
+    falling = sig.time.values[nidq_falling_edge_samples]
+    rising, falling = check_edges(rising, falling)
+    return extract_barcodes_from_times(rising, falling, bar_duration=bar_duration)

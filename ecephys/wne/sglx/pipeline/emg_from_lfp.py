@@ -26,8 +26,8 @@ def do_alias(opts, destProject, wneSubject, experiment, alias=None, **kwargs):
         sig = ece.sglxr.load_trigger(
             lfpFile.path,
             opts["probes"][lfpFile.probe]["emgFromLfpChans"],
-            t0=lfpFile.wneFileStartTime,
-            dt0=lfpFile.wneFileStartDatetime,
+            t0=lfpFile["expmtPrbAcqFirstTime"],  # TODO: Convert times before saving
+            dt0=lfpFile["expmtPrbAcqFirstDatetime"],
         )
         emg = ece.xrsig.LFPs(sig).synthetic_emg(**DEFAULT_EMG_OPTIONS)
         ece.utils.save_xarray(emg, emgFile)

@@ -66,7 +66,11 @@ def do_alias(
 
         logger.info(f"Loading {lfpFile.path.name}...")
         lfp = sglxr.load_trigger(
-            lfpFile.path, t0=lfpFile.wneFileStartTime, dt0=lfpFile.wneFileStartDatetime
+            lfpFile.path,
+            t0=lfpFile["expmtPrbAcqFirstTime"],
+            dt0=lfpFile[
+                "expmtPrbAcqFirstDatetime"
+            ],  # TODO: Convert times BEFORE saving
         )
 
         logger.info("Processing chunks...")

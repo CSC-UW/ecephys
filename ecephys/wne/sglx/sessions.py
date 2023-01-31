@@ -37,8 +37,10 @@ of AP data often requires specialized storage.
 #       explicitly define AP and LF data locations as we do currently. This could be less
 #       verbose and also allow splitting of data across locations based on factors other
 #       than stream type.
+
 import re
 import logging
+import pandas as pd
 from itertools import chain
 from pathlib import Path
 
@@ -46,6 +48,7 @@ from ecephys.sglx.file_mgmt import (
     filter_files,
     validate_sglx_path,
     get_gate_files,
+    set_index,
 )
 
 logger = logging.getLogger(__name__)
@@ -117,26 +120,6 @@ def get_session_files_from_multiple_locations(session):
             f"No LF files found in directory: {session['lf']}. Do you need to update this subject's YAML file?"
         )
     return ap_files + lf_files
-
-
-# TODO: Deprecated. Remove?
-def get_subject_files(sessions):
-    """Get all SpikeGLX files belonging to a single subject's YAML document.
-
-    Parameters:
-    -----------
-    doc: dict
-        The YAML specification for this subject.
-
-    Returns:
-    --------
-    list of pathlib.Path
-    """
-    return list(
-        chain.from_iterable(
-            get_session_files_from_multiple_locations(session) for session in sessions
-        )
-    )
 
 
 def get_session_style_path_parts(fpath):
@@ -221,3 +204,87 @@ def mirror_raw_data_path(mirror_parent, path):
 
 def mirror_raw_data_paths(mirror_parent, paths):
     return [mirror_raw_data_path(mirror_parent, p) for p in paths]
+
+
+
+
+def _parse_trigger_stem(stem):
+    """Parse recording identifiers from a SpikeGLX style filename stem.
+    Because this stem ends with the trigger identifier, we call it a
+    'trigger stem'.
+
+    Although this function may seem like it belongs in ecephys.sglx.file_mgmt,
+    it really belongs here. This is because the concept of a trigger stem is
+    not really used in SpikeGLX, but is used in experiments_and_aliases.yaml
+    as a convenient way of specifying file ranges.
+
+    Parameters
+    ---------
+    stem: str
+        The filename stem to parse, e.g. "my-run-name_g0_t1"
+
+    Returns
+    -------
+    run: str
+        The run name, e.g. "my-run-name".
+    gate: str
+        The gate identifier, e.g. "g0".
+    trigger: str
+        The trigger identifier, e.g. "t1".
+
+    Examples
+    --------
+    >>> parse_trigger_stem('3-1-2021_A_g1_t0')
+    ('3-1-2021_A', 'g1', 't0')
+    """
+    x = re.search(r"_g\d+_t\d+\Z", stem)  # \Z forces match at string end.
+    run = stem[: x.span()[0]]  # The run name is everything before the match
+    gate = re.search(r"g\d+", x.group()).group()
+    trigger = re.search(r"t\d+", x.group()).group()
+
+    return (run, gate, trigger)
+
+
+def slice_by_trigger_stem(
+    df: pd.DataFrame, start_stem: str, end_stem: str
+) -> pd.DataFrame:
+    df = df.copy()
+    # Make df sliceable using (run, gate, trigger)
+    df = set_index(df).reset_index(level=0).sort_index()
+    # Select desired files
+    start_rgt = _parse_trigger_stem(start_stem)
+    end_rgt = _parse_trigger_stem(end_stem)
+    df = df[start_rgt:end_rgt]
+    return df.reset_index()
+
+
+def slice_by_datetime(df: pd.DataFrame, start: str, end: str) -> pd.DataFrame:
+    start = pd.to_datetime(start)
+    end = pd.to_datetime(end)
+
+    fileStartDatetime = df["sessionPrbAcqDatetime"]
+    fileEndDatetime = fileStartDatetime + pd.to_timedelta(df["fileDuration"], "s")
+    mask = (
+        (
+            (start <= fileStartDatetime) & (end >= fileEndDatetime)
+        )  # Subalias starts before file and ends after it, OR...
+        | (
+            (end >= fileStartDatetime) & (end <= fileEndDatetime)
+        )  # Subalias ends during file, OR...
+        | (  #
+            (start >= fileStartDatetime) & (start <= fileEndDatetime)
+        )  # Subalias starts during file
+    )
+    return df.loc[mask].reset_index(drop=True)
+
+
+# TODO: There is really no concept of a subalias anymore. Even the alias concept should probably be retired.
+def get_subalias_frame(sessionFrame: pd.DataFrame, subalias: dict):
+    if ("start_file" in subalias) and ("end_file" in subalias):
+        return slice_by_trigger_stem(
+            sessionFrame, subalias["start_file"], subalias["end_file"]
+        )
+    if ("start_time" in subalias) and ("end_time" in subalias):
+        return slice_by_datetime(
+            sessionFrame, subalias["start_time"], subalias["end_time"]
+        )
