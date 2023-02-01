@@ -12,7 +12,7 @@ import spikeinterface.postprocessing as sp
 import spikeinterface.qualitymetrics as sq
 import spikeinterface.sorters as ss
 from ecephys import wne
-from ecephys.utils import spikeinterface_utils as si_utils
+from ecephys.utils import siutils as si_utils
 
 from .preprocess_si_rec import preprocess_si_recording
 

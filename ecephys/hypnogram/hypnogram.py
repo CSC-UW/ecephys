@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import datetime
 import warnings
+from ecephys import utils
 from pathlib import Path
 from pandas.core.dtypes.common import (
     is_datetime64_any_dtype,
@@ -541,88 +542,9 @@ def get_separated_wake_hypnogram(qwk_intervals, awk_intervals):
 
 def reconcile_hypnograms(h1: pd.DataFrame, h2: pd.DataFrame) -> pd.DataFrame:
     """Combine two hypnograms such that any conflicts are resolved in favor of h1."""
-    h1 = h1.copy()
-    h2 = h2.copy()
-
-    for index, row in h1.iterrows():
-        # If h2 contains any interval exactly equivalent to this one, drop it.
-        identical_intervals = (h2["start_time"] == row["start_time"]) & (
-            h2["end_time"] == row["end_time"]
-        )
-        if any(identical_intervals):
-            assert (
-                sum(identical_intervals) == 1
-            ), "More than one interval in h2 is identical to an interval found in 1. Is h2 well formed?"
-            h2 = h2[~identical_intervals]
-
-        # If h2 contains any intervals wholly contained by this one, drop them.
-        sub_intervals = (h2["start_time"] >= row["start_time"]) & (
-            h2["end_time"] <= row["end_time"]
-        )
-        if any(sub_intervals):
-            h2 = h2[~sub_intervals]
-
-        # If h2 contains any interval that whole contains this one, split it into preceeding (left) and succeeding (right) intervals.
-        super_intervals = (h2["start_time"] <= row["start_time"]) & (
-            h2["end_time"] >= row["end_time"]
-        )
-        if any(super_intervals):
-            assert (
-                sum(super_intervals) == 1
-            ), "More than one interval in h2 wholly contains an interval found in h1. Is h2 well formed?"
-            super_interval = h2[super_intervals]
-            left_interval = super_interval.copy()
-            left_interval["end_time"] = row["start_time"]
-            left_interval["duration"] = (
-                left_interval["end_time"] - left_interval["start_time"]
-            )
-            right_interval = super_interval.copy()
-            right_interval["start_time"] = row["end_time"]
-            right_interval["duration"] = (
-                right_interval["end_time"] - right_interval["start_time"]
-            )
-            h2 = h2[~super_intervals]
-            h2 = (
-                h2.append([left_interval, right_interval])
-                .sort_values("start_time")
-                .reset_index(drop=True)
-            )
-
-        # If h2 contains any interval that overlaps the start of this interval, truncate it.
-        left_intervals = (
-            (h2["start_time"] < row["start_time"])
-            & (h2["end_time"] > row["start_time"])
-            & (h2["end_time"] < row["end_time"])
-        )
-        if any(left_intervals):
-            assert (
-                sum(left_intervals) == 1
-            ), "More than one interval in h2 overlaps the start of an interval found in h1. Is h2 well formed?"
-            left_interval = h2[left_intervals]
-            left_interval["end_time"] = row["start_time"]
-            left_interval["duration"] = (
-                left_interval["end_time"] - left_interval["start_time"]
-            )
-            h2[left_intervals] = left_interval
-
-        # If h2 contains any interval that overlaps the endof this interval, adjust its start time.
-        right_intervals = (
-            (h2["start_time"] > row["start_time"])
-            & (h2["start_time"] < row["end_time"])
-            & (h2["end_time"] > row["end_time"])
-        )
-        if any(right_intervals):
-            assert (
-                sum(right_intervals) == 1
-            ), "More than one interval in h2 overlaps the end of an interval found in h1. Is h2 well formed?"
-            right_interval = h2[right_intervals]
-            right_interval["start_time"] = row["end_time"]
-            right_interval["duration"] = (
-                right_interval["end_time"] - right_interval["start_time"]
-            )
-            h2[right_intervals] = right_interval
-
-    return h2.append(h1).sort_values("start_time").reset_index(drop=True)
+    return utils.reconcile_labeled_intervals(
+        h1, h2, "start_time", "end_time", "duration"
+    )
 
 
 def _check_datetime(dt):

@@ -9,7 +9,7 @@ import yaml
 
 import ecephys as ece
 import spikeinterface as si
-from ecephys.utils.spikeinterface_utils import load_single_segment_sglx_recording
+from ecephys.utils import siutils
 
 logger = logging.getLogger(__name__)
 
@@ -314,7 +314,7 @@ class Subject:
                 start_frame = srow["segmentFileStartSample"]
                 end_frame = srow["segmentFileEndSample"]
 
-            rec = load_single_segment_sglx_recording(
+            rec = siutils.load_single_segment_sglx_recording(
                 srow.gate_dir,
                 srow.gate_dir_trigger_file_idx,
                 stream_id,
