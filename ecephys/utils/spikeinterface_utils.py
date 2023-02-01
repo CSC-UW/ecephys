@@ -1,7 +1,4 @@
 import spikeinterface.extractors as se
-import spikeinterface as si
-
-from probeinterface.io import read_spikeglx
 from pathlib import Path
 
 
@@ -11,7 +8,7 @@ def load_kilosort_bin_as_si_recording(
     si_probe=None,
 ):
     ks_output_dir = Path(ks_output_dir)
-    recording_path = ks_output_dir/fname
+    recording_path = ks_output_dir / fname
     if not recording_path.exists():
         raise ValueError(
             f"Could not find bin file used for sorting at {recording_path}"
@@ -33,7 +30,7 @@ def load_kilosort_bin_as_si_recording(
         sampling_frequency=d["sample_rate"],
         num_chan=d["n_channels_dat"],
         dtype=d["dtype"],
-        is_filtered=d["hp_filtered"]
+        is_filtered=d["hp_filtered"],
     )
     assert d["hp_filtered"]
 
@@ -44,13 +41,17 @@ def load_kilosort_bin_as_si_recording(
 
 
 def load_single_segment_sglx_recording(
-    gate_dir, segment_idx, stream_id, start_frame=None, end_frame=None,
+    gate_dir,
+    segment_idx,
+    stream_id,
+    start_frame=None,
+    end_frame=None,
 ):
     all_segments_rec = se.SpikeGLXRecordingExtractor(
         gate_dir,
         stream_id=stream_id,
     )
     assert isinstance(segment_idx, int)
-    return all_segments_rec.select_segments(
-        [segment_idx]
-    ).frame_slice(start_frame=start_frame, end_frame=end_frame)
+    return all_segments_rec.select_segments([segment_idx]).frame_slice(
+        start_frame=start_frame, end_frame=end_frame
+    )
