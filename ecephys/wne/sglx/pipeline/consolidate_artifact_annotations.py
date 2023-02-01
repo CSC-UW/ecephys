@@ -6,15 +6,14 @@ from tqdm.auto import tqdm
 logger = logging.getLogger(__name__)
 
 
-def do_probe(wneProject, wneSubject, experiment, probe):
+def do_probe_stream(wneProject, wneSubject, experiment, probe, stream):
     artifacts = list()
-    ftab = wneSubject.get_lfp_bin_table(experiment, probe=probe)
+    ftab = wneSubject.get_experiment_frame(experiment, stream=stream, ftype="bin", probe=probe)
     for ix, lfpfile in tqdm(list(ftab.iterrows())):
         [artfile] = wneProject.get_sglx_counterparts(
             wneSubject.name,
             [lfpfile["path"]],
             ece.wne.constants.ARTIFACTS_EXT,
-            remove_stream=True,  # TODO: It turns out artifacts can be stream specific, so these files should be too.
         )
         logger.debug(f"Looking for file {artfile.name}")
         if not artfile.is_file():
@@ -30,7 +29,7 @@ def do_probe(wneProject, wneSubject, experiment, probe):
     if artifacts:
         df = pd.concat(artifacts, ignore_index=True)
         outfile = wneProject.get_experiment_subject_file(
-            experiment, wneSubject.name, f"{probe}.{ece.wne.constants.ARTIFACTS_FNAME}"
+            experiment, wneSubject.name, f"{probe}.{stream}.{ece.wne.constants.ARTIFACTS_FNAME}"
         )
         ece.utils.write_htsv(df, outfile)
 
@@ -38,4 +37,5 @@ def do_probe(wneProject, wneSubject, experiment, probe):
 def do_experiment(wneProject, wneSubject, experiment, probes=None):
     probes = wneSubject.get_experiment_probes(experiment) if probes is None else probes
     for probe in probes:
-        do_probe(wneProject, wneSubject, experiment, probe)
+        for stream in ["ap", "lf"]:
+            do_probe_stream(wneProject, wneSubject, experiment, probe, stream)

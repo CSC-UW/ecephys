@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import probeinterface as pi
 import yaml
-from horology import Timing, timed
+from horology import Timing
 
 import spikeinterface.extractors as se
 import spikeinterface.full as si
@@ -46,13 +46,14 @@ class AbstractSortingPipeline:
         self.probe = probe
 
         # Pipeline options
+        # If no options are provided, use the ones found in the WNE project.
         if opts_filepath is None:
             self.opts = self.wneProject.load_experiment_subject_json(
                 experimentName,
                 self.wneSubject.name,
                 wne.constants.SORTING_PIPELINE_PARAMS_FNAME,
             )
-        else:
+        else: # Otherwise, load from the specified file path.
             opts_filepath = Path(opts_filepath)
             assert opts_filepath.exists(), f"{opts_filepath}"
             with open(opts_filepath, "r") as f:
@@ -345,7 +346,7 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
             time_ranges=self.time_ranges,
             artifacts_frame=self.artifacts_frame,
             sampling_frequency_max_diff=1e-06,
-            how="concatenate",
+            combine="concatenate",
         )
 
     def load_si_sorting_extractor(self):

@@ -1,15 +1,14 @@
 import logging
+import yaml
+import ecephys as ece
+import itertools as it
+import numpy as np
+import pandas as pd
+import spikeinterface as si
+import spikeinterface.extractors as se
+
 from pathlib import Path
 from typing import Optional
-import numpy as np
-import numpy.testing as npt
-import itertools as it
-import pandas as pd
-import yaml
-
-import ecephys as ece
-import spikeinterface as si
-from ecephys.utils import siutils
 
 logger = logging.getLogger(__name__)
 
@@ -47,12 +46,12 @@ class Subject:
 
     def get_experiment_frame(
         self,
-        experimentName: str,
-        aliasName=None,
+        experiment: str,
+        alias=None,
         **kwargs,
     ) -> pd.DataFrame:
         """Get all SpikeGLX files matching selection criteria."""
-        sessionIDs = self.doc["experiments"][experimentName]["recording_session_ids"]
+        sessionIDs = self.doc["experiments"][experiment]["recording_session_ids"]
         frame = self.cache[
             self.cache["session"].isin(sessionIDs)
         ]  # Get the cache slice containing this experiment.
@@ -60,11 +59,11 @@ class Subject:
         # This exists to get around limitations of SpikeInterface, so can hopefully be removed one day.
         frame = _get_gate_dir_trigger_file_index(frame)
 
-        if aliasName is not None:
-            subaliases = self.doc["experiments"][experimentName]["aliases"][aliasName]
+        if alias is not None:
+            subaliases = self.doc["experiments"][experiment]["aliases"][alias]
             if not isinstance(subaliases, list):
                 raise ValueError(
-                    f"Alias {aliasName} must be specified as a list of subaliases, even if there is only a single subalias."
+                    f"Alias {alias} must be specified as a list of subaliases, even if there is only a single subalias."
                 )
             subaliasFrames = [
                 ece.wne.sglx.sessions.get_subalias_frame(frame, sa) for sa in subaliases
@@ -113,13 +112,13 @@ class Subject:
         dt0, _ = self.get_experiment_data_times(experiment, probe, as_datetimes=True)
         return (dt - dt0) / pd.to_timedelta("1s")
 
-    def get_alias_datetimes(self, experimentName: str, aliasName: str) -> list[tuple]:
-        subaliases = self.doc["experiments"][experimentName]["aliases"][aliasName]
+    def get_alias_datetimes(self, experiment: str, alias: str) -> list[tuple]:
+        subaliases = self.doc["experiments"][experiment]["aliases"][alias]
 
         def get_subalias_datetimes(subalias: dict) -> tuple:
             if not ("start_time" in subalias) and ("end_time" in subalias):
                 raise NotImplementedError(
-                    f"All subaliases of {aliasName} must have start_time and end_time fields."
+                    f"All subaliases of {alias} must have start_time and end_time fields."
                 )
             return (
                 pd.to_datetime(subalias["start_time"]),
@@ -128,237 +127,18 @@ class Subject:
 
         return [get_subalias_datetimes(sa) for sa in subaliases]
 
-    def split_file_frame(
-        self,
-        fframe: pd.DataFrame,
-        artifacts_frame: Optional[pd.DataFrame] = None,
-    ) -> pd.DataFrame:
-        """Split file rows into segment around artifacts."""
-
-        if artifacts_frame is None:
-            artifacts_frame = pd.DataFrame()  # So we add columns of interest anyway
-        else:
-            assert all(
-                [c in artifacts_frame.columns for c in ["start", "stop", "file"]]
-            )
-
-        segment_rows = []
-        for _, frow in fframe.iterrows():
-
-            # Artifacts of interest for each file
-            fstem = f"{frow['run']}_{frow['gate']}_{frow['trigger']}"
-            if len(artifacts_frame):
-                fartifacts = artifacts_frame.loc[artifacts_frame["file"] == fstem]
-            else:
-                fartifacts = pd.DataFrame()
-
-            # Iterate on file's artifacts
-            srate = float(frow["imSampRate"])
-            wneFileStartTime = float(frow["wneFileStartTime"])
-            currentSegmentFileStartSample = int(0)
-            currentSegmentFileStartTime = float(currentSegmentFileStartSample) / srate
-            currentSegmentIdx = 0
-
-            for _, arow in fartifacts.iterrows():
-
-                aStart = float(arow["start"])
-                assert aStart >= wneFileStartTime + currentSegmentFileStartTime
-                assert aStart < float(frow["wneFileEndTime"])
-                aStop = float(arow["stop"])
-                if aStop >= float(frow["wneFileEndTime"]):
-                    # Trim to end of file
-                    aFileStopSamp = int(frow["nFileSamp"])
-                else:
-                    aFileStopSamp = int((aStop - wneFileStartTime) * srate)
-
-                srow = frow.copy(deep=True)
-                srow["segment_idx"] = currentSegmentIdx
-                srow["segmentFileStartSample"] = int(currentSegmentFileStartSample)
-                srow["segmentFileEndSample"] = int((aStart - wneFileStartTime) * srate)
-                srow["nSegmentSamp"] = (
-                    srow["segmentFileEndSample"] - srow["segmentFileStartSample"]
-                )
-
-                # Prepare next: First sample after end of artifact
-                currentSegmentIdx += 1
-                currentSegmentFileStartSample = aFileStopSamp
-                currentSegmentFileStartTime = currentSegmentFileStartSample / srate
-
-                segment_rows.append(srow)
-
-            # Last segment of file: end of artifact (or start of file) to end of file
-            srow = frow.copy(deep=True)
-            srow["segment_idx"] = currentSegmentIdx
-            srow["segmentFileStartSample"] = int(currentSegmentFileStartSample)
-            # Make sure we get to the last sample
-            srow["segmentFileEndSample"] = int(frow["nFileSamp"])  # Up to end of file
-            srow["nSegmentSamp"] = int(
-                srow["segmentFileEndSample"] - srow["segmentFileStartSample"]
-            )
-
-            segment_rows.append(srow)
-
-        sframe = pd.concat(segment_rows, axis=1).T
-
-        # Convert Samples to FileTimes and wneTimes
-        sframe["segmentFileStartTime"] = (
-            sframe["segmentFileStartSample"].astype(float) / srate
-        )
-        sframe["segmentFileEndTime"] = (
-            sframe["segmentFileEndSample"].astype(float) / srate
-        )
-        sframe["wneSegmentStartTime"] = (
-            sframe["wneFileStartTime"].astype(float) + sframe["segmentFileStartTime"]
-        )
-        sframe["wneSegmentEndTime"] = (
-            sframe["wneFileStartTime"].astype(float) + sframe["segmentFileEndTime"]
-        )
-        # # Duration
-        sframe["wneSegmentTimeSecs"] = (
-            sframe["wneSegmentEndTime"] - sframe["wneSegmentStartTime"]
-        )
-        sframe["segmentTimeSecs"] = (
-            sframe["segmentFileEndTime"] - sframe["segmentFileStartTime"]
-        )
-        # Ratio of total size
-        sframe["segmentFileSizeRatio"] = sframe["nSegmentSamp"].astype(float) / sframe[
-            "nFileSamp"
-        ].astype(float)
-        sframe["segmentIsFullFile"] = sframe["nSegmentSamp"].astype(int) == sframe[
-            "nFileSamp"
-        ].astype(int)
-
-        # Remove empty segments
-        mask = sframe["nSegmentSamp"] > 0
-        sframe = sframe.loc[mask].reset_index()
-
-        # Sanity check
-        if artifacts_frame is None or not len(artifacts_frame):
-            assert np.all(sframe["nSegmentSamp"] == sframe["nFileSamp"])
-        assert sframe["wneSegmentStartTime"].is_monotonic_increasing
-
-        return sframe
-
-    def get_segment_frame(
-        self,
-        experimentName: str,
-        aliasName: Optional[str] = None,
-        artifacts_frame: Optional[pd.DataFrame] = None,
-        **kwargs,
-    ) -> pd.DataFrame:
-        """Return frame split around artifacts.
-
-        When there is no artifact in a file, the segment is the full file.
-        The time of artifacts are approximate, as are the wne times, but we ensure
-        that the first segment starts at the first file sample and the last segment ends
-        at the end of file.
-
-        The returned segment frame mimicks the file table with the following extra columns.
-        - 'segment_idx': Index of segment in file.
-        - 'segmentFileStartSample', 'segmentFileEndSample', 'nSegmentSamp':
-            Start, end, duration of segment relative to file start in samples (exact)
-            Start is exclusive, end is exclusive as for usual python slices.
-        - 'segmentFileStartTime', 'segmentFileEndTime', 'segmentTimeSecs':
-            Start, end, duration of segment relative to file start (approximate)
-        - 'wneSegmentStartTime', 'wneSegmentEndTime', 'wneSegmentTimeSecs':
-            Start, end, duration time relative to experiment start (approximate)
-        - 'segmentFileSizeRatio', 'segmentIsFullFile'
-        """
-        fframe = self.get_experiment_frame(
-            experimentName,
-            aliasName=aliasName,
-            **kwargs,
-        )
-        return self.split_file_frame(
-            fframe,
-            artifacts_frame=artifacts_frame,
-        )
-
-    ### Spike interface recordings
-
-    def _get_single_segment_si_recordings_list(
+    def get_si_recording(
         self,
         experiment: str,
         alias: str,
         stream: str,
         probe: str,
-        time_ranges: Optional[list] = None,
-        artifacts_frame: Optional[pd.DataFrame] = None,
-    ):
-
-        sframe = self.get_segment_frame(
-            experiment,
-            alias,
-            artifacts_frame=artifacts_frame,
-            probe=probe,
-            stream=stream,
-            ftype="bin",
-        )
-
-        if time_ranges is not None and artifacts_frame is not None:
-            raise ValueError(
-                "Can't provide both `time_ranges` and `artifacts_frame` kwargs"
-            )
-        if time_ranges is not None:
-            assert len(time_ranges) == len(sframe)
-
-        stream_id = f"{probe}.{stream}"
-        segment_recordings = []
-
-        for i, (_, srow) in enumerate(sframe.iterrows()):
-
-            if time_ranges is not None:
-                start_frame = int(time_ranges[i][0] * float(srow["imSampRate"]))
-                end_frame = int(time_ranges[i][1] * float(srow["imSampRate"]))
-            else:
-                start_frame = srow["segmentFileStartSample"]
-                end_frame = srow["segmentFileEndSample"]
-
-            rec = siutils.load_single_segment_sglx_recording(
-                srow.gate_dir,
-                srow.gate_dir_trigger_file_idx,
-                stream_id,
-                start_frame=start_frame,
-                end_frame=end_frame,
-            )
-
-            segment_recordings.append(rec)
-
-        # Sanity check
-        for i, srec in enumerate(segment_recordings):
-            if artifacts_frame is not None:
-                npt.assert_almost_equal(
-                    srec.get_total_duration(),
-                    float(sframe["segmentTimeSecs"].values[i]),
-                    decimal=6,
-                )
-                assert srec.get_total_duration() == float(
-                    sframe["segmentTimeSecs"].values[i]
-                )
-                assert srec.get_total_samples() == int(sframe["nSegmentSamp"].values[i])
-            elif time_ranges is not None:
-                npt.assert_almost_equal(
-                    srec.get_total_duration(),
-                    (time_ranges[i][1] - time_ranges[i][0]),
-                    decimal=3,
-                )
-            else:
-                # assert srec.get_total_duration() == float(sframe["fileTimeSecs"].values[i])  # Sometimes fileTimeSecs doesn't match nFileSamp
-                assert srec.get_total_samples() == int(sframe["nFileSamp"].values[i])
-
-        return segment_recordings
-
-    def get_si_recording(
-        self,
-        experimentName: str,
-        alias: str,
-        stream: str,
-        probe: str,
-        time_ranges: Optional[list] = None,
-        artifacts_frame: Optional[pd.DataFrame] = None,
+        combine: str = "concatenate",
+        exclusions: pd.DataFrame = pd.DataFrame(
+            {"fname": [], "start_time": [], "end_time": [], "type": []}
+        ),
         sampling_frequency_max_diff: Optional[float] = 0,
-        how: str = "concatenate",
-    ) -> si.BaseRecording:
+    ) -> tuple[si.BaseRecording, pd.DataFrame]:
         """Combine the one or more recordings comprising an experiment or alias into a single SI recording object.
 
         Parameters
@@ -369,26 +149,34 @@ class Subject:
             If 'append', the returned recording object consists of multiple segments.
             This might be useful for certain preprocessing, postprocessing operations, etc.
         """
-        single_segment_recordings = self._get_single_segment_si_recordings_list(
-            experimentName,
-            alias,
-            stream,
-            probe,
-            time_ranges=time_ranges,
-            artifacts_frame=artifacts_frame,
+        ftab = self.get_experiment_frame(
+            experiment, alias=alias, stream=stream, ftype="bin", probe=probe
         )
-        if how == "concatenate":
-            return si.concatenate_recordings(
-                single_segment_recordings,
-                sampling_frequency_max_diff=sampling_frequency_max_diff,
+        segments = segment_experiment_frame_for_spikeinterface(ftab, exclusions)
+        good_segments = segments[segments["type"] == "keep"]
+        recordings = list()
+        for _, segment in good_segments.iterrows():
+            extractor = se.SpikeGLXRecordingExtractor(
+                segment["gate_dir"], stream_id=f"{probe}.{stream}"
             )
-        elif how == "append":
-            return si.append_recordings(
-                single_segment_recordings,
-                sampling_frequency_max_diff=sampling_frequency_max_diff,
+            recording = extractor.select_segments(
+                [segment["gate_dir_trigger_file_idx"]]
+            ).frame_slice(
+                start_frame=segment["start_frame"], end_frame=segment["end_frame"]
             )
+            recordings.append(recording)
+
+        if combine == "concatenate":
+            fn = si.concatenate_recordings
+        elif combine == "append":
+            fn = si.append_recordings
         else:
-            raise ValueError(f"Got unexpected value for `how`: {how}")
+            raise ValueError(f"Got unexpected value for `how`: {combine}")
+
+        recording = fn(
+            recordings, sampling_frequency_max_diff=sampling_frequency_max_diff
+        )
+        return recording, segments
 
     @staticmethod
     def load_yaml_doc(yaml_path):
@@ -471,3 +259,57 @@ def _get_gate_dir_trigger_file_index(ftab: pd.DataFrame) -> pd.DataFrame:
     ftab["gate_dir_trigger_file_idx"] = ftab["gate_dir_trigger_file_idx"].astype(int)
 
     return ftab
+
+
+def segment_experiment_frame_for_spikeinterface(
+    ftab: pd.DataFrame, exclusions: pd.DataFrame
+):
+    segments = list()
+    for _, file in ftab.iterrows():
+        ns = file["nFileSamp"]
+        fname = file["path"].name
+        mask = exclusions["fname"] == fname
+
+        exclusions.loc[mask, "start_frame"] = (
+            (exclusions.loc[mask, "start_time"] * file["imSampRate"])
+            .astype(int)
+            .clip(0, ns - 1)
+        )
+        exclusions.loc[mask, "end_frame"] = (
+            (exclusions.loc[mask, "end_time"] * file["imSampRate"])
+            .astype(int)
+            .clip(0, ns - 1)
+        )
+
+        file_segments = ece.utils.reconcile_labeled_intervals(
+            exclusions.loc[mask, ["start_frame", "end_frame", "type"]],
+            pd.DataFrame({"start_frame": [0], "end_frame": [ns - 1], "type": "keep"}),
+            "start_frame",
+            "end_frame",
+        ).drop(columns="delta")
+        file_segments["fname"] = fname
+
+        keep = file_segments["type"] == "keep"
+        illegal_start_frames = file_segments[~keep]["end_frame"].values
+        illegal_end_frames = file_segments[~keep]["start_frame"].values
+        i = file_segments["end_frame"].isin(illegal_end_frames)
+        j = file_segments["start_frame"].isin(illegal_start_frames)
+        file_segments.loc[i, "end_frame"] -= 1
+        file_segments.loc[j, "start_frame"] += 1
+
+        assert (
+            file_segments["start_frame"].min() == 0
+        ), "Something went wrong when splitting file around exclusions."
+        assert file_segments["end_frame"].max() == (
+            ns - 1
+        ), "Something went wrong when splitting file around exclusions."
+        segments.append(file_segments)
+        assert (
+            file_segments["end_frame"] - file_segments["start_frame"] + 1
+        ).sum() == ns, "Something went wrong when splitting file around exclusions."
+
+    segments = pd.concat(segments, ignore_index=True).astype(
+        {"start_frame": int, "end_frame": int}
+    )
+    ftab["fname"] = ftab["path"].apply(lambda x: x.name)
+    return segments.merge(ftab, on="fname")

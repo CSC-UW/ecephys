@@ -1,7 +1,7 @@
 import spikeinterface.extractors as se
 from pathlib import Path
 
-
+# TODO: Is this still used?
 def load_kilosort_bin_as_si_recording(
     ks_output_dir,
     fname="temp_wh.dat",
@@ -38,20 +38,3 @@ def load_kilosort_bin_as_si_recording(
         rec = rec.set_probe(si_probe)
 
     return rec
-
-
-def load_single_segment_sglx_recording(
-    gate_dir,
-    segment_idx,
-    stream_id,
-    start_frame=None,
-    end_frame=None,
-):
-    all_segments_rec = se.SpikeGLXRecordingExtractor(
-        gate_dir,
-        stream_id=stream_id,
-    )
-    assert isinstance(segment_idx, int)
-    return all_segments_rec.select_segments([segment_idx]).frame_slice(
-        start_frame=start_frame, end_frame=end_frame
-    )
