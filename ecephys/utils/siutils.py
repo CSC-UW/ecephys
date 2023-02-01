@@ -1,7 +1,7 @@
 import spikeinterface.extractors as se
 from pathlib import Path
 
-# TODO: Is this still used?
+
 def load_kilosort_bin_as_si_recording(
     ks_output_dir,
     fname="temp_wh.dat",
