@@ -264,7 +264,7 @@ class Subject:
             Start, end, duration time relative to experiment start (approximate)
         - 'segmentFileSizeRatio', 'segmentIsFullFile'
         """
-        fframe = self.get_file_frame(
+        fframe = self.get_experiment_frame(
             experimentName,
             aliasName=aliasName,
             **kwargs,
