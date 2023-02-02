@@ -143,16 +143,38 @@ class Subject:
 
         Parameters
         ==========
-        how: 'concatenate' or 'append'
+        combine: 'concatenate' or 'append'
             If 'concatenate' (default), the returned recording object is one single monolothic segment.
             This is the default behavior, because SI sorters currently only work on single-segment recordings.
             If 'append', the returned recording object consists of multiple segments.
             This might be useful for certain preprocessing, postprocessing operations, etc.
+        exclusions:
+            Specify which parts of the recording to drop.
+            fname: The name of the file (e.g. 3-2-2021_J_g0_t1.imec1.ap.bin)
+            start_time: The start time of the data to drop, in seconds from the start of the file.
+            end_time: The end time of the data to drop, in seconds from the start of the file.
+                If greater than the file duration, the excess time will be ignored, not dropped from the next file.
+            type: A label you can assign to keep track of why this data was excluded. As long as the value is not "keep", the data will be dropped.
+
+        Returns
+        =======
+        recording:
+            The combined SI recording object.
+        segments:
+            A dataframe where each row is a segment of data to keep, or drop, sorted in chronological order.
+                fname: The name of the file (e.g. 3-2-2021_J_g0_t1.imec1.ap.bin)
+                start_frame: The first sample index of the segment, measured from the start of the file (0-indexed)
+                end_frame: The final sample index of the segment, measured from the start of the file (0-indexed)
+                type: Either 'keep', in which case the segment was kept, or other, in which case the segment was dropped.
         """
+        # Get the experiment frame. This should be for a single probe, and a single stream.
         ftab = self.get_experiment_frame(
             experiment, alias=alias, stream=stream, ftype="bin", probe=probe
         )
+        # Split the experiment frame around the exclusions, using precise sample indices.
         segments = segment_experiment_frame_for_spikeinterface(ftab, exclusions)
+
+        # Take the good segments one by one, create an recording object for each, and save these all in a list
         good_segments = segments[segments["type"] == "keep"]
         recordings = list()
         for _, segment in good_segments.iterrows():
@@ -166,16 +188,20 @@ class Subject:
             )
             recordings.append(recording)
 
+        # Combine the good segments
         if combine == "concatenate":
             fn = si.concatenate_recordings
         elif combine == "append":
             fn = si.append_recordings
         else:
-            raise ValueError(f"Got unexpected value for `how`: {combine}")
+            raise ValueError(f"Got unexpected value for `combine`: {combine}")
 
         recording = fn(
             recordings, sampling_frequency_max_diff=sampling_frequency_max_diff
         )
+
+        # We return both recording and segments together, rather than making the available separately,
+        # to ensure that you never get a segment table unless it is actually proven to produce a valid extractor object.
         return recording, segments
 
     @staticmethod
@@ -263,13 +289,22 @@ def _get_gate_dir_trigger_file_index(ftab: pd.DataFrame) -> pd.DataFrame:
 
 def segment_experiment_frame_for_spikeinterface(
     ftab: pd.DataFrame, exclusions: pd.DataFrame
-):
+) -> pd.DataFrame:
+    """Split an experiment frame for a single probe, steam, and filetype around a set of periods to exclude.
+    For details, see `get_si_recording()`.
+    """
     segments = list()
+    # For each file in the experiment, split it if necessary.
+    # If not, just create a segment that is the entire file.
     for _, file in ftab.iterrows():
         ns = file["nFileSamp"]
         fname = file["path"].name
-        mask = exclusions["fname"] == fname
+        mask = (
+            exclusions["fname"] == fname
+        )  # Get the exclusions pertaining to this file.
 
+        # For the exclusions pertaining to this file, convert their definition in seconds to precise sample indices,
+        # and clip these estimates so that sample indices don't extend beyond the ends of the file.
         exclusions.loc[mask, "start_frame"] = (
             (exclusions.loc[mask, "start_time"] * file["imSampRate"])
             .astype(int)
@@ -281,6 +316,7 @@ def segment_experiment_frame_for_spikeinterface(
             .clip(0, ns - 1)
         )
 
+        # Do the actual splitting of the entire file around the exclusions
         file_segments = ece.utils.reconcile_labeled_intervals(
             exclusions.loc[mask, ["start_frame", "end_frame", "type"]],
             pd.DataFrame({"start_frame": [0], "end_frame": [ns - 1], "type": "keep"}),
@@ -289,6 +325,11 @@ def segment_experiment_frame_for_spikeinterface(
         ).drop(columns="delta")
         file_segments["fname"] = fname
 
+        # The function above considers intervals to be open-ended, so that (a, b) and (b, c) are considered NON-overlapping.
+        # This means that sample b would be in both a good and a a bad segment, based on the way that spikeinterface slices.
+        # Therefore, we adjust our sample indices to remove the single-sample overlap, always shortening good segments in favor
+        # of preserving bad segments, in order to be conservative.
+        # For example, if (a, b) is a good segment, and (b, c) is a bad segment, the new segments will be (a, b - 1) and (b, c).
         keep = file_segments["type"] == "keep"
         illegal_start_frames = file_segments[~keep]["end_frame"].values
         illegal_end_frames = file_segments[~keep]["start_frame"].values
@@ -297,6 +338,7 @@ def segment_experiment_frame_for_spikeinterface(
         file_segments.loc[i, "end_frame"] -= 1
         file_segments.loc[j, "start_frame"] += 1
 
+        # Do some sanity checks, ensuring that every sample in the file is accounted for.
         assert (
             file_segments["start_frame"].min() == 0
         ), "Something went wrong when splitting file around exclusions."
@@ -308,6 +350,7 @@ def segment_experiment_frame_for_spikeinterface(
             file_segments["end_frame"] - file_segments["start_frame"] + 1
         ).sum() == ns, "Something went wrong when splitting file around exclusions."
 
+    # Return the segments, adding metadata about the files that they come from, for convenience.
     segments = pd.concat(segments, ignore_index=True).astype(
         {"start_frame": int, "end_frame": int}
     )
