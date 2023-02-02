@@ -7,21 +7,29 @@ from horology import Timing
 
 import spikeinterface.full as si
 from spikeinterface.sortingcomponents.motion_correction import (
-    CorrectMotionRecording, correct_motion_on_peaks)
+    CorrectMotionRecording,
+    correct_motion_on_peaks,
+)
 from spikeinterface.sortingcomponents.motion_estimation import (
-    clean_motion_vector, estimate_motion)
+    clean_motion_vector,
+    estimate_motion,
+)
 from spikeinterface.sortingcomponents.peak_detection import detect_peaks
 from spikeinterface.sortingcomponents.peak_localization import (
-    LocalizeCenterOfMass, LocalizeMonopolarTriangulation, localize_peaks)
-from spikeinterface.widgets import (plot_displacement,
-                                    plot_pairwise_displacement)
+    LocalizeCenterOfMass,
+    LocalizeMonopolarTriangulation,
+    localize_peaks,
+)
+from spikeinterface.widgets import plot_displacement, plot_pairwise_displacement
 
 logger = logging.getLogger(__name__)
 
 
-def get_raw_peak_fig(si_rec, peaks, peak_locations, motion, temporal_bins, spatial_bins, extra_check):
+def get_raw_peak_fig(
+    si_rec, peaks, peak_locations, motion, temporal_bins, spatial_bins, extra_check
+):
 
-    ALPHA = 0.002 # >= 0.002 or invisible
+    ALPHA = 0.002  # >= 0.002 or invisible
     if len(peaks) <= 50e6:
         DECIMATE_RATIO = 1
     else:
@@ -30,18 +38,13 @@ def get_raw_peak_fig(si_rec, peaks, peak_locations, motion, temporal_bins, spati
     fig, ax = plt.subplots(figsize=(20, 60))
 
     # Peak motion
-    x = peaks[::DECIMATE_RATIO]['sample_ind'] / si_rec.get_sampling_frequency()
-    y = peak_locations[::DECIMATE_RATIO]['y']
+    x = peaks[::DECIMATE_RATIO]["sample_ind"] / si_rec.get_sampling_frequency()
+    y = peak_locations[::DECIMATE_RATIO]["y"]
 
-    ax.scatter(x, y, s=1, color='k', alpha=ALPHA)
-    
+    ax.scatter(x, y, s=1, color="k", alpha=ALPHA)
+
     plot_displacement(
-        motion,
-        temporal_bins,
-        spatial_bins,
-        extra_check,
-        with_histogram=False,
-        ax=ax
+        motion, temporal_bins, spatial_bins, extra_check, with_histogram=False, ax=ax
     )
     ax.set_title(
         f"Original peaks and estimated motion \n"
@@ -51,8 +54,17 @@ def get_raw_peak_fig(si_rec, peaks, peak_locations, motion, temporal_bins, spati
     return fig
 
 
-def get_peak_displacement_fig(si_rec, peaks, peak_locations, peak_locations_corrected, motion, temporal_bins, spatial_bins, extra_check):
-    ALPHA = 0.002 # >= 0.002 or invisible
+def get_peak_displacement_fig(
+    si_rec,
+    peaks,
+    peak_locations,
+    peak_locations_corrected,
+    motion,
+    temporal_bins,
+    spatial_bins,
+    extra_check,
+):
+    ALPHA = 0.002  # >= 0.002 or invisible
     if len(peaks) <= 50e6:
         DECIMATE_RATIO = 1
     else:
@@ -62,19 +74,14 @@ def get_peak_displacement_fig(si_rec, peaks, peak_locations, peak_locations_corr
     spec = fig.add_gridspec(2, 3)
 
     # Peak motion
-    x = peaks[::DECIMATE_RATIO]['sample_ind'] / si_rec.get_sampling_frequency()
-    y = peak_locations[::DECIMATE_RATIO]['y']
-    y_corrected = peak_locations_corrected[::DECIMATE_RATIO]['y']
+    x = peaks[::DECIMATE_RATIO]["sample_ind"] / si_rec.get_sampling_frequency()
+    y = peak_locations[::DECIMATE_RATIO]["y"]
+    y_corrected = peak_locations_corrected[::DECIMATE_RATIO]["y"]
 
-    ax = fig.add_subplot(spec[:, 0]) # Left
-    ax.scatter(x, y, s=1, color='k', alpha=ALPHA)
+    ax = fig.add_subplot(spec[:, 0])  # Left
+    ax.scatter(x, y, s=1, color="k", alpha=ALPHA)
     plot_displacement(
-        motion,
-        temporal_bins,
-        spatial_bins,
-        extra_check,
-        with_histogram=False,
-        ax=ax
+        motion, temporal_bins, spatial_bins, extra_check, with_histogram=False, ax=ax
     )
     ax.set_title(
         f"Original peaks and estimated motion \n"
@@ -82,15 +89,15 @@ def get_peak_displacement_fig(si_rec, peaks, peak_locations, peak_locations_corr
     )
 
     ax = fig.add_subplot(spec[:, 1])
-    ax.scatter(x, y_corrected, s=1, color='k', alpha=ALPHA)
+    ax.scatter(x, y_corrected, s=1, color="k", alpha=ALPHA)
     ax.set_title("Corrected peaks")
 
     # Peak motion
-    ax = fig.add_subplot(spec[0, 2]) # Top right
+    ax = fig.add_subplot(spec[0, 2])  # Top right
     ax.plot(motion)
     ax.set_title("Motion estimates")
 
-    ax = fig.add_subplot(spec[1, 2]) # Bottom right
+    ax = fig.add_subplot(spec[1, 2])  # Bottom right
     ax.plot(motion)
     ax.set_ylim(-100, 100)
     ax.set_title("Motion estimates")
@@ -118,8 +125,7 @@ def _compute_peaks(
     with Timing(name="Detect peaks: "):
         peak_pipeline_steps = [
             PEAK_LOCALIZATION_FUNCTIONS[peak_localization_method](
-                si_rec,
-                **peak_localization_params
+                si_rec, **peak_localization_params
             )
         ]
 
@@ -151,7 +157,7 @@ def _compute_motion(
             verbose=False,
             direction="y",
             upsample_to_histogram_bin=False,  # Keep false if we clean motion separately
-            post_clean=False, # We clean in separate step
+            post_clean=False,  # We clean in separate step
             **motion_params,
             **motion_method_params,
         )
@@ -166,10 +172,7 @@ def _clean_motion(
 ):
     with Timing(name="Clean motion: "):
         motion = clean_motion_vector(
-            motion,
-            temporal_bins,
-            bin_duration_s,
-            **clean_motion_params
+            motion, temporal_bins, bin_duration_s, **clean_motion_params
         )
     return motion
 
@@ -179,7 +182,7 @@ def _prepro_drift_correction(
     output_dir=None,
     noise_level_params=None,
     peak_detection_params=None,
-    peak_localization_method='center_of_mass',
+    peak_localization_method="center_of_mass",
     peak_localization_params=None,
     motion_params=None,
     motion_method_params=None,
@@ -205,15 +208,13 @@ def _prepro_drift_correction(
 
     # Output
     output_dir.mkdir(parents=True, exist_ok=True)
-    peaks_path = output_dir/'peaks.npy'
-    peak_locations_path = output_dir/'peak_locations.npy'
-    motion_path = output_dir/'motion_non_rigid.npz'
-    clean_motion_path = output_dir/'motion_non_rigid_clean.npz'
+    peaks_path = output_dir / "peaks.npy"
+    peak_locations_path = output_dir / "peak_locations.npy"
+    motion_path = output_dir / "motion_non_rigid.npz"
+    clean_motion_path = output_dir / "motion_non_rigid_clean.npz"
 
     compute_peaks = (
-        rerun_existing 
-        or not peaks_path.exists()
-        or not peak_locations_path.exists()
+        rerun_existing or not peaks_path.exists() or not peak_locations_path.exists()
     )
     if compute_peaks:
         print("(Re)compute peaks")
@@ -238,11 +239,7 @@ def _prepro_drift_correction(
         peaks = np.load(peaks_path)
         peak_locations = np.load(peak_locations_path)
 
-    compute_motion = (
-        rerun_existing
-        or compute_peaks
-        or not motion_path.exists()
-    )
+    compute_motion = rerun_existing or compute_peaks or not motion_path.exists()
     if compute_motion:
         print("(Re)compute motion (no cleaning)")
         motion, temporal_bins, spatial_bins, extra_check = _compute_motion(
@@ -255,30 +252,26 @@ def _prepro_drift_correction(
         print("Save uncleaned motion at :")
         print(motion_path)
         np.savez(
-            motion_path, 
+            motion_path,
             motion=motion,
             temporal_bins=temporal_bins,
             spatial_bins=spatial_bins,
-            **extra_check
+            **extra_check,
         )
     else:
         print("Load uncleaned motion from :")
         print(motion_path)
         npz = np.load(motion_path)
-        motion = npz['motion']
-        temporal_bins = npz['temporal_bins']
-        spatial_bins = npz['spatial_bins']
-        extra_check=dict(
+        motion = npz["motion"]
+        temporal_bins = npz["temporal_bins"]
+        spatial_bins = npz["spatial_bins"]
+        extra_check = dict(
             # motion_histogram=npz['motion_histogram'],
             # spatial_hist_bins=npz['spatial_hist_bins'],
             # temporal_hist_bins=npz['temporal_hist_bins'],
         )
 
-    clean_motion = (
-        rerun_existing
-        or compute_motion
-        or not clean_motion_path.exists()
-    )
+    clean_motion = rerun_existing or compute_motion or not clean_motion_path.exists()
     if clean_motion:
         print("(Re)clean motion")
         if clean_motion_params is not None:
@@ -287,27 +280,27 @@ def _prepro_drift_correction(
                 motion,
                 temporal_bins,
                 clean_motion_params,
-                motion_params["bin_duration_s"]
+                motion_params["bin_duration_s"],
             )
         else:
             motion_clean = motion
         print("Save clean motion at :")
         print(clean_motion_path)
         np.savez(
-            clean_motion_path, 
+            clean_motion_path,
             motion=motion_clean,
             temporal_bins=temporal_bins,
             spatial_bins=spatial_bins,
-            **extra_check
+            **extra_check,
         )
     else:
         print("Load clean motion from :")
         print(clean_motion_path)
         npz = np.load(motion_path)
-        motion_clean = npz['motion']
-        temporal_bins = npz['temporal_bins']
-        spatial_bins = npz['spatial_bins']
-        extra_check=dict(
+        motion_clean = npz["motion"]
+        temporal_bins = npz["temporal_bins"]
+        spatial_bins = npz["spatial_bins"]
+        extra_check = dict(
             # motion_histogram=npz['motion_histogram'],
             # spatial_hist_bins=npz['spatial_hist_bins'],
             # temporal_hist_bins=npz['temporal_hist_bins'],
@@ -316,9 +309,9 @@ def _prepro_drift_correction(
 
     # Only plot if we changed the motions and can't find the plots already
     plot_filepaths = {
-        'displacement': output_dir/"peak_displacement.png",
-        'displacement_hq': output_dir/"peak_displacement_hq.png",
-        'raw_peaks_hq': output_dir/"peak_uncorrected_hq.png",
+        "displacement": output_dir / "peak_displacement.png",
+        "displacement_hq": output_dir / "peak_displacement_hq.png",
+        "raw_peaks_hq": output_dir / "peak_uncorrected_hq.png",
     }
     make_debugging_plots = (
         rerun_existing
@@ -337,23 +330,35 @@ def _prepro_drift_correction(
                 motion,
                 temporal_bins,
                 spatial_bins,
-                direction='y',
+                direction="y",
             )
 
         with Timing(name="Plot peak displacement and corrected peaks: "):
             print(f"Save debugging figs at {plot_filepaths}")
             fig = get_peak_displacement_fig(
-                si_rec, peaks, peak_locations, peak_locations_corrected,
-                motion, temporal_bins, spatial_bins, extra_check,
+                si_rec,
+                peaks,
+                peak_locations,
+                peak_locations_corrected,
+                motion,
+                temporal_bins,
+                spatial_bins,
+                extra_check,
             )
-            fig.savefig( plot_filepaths["displacement"], bbox_inches="tight")
-            fig.savefig( plot_filepaths["displacement_hq"], bbox_inches="tight", dpi=500)
+            fig.savefig(plot_filepaths["displacement"], bbox_inches="tight")
+            fig.savefig(plot_filepaths["displacement_hq"], bbox_inches="tight", dpi=500)
             fig = get_raw_peak_fig(
-                si_rec, peaks, peak_locations, motion, temporal_bins, spatial_bins, extra_check,
+                si_rec,
+                peaks,
+                peak_locations,
+                motion,
+                temporal_bins,
+                spatial_bins,
+                extra_check,
             )
-            savepath = output_dir/"peak_uncorrected_hq.png"
+            savepath = output_dir / "peak_uncorrected_hq.png"
             print(f"Save debugging fig at {savepath}")
-            fig.savefig( plot_filepaths["raw_peaks_hq"], bbox_inches="tight", dpi=500)
+            fig.savefig(plot_filepaths["raw_peaks_hq"], bbox_inches="tight", dpi=500)
 
     with Timing(name="Correct motion on traces: "):
         print(si_rec.get_traces(start_frame=0, end_frame=100).shape)
@@ -365,28 +370,28 @@ def _prepro_drift_correction(
             direction=1,
             border_mode="remove_channels",
         )
-    
+
     return rec_corrected
 
 
 def preprocess_si_recording(
-    si_rec, 
+    si_rec,
     opts,
     output_dir=None,
     rerun_existing=True,
     job_kwargs=None,
-):
+) -> si.BaseRecording:
     if job_kwargs is None:
         job_kwargs = {
             "n_jobs": 1,
             "chunk_duration": "1s",
             "progress_bar": True,
         }
-    prepro_opts = opts['preprocessing']
+    prepro_opts = opts["preprocessing"]
 
     for step in prepro_opts:
-        step_name = step['step_name']
-        step_params = step['step_params']
+        step_name = step["step_name"]
+        step_params = step["step_params"]
         if step_name not in PREPRO_FUNCTIONS:
             raise ValueError(
                 f"Unrecognized preprocessing step: {step_name}."
@@ -396,29 +401,30 @@ def preprocess_si_recording(
         print(
             f"Apply preprocessing step: `{step_name}` with params `{step_params}`",
         )
-        if step_name == 'drift_correction':
+        if step_name == "drift_correction":
             # This one requires passing output_dir
             # And has a bunch of "sub-steps" params
             # What's the best way to pass ouput_dir only if recognized?
-            # Better catching TypeError instead? 
+            # Better catching TypeError instead?
             si_rec = PREPRO_FUNCTIONS[step_name](
                 si_rec,
                 output_dir=output_dir,
-                noise_level_params = step_params.get('noise_level_params', None),
-                peak_detection_params = step_params.get('peak_detection_params', None),
-                peak_localization_method = step_params.get('peak_localization_method', None),
-                peak_localization_params = step_params.get('peak_localization_params', None),
-                motion_params = step_params.get('motion_params', None),
-                motion_method_params = step_params.get('motion_method_params', None),
-                clean_motion_params = step_params.get('clean_motion_params', None),
+                noise_level_params=step_params.get("noise_level_params", None),
+                peak_detection_params=step_params.get("peak_detection_params", None),
+                peak_localization_method=step_params.get(
+                    "peak_localization_method", None
+                ),
+                peak_localization_params=step_params.get(
+                    "peak_localization_params", None
+                ),
+                motion_params=step_params.get("motion_params", None),
+                motion_method_params=step_params.get("motion_method_params", None),
+                clean_motion_params=step_params.get("clean_motion_params", None),
                 rerun_existing=rerun_existing,
                 job_kwargs=job_kwargs,
             )
         else:
-            si_rec = PREPRO_FUNCTIONS[step_name](
-                si_rec,
-                **step_params
-            )
+            si_rec = PREPRO_FUNCTIONS[step_name](si_rec, **step_params)
 
     return si_rec
 
