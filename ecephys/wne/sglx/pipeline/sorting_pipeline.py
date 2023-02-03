@@ -1,21 +1,21 @@
+import deepdiff
 import ecephys as ece
+import json
 import logging
-from pathlib import Path
-from typing import Optional, Union
-
 import pandas as pd
 import probeinterface as pi
 import yaml
-import json
-from horology import Timing
-
 import spikeinterface.extractors as se
 import spikeinterface.full as si
 import spikeinterface.postprocessing as sp
 import spikeinterface.qualitymetrics as sq
 import spikeinterface.sorters as ss
+
 from ecephys import wne
-from ecephys.utils import siutils as si_utils
+from ecephys.utils import siutils
+from horology import Timing
+from pathlib import Path
+from typing import Optional, Union
 
 from .preprocess_si_rec import preprocess_si_recording
 
@@ -304,7 +304,7 @@ class SpikeInterfaceSortingPipeline:
     def kilosort_binary_recording_extractor(self) -> si.BinaryRecordingExtractor:
         if self._kilosort_binary_recording_extractor is None:
             self._kilosort_binary_recording_extractor = (
-                si_utils.load_kilosort_bin_as_si_recording(
+                siutils.load_kilosort_bin_as_si_recording(
                     self.sorter_output_dir,
                     fname=self.preprocessed_bin_path.name,
                     si_probe=self.preprocessed_probe,
@@ -335,7 +335,7 @@ class SpikeInterfaceSortingPipeline:
             # Make sure we preprocess in the same way we did before.
             with open(self.main_output_dir / OPTS_FNAME, "w") as f:
                 prior_opts = yaml.load(f)
-            if self.opts != prior_opts:
+            if deepdiff.DeepDiff(self.opts, prior_opts):
                 raise ValueError(
                     "Current options do not match options used for prior preprocessing. "
                     "Consider instantiating a pipeline object using the options_source parameter."

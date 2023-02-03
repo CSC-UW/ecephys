@@ -38,6 +38,7 @@ horology = "^1.2.0"
 docopt = "^0.6.2"
 netcdf4 = "^1.6.2"
 isort = "^5.11.4"
+deepdiff = "^6.2.3"
 
 [tool.poetry.dev-dependencies]
 altair = "^4.2.0"
