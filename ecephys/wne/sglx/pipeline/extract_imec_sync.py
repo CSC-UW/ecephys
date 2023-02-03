@@ -25,18 +25,14 @@ def save_sglx_imec_ttls(wneProject, wneSubject, binfile):
 
 
 def do_probe(wneProject, wneSubject, experiment, prb, fn, stream="ap"):
-    if stream == "ap":
-        ftab = wneSubject.get_ap_bin_table(experiment, probe=prb)
-    elif stream == "lf":
-        ftab = wneSubject.get_lfp_bin_table(experiment, probe=prb)
-    else:
-        raise ValueError(f"Expected ap or lf, got {stream}")
-
+    ftab = wneSubject.get_experiment_frame(
+        experiment, stream=stream, ftype="bin", probe=prb
+    )
     for file in tqdm(list(ftab.itertuples()), desc="Files"):
         fn(wneProject, wneSubject, file.path)
 
 
-def do_experiment(opts, destProject, wneSubject, experiment, probes=None):
+def do_experiment(opts, destProject, wneSubject, experiment, probes=None, stream="ap"):
     if opts["imSyncType"] == "square_pulse":
         fn = save_sglx_imec_ttls
     elif opts["imSyncType"] == "barcode":
@@ -47,4 +43,4 @@ def do_experiment(opts, destProject, wneSubject, experiment, probes=None):
     if probes is None:
         probes = wneSubject.get_experiment_probes(experiment)
     for probe in probes:
-        do_probe(destProject, wneSubject, experiment, probe, fn)
+        do_probe(destProject, wneSubject, experiment, probe, fn, stream=stream)

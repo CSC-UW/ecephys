@@ -104,10 +104,10 @@ def fit_times(x, y, visualize=True, xname="X", yname="Y"):
     model = LinearRegression().fit(x, y)
     r_sq = model.score(x, y)
 
-    print("coefficient of determination:", r_sq)
-    print("intercept:", model.intercept_)
-    print("drift rate in msec/hr:", (model.coef_[0] - 1) * 60 * 60 * 1000)
-    print("(assumes `x` and `y` are provided in seconds)")
+    logger.info("coefficient of determination:", r_sq)
+    logger.info("intercept:", model.intercept_)
+    logger.info("drift rate in msec/hr:", (model.coef_[0] - 1) * 60 * 60 * 1000)
+    logger.info("(assumes `x` and `y` are provided in seconds)")
 
     if visualize:
         visualize_mapping(x, y, model, xname=xname, yname=yname)
