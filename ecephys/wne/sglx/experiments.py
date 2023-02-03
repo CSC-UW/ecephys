@@ -25,9 +25,13 @@ def add_experiment_times(ftab: pd.DataFrame) -> pd.DataFrame:
     new_ftab:
         Same length as ftab, but with additional columns added containing experiment times:
         - expmtPrbAcqFirstTime: First timestamp, measured from the start of the probe's first acquisition this experiment, in this probe's timebase.
+            BEWARE: Its error can be as great as the error in involved in subtracting one fileCreateTime from another!!!!
         - expmtPrbAcqLastTime: Last timestamp, measured from the start of the probe's first acquisition this experiment, in this probe's timebase.
+            BEWARE: Its error can be as great as the error in involved in subtracting one fileCreateTime from another!!!!
         - expmtPrbAcqFirstDatetime: Datetime of first timestamp, more accurate than fileCreateTime.
+            BEWARE: Its error can be as great as the error in involved in subtracting one fileCreateTime from another!!!!
         - expmtPrbAcqLastDatetime: Datetime of last timestamp
+            BEWARE: Its error can be as great as the error in involved in subtracting one fileCreateTime from another!!!!
     """
     ftab = ftab.sort_values("fileCreateTime")
     new_ftab = []
@@ -54,6 +58,7 @@ def add_experiment_times(ftab: pd.DataFrame) -> pd.DataFrame:
         )
         # Combine the (super-precise) timestamps WITHIN each acquisition segment, with the (less precise)* offsets BETWEEN acquisitions segments.
         # *(These offsets have to be estimated using file creation times). Tests indicate that these are precise to within a few msec.)
+        # TODO: One wonders if we should do this at all, since it is imprecise up to msecs.
         for acq, seg in zip(acqs, segs):
             segOffset = (seg["prbRecDatetime"] - firstRecordingDatetime).total_seconds()
             acq["expmtPrbAcqFirstTime"] = acq["firstTime"] + segOffset

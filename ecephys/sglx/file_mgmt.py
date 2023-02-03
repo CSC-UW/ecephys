@@ -574,7 +574,6 @@ def get_semicontinuous_segments(df: pd.DataFrame, tol=100):
     acqs = [
         df.loc[df["acquisitionID"] == id] for id in sorted(df["acquisitionID"].unique())
     ]
-    acqs = [acq.drop(columns="acquisitionID") for acq in acqs]
 
     # Get summary information about each segment
     segments = list()
