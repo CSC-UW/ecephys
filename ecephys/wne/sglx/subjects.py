@@ -137,7 +137,7 @@ class Subject:
         exclusions: pd.DataFrame = pd.DataFrame(
             {"fname": [], "start_time": [], "end_time": [], "type": []}
         ),
-        sampling_frequency_max_diff: Optional[float] = 0,
+        sampling_frequency_max_diff: Optional[float] = 0,  # TODO: Should this be 1e-6?
     ) -> tuple[si.BaseRecording, pd.DataFrame]:
         """Combine the one or more recordings comprising an experiment or alias into a single SI recording object.
 

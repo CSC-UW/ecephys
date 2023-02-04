@@ -163,7 +163,12 @@ class SpikeInterfaceSortingPipeline:
             self._wneSubject.name,
             f"{self._probe}.ap.{ece.wne.constants.ARTIFACTS_FNAME}",
         )
-        return ece.utils.read_htsv(artifacts_file)
+        if artifacts_file.exists():
+            return ece.utils.read_htsv(artifacts_file)
+        else:
+            return pd.DataFrame(
+                {"fname": [], "start_time": [], "end_time": [], "type": []}
+            )
 
     def get_raw_si_recording(self) -> tuple[si.BaseRecording, pd.DataFrame]:
         self._raw_si_recording, self._segments = self._wneSubject.get_si_recording(
