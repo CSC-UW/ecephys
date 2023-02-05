@@ -1,15 +1,22 @@
-import ecephys as ece
-import xarray as xr
 import pandas as pd
+import xarray as xr
 from ..subjects import Subject
 from ...projects import Project
+from .... import utils as ece_utils
 
 #####
 # DataArray functions
 #####
 
 
-def gather_alias_dataarray(wneProject, wneSubject, experiment, alias, probe, daExt):
+def gather_alias_dataarray(
+    wneProject: Project,
+    wneSubject: Subject,
+    experiment: str,
+    alias: str,
+    probe: str,
+    daExt: str,
+) -> xr.DataArray:
     "Gather netCDF."
     assert daExt.endswith(".nc"), "Files to gather must use extension .nc"
     lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
@@ -20,7 +27,14 @@ def gather_alias_dataarray(wneProject, wneSubject, experiment, alias, probe, daE
     return xr.concat(daList, dim="time")
 
 
-def remove_alias_dataarrays(wneProject, wneSubject, experiment, alias, probe, daExt):
+def remove_alias_dataarrays(
+    wneProject: Project,
+    wneSubject: Subject,
+    experiment: str,
+    alias: str,
+    probe: str,
+    daExt: str,
+):
     "Remove netCDFs."
     assert daExt.endswith(".nc"), "Files to gather must use extension .nc"
     lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
@@ -32,23 +46,23 @@ def remove_alias_dataarrays(wneProject, wneSubject, experiment, alias, probe, da
 
 
 def gather_and_save_alias_dataarray(
-    wneProject,
-    wneSubject,
-    experiment,
-    alias,
-    probe,
-    daExt,
-    outputName,
-    to_npy=False,
-    removeAfter=False,
+    wneProject: Project,
+    wneSubject: Subject,
+    experiment: str,
+    alias: str,
+    probe: str,
+    daExt: str,
+    outputName: str,
+    to_npy: bool = False,
+    removeAfter: bool = False,
 ):
     """Gather netCDF, save as ONE NPY."""
     da = gather_alias_dataarray(wneProject, wneSubject, experiment, alias, probe, daExt)
     saveDir = wneProject.get_alias_subject_directory(experiment, alias, wneSubject.name)
     if to_npy:
-        ece.utils.write_da_as_npy(da, outputName, saveDir)
+        ece_utils.write_da_as_npy(da, outputName, saveDir)
     else:
-        ece.utils.save_xarray(da, saveDir / outputName)
+        ece_utils.save_xarray(da, saveDir / outputName)
     if removeAfter:
         remove_alias_dataarrays(wneProject, wneSubject, experiment, alias, probe, daExt)
 
@@ -61,30 +75,30 @@ def gather_and_save_alias_dataarray(
 def gather_alias_htsv(
     wneProject: Project,
     wneSubject: Subject,
-    experiment,
-    alias,
-    probe,
-    ext,
-):
+    experiment: str,
+    alias: str,
+    probe: str,
+    ext: str,
+) -> pd.DataFrame:
     lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
     htsvFiles = wneProject.get_sglx_counterparts(
         wneSubject.name, lfpTable.path.values, ext
     )
-    dfs = [ece.utils.read_htsv(f) for f in htsvFiles if f.is_file()]
+    dfs = [ece_utils.read_htsv(f) for f in htsvFiles if f.is_file()]
     return pd.concat(dfs).reset_index(drop=True)
 
 
 def gather_and_save_alias_htsv(
     wneProject: Project,
     wneSubject: Subject,
-    experiment,
-    alias,
-    probe,
-    inExt,
-    outFname,
+    experiment: str,
+    alias: str,
+    probe: str,
+    inExt: str,
+    outFname: str,
 ):
     df = gather_alias_htsv(wneProject, wneSubject, experiment, alias, probe, inExt)
     savefile = wneProject.get_alias_subject_file(
         experiment, alias, wneSubject.name, outFname
     )
-    ece.utils.write_htsv(df, savefile)
+    ece_utils.write_htsv(df, savefile)

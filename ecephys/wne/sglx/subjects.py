@@ -1,20 +1,24 @@
 import logging
 import yaml
-import ecephys as ece
 import itertools as it
 import numpy as np
 import pandas as pd
+from pathlib import Path
 import spikeinterface as si
 import spikeinterface.extractors as se
+from typing import Optional, Union
 
-from pathlib import Path
-from typing import Optional
+from . import sessions, experiments
+from ...sglx import file_mgmt
+from ... import utils as ece_utils
 
 logger = logging.getLogger(__name__)
 
 
 class Subject:
-    def __init__(self, subjectYamlFile: Path, subjectCache=None):
+    def __init__(
+        self, subjectYamlFile: Path, subjectCache: Optional[pd.DataFrame] = None
+    ):
         self.name = subjectYamlFile.stem
         self.doc = Subject.load_yaml_doc(subjectYamlFile)
         self.cache = self.refresh_cache() if subjectCache is None else subjectCache
@@ -24,10 +28,8 @@ class Subject:
 
     def refresh_cache(self) -> pd.DataFrame:
         sessionFrames = [
-            ece.sglx.filelist_to_frame(
-                ece.wne.sglx.sessions.get_session_files_from_multiple_locations(
-                    sessionDict
-                )
+            file_mgmt.filelist_to_frame(
+                sessions.get_session_files_from_multiple_locations(sessionDict)
             )
             for sessionDict in self.doc["recording_sessions"]
         ]
@@ -47,7 +49,7 @@ class Subject:
     def get_experiment_frame(
         self,
         experiment: str,
-        alias=None,
+        alias: Optional[str] = None,
         **kwargs,
     ) -> pd.DataFrame:
         """Get all SpikeGLX files matching selection criteria."""
@@ -55,7 +57,7 @@ class Subject:
         frame = self.cache[
             self.cache["session"].isin(sessionIDs)
         ]  # Get the cache slice containing this experiment.
-        frame = ece.wne.sglx.add_experiment_times(frame)
+        frame = experiments.add_experiment_times(frame)
         # This exists to get around limitations of SpikeInterface, so can hopefully be removed one day.
         frame = _get_gate_dir_trigger_file_index(frame)
 
@@ -66,11 +68,11 @@ class Subject:
                     f"Alias {alias} must be specified as a list of subaliases, even if there is only a single subalias."
                 )
             subaliasFrames = [
-                ece.wne.sglx.sessions.get_subalias_frame(frame, sa) for sa in subaliases
+                sessions.get_subalias_frame(frame, sa) for sa in subaliases
             ]
             frame = pd.concat(subaliasFrames).reset_index(drop=True)
 
-        return ece.sglx.loc(frame, **kwargs).reset_index(drop=True)
+        return file_mgmt.loc(frame, **kwargs).reset_index(drop=True)
 
     def get_lfp_bin_paths(self, experiment: str, alias=None, **kwargs) -> list[Path]:
         return self.get_experiment_frame(
@@ -205,7 +207,7 @@ class Subject:
         return recording, segments
 
     @staticmethod
-    def load_yaml_doc(yaml_path):
+    def load_yaml_doc(yaml_path: Path) -> dict:
         """Load a YAML file that contains only one document."""
         with open(yaml_path) as fp:
             yaml_doc = yaml.safe_load(fp)
@@ -317,7 +319,7 @@ def segment_experiment_frame_for_spikeinterface(
         )
 
         # Do the actual splitting of the entire file around the exclusions
-        file_segments = ece.utils.reconcile_labeled_intervals(
+        file_segments = ece_utils.reconcile_labeled_intervals(
             exclusions.loc[mask, ["start_frame", "end_frame", "type"]],
             pd.DataFrame({"start_frame": [0], "end_frame": [ns - 1], "type": "keep"}),
             "start_frame",

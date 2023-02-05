@@ -38,18 +38,12 @@ of AP data often requires specialized storage.
 #       verbose and also allow splitting of data across locations based on factors other
 #       than stream type.
 
-import re
+from itertools import chain
 import logging
 import pandas as pd
-from itertools import chain
+import re
 from pathlib import Path
-
-from ecephys.sglx.file_mgmt import (
-    filter_files,
-    validate_sglx_path,
-    get_gate_files,
-    set_index,
-)
+from ..sglx import file_mgmt
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +80,7 @@ def get_session_files_from_single_location(session_sglx_dir):
     """
     return list(
         chain.from_iterable(
-            get_gate_files(gate_dir)
+            file_mgmt.get_gate_files(gate_dir)
             for gate_dir in get_gate_directories(session_sglx_dir)
         )
     )
@@ -105,14 +99,14 @@ def get_session_files_from_multiple_locations(session):
     --------
     list of pathlib.Path
     """
-    ap_files = filter_files(
+    ap_files = file_mgmt.filter_files(
         get_session_files_from_single_location(Path(session["ap"])), stream="ap"
     )
     if not ap_files:
         logger.warning(
             f"No AP files found in directory: {session['ap']}. Do you need to update this subject's YAML file?"
         )
-    lf_files = filter_files(
+    lf_files = file_mgmt.filter_files(
         get_session_files_from_single_location(Path(session["lf"])), stream="lf"
     )
     if not lf_files:
@@ -141,7 +135,7 @@ def get_session_style_path_parts(fpath):
         - Probe directory name
         - Filename
     """
-    gate_dir, probe_dirname, fname = validate_sglx_path(fpath)
+    gate_dir, probe_dirname, fname = file_mgmt.validate_sglx_path(fpath)
     session_sglx_dir = gate_dir.parent
     session_dir = session_sglx_dir.parent
     subject_dir = session_dir.parent
@@ -175,7 +169,7 @@ def get_filepath_relative_to_session_directory_parent(path):
     --------
     pathlib.Path
     """
-    gate_dir, probe_dirname, fname = validate_sglx_path(path)
+    gate_dir, probe_dirname, fname = file_mgmt.validate_sglx_path(path)
     session_sglx_dir = gate_dir.parent
     session_dir = session_sglx_dir.parent
     return path.relative_to(session_dir.parent)
@@ -204,8 +198,6 @@ def mirror_raw_data_path(mirror_parent, path):
 
 def mirror_raw_data_paths(mirror_parent, paths):
     return [mirror_raw_data_path(mirror_parent, p) for p in paths]
-
-
 
 
 def _parse_trigger_stem(stem):
@@ -250,7 +242,7 @@ def slice_by_trigger_stem(
 ) -> pd.DataFrame:
     df = df.copy()
     # Make df sliceable using (run, gate, trigger)
-    df = set_index(df).reset_index(level=0).sort_index()
+    df = file_mgmt.set_index(df).reset_index(level=0).sort_index()
     # Select desired files
     start_rgt = _parse_trigger_stem(start_stem)
     end_rgt = _parse_trigger_stem(end_stem)

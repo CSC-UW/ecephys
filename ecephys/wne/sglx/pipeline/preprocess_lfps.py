@@ -1,8 +1,11 @@
 import logging
 import neurodsp
-import xarray as xr
-from ecephys import sglxr, xrsig, utils, wne
 from tqdm.auto import tqdm
+import xarray as xr
+
+from ..subjects import Subject
+from ...projects import Project
+from .... import sglxr, xrsig, utils
 
 logger = logging.getLogger(__name__)
 
@@ -12,11 +15,11 @@ CHUNK_OVERLAP = 2**10
 
 
 def do_alias(
-    opts,
-    destProject,
-    wneSubject,
-    experiment,
-    alias=None,
+    opts: dict,
+    destProject: Project,
+    wneSubject: Subject,
+    experiment: str,
+    alias: Optional[str] = None,
     **kwargs,
 ):
     """

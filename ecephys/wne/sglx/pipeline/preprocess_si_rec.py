@@ -1,26 +1,15 @@
+from horology import Timing
 import logging
-from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
-from horology import Timing
-
 import spikeinterface.full as si
-from spikeinterface.sortingcomponents.motion_correction import (
-    CorrectMotionRecording,
-    correct_motion_on_peaks,
+from spikeinterface import widgets
+from spikeinterface.sortingcomponents import (
+    motion_correction,
+    motion_estimation,
+    peak_detection,
+    peak_localization,
 )
-from spikeinterface.sortingcomponents.motion_estimation import (
-    clean_motion_vector,
-    estimate_motion,
-)
-from spikeinterface.sortingcomponents.peak_detection import detect_peaks
-from spikeinterface.sortingcomponents.peak_localization import (
-    LocalizeCenterOfMass,
-    LocalizeMonopolarTriangulation,
-    localize_peaks,
-)
-from spikeinterface.widgets import plot_displacement, plot_pairwise_displacement
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +32,7 @@ def get_raw_peak_fig(
 
     ax.scatter(x, y, s=1, color="k", alpha=ALPHA)
 
-    plot_displacement(
+    widgets.plot_displacement(
         motion, temporal_bins, spatial_bins, extra_check, with_histogram=False, ax=ax
     )
     ax.set_title(
@@ -80,7 +69,7 @@ def get_peak_displacement_fig(
 
     ax = fig.add_subplot(spec[:, 0])  # Left
     ax.scatter(x, y, s=1, color="k", alpha=ALPHA)
-    plot_displacement(
+    widgets.plot_displacement(
         motion, temporal_bins, spatial_bins, extra_check, with_histogram=False, ax=ax
     )
     ax.set_title(
@@ -129,7 +118,7 @@ def _compute_peaks(
             )
         ]
 
-        peaks, peak_locations = detect_peaks(
+        peaks, peak_locations = peak_detection.detect_peaks(
             si_rec,
             noise_levels=noise_levels,
             pipeline_steps=peak_pipeline_steps,
@@ -148,7 +137,12 @@ def _compute_motion(
 ):
     """Estimate motion without cleaning."""
     with Timing(name="Estimate motion: "):
-        motion, temporal_bins, spatial_bins, extra_check = estimate_motion(
+        (
+            motion,
+            temporal_bins,
+            spatial_bins,
+            extra_check,
+        ) = motion_estimation.estimate_motion(
             si_rec,
             peaks,
             peak_locations=peak_locations,
@@ -171,7 +165,7 @@ def _clean_motion(
     bin_duration_s,
 ):
     with Timing(name="Clean motion: "):
-        motion = clean_motion_vector(
+        motion = motion_estimation.clean_motion_vector(
             motion, temporal_bins, bin_duration_s, **clean_motion_params
         )
     return motion
@@ -323,7 +317,7 @@ def _prepro_drift_correction(
         with Timing(name="Get corrected peaks (debugging figure): "):
             print("Correct motion on peaks")
             times = si_rec.get_times()
-            peak_locations_corrected = correct_motion_on_peaks(
+            peak_locations_corrected = motion_correction.correct_motion_on_peaks(
                 peaks,
                 peak_locations,
                 times,
@@ -362,7 +356,7 @@ def _prepro_drift_correction(
 
     with Timing(name="Correct motion on traces: "):
         print(si_rec.get_traces(start_frame=0, end_frame=100).shape)
-        rec_corrected = CorrectMotionRecording(
+        rec_corrected = motion_correction.CorrectMotionRecording(
             si_rec,
             motion,
             temporal_bins,
@@ -443,6 +437,6 @@ PREPRO_FUNCTIONS = {
 
 
 PEAK_LOCALIZATION_FUNCTIONS = {
-    "center_of_mass": LocalizeCenterOfMass,
-    "monopolar_triangulation": LocalizeMonopolarTriangulation,
+    "center_of_mass": peak_localization.LocalizeCenterOfMass,
+    "monopolar_triangulation": peak_localization.LocalizeMonopolarTriangulation,
 }

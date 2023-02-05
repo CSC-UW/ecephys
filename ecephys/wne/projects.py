@@ -30,48 +30,33 @@ project_directory: /path/to/other_project
 # You could name a project the same thing as an experiment
 # You could name a project "Common" or "Scoring" or "Sorting"
 import json
-import yaml
-import pickle
 import logging
 import numpy as np
-import spikeinterface.extractors as se
 from pathlib import Path
-import ecephys as ece
+import pickle
+import spikeinterface.extractors as se
+from typing import Callable, Union, Optional
+import yaml
+from . import constants
+from .sglx import sessions
+from .. import sglx as ece_sglx
+from .. import utils as ece_utils
+from .. import units, sync, sharptrack
+
+Pathlike = Union[Path, str]
 
 logger = logging.getLogger(__name__)
 
 
-def load_yaml_stream(yaml_path):
+def load_yaml_stream(yaml_path: Pathlike) -> list[dict]:
     """Load all YAML documents in a file."""
     with open(yaml_path) as fp:
         yaml_stream = list(yaml.safe_load_all(fp))
     return yaml_stream
 
 
-class ProjectLibrary:
-    def __init__(self, projects_file):
-        self.file = Path(projects_file)
-        self.yaml_stream = load_yaml_stream(self.file)
-
-    def get_project_document(self, project_name):
-        """Get a project's YAML document from a YAML stream.
-
-        YAML documents must contain a 'project' field:
-        ---
-        project: project_name
-        ...
-        """
-        matches = [doc for doc in self.yaml_stream if doc["project"] == project_name]
-        assert len(matches) == 1, f"Exactly 1 YAML document should match {project_name}"
-        return matches[0]
-
-    def get_project(self, project_name):
-        doc = self.get_project_document(project_name)
-        return Project(project_name, Path(doc["project_directory"]))
-
-
 class Project:
-    def __init__(self, project_name, project_dir):
+    def __init__(self, project_name: str, project_dir: Pathlike):
         self.name = project_name
         self.dir = Path(project_dir)
 
@@ -82,86 +67,82 @@ class Project:
     # Methods for getting directories
     #####
 
-    def get_subject_directory(self, subject_name) -> Path:
+    def get_subject_directory(self, subject: str) -> Path:
         """Get a subject's directory for this project."""
-        return self.dir / subject_name
+        return self.dir / subject
 
-    def get_experiment_directory(self, experiment_name) -> Path:
-        return self.dir / experiment_name
+    def get_experiment_directory(self, experiment: str) -> Path:
+        return self.dir / experiment
 
-    def get_alias_directory(self, experiment_name, alias_name) -> Path:
-        return self.get_experiment_directory(experiment_name) / alias_name
+    def get_alias_directory(self, experiment: str, alias: str) -> Path:
+        return self.get_experiment_directory(experiment) / alias
 
-    def get_subalias_directory(self, experiment_name, alias_name, subalias_idx) -> Path:
-        return (
-            self.get_experiment_directory(experiment_name)
-            / f"{alias_name}_{subalias_idx}"
-        )
+    def get_subalias_directory(
+        self, experiment: str, alias: str, subalias_idx: int
+    ) -> Path:
+        return self.get_experiment_directory(experiment) / f"{alias}_{subalias_idx}"
 
-    def get_experiment_subject_directory(self, experiment_name, subject_name) -> Path:
-        return self.get_experiment_directory(experiment_name) / subject_name
+    def get_experiment_subject_directory(self, experiment: str, subject: str) -> Path:
+        return self.get_experiment_directory(experiment) / subject
 
     def get_alias_subject_directory(
-        self, experiment_name, alias_name, subject_name
+        self, experiment: str, alias: str, subject: str
     ) -> Path:
-        return self.get_alias_directory(experiment_name, alias_name) / subject_name
+        return self.get_alias_directory(experiment, alias) / subject
 
     def get_alias_subject_directory(
-        self, experiment_name, alias_name, subject_name
+        self, experiment: str, alias: str, subject: str
     ) -> Path:
-        return self.get_alias_directory(experiment_name, alias_name) / subject_name
+        return self.get_alias_directory(experiment, alias) / subject
 
     def get_subalias_subject_directory(
-        self, experiment_name, alias_name, subject_name, subalias_idx
+        self, experiment: str, alias: str, subject: str, subalias_idx: int
     ) -> Path:
-        return (
-            self.get_subalias_directory(experiment_name, alias_name, subalias_idx)
-            / subject_name
-        )
+        return self.get_subalias_directory(experiment, alias, subalias_idx) / subject
 
     #####
     # Methods for getting files
     #####
 
-    def get_project_file(self, fname) -> Path:
+    def get_project_file(self, fname: str) -> Path:
         return self.dir / fname
 
-    def get_project_subject_file(self, subject_name, fname) -> Path:
-        return self.get_subject_directory(subject_name) / fname
+    def get_project_subject_file(self, subject: str, fname: str) -> Path:
+        return self.get_subject_directory(subject) / fname
 
-    def get_experiment_file(self, experiment_name, fname) -> Path:
-        return self.get_experiment_directory(experiment_name) / fname
+    def get_experiment_file(self, experiment: str, fname: str) -> Path:
+        return self.get_experiment_directory(experiment) / fname
 
     def get_alias_file(
-        self, experiment_name, alias_name, fname, subalias_idx=None
+        self,
+        experiment: str,
+        alias: str,
+        fname: str,
+        subalias_idx: Optional[int] = None,
     ) -> Path:
         return (
-            self.get_alias_directory(
-                experiment_name, alias_name, subalias_idx=subalias_idx
-            )
+            self.get_alias_directory(experiment, alias, subalias_idx=subalias_idx)
             / fname
         )
 
-    def get_experiment_subject_file(self, experiment_name, subject_name, fname) -> Path:
-        return (
-            self.get_experiment_subject_directory(experiment_name, subject_name) / fname
-        )
+    def get_experiment_subject_file(
+        self, experiment: str, subject: str, fname: str
+    ) -> Path:
+        return self.get_experiment_subject_directory(experiment, subject) / fname
 
     def get_alias_subject_file(
-        self, experiment_name, alias_name, subject_name, fname
+        self, experiment: str, alias: str, subject: str, fname: str
     ) -> Path:
-        return (
-            self.get_alias_subject_directory(experiment_name, alias_name, subject_name)
-            / fname
-        )
+        return self.get_alias_subject_directory(experiment, alias, subject) / fname
 
+    # TODO: This should probably be a function in ece.wne.utils, since projects should be agnostic to SGLX vs TDT etc.
     def get_sglx_counterparts(
         self,
-        subject_name,
-        paths,
-        extension,
-        remove_probe=False,
-        remove_stream=False,
+        subject: str,
+        paths: list[Pathlike],
+        extension: str,
+        remove_probe: bool = False,
+        remove_stream: bool = False,
     ) -> list[Path]:
         """Get counterparts to SpikeGLX raw data files.
 
@@ -183,88 +164,150 @@ class Project:
         --------
         list of pathlib.Path
         """
-        counterparts = ece.wne.sglx.sessions.mirror_raw_data_paths(
-            self.get_subject_directory(subject_name), paths
+        counterparts = sessions.mirror_raw_data_paths(
+            self.get_subject_directory(subject), paths
         )  # Mirror paths at the project's subject directory
         counterparts = [
-            ece.sglx.file_mgmt.replace_ftype(p, extension, remove_probe, remove_stream)
+            ece_sglx.file_mgmt.replace_ftype(p, extension, remove_probe, remove_stream)
             for p in counterparts
         ]
-        return ece.utils.remove_duplicates(counterparts)
+        return ece_utils.remove_duplicates(counterparts)
 
     def load_experiment_subject_json(
-        self, experiment_name, subject_name, fname
+        self, epxeriment: str, subject: str, fname: str
     ) -> dict:
-        path = self.get_experiment_subject_file(experiment_name, subject_name, fname)
+        path = self.get_experiment_subject_file(epxeriment, subject, fname)
         with open(path) as f:
             return json.load(f)
 
     def load_experiment_subject_yaml(
-        self, experiment_name, subject_name, fname
+        self, experiment: str, subject: str, fname: str
     ) -> dict:
-        path = self.get_experiment_subject_file(experiment_name, subject_name, fname)
+        path = self.get_experiment_subject_file(experiment, subject, fname)
         with open(path) as f:
             return yaml.load(f, Loader=yaml.SafeLoader)
 
-    def get_all_probes(self, subject_name, experiment_name) -> list[str]:
+    def get_all_probes(self, subject: str, experiment: str) -> list[str]:
         opts = self.load_experiment_subject_json(
-            experiment_name, subject_name, ece.wne.constants.EXP_PARAMS_FNAME
+            experiment, subject, constants.EXP_PARAMS_FNAME
         )
         return list(opts["probes"].keys())
 
-    # TODO: The probe and sortingName arguments could be replaced by a single probeDir argument.
+    # TODO: If no sortingName is provided, a sensible default should be obtained from WNE opts, so that you do not have do remember the sorting ID for every animal.
     def get_kilosort_extractor(
-        self, subject, experiment, alias, probe, sortingName
+        self, subject: str, experiment: str, alias: str, probe: str, sorting: str
     ) -> se.KiloSortSortingExtractor:
-        """Load the contents of a Kilosort output directory.
-
-        Parameters:
-        ===========
-        wneProj: wne.Project
-            The Project where the sorting output is to be loaded from.
-        subject: str
-        experiment: str
-        alias: str
-        probe: str
-        sortingName:
-            e.g. "ks2_5_catgt_df_postpro_2_metrics_all_isi"
-
-        Returns:
-        ========
-        KilosortSortingExtractor
-        """
+        """Load the contents of a Kilosort output directory. This takes ~20-25s per 100 clusters."""
         dir = (
             self.get_alias_subject_directory(experiment, alias, subject)
-            / f"{sortingName}.{probe}"
-        )
+            / f"{sorting}.{probe}"
+        ) / "sorter_output"
         assert dir.is_dir(), f"Expected Kilosort directory not found: {dir}"
-        extractor = se.KiloSortSortingExtractor(dir)
-        # Equivalent to extractor = si.extractors.read_kilosort(sorting_dir, keep_good_only=False),
-        # which is the form used in the docs.
+        extractor = se.read_kilosort(dir, keep_good_only=False)
 
         # Check that quality metrics are available
         # TODO: Figure out how to automatically regenerate cluster_info.tsv without making all of phy a dependency, so we can stop doing this manually.
         if not any("isi_viol" in prop for prop in extractor.get_property_keys()):
             msg = "Quality metrics not found. Either they have not been run, or cluster_info.tsv has not been regenerated to include metrics.csv. You can do this manually by opening the data in Phy and clicking 'save'."
-            logger.warn(msg)
+            logger.warning(msg)
 
         return extractor
 
-    def get_sharptrack(self, subject, experiment, probe) -> ece.sharptrack.SHARPTrack:
+    def get_sharptrack(
+        self, subject: str, experiment: str, probe: str
+    ) -> sharptrack.SHARPTrack:
         """Load SHARPTrack files.
 
         experiment_params.json should include a probes->imec0->SHARP-Track->filename.mat field.
         filename.mat is then to be found in the same location as experiment_params.json (i.e.e the experiment-subject directory)
         """
         opts = self.load_experiment_subject_json(
-            experiment, subject, ece.wne.constants.EXP_PARAMS_FNAME
+            experiment, subject, constants.EXP_PARAMS_FNAME
         )
         fname = opts["probes"][probe]["SHARP-Track"]
         file = self.get_experiment_subject_file(experiment, subject, fname)
-        return ece.sharptrack.SHARPTrack(file)
+        return sharptrack.SHARPTrack(file)
 
+    def get_sample2time(
+        self, wneSubject, experiment: str, alias: str, probe: str, sorting: str
+    ) -> Callable:
+        # TODO: Once permissions are fixed, should come from f = wneProject.get_experiment_subject_file(experiment, wneSubject.name, f"prb_sync.ap.htsv")
+
+        # Load probe sync table.
+        probe_sync_file = (
+            self.get_alias_subject_directory(experiment, alias, wneSubject.name)
+            / f"{sorting}.{probe}"
+            / "prb_sync.ap.htsv"
+        )
+        if not probe_sync_file.exists():
+            logger.info(
+                f"Unable to create sample2time function. Probe sync table not found at {probe_sync_file}."
+            )
+            return None
+        sync_table = ece_utils.read_htsv(
+            probe_sync_file
+        )  # Used to map this probe's times to imec0.
+
+        # Load segment table
+        segment_file = (
+            self.get_alias_subject_directory(experiment, alias, wneSubject.name)
+            / f"{sorting}.{probe}"
+            / "segments.htsv"
+        )
+        if not segment_file.exists():
+            logger.info(
+                f"Unable to create sample2time function. Segment table not found at {segment_file}."
+            )
+            return None
+        segments = ece_utils.read_htsv(
+            segment_file
+        )  # Used to map SI sorting samples to this probe's times.
+
+        # Get all the good segments (aka the ones in the sorting), in chronological order.
+        # Compute which samples in the recording belong to each segment.
+        sorted_segments = segments[segments["type"] == "keep"].copy()
+        sorted_segments["nSegmentSamples"] = (
+            sorted_segments["end_frame"] - sorted_segments["start_frame"] + 1
+        )  # N of sorted samples in each segment
+        cum_sorted_samples = sorted_segments[
+            "nSegmentSamples"
+        ].cumsum()  # N of sorted samples by the end of each segment
+        cum_sorted_samples = cum_sorted_samples.shift(
+            1, fill_value=0
+        )  # N of sorted samples by the start of each segment
+        sorted_segments["start_sample"] = (
+            sorted_segments["start_frame"] + cum_sorted_samples
+        )  # First sample index of concatenated recording belonging to each semgent
+        sorted_segments["end_sample"] = (
+            sorted_segments["end_frame"] + cum_sorted_samples
+        )
+
+        # Given a sample number in the SI recording, we can now figure out:
+        #   (1) the segment it came from
+        #   (2) the file that segment belongs to
+        #   (3) how to map that file's times into our canonical timebase.
+        # We make a function that does this for an arbitrary array of sample numbers in the SI object, so we can use it later as needed.
+        sync_table = sync_table.set_index("source")
+
+        def sample2time(s):
+            s = s.astype("float")
+            for seg in sorted_segments.itertuples():
+                mask = (s >= seg.start_sample) & (s <= seg.end_sample)
+                s[mask] = s[mask] / seg.imSampRate
+                sync_entry = sync_table.loc[seg.fname]
+                s[mask] = sync_entry.slope * s[mask] + sync_entry.intercept
+            return s
+
+        return sample2time
+
+    # TODO: Likely deprecated. Remove.
     def remap_probe_times(
-        self, subject, experiment, fromProbe, times, toProbe="imec0"
+        self,
+        subject: str,
+        experiment: str,
+        fromProbe: str,
+        times: np.ndarray,
+        toProbe: str = "imec0",
     ) -> np.ndarray:
         """Remap a vector of probe times to the canonical experiment timebase, using a subject's precomputed sync models.
 
@@ -295,22 +338,23 @@ class Project:
 
         assert "prb2prb" in sync_models, "Probe-to-probe sync models not found in file."
         model = sync_models["prb2prb"][fromProbe][toProbe]
-        return ece.sync.remap_times(times, model)
+        return sync.remap_times(times, model)
 
+    # TODO: Likely deprecated. Remove.
     def load_singleprobe_sorting(
         self,
-        subject,
-        experiment,
-        probe,
-        alias="full",
-        sortingID="ks2_5_catgt_df_postpro_2_metrics_all_isi",  # TODO: This should probably no longer be the default
-        filters={
+        subject: str,
+        experiment: str,
+        probe: str,
+        alias: str = "full",
+        sortingID: str = "ks2_5_catgt_df_postpro_2_metrics_all_isi",  # TODO: This should probably no longer be the default
+        filters: dict = {
             "n_spikes": (2, np.Inf),
             "quality": {"good", "mua"},
         },  # TODO: n_spikes should probably start at 100
-        sharptrack=True,
-        remapTimes=True,
-    ) -> ece.units.SingleProbeSorting:
+        sharptrack: bool = True,
+        remapTimes: bool = True,
+    ) -> units.SingleProbeSorting:
         """Load a single probe's sorted spikes, optionally filtered and augmented with additional information.
 
         Parameters:
@@ -336,19 +380,24 @@ class Project:
         extractor = self.get_kilosort_extractor(
             subject, experiment, alias, probe, sortingID
         )
-        sorting = ece.units.refine_clusters(extractor, filters)
+        sorting = units.refine_clusters(extractor, filters)
         if sharptrack:
             st = self.get_sharptrack(subject, experiment, probe)
-            ece.units.add_structures_from_sharptrack(sorting, st)
+            units.add_structures_from_sharptrack(sorting, st)
         if remapTimes:
             remapper = lambda t: self.remap_probe_times(subject, experiment, probe, t)
-            return ece.units.SingleProbeSorting(sorting, remapper)
+            return units.SingleProbeSorting(sorting, remapper)
         else:
-            return ece.units.SingleProbeSorting(sorting)
+            return units.SingleProbeSorting(sorting)
 
+    # TODO: Likely deprecated. Remove.
     def load_multiprobe_sorting(
-        self, subject, experiment, probes=None, **kwargs
-    ) -> ece.units.MultiProbeSorting:
+        self,
+        subject: str,
+        experiment: str,
+        probes: Optional[list[str]] = None,
+        **kwargs,
+    ) -> units.MultiProbeSorting:
         """Load sorted spikes from multiple probes, optionally filtered and augmented with additional information.
 
         Parameters:
@@ -366,9 +415,31 @@ class Project:
         """
         if probes is None:
             probes = self.get_all_probes(subject, experiment)
-        return ece.units.MultiProbeSorting(
+        return units.MultiProbeSorting(
             {
                 prb: self.load_singleprobe_sorting(subject, experiment, prb, **kwargs)
                 for prb in probes
             }
         )
+
+
+class ProjectLibrary:
+    def __init__(self, projects_file: Pathlike):
+        self.file = Path(projects_file)
+        self.yaml_stream = load_yaml_stream(self.file)
+
+    def get_project_document(self, project_name: str) -> dict:
+        """Get a project's YAML document from a YAML stream.
+
+        YAML documents must contain a 'project' field:
+        ---
+        project: project_name
+        ...
+        """
+        matches = [doc for doc in self.yaml_stream if doc["project"] == project_name]
+        assert len(matches) == 1, f"Exactly 1 YAML document should match {project_name}"
+        return matches[0]
+
+    def get_project(self, project_name: str) -> Project:
+        doc = self.get_project_document(project_name)
+        return Project(project_name, Path(doc["project_directory"]))

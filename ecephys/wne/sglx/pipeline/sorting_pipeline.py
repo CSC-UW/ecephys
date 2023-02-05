@@ -1,9 +1,11 @@
 import deepdiff
-import ecephys as ece
+from horology import Timing
 import json
 import logging
 import pandas as pd
+from pathlib import Path
 import probeinterface as pi
+from typing import Optional, Union
 import yaml
 import spikeinterface.extractors as se
 import spikeinterface.full as si
@@ -11,13 +13,11 @@ import spikeinterface.postprocessing as sp
 import spikeinterface.qualitymetrics as sq
 import spikeinterface.sorters as ss
 
-from ecephys import wne
-from ecephys.utils import siutils
-from horology import Timing
-from pathlib import Path
-from typing import Optional, Union
-
-from .preprocess_si_rec import preprocess_si_recording
+from . import preprocess_si_rec
+from ..subjects import Subject
+from ...projects import Project
+from ... import constants
+from .... import utils as ece_utils
 
 # TODO: Be consistent about using logger vs print
 logger = logging.getLogger(__name__)
@@ -40,8 +40,8 @@ POSTPRO_OPTS_FNAME = "metrics_opts.yaml"  # Really, postprocessing options.
 class SpikeInterfaceSortingPipeline:
     def __init__(
         self,
-        wneProject,
-        wneSubject,
+        wneProject: Project,
+        wneSubject: Subject,
         experiment: str,
         alias: str,
         probe: str,
@@ -66,7 +66,7 @@ class SpikeInterfaceSortingPipeline:
         #   (2) A custom location of your choosing
         if options_source == "wneProject":
             self._opts_src = wneProject.get_experiment_subject_file(
-                experiment, wneSubject.name, wne.constants.SORTING_PIPELINE_PARAMS_FNAME
+                experiment, wneSubject.name, constants.SORTING_PIPELINE_PARAMS_FNAME
             )
         else:
             self._opts_src = Path(options_source)
@@ -161,10 +161,10 @@ class SpikeInterfaceSortingPipeline:
         artifacts_file = self._wneProject.get_experiment_subject_file(
             self._experiment,
             self._wneSubject.name,
-            f"{self._probe}.ap.{ece.wne.constants.ARTIFACTS_FNAME}",
+            f"{self._probe}.ap.{constants.ARTIFACTS_FNAME}",
         )
         if artifacts_file.exists():
-            return ece.utils.read_htsv(artifacts_file)
+            return ece_utils.read_htsv(artifacts_file)
         else:
             return pd.DataFrame(
                 {"fname": [], "start_time": [], "end_time": [], "type": []}
@@ -222,7 +222,7 @@ class SpikeInterfaceSortingPipeline:
 
     def run_preprocessing(self):
         raw_si_recording, segments = self.get_raw_si_recording()
-        self._preprocessed_si_recording = preprocess_si_recording(
+        self._preprocessed_si_recording = preprocess_si_rec.preprocess_si_recording(
             raw_si_recording,
             self.opts,
             output_dir=self.preprocessing_output_dir,
@@ -234,8 +234,8 @@ class SpikeInterfaceSortingPipeline:
         # Save options used
         with open(self.preprocessing_output_dir / OPTS_FNAME, "w") as f:
             yaml.dump(self.opts, f)
-        ece.utils.write_htsv(self._exclusions, self.main_output_dir / "exclusions.htsv")
-        ece.utils.write_htsv(segments, self.main_output_dir / "segments.htsv")
+        ece_utils.write_htsv(self._exclusions, self.main_output_dir / "exclusions.htsv")
+        ece_utils.write_htsv(segments, self.main_output_dir / "segments.htsv")
 
         # Save preprocessed probe
         pi.write_probeinterface(
@@ -309,7 +309,7 @@ class SpikeInterfaceSortingPipeline:
     def kilosort_binary_recording_extractor(self) -> si.BinaryRecordingExtractor:
         if self._kilosort_binary_recording_extractor is None:
             self._kilosort_binary_recording_extractor = (
-                siutils.load_kilosort_bin_as_si_recording(
+                ece_utils.siutils.load_kilosort_bin_as_si_recording(
                     self.sorter_output_dir,
                     fname=self.preprocessed_bin_path.name,
                     si_probe=self.preprocessed_probe,
