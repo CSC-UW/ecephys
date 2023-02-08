@@ -9,16 +9,17 @@ from .... import hypnogram
 logger = logging.getLogger(__name__)
 
 
-def do_alias(
+def do_experiment_probe(
     srcProject: Project,
     destProject: Project,
     wneSubject: Subject,
     experiment: str,
-    alias: str,
     probe: str,
+    # alias: str,
 ):
     vbHgs = list()
-    lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
+    lfpTable = wneSubject.get_lfp_bin_table(experiment, probe=probe)
+    # lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
     for lfpFile in tqdm(list(lfpTable.itertuples())):
         [vbFile] = srcProject.get_sglx_counterparts(
             wneSubject.name,
@@ -29,9 +30,9 @@ def do_alias(
         if vbFile.is_file():
             logger.debug(f"Loading file {vbFile.name}")
             vbHg = hypnogram.FloatHypnogram.from_visbrain(vbFile)
-            vbHg[["start_time", "end_time"]] += lfpFile[
-                "expmtPrbAcqFirstTime"
-            ]  # TODO: Sync times BEFORE saving
+            vbHg[
+                ["start_time", "end_time"]
+            ] += lfpFile.expmtPrbAcqFirstTime  # TODO: Sync times BEFORE saving
             vbHgs.append(vbHg)
         else:
             logger.warning(f"Hypnogram {vbFile.name} not found. Skipping.")
@@ -39,7 +40,10 @@ def do_alias(
     if vbHgs:
         hg = pd.concat(vbHgs).sort_values("start_time").reset_index(drop=True)
         hg = hypnogram.FloatHypnogram.clean(hg)
-        hypnoFile = destProject.get_alias_subject_file(
-            experiment, alias, wneSubject.name, constants.HYPNOGRAM_FNAME
+        # hypnoFile = destProject.get_alias_subject_file(
+        #    experiment, alias, wneSubject.name, constants.HYPNOGRAM_FNAME
+        # )
+        hypnoFile = destProject.get_experiment_subject_file(
+            experiment, wneSubject.name, constants.HYPNOGRAM_FNAME
         )
         hg.write_htsv(hypnoFile)
