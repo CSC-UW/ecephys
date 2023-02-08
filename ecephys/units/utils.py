@@ -117,7 +117,7 @@ def subset_spike_times_list(
 def subset_spike_times(spike_times, bouts_df):
     res = []
     current_concatenated_start = 0
-    for i, row in bouts_df.iterrows():
+    for row in bouts_df.itertuples():
         start, end = row.start_time, row.end_time
         duration = end - start
         res += [

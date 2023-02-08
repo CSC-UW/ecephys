@@ -17,10 +17,10 @@ def do_probe_stream(
     ftab = wneSubject.get_experiment_frame(
         experiment, stream=stream, ftype="bin", probe=probe
     )
-    for ix, lfpfile in tqdm(list(ftab.iterrows())):
+    for lfpfile in tqdm(list(ftab.itertuples())):
         [artfile] = wneProject.get_sglx_counterparts(
             wneSubject.name,
-            [lfpfile["path"]],
+            [lfpfile.path],
             constants.ARTIFACTS_EXT,
         )
         logger.debug(f"Looking for file {artfile.name}")
@@ -28,10 +28,10 @@ def do_probe_stream(
             logger.debug("File not found.")
             continue
         df = pd.read_csv(artfile)
-        df["fname"] = lfpfile["path"].name
+        df["fname"] = lfpfile.path.name
         # TODO: Sync to canonical timebase BEFORE saving
-        df["expmtPrbAcqFirstTime"] = df["start_time"] + lfpfile["expmtPrbAcqFirstTime"]
-        df["expmtPrbAcqLastTime"] = df["end_time"] + lfpfile["expmtPrbAcqFirstTime"]
+        df["expmtPrbAcqFirstTime"] = df["start_time"] + lfpfile.expmtPrbAcqFirstTime
+        df["expmtPrbAcqLastTime"] = df["end_time"] + lfpfile.expmtPrbAcqFirstTime
         artifacts.append(df)
 
     if artifacts:

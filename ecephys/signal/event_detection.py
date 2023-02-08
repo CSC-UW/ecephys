@@ -251,11 +251,11 @@ def get_midpoints(events):
 
 def add_states_to_events(events, hypnogram):
     events["state"] = None
-    for index, bout in hypnogram.iterrows():
+    for bout in hypnogram.itertuples():
         events_in_bout = np.logical_and(
-            events["start_time"] >= bout["start_time"],
-            events["start_time"] < bout["end_time"],
+            events["start_time"] >= bout.start_time,
+            events["start_time"] < bout.end_time,
         )
-        events.loc[events_in_bout, "state"] = bout["state"]
+        events.loc[events_in_bout, "state"] = bout.state
 
     return events

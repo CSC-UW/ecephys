@@ -179,15 +179,13 @@ class Subject:
         # Take the good segments one by one, create an recording object for each, and save these all in a list
         good_segments = segments[segments["type"] == "keep"]
         recordings = list()
-        for _, segment in good_segments.iterrows():
+        for segment in good_segments.itertuples():
             extractor = se.SpikeGLXRecordingExtractor(
-                segment["gate_dir"], stream_id=f"{probe}.{stream}"
+                segment.gate_dir, stream_id=f"{probe}.{stream}"
             )
             recording = extractor.select_segments(
-                [segment["gate_dir_trigger_file_idx"]]
-            ).frame_slice(
-                start_frame=segment["start_frame"], end_frame=segment["end_frame"]
-            )
+                [segment.gate_dir_trigger_file_idx]
+            ).frame_slice(start_frame=segment.start_frame, end_frame=segment.end_frame)
             recordings.append(recording)
 
         # Combine the good segments
@@ -298,9 +296,9 @@ def segment_experiment_frame_for_spikeinterface(
     segments = list()
     # For each file in the experiment, split it if necessary.
     # If not, just create a segment that is the entire file.
-    for _, file in ftab.iterrows():
-        ns = file["nFileSamp"]
-        fname = file["path"].name
+    for file in ftab.itertuples():
+        ns = file.nFileSamp
+        fname = file.path.name
         mask = (
             exclusions["fname"] == fname
         )  # Get the exclusions pertaining to this file.
@@ -308,12 +306,12 @@ def segment_experiment_frame_for_spikeinterface(
         # For the exclusions pertaining to this file, convert their definition in seconds to precise sample indices,
         # and clip these estimates so that sample indices don't extend beyond the ends of the file.
         exclusions.loc[mask, "start_frame"] = (
-            (exclusions.loc[mask, "start_time"] * file["imSampRate"])
+            (exclusions.loc[mask, "start_time"] * file.imSampRate)
             .astype(int)
             .clip(0, ns - 1)
         )
         exclusions.loc[mask, "end_frame"] = (
-            (exclusions.loc[mask, "end_time"] * file["imSampRate"])
+            (exclusions.loc[mask, "end_time"] * file.imSampRate)
             .astype(int)
             .clip(0, ns - 1)
         )

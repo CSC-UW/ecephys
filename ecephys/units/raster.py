@@ -370,7 +370,7 @@ class Raster:
             "alpha": self.alpha,
         }
 
-        for _, evt_row in self.events[mask].iterrows():
+        for evt_row in self.events[mask].itertuples():
             if "ylim" in evt_row:
                 ymin, ymax = evt_row.ylim
                 plt.margins(0)  # Remove margin on y axis

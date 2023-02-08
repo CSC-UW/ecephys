@@ -299,12 +299,12 @@ def plot_hypnogram_overlay(
 
     ax = check_ax(ax, figsize=figsize)
 
-    for _, bout in hypnogram.iterrows():
+    for bout in hypnogram.itertuples():
         ax.axvspan(
             bout[t1_column],
             bout[t2_column],
             alpha=alpha,
-            color=state_colors[bout["state"]],
+            color=state_colors[bout.state],
             zorder=-1,
             ec="none",
             ymin=ymin,
