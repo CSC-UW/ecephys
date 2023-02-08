@@ -50,17 +50,21 @@ def add_experiment_times(ftab: pd.DataFrame) -> pd.DataFrame:
             continue
         # Get semicontinuous segments
         acqs, segs = file_mgmt.get_semicontinuous_segments(_ftab)
-        firstRecordingDatetime = segs[0]["prbRecDatetime"]
-        firstAcquisitionDatetime = firstRecordingDatetime - pd.to_timedelta(
+        firstAcquisitionDatetime = segs[0]["prbRecDatetime"] - pd.to_timedelta(
             segs[0]["firstTime"], "s"
         )
         # Combine the (super-precise) timestamps WITHIN each acquisition segment, with the (less precise)* offsets BETWEEN acquisitions segments.
         # *(These offsets have to be estimated using file creation times). Tests indicate that these are precise to within a few msec.)
         # TODO: One wonders if we should do this at all, since it is imprecise up to msecs.
         for acq, seg in zip(acqs, segs):
-            segOffset = (seg["prbRecDatetime"] - firstRecordingDatetime).total_seconds()
-            acq["expmtPrbAcqFirstTime"] = acq["firstTime"] + segOffset
-            acq["expmtPrbAcqLastTime"] = acq["lastTime"] + segOffset
+            segAcquisitionDatetime = seg["prbRecDatetime"] - pd.to_timedelta(
+                seg["firstTime"], "s"
+            )
+            segAcqOffset = (
+                segAcquisitionDatetime - firstAcquisitionDatetime
+            ).total_seconds()
+            acq["expmtPrbAcqFirstTime"] = acq["firstTime"] + segAcqOffset
+            acq["expmtPrbAcqLastTime"] = acq["lastTime"] + segAcqOffset
             acq[
                 "expmtPrbAcqFirstDatetime"
             ] = firstAcquisitionDatetime + pd.to_timedelta(
