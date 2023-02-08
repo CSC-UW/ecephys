@@ -45,21 +45,6 @@ class AbstractSortingPipeline:
         self.experimentName = experimentName
         self.probe = probe
 
-        # Pipeline options
-        if opts_filepath is None:
-            self.opts = self.wneProject.load_experiment_subject_json(
-                experimentName,
-                self.wneSubject.name,
-                wne.constants.SORTING_PIPELINE_PARAMS_FNAME,
-            )
-        else:
-            opts_filepath = Path(opts_filepath)
-            assert opts_filepath.exists(), f"{opts_filepath}"
-            with open(opts_filepath, 'r') as f:
-                self.opts = yaml.load(f, Loader=yaml.SafeLoader)
-        self.rerun_existing = rerun_existing
-        self.n_jobs = int(n_jobs)
-
         # Output
         self._raw_ap_bin_segment_frame = None
         self._output_dirname = output_dirname
@@ -68,6 +53,18 @@ class AbstractSortingPipeline:
         self._output_dirname = f"{self._output_dirname}.{self.probe}"
         self._preprocessing_output_dirname = f"prepro_{self._output_dirname}"
         self._output_dir = None
+
+        # Pipeline options
+        if opts_filepath is None:
+            self.opts = self.load_opts()
+        else:
+            opts_filepath = Path(opts_filepath)
+            assert opts_filepath.exists(), f"{opts_filepath}"
+            with open(opts_filepath, 'r') as f:
+                self.opts = yaml.load(f, Loader=yaml.SafeLoader)
+        self.rerun_existing = rerun_existing
+        self.n_jobs = int(n_jobs)
+
 
         # Sub-segments
         if self.output_artifacts_filepath.exists():
@@ -140,26 +137,36 @@ class AbstractSortingPipeline:
         )/self._preprocessing_output_dirname
 
     @property
-    def output_artifacts_filepath(self):
-        return self.output_dir/"artifacts.{self.probe}.tsv}"
+    def output_artifacts_filename(self):
+        return f"artifacts.{self.probe}.tsv"
 
-    def dump_segment_frame(self):
+    @property
+    def output_artifacts_filepath(self):
+        return self.output_dir/self.output_artifacts_filename
+
+    def dump_segment_frame(self, output_dir=None):
+        if output_dir is None:
+            output_dir=self.output_dir
         self.raw_ap_bin_segment_frame.to_csv(
-            self.output_dir/"segments_frame.tsv",
-            sep="\t"
+            output_dir/"segments_frame.tsv",
+            sep="\t",
+            index=False,
         )
 
-    def dump_artifacts_frame(self):
+    def dump_artifacts_frame(self, output_dir=None):
+        if output_dir is None:
+            output_dir = self.output_dir
         if self.artifacts_frame is None:
             return
         self.artifacts_frame.to_csv(
-            self.output_artifacts_filepath,
+            output_dir/self.output_artifacts_filename,
             sep="\t",
+            index=False,
         )
 
     def load_artifacts_frame(self, fpath):
         if fpath is None:
-            return None
+            return pd.DataFrame({"start": [], "stop": [], "file": []})
         fpath = Path(fpath)
         assert fpath.name.endswith(".tsv")
         assert fpath.exists()
@@ -457,7 +464,10 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
         # Save if opts if we did some preprocessing
         if self.preprocessing_output_dir.exists():
-            self.dump_opts(self.preprocessing_output_dir)
+            if not load_existing:
+                self.dump_opts(self.preprocessing_output_dir)
+            self.dump_artifacts_frame(output_dir=self.preprocessing_output_dir)
+            self.dump_segment_frame(output_dir=self.preprocessing_output_dir)
 
         self._is_preprocessed = True
 
@@ -489,6 +499,8 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
 
         self.dump_si_probe()
         self.dump_opts()
+        self.dump_artifacts_frame()
+        self.dump_segment_frame()
 
         self._is_sorted = True
 
