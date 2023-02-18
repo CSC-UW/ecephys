@@ -1,7 +1,7 @@
 import pandas as pd
 import xarray as xr
 import numpy as np
-from ecephys import hypnogram as hg
+from ecephys import hypnogram
 
 
 #####
@@ -65,7 +65,7 @@ def load_and_concatenate_datasets(paths):
 # datetime to be a dimension. For example: dat.isel(time=keep).
 
 
-def add_states(dat, hypnogram):
+def add_states(dat, hg):
     """Annotate each timepoint in the dataset with the corresponding state label.
 
     Parameters:
@@ -77,13 +77,13 @@ def add_states(dat, hypnogram):
     --------
     xarray object with new coordinate `state` on dimension `datetime`.
     """
-    assert isinstance(hypnogram, hg.DatetimeHypnogram)
+    assert isinstance(hg, hypnogram.DatetimeHypnogram)
     assert "datetime" in dat.dims, "Data must contain datetime dimension."
-    states = hypnogram.get_states(dat.datetime)
+    states = hg.get_states(dat.datetime)
     return dat.assign_coords(state=("datetime", states))
 
 
-def keep_states(dat, hypnogram, states):
+def keep_states(dat, hg, states):
     """Select only timepoints corresponding to desired states.
 
     Parameters:
@@ -93,13 +93,13 @@ def keep_states(dat, hypnogram, states):
     states: list of strings
         The states to retain.
     """
-    assert isinstance(hypnogram, hg.DatetimeHypnogram)
+    assert isinstance(hg, hypnogram.DatetimeHypnogram)
     assert "datetime" in dat.dims, "Data must contain datetime dimension."
-    keep = hypnogram.keep_states(states).covers_time(dat.datetime)
+    keep = hg.keep_states(states).covers_time(dat.datetime)
     return dat.sel(datetime=keep)
 
 
-def keep_hypnogram_contents(dat, hypnogram):
+def keep_hypnogram_contents(dat, hg):
     """Select only timepoints covered by the hypnogram.
 
     Parameters:
@@ -107,7 +107,7 @@ def keep_hypnogram_contents(dat, hypnogram):
     dat: Dataset or DataArray with dimension `datetime`
     hypnogram: DatetimeHypnogram
     """
-    assert isinstance(hypnogram, hg.DatetimeHypnogram)
+    assert isinstance(hg, hypnogram.DatetimeHypnogram)
     assert "datetime" in dat.dims, "Data must contain datetime dimension."
-    keep = hypnogram.covers_time(dat.datetime)
+    keep = hg.covers_time(dat.datetime)
     return dat.sel(datetime=keep)
