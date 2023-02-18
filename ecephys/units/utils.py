@@ -32,7 +32,7 @@ def refine_clusters(si_obj, filters={}):
     keep = np.ones_like(si_obj.get_unit_ids())
     for property, filter in filters.items():
         if not property in si_obj.get_property_keys():
-            logger.warn(
+            logger.warning(
                 f"Cluster property {property} not found. Unable to filter clusters based on {property}."
             )
             continue

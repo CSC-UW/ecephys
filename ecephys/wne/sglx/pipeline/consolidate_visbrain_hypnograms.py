@@ -1,6 +1,9 @@
 import logging
+from typing import Optional
+
 import pandas as pd
 from tqdm.auto import tqdm
+
 from ..subjects import Subject
 from ...projects import Project
 from ... import constants
@@ -11,12 +14,14 @@ logger = logging.getLogger(__name__)
 
 def do_experiment_probe(
     srcProject: Project,
-    destProject: Project,
     wneSubject: Subject,
     experiment: str,
     probe: str,
+    destProject: Optional[Project] = None,
     # alias: str,
 ):
+    if destProject is None:
+        destProject = srcProject
     vbHgs = list()
     lfpTable = wneSubject.get_lfp_bin_table(experiment, probe=probe)
     # lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)

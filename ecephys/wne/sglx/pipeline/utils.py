@@ -1,5 +1,8 @@
+from typing import Optional
+
 import pandas as pd
 import xarray as xr
+
 from ..subjects import Subject
 from ...projects import Project
 from .... import utils as ece_utils
@@ -46,7 +49,7 @@ def remove_alias_dataarrays(
 
 
 def gather_and_save_alias_dataarray(
-    wneProject: Project,
+    srcProject: Project,
     wneSubject: Subject,
     experiment: str,
     alias: str,
@@ -55,16 +58,21 @@ def gather_and_save_alias_dataarray(
     outputName: str,
     to_npy: bool = False,
     removeAfter: bool = False,
+    destProject: Optional[Project] = None,
 ):
     """Gather netCDF, save as ONE NPY."""
-    da = gather_alias_dataarray(wneProject, wneSubject, experiment, alias, probe, daExt)
-    saveDir = wneProject.get_alias_subject_directory(experiment, alias, wneSubject.name)
+    if destProject is None:
+        destProject = srcProject
+    da = gather_alias_dataarray(srcProject, wneSubject, experiment, alias, probe, daExt)
+    saveDir = destProject.get_alias_subject_directory(
+        experiment, alias, wneSubject.name
+    )
     if to_npy:
         ece_utils.write_da_as_npy(da, outputName, saveDir)
     else:
         ece_utils.save_xarray(da, saveDir / outputName)
     if removeAfter:
-        remove_alias_dataarrays(wneProject, wneSubject, experiment, alias, probe, daExt)
+        remove_alias_dataarrays(srcProject, wneSubject, experiment, alias, probe, daExt)
 
 
 #####
@@ -89,16 +97,19 @@ def gather_alias_htsv(
 
 
 def gather_and_save_alias_htsv(
-    wneProject: Project,
+    srcProject: Project,
     wneSubject: Subject,
     experiment: str,
     alias: str,
     probe: str,
     inExt: str,
     outFname: str,
+    destProject: Optional[Project] = None,
 ):
-    df = gather_alias_htsv(wneProject, wneSubject, experiment, alias, probe, inExt)
-    savefile = wneProject.get_alias_subject_file(
+    if destProject is None:
+        srcProject = destProject
+    df = gather_alias_htsv(srcProject, wneSubject, experiment, alias, probe, inExt)
+    savefile = destProject.get_alias_subject_file(
         experiment, alias, wneSubject.name, outFname
     )
     ece_utils.write_htsv(df, savefile)

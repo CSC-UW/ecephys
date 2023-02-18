@@ -1,6 +1,8 @@
 import logging
-from tqdm.auto import tqdm
 from typing import Optional
+
+from tqdm.auto import tqdm
+
 from . import utils
 from ..subjects import Subject
 from ...projects import Project

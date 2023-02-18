@@ -1,7 +1,9 @@
 import logging
+from typing import Optional
+
 import pandas as pd
 from tqdm.auto import tqdm
-from typing import Optional
+
 from ..subjects import Subject
 from ...projects import Project
 from ... import constants
@@ -11,14 +13,19 @@ logger = logging.getLogger(__name__)
 
 
 def do_probe_stream(
-    wneProject: Project, wneSubject: Subject, experiment: str, probe: str, stream: str
+    srcProject: Project,
+    destProject: Project,
+    wneSubject: Subject,
+    experiment: str,
+    probe: str,
+    stream: str,
 ):
     artifacts = list()
     ftab = wneSubject.get_experiment_frame(
         experiment, stream=stream, ftype="bin", probe=probe
     )
     for lfpfile in tqdm(list(ftab.itertuples())):
-        [artfile] = wneProject.get_sglx_counterparts(
+        [artfile] = srcProject.get_sglx_counterparts(
             wneSubject.name,
             [lfpfile.path],
             constants.ARTIFACTS_EXT,
@@ -36,19 +43,24 @@ def do_probe_stream(
 
     if artifacts:
         df = pd.concat(artifacts, ignore_index=True)
-        outfile = wneProject.get_experiment_subject_file(
+        outfile = destProject.get_experiment_subject_file(
             experiment, wneSubject.name, f"{probe}.{stream}.{constants.ARTIFACTS_FNAME}"
         )
         ece_utils.write_htsv(df, outfile)
 
 
 def do_experiment(
-    wneProject: Project,
+    srcProject: Project,
     wneSubject: Subject,
     experiment: str,
     probes: Optional[list[str]] = None,
+    destProject: Optional[Project] = None,
 ):
+    if destProject is None:
+        destProject = srcProject
     probes = wneSubject.get_experiment_probes(experiment) if probes is None else probes
     for probe in probes:
         for stream in ["ap", "lf"]:
-            do_probe_stream(wneProject, wneSubject, experiment, probe, stream)
+            do_probe_stream(
+                srcProject, destProject, wneSubject, experiment, probe, stream
+            )
