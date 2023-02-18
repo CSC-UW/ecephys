@@ -178,6 +178,11 @@ class SpikeInterfaceKilosortSorting:
         new_obj = refine_clusters(self.si_obj, filters)
         return self.__class__(new_obj, self.sample2time)
 
+    def select_clusters(self, clusterIDs):
+        """Select clusters, and conveniently wrap the result, so that the user doesn't have to."""
+        new_obj = self.si_obj.select_units(clusterIDs)
+        return self.__class__(new_obj, self.sample2time)
+
     def get_trains(self, cluster_ids=None) -> dict:
         """Get spike trains for a list of clusters (default all)."""
         if cluster_ids is None:
@@ -230,6 +235,10 @@ def fix_uncurated_cluster_labels(
     property_keys = extractor.get_property_keys()
     if all(np.isin(["quality", "KSLabel"], property_keys)):
         quality = extractor.get_property("quality")
+        # If no clusters are curated, quality will be all NaN with type float, instead of type object
+        # Attempts to assign strings (e.g. "good") to this Series will result in a Type Error
+        # Cast to object to avoid this, and so that the type of the property on the extractor is consistent
+        quality = quality.astype("object")
         uncurated = pd.isna(quality)
         if any(uncurated):
             print(f"{uncurated.sum()} clusters are uncurated. Applying KSLabel.")
