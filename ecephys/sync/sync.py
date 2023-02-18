@@ -156,7 +156,8 @@ def get_shared_sequence(a, b):
 # #####
 
 
-def get_sync_model(
+# TODO: make it clear that this is barcode-specific.
+def fit_barcode_times(
     sysX_times, sysX_values, sysY_times, sysY_values, sysX_name="X", sysY_name="Y"
 ):
     """Use barcodes to align streams."""
