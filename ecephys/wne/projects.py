@@ -269,18 +269,17 @@ class Project:
         sorted_segments["nSegmentSamples"] = (
             sorted_segments["end_frame"] - sorted_segments["start_frame"] + 1
         )  # N of sorted samples in each segment
-        cum_sorted_samples = sorted_segments[
+
+        cum_sorted_samples_by_end = sorted_segments[
             "nSegmentSamples"
         ].cumsum()  # N of sorted samples by the end of each segment
-        cum_sorted_samples = cum_sorted_samples.shift(
+        cum_sorted_samples_by_start = cum_sorted_samples_by_end.shift(
             1, fill_value=0
         )  # N of sorted samples by the start of each segment
-        sorted_segments["start_sample"] = (
-            sorted_segments["start_frame"] + cum_sorted_samples
-        )  # First sample index of concatenated recording belonging to each semgent
-        sorted_segments["end_sample"] = (
-            sorted_segments["end_frame"] + cum_sorted_samples
-        )
+        sorted_segments[
+            "start_sample"
+        ] = cum_sorted_samples_by_start  # First sample index of concatenated recording belonging to each semgent
+        sorted_segments["end_sample"] = cum_sorted_samples_by_end - 1
 
         # Given a sample number in the SI recording, we can now figure out:
         #   (1) the segment it came from
@@ -292,10 +291,18 @@ class Project:
         def sample2time(s):
             s = s.astype("float")
             for seg in sorted_segments.itertuples():
-                mask = (s >= seg.start_sample) & (s <= seg.end_sample)
-                s[mask] = s[mask] / seg.imSampRate
-                sync_entry = sync_table.loc[seg.fname]
-                s[mask] = sync_entry.slope * s[mask] + sync_entry.intercept
+                mask = (s >= seg.start_sample) & (
+                    s <= seg.end_sample
+                )  # Mask samples belonging to this segment
+                s[mask] = (
+                    s[mask] / seg.imSampRate + seg.start_frame / seg.imSampRate
+                )  # Convert to number of seconds in this probe's timebase
+                sync_entry = sync_table.loc[
+                    seg.fname
+                ]  # Get info needed to sync to imec0 timebase
+                s[mask] = (
+                    sync_entry.slope * s[mask] + sync_entry.intercept
+                )  # Sync to imec0 timebase
             return s
 
         return sample2time
