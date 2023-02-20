@@ -174,9 +174,9 @@ class Project:
         return ece_utils.remove_duplicates(counterparts)
 
     def load_experiment_subject_json(
-        self, epxeriment: str, subject: str, fname: str
+        self, experiment: str, subject: str, fname: str
     ) -> dict:
-        path = self.get_experiment_subject_file(epxeriment, subject, fname)
+        path = self.get_experiment_subject_file(experiment, subject, fname)
         with open(path) as f:
             return json.load(f)
 
@@ -288,6 +288,7 @@ class Project:
         # We make a function that does this for an arbitrary array of sample numbers in the SI object, so we can use it later as needed.
         sync_table = sync_table.set_index("source")
 
+        # TODO: Rename start_sample -> si_start_sample?
         def sample2time(s):
             s = s.astype("float")
             for seg in sorted_segments.itertuples():
@@ -295,14 +296,16 @@ class Project:
                     s <= seg.end_sample
                 )  # Mask samples belonging to this segment
                 s[mask] = (
-                    s[mask] / seg.imSampRate + seg.start_frame / seg.imSampRate
-                )  # Convert to number of seconds in this probe's timebase
+                    (s[mask] - seg.start_sample) / seg.imSampRate
+                    + seg.expmtPrbAcqFirstTime
+                    + seg.start_frame / seg.imSampRate
+                )  # Convert to number of seconds in this probe's (expmtPrbAcq) timebase
                 sync_entry = sync_table.loc[
                     seg.fname
-                ]  # Get info needed to sync to imec0 timebase
+                ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
                 s[mask] = (
                     sync_entry.slope * s[mask] + sync_entry.intercept
-                )  # Sync to imec0 timebase
+                )  # Sync to imec0 (expmtPrbAcq) timebase
             return s
 
         return sample2time
