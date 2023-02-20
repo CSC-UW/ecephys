@@ -40,8 +40,8 @@ def do_alias(
         sig = sglxr.load_trigger(
             lfpFile.path,
             opts["probes"][lfpFile.probe]["emgFromLfpChans"],
-            t0=lfpFile["expmtPrbAcqFirstTime"],  # TODO: Convert times before saving
-            dt0=lfpFile["expmtPrbAcqFirstDatetime"],
+            t0=lfpFile.expmtPrbAcqFirstTime,  # TODO: Convert times before saving
+            dt0=lfpFile.expmtPrbAcqFirstDatetime,
         )
         emg = xrsig.LFPs(sig).synthetic_emg(**DEFAULT_EMG_OPTIONS)
         ece_utils.save_xarray(emg, emgFile)

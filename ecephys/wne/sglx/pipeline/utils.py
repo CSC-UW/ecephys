@@ -107,7 +107,7 @@ def gather_and_save_alias_htsv(
     destProject: Optional[Project] = None,
 ):
     if destProject is None:
-        srcProject = destProject
+        destProject = srcProject
     df = gather_alias_htsv(srcProject, wneSubject, experiment, alias, probe, inExt)
     savefile = destProject.get_alias_subject_file(
         experiment, alias, wneSubject.name, outFname

@@ -1,8 +1,9 @@
 import logging
-import pandas as pd
 from pathlib import Path
-from tqdm.auto import tqdm
 from typing import Callable, Optional
+
+import pandas as pd
+from tqdm.auto import tqdm
 
 from ..subjects import Subject
 from ...projects import Project

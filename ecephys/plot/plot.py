@@ -299,7 +299,7 @@ def plot_hypnogram_overlay(
 
     ax = check_ax(ax, figsize=figsize)
 
-    for bout in hypnogram.itertuples():
+    for i, bout in hypnogram.iterrows():
         ax.axvspan(
             bout[t1_column],
             bout[t2_column],
