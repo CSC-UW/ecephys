@@ -127,7 +127,7 @@ class SpikeInterfaceSortingPipeline:
             repr = (
                 repr
                 + f"""
-            Total sorting duration: \n{self.raw_si_recording.get_total_duration()}(s)
+            Total sorting duration: \n{self._raw_si_recording.get_total_duration()}(s)
             """
             )
         if self._segments is not None:
