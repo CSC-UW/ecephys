@@ -127,7 +127,7 @@ class SpikeInterfaceSortingPipeline:
             repr = (
                 repr
                 + f"""
-            Total sorting duration: \n{self._raw_si_recording.get_total_duration()}(s)
+            Raw SI recording: \n{self._raw_si_recording}
             """
             )
         if self._segments is not None:
@@ -138,6 +138,14 @@ class SpikeInterfaceSortingPipeline:
             AP segment table: \n{self._segments.loc[:,['fname', 'type', 'start_frame', 'end_frame']]}
             """
             )
+        if self._raw_si_recording is None or self._segments is None:
+            repr = (
+                repr
+                + f"""
+            Run `get_raw_si_recording` method to display segments/recording info.\n`
+            """
+            )
+
         return repr
 
     @property
