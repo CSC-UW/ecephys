@@ -77,7 +77,7 @@ class SpikeInterfaceSortingPipeline:
             if suffix == ".json":
                 self._opts = json.load(f)
             elif suffix in {".yaml", ".yml"}:
-                self._opts = yaml.load(f)
+                self._opts = yaml.load(f, Loader=yaml.SafeLoader)
             else:
                 raise ValueError(
                     f"Unexpected file extension {suffix} on {self._opts_src}"
