@@ -58,7 +58,7 @@ class SpikeInterfaceSortingPipeline:
         self._experiment = experiment
         self._probe = probe
         self._rerun_existing = rerun_existing
-        self._nJobs = n_jobs
+        self._nJobs = int(n_jobs)
         self._basename = basename
 
         # Set the location where options should be loaded from. Either...
