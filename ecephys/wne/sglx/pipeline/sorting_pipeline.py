@@ -135,7 +135,7 @@ class SpikeInterfaceSortingPipeline:
                 repr
                 + f"""
             First segment full path: \n{self._segments.path.values[0]}
-            AP segment table: \n{self._segments.loc[:,['fname', 'type', 'start_frame', 'end_frame']]}
+        AP segment table: \n{self._segments.loc[:,['fname', 'type', 'start_frame', 'end_frame', 'fileDuration', 'segmentDuration', 'fileDuration']]}
             """
             )
         if self._raw_si_recording is None or self._segments is None:

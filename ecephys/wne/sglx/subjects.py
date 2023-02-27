@@ -168,6 +168,7 @@ class Subject:
                 start_frame: The first sample index of the segment, measured from the start of the file (0-indexed)
                 end_frame: The final sample index of the segment, measured from the start of the file (0-indexed)
                 type: Either 'keep', in which case the segment was kept, or other, in which case the segment was dropped.
+                segmentDuration: Duration in sec of segment.
         """
         # Get the experiment frame. This should be for a single probe, and a single stream.
         ftab = self.get_experiment_frame(
@@ -355,4 +356,8 @@ def segment_experiment_frame_for_spikeinterface(
         {"start_frame": int, "end_frame": int}
     )
     ftab["fname"] = ftab["path"].apply(lambda x: x.name)
-    return segments.merge(ftab, on="fname")
+
+    stab = segments.merge(ftab, on="fname")
+    stab["segmentDuration"] = (stab["end_frame"] - stab["start_frame"]).div(stab["imSampRate"])
+
+    return stab
