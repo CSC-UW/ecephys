@@ -273,6 +273,12 @@ class SpikeInterfaceSortingPipeline:
             )
             return
 
+        if self._preprocessed_si_recording is None:
+            raise AttributeError(
+                f"No preprocessing object found.\n"
+                "You need to run preprocessing."
+            )
+
         # Get sorter and parameters
         sorter_name, sorter_params = self._opts["sorting"]
 
@@ -354,7 +360,7 @@ class SpikeInterfaceSortingPipeline:
                     "Consider instantiating a pipeline object using the options_source parameter."
                 )
             self.run_preprocessing()
-            waveform_recording = self._preprocessed_si_recording
+            waveform_recording = self.preprocessed_si_recording
 
         # If we have already extracted waveforms before, re-use those.
         precomputed_waveforms = not self._rerun_existing and self.is_postprocessed
