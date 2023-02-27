@@ -218,6 +218,7 @@ class SpikeInterfaceSortingPipeline:
                 f"No preprocessing object found, and no probefile at {self.preprocessed_probe_path}.\n"
                 "You need to run preprocessing."
             )
+        return self._preprocessed_probe
 
     @property
     def preprocessing_output_dir(self) -> Path:
