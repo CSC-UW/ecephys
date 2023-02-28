@@ -230,6 +230,20 @@ class SpikeInterfaceSortingPipeline:
         )
 
     def run_preprocessing(self):
+
+        # Make sure we preprocess in the same way we did before.
+        prior_opts_fpath = self.main_output_dir / OPTS_FNAME
+        if prior_opts_fpath.exists():
+            with open(prior_opts_fpath) as f:
+                prior_opts = yaml.load(f, Loader=yaml.SafeLoader)
+            if deepdiff.DeepDiff(self.opts, prior_opts):
+                raise ValueError(
+                    "Current options do not match options used for prior preprocessing. "
+                    "Consider instantiating a pipeline object using the options_source parameter.\n"
+                    f"Current opts: {self.opts}\n"
+                    f"Prior opts: {prior_opts}\n"
+                )
+
         raw_si_recording, segments = self.get_raw_si_recording()
         self._preprocessed_si_recording = preprocess_si_rec.preprocess_si_recording(
             raw_si_recording,
