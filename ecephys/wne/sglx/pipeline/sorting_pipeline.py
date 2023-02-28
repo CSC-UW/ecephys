@@ -38,6 +38,21 @@ POSTPRO_OPTS_FNAME = "metrics_opts.yaml"  # Really, postprocessing options.
                     - preprocessing # This is the preprocessing output directory
 """
 
+def get_main_output_dir(
+    wneProject: Project,
+    wneSubject: Subject,
+    experiment: str,
+    alias: str,
+    probe: str,
+    basename: str,
+):
+    return (
+        wneProject.get_alias_subject_directory(
+            experiment, alias, wneSubject.name
+        )
+        / f"{basename}.{probe}"
+    )
+
 
 # TODO: Shouldn't there be an is_preprocessed method?
 class SpikeInterfaceSortingPipeline:
@@ -159,11 +174,13 @@ class SpikeInterfaceSortingPipeline:
 
     @property
     def main_output_dir(self) -> Path:
-        return (
-            self._wneProject.get_alias_subject_directory(
-                self._experiment, self._alias, self._wneSubject.name
-            )
-            / f"{self._basename}.{self._probe}"
+        return get_main_output_dir(
+            self._wneProject,
+            self._wneSubject,
+            self._experiment,
+            self._alias,
+            self._probe,
+            self._basename,
         )
 
     ##### Preprocessing methods and properties #####
