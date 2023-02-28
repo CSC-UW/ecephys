@@ -3,6 +3,7 @@ from horology import Timing
 import json
 import logging
 import pandas as pd
+from pandas.testing import assert_frame_equal
 from pathlib import Path
 import probeinterface as pi
 from typing import Optional, Union
@@ -25,6 +26,8 @@ logger = logging.getLogger(__name__)
 Pathlike = Union[Path, str]
 OPTS_FNAME = "opts.yaml"
 POSTPRO_OPTS_FNAME = "metrics_opts.yaml"  # Really, postprocessing options.
+SEGMENTS_FNAME = "segments.htsv"
+EXCLUSIONS_FNAME = "exclusions.htsv"
 
 
 """
@@ -100,11 +103,35 @@ class SpikeInterfaceSortingPipeline:
                 raise ValueError(
                     f"Unexpected file extension {suffix} on {self._opts_src}"
                 )
+        # Ensure we use same opts as previously
+        prior_opts_path = self.main_output_dir / OPTS_FNAME
+        if prior_opts_path.exists():
+            with open(prior_opts_path, "r") as f:
+                prior_opts = yaml.load(f, Loader=yaml.SafeLoader)
+            if deepdiff.DeepDiff(self._opts, prior_opts):
+                raise ValueError(
+                    f"Current options do not match prior options saved on file at {prior_opts_path}.\n"
+                    f"Consider instantiating pipeline object with `SpikeinterfaceSortingPipeline.load_from_folder`\n\n"
+                    f"Current opts: {self.opts}\n"
+                    f"Prior opts: {prior_opts}\n"
+                )
 
         # Exclude artifacts found in the WNE project, unless overriden
         self._exclusions = (
             self.get_wne_artifacts() if exclusions is None else exclusions
         )
+        # Ensure we use the same exclusions as previously
+        prior_exclusions_path = self.main_output_dir / EXCLUSIONS_FNAME
+        if prior_exclusions_path.exists():
+            prior_exclusions = ece_utils.read_htsv(prior_exclusions_path)
+            try:
+                assert_frame_equal(prior_exclusions, self._exclusions, check_dtype=False)
+            except AssertionError as e:
+                raise ValueError(
+                    f"New exclusions don't match previously used exclusion file at {prior_exclusions_path}:\n"
+                    f"Consider instantiating pipeline object with `SpikeinterfaceSortingPipeline.load_from_folder`\n"
+                    f"{e}"
+                )
 
         # Set compute details
         self.job_kwargs = {
@@ -212,10 +239,15 @@ class SpikeInterfaceSortingPipeline:
         prior_segments_path = self.main_output_dir / SEGMENTS_FNAME
         if prior_segments_path.exists():
             prior_segments = ece_utils.read_htsv(prior_segments_path)
-            # assert_frame_equal(prior_segments, self._segments)
-            if not self._segments.equals(prior_segments):
+            try:
+                # Couldn't make it work for all columns because of rounding x dtype
+                cols_to_compare = ['fname', 'type', 'imSampRate', 'start_frame', 'end_frame', 'fileDuration', 'segmentDuration']
+                assert_frame_equal( prior_segments[cols_to_compare], self._segments[cols_to_compare])
+            except AssertionError as e:
                 raise ValueError(
-                    f"Newly computed segments don't match previously used segment file at {prior_segments_path}"
+                    f"Newly computed segments don't match previously used segment file at {prior_segments_path}:\n"
+                    f"Consider instantiating pipeline object with `SpikeinterfaceSortingPipeline.load_from_folder`\n"
+                    f"{e}"
                 )
         return self._raw_si_recording, self._segments
 
@@ -260,19 +292,6 @@ class SpikeInterfaceSortingPipeline:
 
     def run_preprocessing(self):
 
-        # Make sure we preprocess in the same way we did before.
-        prior_opts_fpath = self.main_output_dir / OPTS_FNAME
-        if prior_opts_fpath.exists():
-            with open(prior_opts_fpath) as f:
-                prior_opts = yaml.load(f, Loader=yaml.SafeLoader)
-            if deepdiff.DeepDiff(self.opts, prior_opts):
-                raise ValueError(
-                    "Current options do not match options used for prior preprocessing. "
-                    "Consider instantiating a pipeline object using the options_source parameter.\n"
-                    f"Current opts: {self.opts}\n"
-                    f"Prior opts: {prior_opts}\n"
-                )
-
         raw_si_recording, segments = self.get_raw_si_recording()
         self._preprocessed_si_recording = preprocess_si_rec.preprocess_si_recording(
             raw_si_recording,
@@ -286,8 +305,8 @@ class SpikeInterfaceSortingPipeline:
         # Save options used
         with open(self.preprocessing_output_dir / OPTS_FNAME, "w") as f:
             yaml.dump(self.opts, f)
-        ece_utils.write_htsv(self._exclusions, self.main_output_dir / "exclusions.htsv")
-        ece_utils.write_htsv(segments, self.main_output_dir / "segments.htsv")
+        ece_utils.write_htsv(self._exclusions, self.main_output_dir / EXCLUSIONS_FNAME)
+        ece_utils.write_htsv(segments, self.main_output_dir / SEGMENTS_FNAME)
 
         # Save preprocessed probe
         pi.write_probeinterface(
