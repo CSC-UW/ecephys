@@ -1,0 +1,18 @@
+postprocessing: {}
+metrics:
+    num_spikes: {}
+    firing_rate: {}
+    presence_ratio: {}
+    snr: {}
+    isi_violations: {}
+    rp_violations: {}
+    amplitude_cutoff: {}
+    amplitude_median: {}
+    # drift: {} # Not implemented (need slow spike locations)
+    ## PCA metrics (slow)
+    # isolation_distance: {}
+    # l_ratio: {}
+    # d_prime: {}
+    # nearest_neighbor: {}
+    # nn_isolation: {}
+    # nn_noise_overlap: {}

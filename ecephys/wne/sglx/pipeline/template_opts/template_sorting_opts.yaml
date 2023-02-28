@@ -1,4 +1,3 @@
-output_dirname: 'ks_df'
 preprocessing:
   # All preprocessing steps
   # As list because run order is preserved
@@ -27,10 +26,6 @@ preprocessing:
   -
     step_name: drift_correction # preprocess_si_rec._prepro_drift_correction
     step_params:
-      job_kwargs:
-        # SI params (parallelize preprocessing/dumping)
-        n_jobs: 20  # Possibly errors if too much compared to #chunks
-        chunk_duration: "1s"
       # One param dict for each substep
       noise_level_params: {}
       peak_detection_params:
@@ -39,31 +34,38 @@ preprocessing:
         peak_sign: 'neg'
         detect_threshold: 5
         exclude_sweep_ms: 0.1
-      peak_localization_method: 'center_of_mass'
+      peak_localization_method: 'monopolar_triangulation'
       peak_localization_params:
         # Common to "monopolar_triangulation" and "center_of_mass" methods
         ms_before: 0.3
         ms_after: 0.6
         local_radius_um: 150.0
         # Below only for "monopolar_triangulation" method
-        # max_distance_um: 1000
-        # optimizer: 'minimize_with_log_penality'
-      motion_method_params:
-        pairwise_displacement_method: 'conv'
-        # pairwise_displacement_method: 'phase_cross_correlation'
-        # convergence_method: 'gradient_descent'
-        convergence_method: 'lsqr_robust'
-        # conv_engine: 'torch'
-        conv_engine: 'numpy'
-        corr_threshold: 0.7
-      non_rigid_params:
-        bin_step_um: 1000.0  # Size of y-axis chunks
-      clean_motion_params: null  # No motion cleaning if null. Probably a good idea for concatenated bouts
-        # speed_threshold: 30  # um/sec
-        # sigma_smooth_s: 5.0
+        max_distance_um: 400
+        optimizer: 'minimize_with_log_penality'
       motion_params: 
+        # General
         bin_duration_s: 10.0
-        bin_um: 10.0  # Should be smaller than non_rigid_params.bin_step_um
+        bin_um: 1.0  # Should be smaller than non_rigid_params.bin_step_um
+        margin_um: 0.0
+        rigid: False
+        win_shape: "gaussian"
+        win_step_um: 1000.0
+        win_sigma_um: 3000.0
+      motion_method_params:
+        method: "decentralized"
+        pairwise_displacement_method: 'conv'
+        max_displacement_um: 400.0
+        weight_scale: "linear"
+        convergence_method: 'lsqr_robust'
+        robust_regression_sigma: 2.0
+        lsqr_robust_n_iter: 20
+        conv_engine: 'torch'
+        corr_threshold: 0.7
+        time_horizon_s: null
+      clean_motion_params:
+        speed_threshold: 5  # um/sec
+        sigma_smooth_s: null
 sorting:
   - kilosort2_5 # Sorter name
   - # Sorter params
@@ -86,27 +88,3 @@ sorting:
     nfilt_factor: 4
     NT: null
     keep_good_only: False
-    # SI params (parallelize preprocessing/dumping)
-    n_jobs: 20  # TODO: benchmark
-    chunk_duration: "1s"  # TODO: benchmark
-postprocessing: {}
-metrics:
-  # https://allensdk.readthedocs.io/en/latest/_static/examples/nb/ecephys_quality_metrics.html
-  firing_rate: {}
-  amplitude_cutoff: {}
-  presence_ratio: {}
-  isi_violation:
-    isi_threshold_ms: 1.5
-  snr: {}
-  nn_hit_rate: {}
-  nn_miss_rate: {}
-  nn_isolation: {}
-  nn_noise_overlap: {}
-  d_prime: {}
-  isolation_distance: {}
-  l_ratio: {}
-  # ...  # https://spikeinterface.readthedocs.io/en/latest/module_qualitymetrics.html
-  _multipro_params:
-    n_jobs: 40  # TODO: benchmark
-    chunk_duration: "1s"  # TODO: benchmark
-    progress_bar: True
