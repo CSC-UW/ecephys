@@ -67,9 +67,9 @@ preprocessing:
         speed_threshold: 5  # um/sec
         sigma_smooth_s: null
 sorting:
-  - kilosort2_5 # Sorter name
-  - # Sorter params
-    ks_path: "/Volumes/scratch/neuropixels/matlab/external/Kilosort-wisc-v2.5"
+  sorter_name: kilosort2_5
+  sorter_path: "/Volumes/scratch/neuropixels/matlab/external/Kilosort-wisc-v2.5"  # Only for KS
+  sorter_params:  # Passed directly to spikeinterface.run_sorter
     do_preprocessing: False # MANDATORY FALSE
     detect_threshold: 6
     projection_threshold: [10, 4]

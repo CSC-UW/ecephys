@@ -295,12 +295,20 @@ class SpikeInterfaceSortingPipeline:
             )
 
         # Get sorter and parameters
-        sorter_name, sorter_params = self._opts["sorting"]
+        sorting_opts = self.opts["sorting"]
+        sorter_name = sorting_opts["sorter_name"]
+        sorter_params = sorting_opts["sorter_params"]
 
         # If using KiloSort2.5, we need to set the path to the KiloSort executable
         if sorter_name == "kilosort2_5":
-            ks_path = sorter_params.pop("ks_path")  # TODO: Why pop?
-            ss.sorter_dict[sorter_name].set_kilosort2_5_path(ks_path)
+            if not "sorter_path" in sorting_opts:
+                raise ValueError(
+                    "Expected 'sorter_path' key in sorting opts for kilosort.\n"
+                    "You might be using obsolete formatting for opts file?"
+                )
+            ss.sorter_dict[sorter_name].set_kilosort2_5_path(sorting_opts["sorter_path"])
+        else:
+            raise NotImplementedError()
 
         # Sort
         self.main_output_dir.mkdir(exist_ok=True, parents=True)  # Necessary?
