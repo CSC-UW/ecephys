@@ -6,31 +6,32 @@
 Modify script to change default argument values
 
 Usage:
-  run_sorting_pipeline.py --help
   run_sorting_pipeline.py [options] [--input <subjectName>,<probeName>]...
-  run_sorting_pipeline.py [options] (--prepro_only|--postpro_only) [--input <subjectName>,<probeName>]...
+  run_sorting_pipeline.py [options] (--prepro_only) [--input <subjectName>,<probeName>]...
 
 Options:
   -h --help                          Show this screen.
   --input==<subjectName,probeName>   (Repeatable) Comma-separated pair of the form `<subjectName>,<probeName>`
   --prepro_only                      Run only preprocessing, not full pipeline (drift correction)
-  --postpro_only                     Run only waveform extraction, postpro and metrics, not sorting.
   --rerun_existing                   Rerun rather than load things.
-  --opts_dirpath==<odp>              Path to directory containing option file [default: {OPTS_DIRPATH}]
-  --opts_filename==<ofn>             Name of options file (applied to all input datasets) [default: {OPTS_FILENAME}]
+  --options_source==<ofn>            Name of options file (applied to all input datasets) [default: {OPTIONS_SOURCE}]
   --projectName==<pn>                Project name [default: {PROJECT_NAME}]
   --experimentName==<en>             Exp name [default: {EXPERIMENT_NAME}]
   --aliasName==<an>                  Alias name [default: {ALIAS_NAME}]
-  --output_dirname==<dn>             Name of output dir. Pulled from opts file if None. [default: {OUTPUT_DIRNAME}]
+  --basename==<bn>                   Name of output dir. [default: {BASENAME}]
+  --exclusionsPath=<exclusions>      Path to exclusion file. Pulled from WNE project if unspecified.
   --n_jobs=<n_jobs>                  Number of jobs for all spikeinterface functions. [default: {N_JOBS}]
 
 """
 from pathlib import Path
 
+import pandas as pd
 from docopt import docopt
 
 import wisc_ecephys_tools as wet
-from ecephys.wne.sglx.pipeline.sorting_pipeline import SpikeInterfaceSortingPipeline
+from ecephys import wne
+from ecephys.wne.sglx.pipeline.sorting_pipeline import \
+    SpikeInterfaceSortingPipeline
 
 subjectsDir = wet.get_subjects_directory()
 projectsFile = wet.get_projects_file()
@@ -39,56 +40,62 @@ DEFAULT_VALUES = {
     "PROJECT_NAME": "my_project",
     "EXPERIMENT_NAME": "my_experiment",
     "ALIAS_NAME": "my_alias",
-    "OPTS_DIRPATH": "/path/to/opts/such/as/ecephys/wne/sglx/pipeline/template_opts",
-    "OPTS_FILENAME": "template_pipeline_opts.yaml",
-    "OUTPUT_DIRNAME": None,
+    "OPTIONS_SOURCE": "/path/to/opts/such/as/ecephys/wne/sglx/pipeline/template_sorting_opts.yaml",
+    "BASENAME": "sorting_df",
     "N_JOBS": 10,
 }
-
-TIME_RANGES = None
 
 if __name__ == "__main__":
 
     args = docopt(__doc__.format(**DEFAULT_VALUES), version="Naval Fate 2.0")
 
-    opts_filepath = Path(args["--OPTS_DIRPATH"]) / args["--OPTS_FILENAME"]
-
     print(f"Running all subject/probe pairs: {args['--input']}")
 
     for subject_probe in args["--input"]:
 
-        subjectName, probeName = subject_probe.split(",")
+        subjectName, probe = subject_probe.split(",")
+
+        subjLib = wne.sglx.SubjectLibrary(subjectsDir)
+        projLib = wne.ProjectLibrary(projectsFile)
+        wneSubject = subjLib.get_subject(subjectName)
+        wneProject = projLib.get_project(args["--projectName"])
+
+        if args["--exclusionsPath"]:
+            assert args["--exclusionsPath"].endswith("tsv")
+            assert Path(args["--exclusionsPath"]).exists()
+            print(args["--exclusionsPath"])
+            exclusions = pd.read_csv(args["--exclusionsPath"], sep="\t")
+        else:
+            exclusions = None
 
         sorting_pipeline = SpikeInterfaceSortingPipeline(
-            subjectName,
-            subjectsDir,
-            args["--projectName"],
-            projectsFile,
+            wneProject,
+            wneSubject,
             args["--experimentName"],
             args["--aliasName"],
-            probeName,
-            time_ranges=TIME_RANGES,
-            opts_filepath=opts_filepath,
+            probe,
+            basename=args["--basename"],
             rerun_existing=args["--rerun_existing"],
-            output_dirname=args["--output_dirname"],
             n_jobs=args["--n_jobs"],
+            options_source=args["--options_source"],
+            exclusions=exclusions,
         )
+        # Load raw recording and semgments
+        sorting_pipeline.get_raw_si_recording()
         print(f"Sorting pipeline: {sorting_pipeline}\n")
-        print(f"Pipeline opts: {sorting_pipeline._opts}")
-        print(f"Raw recording:\n {sorting_pipeline.raw_si_recording}")
+        print(f"Pipeline opts: {sorting_pipeline.opts}")
+        print(f"Raw recording:\n {sorting_pipeline._raw_si_recording}")
 
         if args["--prepro_only"]:
             print("--prepro_only==True: Run only preprocessing")
             sorting_pipeline.run_preprocessing()
-        elif args["--postpro_only"]:
-            print("--postpro_only==True: Run only postprocessing and metrics")
-            sorting_pipeline.run_postprocessing()
         else:
-            print("--prepro_only==False: Run full pipeline")
-            sorting_pipeline.run_pipeline()
+            print("Run full pipeline")
+            sorting_pipeline.run_preprocessing()
+            sorting_pipeline.run_sorting()
 
         print(f"Sorting pipeline: {sorting_pipeline}\n")
         print(f"Pipeline opts: {sorting_pipeline._opts}\n")
-        print(f"Raw recording:\n {sorting_pipeline.raw_si_recording}\n")
+        print(f"Raw recording:\n {sorting_pipeline._raw_si_recording}\n")
 
         print(f"\n\n ...Done!")
