@@ -517,3 +517,51 @@ class SpikeInterfaceSortingPipeline:
             yaml.dump(self.opts, f)
 
         print("Done postprocessing.")
+
+    @classmethod
+    def load_from_folder(
+        cls,
+        wneProject: Project,
+        wneSubject: Subject,
+        experiment: str,
+        alias: str,
+        probe: str,
+		basename: str,
+        rerun_existing: bool = True,
+        n_jobs: int = 1,
+    ):
+        """Instantiate a pipeline object from previous run."""
+
+        main_output_dir = get_main_output_dir(
+            wneProject,
+            wneSubject,
+            experiment,
+            alias,
+            probe,
+            basename,
+        )
+
+        if not all([f.exists() for f in [
+            main_output_dir,
+            main_output_dir / OPTS_FNAME,
+            main_output_dir / EXCLUSIONS_FNAME,
+            main_output_dir / SEGMENTS_FNAME
+        ]]):
+            raise FileNotFoundError(
+                f"Could not find all required files in {main_output_dir}"
+            )
+
+        exclusions = ece_utils.read_htsv(main_output_dir / EXCLUSIONS_FNAME)
+
+        return SpikeInterfaceSortingPipeline(
+            wneProject,
+            wneSubject,
+            experiment,
+            alias,
+            probe,
+            basename,
+            rerun_existing=rerun_existing,
+            n_jobs=n_jobs,
+            options_source=(main_output_dir / OPTS_FNAME),
+            exclusions=exclusions,
+        )
