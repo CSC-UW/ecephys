@@ -259,8 +259,8 @@ class SpikeInterfaceSortingPipeline:
         required_output_files = [
             self.sorter_output_dir / "spike_times.npy",
             self.sorter_output_dir / "amplitudes.npy",
-            self.main_output_dir / "opts.yaml",
-            self.main_output_dir / "processed_si_probe.json",
+            self.main_output_dir / OPTS_FNAME,
+            self.main_output_dir / "preprocessed_si_probe.json",
         ]
         return self.sorter_output_dir.exists() and all(
             [f.exists() for f in required_output_files]
