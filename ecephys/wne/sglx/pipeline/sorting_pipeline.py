@@ -32,10 +32,13 @@ POSTPRO_OPTS_FNAME = "metrics_opts.yaml"  # Really, postprocessing options.
     - <experiment>
         - <alias>
             - <subject>
-            - <basename>.<probe>/ # This is the main output directory
-                - sorter_output/ # This is the sorter output directory
-            - prepro_<basename>.<probe>/ # This is the preprocessing output directory
+                - <basename>.<probe>/ # This is the main output directory
+                    - si_output/ # This is Spikeinterface's output directory. Everything in there is deleted by spikeinterface when running run_sorter.
+                        - sorter_output/ # This is the sorter output directory
+                    - preprocessing # This is the preprocessing output directory
 """
+
+
 # TODO: Shouldn't there be an is_preprocessed method?
 class SpikeInterfaceSortingPipeline:
     def __init__(
@@ -185,14 +188,28 @@ class SpikeInterfaceSortingPipeline:
             "ap",
             self._probe,
             combine="concatenate",
-            exclusions=self._exclusions,
+            exclusions=self._exclusions.copy(), # Avoid in-place modification so we check consistency
             sampling_frequency_max_diff=1e-06,
         )
+        # Ensure we used the same segments as previously
+        prior_segments_path = self.main_output_dir / SEGMENTS_FNAME
+        if prior_segments_path.exists():
+            prior_segments = ece_utils.read_htsv(prior_segments_path)
+            # assert_frame_equal(prior_segments, self._segments)
+            if not self._segments.equals(prior_segments):
+                raise ValueError(
+                    f"Newly computed segments don't match previously used segment file at {prior_segments_path}"
+                )
         return self._raw_si_recording, self._segments
 
     @property
+    def spikeinterface_output_dir(self) -> Path:
+        # Differs from main_output_dir because spikeinterface deletes everything in there when running a sorting.
+        return self.main_output_dir / "si_output"
+
+    @property
     def sorter_output_dir(self) -> Path:
-        return self.main_output_dir / "sorter_output"
+        return self.spikeinterface_output_dir / "sorter_output"
 
     @property
     def preprocessed_bin_path(self) -> Path:
@@ -222,12 +239,7 @@ class SpikeInterfaceSortingPipeline:
 
     @property
     def preprocessing_output_dir(self) -> Path:
-        return (
-            self._wneProject.get_alias_subject_directory(
-                self._experiment, self._alias, self._wneSubject.name
-            )
-            / f"prepro_{self._basename}.{self._probe}"
-        )
+        return self.main_output_dir / "preprocessing"
 
     def run_preprocessing(self):
 
@@ -316,7 +328,7 @@ class SpikeInterfaceSortingPipeline:
             ss.run_sorter(
                 sorter_name,
                 self._preprocessed_si_recording,
-                output_folder=self.main_output_dir,
+                output_folder=self.spikeinterface_output_dir,
                 verbose=True,
                 with_output=False,
                 **sorter_params,
