@@ -8,6 +8,7 @@ from spikeinterface.sortingcomponents import (
     motion_correction,
     motion_estimation,
     peak_detection,
+    peak_pipeline,
     peak_localization,
 )
 
@@ -97,6 +98,7 @@ def get_peak_displacement_fig(
 def _compute_peaks(
     si_rec,
     noise_level_params,
+    extract_waveforms_params,
     peak_localization_method,
     peak_localization_params,
     peak_detection_params,
@@ -112,16 +114,18 @@ def _compute_peaks(
         )
 
     with Timing(name="Detect peaks: "):
-        peak_pipeline_steps = [
+        extract_dense_waveforms = peak_pipeline.ExtractDenseWaveforms(si_rec, return_output=False, **extract_waveforms_params)
+        pipeline_nodes = [
+            extract_dense_waveforms,
             PEAK_LOCALIZATION_FUNCTIONS[peak_localization_method](
-                si_rec, **peak_localization_params
+                si_rec, **peak_localization_params, parents=[extract_dense_waveforms]
             )
         ]
 
         peaks, peak_locations = peak_detection.detect_peaks(
             si_rec,
             noise_levels=noise_levels,
-            pipeline_steps=peak_pipeline_steps,
+            pipeline_nodes=pipeline_nodes,
             **peak_detection_params,
             **job_kwargs,
         )
@@ -176,7 +180,8 @@ def _prepro_drift_correction(
     output_dir=None,
     noise_level_params=None,
     peak_detection_params=None,
-    peak_localization_method="center_of_mass",
+    extract_waveforms_params=None,
+    peak_localization_method="localize_monopolar_location",
     peak_localization_params=None,
     motion_params=None,
     motion_method_params=None,
@@ -216,6 +221,7 @@ def _prepro_drift_correction(
         peaks, peak_locations = _compute_peaks(
             si_rec,
             noise_level_params,
+            extract_waveforms_params,
             peak_localization_method,
             peak_localization_params,
             peak_detection_params,
@@ -363,6 +369,10 @@ def _prepro_drift_correction(
             spatial_bins,
             direction=1,
             border_mode="remove_channels",
+            spatial_interpolation_method="kriging",
+            sigma_um=20.0,
+            p=1,
+            num_closest=3,
         )
 
     return rec_corrected
@@ -405,6 +415,7 @@ def preprocess_si_recording(
                 output_dir=output_dir,
                 noise_level_params=step_params.get("noise_level_params", None),
                 peak_detection_params=step_params.get("peak_detection_params", None),
+                extract_waveforms_params=step_params.get("extract_waveforms_params", None),
                 peak_localization_method=step_params.get(
                     "peak_localization_method", None
                 ),
@@ -427,7 +438,6 @@ PREPRO_FUNCTIONS = {
     "scale": si.scale,
     "phase_shift": si.phase_shift,
     # "bad_channels": _prepro_bad_channels,
-    "bad_channels": si.remove_bad_channels,
     "bandpass_filter": si.bandpass_filter,
     "common_reference": si.common_reference,
     "whiten": si.whiten,

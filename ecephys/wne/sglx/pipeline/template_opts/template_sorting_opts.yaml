@@ -34,11 +34,12 @@ preprocessing:
         peak_sign: 'neg'
         detect_threshold: 5
         exclude_sweep_ms: 0.1
+      extract_waveforms_params:
+        ms_before: 0.3
+        ms_after: 0.6
       peak_localization_method: 'monopolar_triangulation'
       peak_localization_params:
         # Common to "monopolar_triangulation" and "center_of_mass" methods
-        ms_before: 0.3
-        ms_after: 0.6
         local_radius_um: 150.0
         # Below only for "monopolar_triangulation" method
         max_distance_um: 400
@@ -63,6 +64,11 @@ preprocessing:
         conv_engine: 'torch'
         corr_threshold: 0.7
         time_horizon_s: null
+        soft_weights: false
+        temporal_prior: true
+        spatial_prior: false
+        reference_displacement: median
+        weight_with_amplitude: false
       clean_motion_params:
         speed_threshold: 5  # um/sec
         sigma_smooth_s: null
