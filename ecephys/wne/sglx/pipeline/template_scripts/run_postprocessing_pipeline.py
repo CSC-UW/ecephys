@@ -24,8 +24,9 @@ from docopt import docopt
 
 import wisc_ecephys_tools as wet
 from ecephys import wne
-from ecephys.wne.sglx.pipeline.postprocessing_pipeline import \
-    SpikeInterfacePostprocessingPipeline
+from ecephys.wne.sglx.pipeline.postprocessing_pipeline import (
+    SpikeInterfacePostprocessingPipeline,
+)
 
 subjectsDir = wet.get_subjects_directory()
 projectsFile = wet.get_projects_file()

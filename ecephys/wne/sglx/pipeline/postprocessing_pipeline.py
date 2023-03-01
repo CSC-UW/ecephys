@@ -66,12 +66,12 @@ class SpikeInterfacePostprocessingPipeline:
         self._nJobs = int(n_jobs)
 
         self._sorting_pipeline = SpikeInterfaceSortingPipeline.load_from_folder(
-             self._wneProject,
-             self._wneSubject,
-             self._experiment,
-             self._alias,
-             self._probe,
-             self._sorting_basename
+            self._wneProject,
+            self._wneSubject,
+            self._experiment,
+            self._alias,
+            self._probe,
+            self._sorting_basename,
         )
 
         # Set the location where options should be loaded from. Either...
@@ -79,7 +79,9 @@ class SpikeInterfacePostprocessingPipeline:
         #   (2) A custom location of your choosing
         if options_source == "wneProject":
             self._opts_src = wneProject.get_experiment_subject_file(
-                experiment, wneSubject.name, constants.PREPROCESSING_PIPELINE_PARAMS_FNAME
+                experiment,
+                wneSubject.name,
+                constants.PREPROCESSING_PIPELINE_PARAMS_FNAME,
             )
         else:
             self._opts_src = Path(options_source)
@@ -136,7 +138,9 @@ class SpikeInterfacePostprocessingPipeline:
         return (
             self._sorting_pipeline.is_sorted
             and self.postprocessing_output_dir.exists()
-            and (self.postprocessing_output_dir/"quality_metrics"/"metrics.csv").exists()
+            and (
+                self.postprocessing_output_dir / "quality_metrics" / "metrics.csv"
+            ).exists()
         )
 
     def load_waveform_extractor(self) -> si.WaveformExtractor:
@@ -147,7 +151,9 @@ class SpikeInterfacePostprocessingPipeline:
         SPARSITY_RADIUS = 400
         NUM_SPIKES_FOR_SPARSITY = 500
 
-        assert self._sorting_pipeline.is_sorted, "Cannot load waveform extractor for unsorted recording."
+        assert (
+            self._sorting_pipeline.is_sorted
+        ), "Cannot load waveform extractor for unsorted recording."
 
         waveform_recording = self._sorting_pipeline.processed_extractor_for_waveforms
         sorting = self._sorting_pipeline.sorting_extractor

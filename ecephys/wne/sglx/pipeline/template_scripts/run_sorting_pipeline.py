@@ -30,8 +30,7 @@ from docopt import docopt
 
 import wisc_ecephys_tools as wet
 from ecephys import wne
-from ecephys.wne.sglx.pipeline.sorting_pipeline import \
-    SpikeInterfaceSortingPipeline
+from ecephys.wne.sglx.pipeline.sorting_pipeline import SpikeInterfaceSortingPipeline
 
 subjectsDir = wet.get_subjects_directory()
 projectsFile = wet.get_projects_file()

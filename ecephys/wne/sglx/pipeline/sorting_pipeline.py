@@ -40,6 +40,7 @@ EXCLUSIONS_FNAME = "exclusions.htsv"
                     - preprocessing # This is the preprocessing output directory
 """
 
+
 def get_main_output_dir(
     wneProject: Project,
     wneSubject: Subject,
@@ -49,9 +50,7 @@ def get_main_output_dir(
     basename: str,
 ):
     return (
-        wneProject.get_alias_subject_directory(
-            experiment, alias, wneSubject.name
-        )
+        wneProject.get_alias_subject_directory(experiment, alias, wneSubject.name)
         / f"{basename}.{probe}"
     )
 
@@ -124,7 +123,9 @@ class SpikeInterfaceSortingPipeline:
         if prior_exclusions_path.exists():
             prior_exclusions = ece_utils.read_htsv(prior_exclusions_path)
             try:
-                assert_frame_equal(prior_exclusions, self._exclusions, check_dtype=False)
+                assert_frame_equal(
+                    prior_exclusions, self._exclusions, check_dtype=False
+                )
             except AssertionError as e:
                 raise ValueError(
                     f"New exclusions don't match previously used exclusion file at {prior_exclusions_path}:\n"
@@ -230,7 +231,7 @@ class SpikeInterfaceSortingPipeline:
             "ap",
             self._probe,
             combine="concatenate",
-            exclusions=self._exclusions.copy(), # Avoid in-place modification so we check consistency
+            exclusions=self._exclusions.copy(),  # Avoid in-place modification so we check consistency
             sampling_frequency_max_diff=1e-06,
         )
         # Ensure we used the same segments as previously
@@ -239,8 +240,18 @@ class SpikeInterfaceSortingPipeline:
             prior_segments = ece_utils.read_htsv(prior_segments_path)
             try:
                 # Couldn't make it work for all columns because of rounding x dtype
-                cols_to_compare = ['fname', 'type', 'imSampRate', 'start_frame', 'end_frame', 'fileDuration', 'segmentDuration']
-                assert_frame_equal( prior_segments[cols_to_compare], self._segments[cols_to_compare])
+                cols_to_compare = [
+                    "fname",
+                    "type",
+                    "imSampRate",
+                    "start_frame",
+                    "end_frame",
+                    "fileDuration",
+                    "segmentDuration",
+                ]
+                assert_frame_equal(
+                    prior_segments[cols_to_compare], self._segments[cols_to_compare]
+                )
             except AssertionError as e:
                 raise ValueError(
                     f"Newly computed segments don't match previously used segment file at {prior_segments_path}:\n"
@@ -336,8 +347,7 @@ class SpikeInterfaceSortingPipeline:
 
         if self._preprocessed_si_recording is None:
             raise AttributeError(
-                f"No preprocessing object found.\n"
-                "You need to run preprocessing."
+                f"No preprocessing object found.\n" "You need to run preprocessing."
             )
 
         # Get sorter and parameters
@@ -352,7 +362,9 @@ class SpikeInterfaceSortingPipeline:
                     "Expected 'sorter_path' key in sorting opts for kilosort.\n"
                     "You might be using obsolete formatting for opts file?"
                 )
-            ss.sorter_dict[sorter_name].set_kilosort2_5_path(sorting_opts["sorter_path"])
+            ss.sorter_dict[sorter_name].set_kilosort2_5_path(
+                sorting_opts["sorter_path"]
+            )
         else:
             raise NotImplementedError()
 
@@ -403,7 +415,6 @@ class SpikeInterfaceSortingPipeline:
             self._si_sorting_extractor = se.read_kilosort(self.sorter_output_dir)
         return self._si_sorting_extractor
 
-
     ##### Reinstantiate ######
 
     @classmethod
@@ -414,7 +425,7 @@ class SpikeInterfaceSortingPipeline:
         experiment: str,
         alias: str,
         probe: str,
-		basename: str,
+        basename: str,
         rerun_existing: bool = True,
         n_jobs: int = 1,
     ):
@@ -429,12 +440,17 @@ class SpikeInterfaceSortingPipeline:
             basename,
         )
 
-        if not all([f.exists() for f in [
-            main_output_dir,
-            main_output_dir / OPTS_FNAME,
-            main_output_dir / EXCLUSIONS_FNAME,
-            main_output_dir / SEGMENTS_FNAME
-        ]]):
+        if not all(
+            [
+                f.exists()
+                for f in [
+                    main_output_dir,
+                    main_output_dir / OPTS_FNAME,
+                    main_output_dir / EXCLUSIONS_FNAME,
+                    main_output_dir / SEGMENTS_FNAME,
+                ]
+            ]
+        ):
             raise FileNotFoundError(
                 f"Could not find all required files in {main_output_dir}"
             )
