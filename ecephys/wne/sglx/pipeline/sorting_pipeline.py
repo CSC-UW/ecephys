@@ -312,7 +312,7 @@ class SpikeInterfaceSortingPipeline:
         self._is_preprocessed = True
 
         # Save options used
-        with open(self.preprocessing_output_dir / OPTS_FNAME, "w") as f:
+        with open(self.main_output_dir / OPTS_FNAME, "w") as f:
             yaml.dump(self.opts, f)
         ece_utils.write_htsv(self._exclusions, self.main_output_dir / EXCLUSIONS_FNAME)
         ece_utils.write_htsv(segments, self.main_output_dir / SEGMENTS_FNAME)
@@ -381,9 +381,10 @@ class SpikeInterfaceSortingPipeline:
                 **self.job_kwargs,
             )
 
-        # Save options used
-        with open(self.main_output_dir / OPTS_FNAME, "w") as f:
-            yaml.dump(self.opts, f)
+        # Options should be have been saved already during preprocessing
+        assert (self.main_output_dir / OPTS_FNAME).exists()
+        assert (self.main_output_dir / EXCLUSIONS_FNAME).exists()
+        assert (self.main_output_dir / SEGMENTS_FNAME).exists()
 
     ##### Sorting output #####
 
