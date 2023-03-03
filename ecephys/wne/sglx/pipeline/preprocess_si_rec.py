@@ -24,8 +24,10 @@ def get_raw_peak_fig(si_rec, peaks, peak_locations, motion, temporal_bins, spati
     ALPHA = 0.002 # >= 0.002 or invisible
     if len(peaks) <= 50e6:
         DECIMATE_RATIO = 1
-    else:
+    elif len(peaks) <= 400e6:
         DECIMATE_RATIO = 5
+    else:
+        DECIMATE_RATIO = 10
 
     fig, ax = plt.subplots(figsize=(20, 60))
 
@@ -55,8 +57,10 @@ def get_peak_displacement_fig(si_rec, peaks, peak_locations, peak_locations_corr
     ALPHA = 0.002 # >= 0.002 or invisible
     if len(peaks) <= 50e6:
         DECIMATE_RATIO = 1
-    else:
+    elif len(peaks) <= 400e6:
         DECIMATE_RATIO = 5
+    else:
+        DECIMATE_RATIO = 10
 
     fig = plt.figure(figsize=(60, 20), layout="constrained")
     spec = fig.add_gridspec(2, 3)
