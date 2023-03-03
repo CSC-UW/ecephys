@@ -151,7 +151,8 @@ class Subject:
             If 'append', the returned recording object consists of multiple segments.
             This might be useful for certain preprocessing, postprocessing operations, etc.
         exclusions:
-            Specify which parts of the recording to drop.
+            Specify which parts of the recording to drop. We slice such that the first and last samples
+            of each exclusion are NOT included in the returned recording.
             fname: The name of the file (e.g. 3-2-2021_J_g0_t1.imec1.ap.bin)
             start_time: The start time of the data to drop, in seconds from the start of the file.
             end_time: The end time of the data to drop, in seconds from the start of the file.
@@ -309,34 +310,36 @@ def segment_experiment_frame_for_spikeinterface(
         exclusions.loc[mask, "start_frame"] = (
             (exclusions.loc[mask, "start_time"] * file.imSampRate)
             .astype(int)
-            .clip(0, ns - 1)
+            .clip(0, ns)
         )
         exclusions.loc[mask, "end_frame"] = (
             (exclusions.loc[mask, "end_time"] * file.imSampRate)
             .astype(int)
-            .clip(0, ns - 1)
+            .clip(0, ns)
         )
 
         # Do the actual splitting of the entire file around the exclusions
         file_segments = ece_utils.reconcile_labeled_intervals(
             exclusions.loc[mask, ["start_frame", "end_frame", "type"]],
-            pd.DataFrame({"start_frame": [0], "end_frame": [ns - 1], "type": "keep"}),
+            pd.DataFrame({"start_frame": [0], "end_frame": [ns], "type": "keep"}),
             "start_frame",
             "end_frame",
         ).drop(columns="delta")
         file_segments["fname"] = fname
 
-        # The function above considers intervals to be open-ended, so that (a, b) and (b, c) are considered NON-overlapping.
-        # This means that sample b would be in both a good and a a bad segment, based on the way that spikeinterface slices.
-        # Therefore, we adjust our sample indices to remove the single-sample overlap, always shortening good segments in favor
-        # of preserving bad segments, in order to be conservative.
-        # For example, if (a, b) is a good segment, and (b, c) is a bad segment, the new segments will be (a, b - 1) and (b, c).
+        # The function above considers intervals to be open-ended, so that (a, b) and (b, c) are considered NON-overlapping
+        # (as for usual python slicing)
+        # This means that up to this point the end sample of an exclusion will be part of the next (kept) segment.
+        # In order to be conservative, we correct each bad segment followed by a good segment to include its last sample.
+        # For example, if (a, b) and (b, c) are bad segment, and (c, d) is a good segment, the new segments will be (a, b+1), (b+1, c), (c+1, d).
         keep = file_segments["type"] == "keep"
-        illegal_start_frames = file_segments[~keep]["end_frame"].values
-        illegal_end_frames = file_segments[~keep]["start_frame"].values
-        i = file_segments["end_frame"].isin(illegal_end_frames)
-        j = file_segments["start_frame"].isin(illegal_start_frames)
-        file_segments.loc[i, "end_frame"] -= 1
+        frames_to_shift = np.intersect1d(
+            file_segments[~keep]["end_frame"].values,
+            file_segments["start_frame"].values,
+        ) # End of each bad segment followed by another segment (excludes the last one)
+        i = file_segments["end_frame"].isin(frames_to_shift)
+        j = file_segments["start_frame"].isin(frames_to_shift)
+        file_segments.loc[i, "end_frame"] += 1
         file_segments.loc[j, "start_frame"] += 1
 
         # Do some sanity checks, ensuring that every sample in the file is accounted for.
@@ -344,11 +347,11 @@ def segment_experiment_frame_for_spikeinterface(
             file_segments["start_frame"].min() == 0
         ), "Something went wrong when splitting file around exclusions."
         assert file_segments["end_frame"].max() == (
-            ns - 1
+            ns
         ), "Something went wrong when splitting file around exclusions."
         segments.append(file_segments)
         assert (
-            file_segments["end_frame"] - file_segments["start_frame"] + 1
+            file_segments["end_frame"] - file_segments["start_frame"]
         ).sum() == ns, "Something went wrong when splitting file around exclusions."
 
     # Return the segments, adding metadata about the files that they come from, for convenience.
@@ -358,6 +361,8 @@ def segment_experiment_frame_for_spikeinterface(
     ftab["fname"] = ftab["path"].apply(lambda x: x.name)
 
     stab = segments.merge(ftab, on="fname")
-    stab["segmentDuration"] = (stab["end_frame"] - stab["start_frame"]).div(stab["imSampRate"])
+
+    stab["nSegmentSamp"] = (stab["end_frame"] - stab["start_frame"])
+    stab["segmentDuration"] = stab["nSegmentSamp"].div(stab["imSampRate"])
 
     return stab
