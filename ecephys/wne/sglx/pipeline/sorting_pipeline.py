@@ -478,6 +478,9 @@ class SpikeInterfaceSortingPipeline(AbstractSortingPipeline):
         if self.is_sorted and not self.rerun_existing:
             print(f"Passing: output directory is already done: {self.sorting_output_dir}\n\n")
             return True
+        
+        if self._processed_si_recording is None:
+            self.run_preprocessing()
 
         sorter_name, sorter_params = self.opts["sorting"]
 
