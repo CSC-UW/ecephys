@@ -119,6 +119,17 @@ class SpikeInterfacePostprocessingPipeline:
         # Input, output files and folders, specific to SI
         self._si_waveform_extractor = None
 
+        self.check_sorting_output()
+    
+    def check_sorting_output(self):
+        assert self._sorting_pipeline.is_sorted
+        # TODO: This shouldn't be necessary... 
+        # But I noticed that before opening/saving with phy, the returned sorter may have clusters
+        # with N=0 spikes, which messes up postprocessing. Those are filtered out somehow when running phy.
+        assert (self._sorting_pipeline.sorter_output_dir / "cluster_info.tsv").exists(), (
+            f"You need to open/save this sorting with Phy first."
+        )
+
     # Paths
 
     @property
