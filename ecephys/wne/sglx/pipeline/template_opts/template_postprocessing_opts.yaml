@@ -4,15 +4,16 @@ metrics:
     firing_rate: {}
     presence_ratio: {}
     snr: {}
-    isi_violations: {}
-    rp_violations: {}
+    isi_violation: {}
+    rp_violation: {}
+    sliding_rp_violation: {}
     amplitude_cutoff: {}
     amplitude_median: {}
     # drift: {} # Not implemented (need slow spike locations)
     ## PCA metrics (slow)
-    # isolation_distance: {}
-    # l_ratio: {}
-    # d_prime: {}
-    # nearest_neighbor: {}
-    # nn_isolation: {}
-    # nn_noise_overlap: {}
+    isolation_distance: {}
+    l_ratio: {}
+    d_prime: {}
+    nearest_neighbor: {}
+    nn_isolation: {}
+    nn_noise_overlap: {}
