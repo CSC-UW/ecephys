@@ -187,7 +187,7 @@ class SpikeInterfacePostprocessingPipeline:
             with Timing(name="Extract waveforms: "):
                 we = si.extract_waveforms(
                     waveform_recording,
-                    self._sorting_pipeline.sorting_extractor,
+                    sorting,
                     folder=self.postprocessing_output_dir,
                     overwrite=True,
                     ms_before=MS_BEFORE,
