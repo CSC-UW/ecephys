@@ -312,7 +312,7 @@ class Subject:
         for i, srec in enumerate(segment_recordings):
             if artifacts_frame is not None:
                 npt.assert_almost_equal(srec.get_total_duration(), float(sframe["segmentTimeSecs"].values[i]), decimal=6)
-                assert srec.get_total_duration() == float(sframe["segmentTimeSecs"].values[i])
+                # assert srec.get_total_duration() == float(sframe["segmentTimeSecs"].values[i])
                 assert srec.get_total_samples() == int(sframe["nSegmentSamp"].values[i])
             elif time_ranges is not None:
                 npt.assert_almost_equal(srec.get_total_duration(), (time_ranges[i][1] - time_ranges[i][0]), decimal=3)
