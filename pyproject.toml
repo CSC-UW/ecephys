@@ -3,7 +3,7 @@ profile = "black"
 
 [tool.poetry]
 name = "ecephys"
-version = "0.0.2"
+version = "0.0.4"
 description = "\"Python tools for extracellular electrophysiology\""
 authors = ["Graham Findlay <gfindlay@wisc.edu>"]
 
