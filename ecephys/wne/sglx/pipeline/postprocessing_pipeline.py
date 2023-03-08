@@ -13,7 +13,7 @@ import spikeinterface.postprocessing as sp
 import spikeinterface.qualitymetrics as sq
 import spikeinterface.sorters as ss
 
-from .sorting_pipeline import SpikeInterfaceSortingPipeline, OPTS_FNAME
+from .sorting_pipeline import SpikeInterfaceSortingPipeline
 from ..subjects import Subject
 from ...projects import Project
 from ... import constants
@@ -23,8 +23,7 @@ from .... import utils as ece_utils
 logger = logging.getLogger(__name__)
 
 Pathlike = Union[Path, str]
-OPTS_FNAME = "opts.yaml"
-POSTPRO_OPTS_FNAME = "postpro_opts.yaml"  # Really, postprocessing options.
+POSTPRO_OPTS_FNAME = "postpro_opts.yaml"
 
 
 """
