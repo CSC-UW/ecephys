@@ -13,7 +13,7 @@ import spikeinterface.postprocessing as sp
 import spikeinterface.qualitymetrics as sq
 import spikeinterface.sorters as ss
 
-from .sorting_pipeline import SpikeInterfaceSortingPipeline
+from .sorting_pipeline import SpikeInterfaceSortingPipeline, get_main_output_dir
 from ..subjects import Subject
 from ...projects import Project
 from ... import constants
@@ -264,3 +264,52 @@ class SpikeInterfacePostprocessingPipeline:
             yaml.dump(self._opts, f)
 
         print("Done postprocessing.")
+
+    ##### Reinstantiate #####
+
+    @classmethod
+    def load_from_folder(
+        cls,
+        wneProject: Project,
+        wneSubject: Subject,
+        experiment: str,
+        alias: str,
+        probe: str,
+        sorting_basename: str,
+        postprocessing_name: str,
+        rerun_existing: bool = False,
+    ):
+        main_output_dir = get_main_output_dir(
+            wneProject,
+            wneSubject,
+            experiment,
+            alias,
+            probe,
+            sorting_basename,
+        )
+        postpro_output_dir = main_output_dir / postprocessing_name
+
+        if not all(
+            [
+                f.exists()
+                for f in [
+                    postpro_output_dir,
+                    postpro_output_dir / POSTPRO_OPTS_FNAME,
+                ]
+            ]
+        ):
+            raise FileNotFoundError(
+                f"Could not find all required files in {postpro_output_dir}"
+            )
+        
+        return SpikeInterfacePostprocessingPipeline(
+            wneProject,
+            wneSubject,
+            experiment,
+            alias,
+            probe,
+            sorting_basename,
+            postprocessing_name,
+            rerun_existing=rerun_existing,
+            options_source=(postpro_output_dir / POSTPRO_OPTS_FNAME),
+        )
