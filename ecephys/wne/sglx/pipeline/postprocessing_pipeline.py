@@ -36,6 +36,7 @@ POSTPRO_OPTS_FNAME = "postpro_opts.yaml"
                         - sorter_output/ # This is the sorter output directory
                     - preprocessing # This is the preprocessing output directory
                     - <basename> # This is the postprocessing output directory
+                        - si_output/ # This is Spikeinterface's output ("waveforms") directory. Everything in there may be deleted by spikeinterface
 """
 
 
@@ -144,12 +145,17 @@ class SpikeInterfacePostprocessingPipeline:
         return self.main_output_dir / self._postprocessing_name
 
     @property
+    def waveforms_output_dir(self) -> Path:
+        """Below postprocessing_output_dir because content deleted by spikeinterface"""
+        return self.postprocessing_output_dir / "si_output"
+
+    @property
     def is_postprocessed(self) -> bool:
         return (
             self._sorting_pipeline.is_sorted
-            and self.postprocessing_output_dir.exists()
+            and self.waveforms_output_dir.exists()
             and (
-                self.postprocessing_output_dir / "quality_metrics" / "metrics.csv"
+                self.waveforms_output_dir / "quality_metrics" / "metrics.csv"
             ).exists()
         )
 
@@ -175,7 +181,7 @@ class SpikeInterfacePostprocessingPipeline:
                 f"Loading precomputed waveforms. Will use this recording: {waveform_recording}"
             )
             we = si.WaveformExtractor.load_from_folder(
-                self.postprocessing_output_dir,
+                self.waveforms_output_dir,
                 with_recording=False,
                 sorting=sorting,
             )
@@ -187,7 +193,7 @@ class SpikeInterfacePostprocessingPipeline:
                 we = si.extract_waveforms(
                     waveform_recording,
                     sorting,
-                    folder=self.postprocessing_output_dir,
+                    folder=self.waveforms_output_dir,
                     overwrite=True,
                     ms_before=MS_BEFORE,
                     ms_after=MS_AFTER,
