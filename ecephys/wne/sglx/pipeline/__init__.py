@@ -1,11 +1,12 @@
 from . import (
-    extract_imec_sync,
-    utils,
-    preprocess_lfps,
-    emg_from_lfp,
-    generate_scoring_edf,
     consolidate_artifact_annotations,
     consolidate_visbrain_hypnograms,
-    sorting_pipeline,
+    emg_from_lfp,
+    extract_imec_sync,
+    generate_scoring_edf,
+    generate_sync_table,
+    preprocess_lfps,
     preprocess_si_rec,
+    sorting_pipeline,
+    utils,
 )
