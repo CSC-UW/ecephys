@@ -229,10 +229,9 @@ class Project:
         return sharptrack.SHARPTrack(file)
 
     def get_sample2time(
-        self, wneSubject, experiment: str, alias: str, probe: str, sorting: str
+        self, wneSubject, experiment: str, alias: str, probe: str, sorting: str, allow_no_sync_file=False,
     ) -> Callable:
         # TODO: Once permissions are fixed, should come from f = wneProject.get_experiment_subject_file(experiment, wneSubject.name, f"prb_sync.ap.htsv")
-
         # Load probe sync table.
         probe_sync_file = (
             self.get_alias_subject_directory(experiment, alias, wneSubject.name)
@@ -240,13 +239,21 @@ class Project:
             / "prb_sync.ap.htsv"
         )
         if not probe_sync_file.exists():
-            logger.info(
-                f"Unable to create sample2time function. Probe sync table not found at {probe_sync_file}."
-            )
-            return None
-        sync_table = ece_utils.read_htsv(
-            probe_sync_file
-        )  # Used to map this probe's times to imec0.
+            if allow_no_sync_file:
+                logger.info(
+                    f"Could not find sync table at {probe_sync_file}.\n"
+                    f"`allow_no_sync_file` == True : Ignoring probe sync in sample2time"
+                )
+                sync_table = None
+            else:
+                logger.info(
+                    f"Could not find sync table at {probe_sync_file}."
+                )
+                return None
+        else:
+            sync_table = ece_utils.read_htsv(
+                probe_sync_file
+            )  # Used to map this probe's times to imec0.
 
         # Load segment table
         segment_file = (
@@ -286,7 +293,8 @@ class Project:
         #   (2) the file that segment belongs to
         #   (3) how to map that file's times into our canonical timebase.
         # We make a function that does this for an arbitrary array of sample numbers in the SI object, so we can use it later as needed.
-        sync_table = sync_table.set_index("source")
+        if sync_table:
+            sync_table = sync_table.set_index("source")
 
         # TODO: Rename start_sample -> si_start_sample?
         def sample2time(s):
@@ -300,12 +308,13 @@ class Project:
                     + seg.expmtPrbAcqFirstTime
                     + seg.start_frame / seg.imSampRate
                 )  # Convert to number of seconds in this probe's (expmtPrbAcq) timebase
-                sync_entry = sync_table.loc[
-                    seg.fname
-                ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
-                s[mask] = (
-                    sync_entry.slope * s[mask] + sync_entry.intercept
-                )  # Sync to imec0 (expmtPrbAcq) timebase
+                if sync_table:
+                    sync_entry = sync_table.loc[
+                        seg.fname
+                    ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
+                    s[mask] = (
+                        sync_entry.slope * s[mask] + sync_entry.intercept
+                    )  # Sync to imec0 (expmtPrbAcq) timebase
             return s
 
         return sample2time
