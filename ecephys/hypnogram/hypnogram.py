@@ -866,15 +866,18 @@ def trim(df: pd.DataFrame, start, end) -> pd.DataFrame:
         )
     if not all(df["start_time"] <= df["end_time"]):
         raise ValueError("Not all start times precede end times.")
+    if start > end:
+        raise ValueError("Invalid value for kwargs: expected `start` <= `end`")
 
     df = df.copy()
     starts_before = df["start_time"] < start
     df.loc[starts_before, "start_time"] = start
     ends_after = df["end_time"] > end
     df.loc[ends_after, "end_time"] = end
-    starts_after = df["start_time"] >= end
+    starts_after = df["start_time"] >= df["end_time"]
     df = df[~starts_after]
     df["duration"] = df["end_time"] - df["start_time"]
+    assert all(df["duration"] > 0)
     return df.reset_index(drop=True)
 
 
