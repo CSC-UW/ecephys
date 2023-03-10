@@ -228,9 +228,17 @@ class Project:
         file = self.get_experiment_subject_file(experiment, subject, fname)
         return sharptrack.SHARPTrack(file)
 
-    def get_sample2time(
-        self, wneSubject, experiment: str, alias: str, probe: str, sorting: str, allow_no_sync_file=False,
+    def _get_time_sample_conversion_function(
+        self,
+        wneSubject,
+        experiment: str,
+        alias: str,
+        probe: str,
+        sorting: str,
+        sample2time_or_time2sample,
+        allow_no_sync_file=False,
     ) -> Callable:
+
         # TODO: Once permissions are fixed, should come from f = wneProject.get_experiment_subject_file(experiment, wneSubject.name, f"prb_sync.ap.htsv")
         # Load probe sync table.
         probe_sync_file = (
@@ -246,9 +254,7 @@ class Project:
                 )
                 sync_table = None
             else:
-                logger.info(
-                    f"Could not find sync table at {probe_sync_file}."
-                )
+                logger.info(f"Could not find sync table at {probe_sync_file}.")
                 return None
         else:
             sync_table = ece_utils.read_htsv(
@@ -317,7 +323,77 @@ class Project:
                     )  # Sync to imec0 (expmtPrbAcq) timebase
             return s
 
-        return sample2time
+        def time2sample(t):
+            t = t.astype("float")
+            s = t.copy()
+            s[
+                :
+            ] = (
+                np.NaN
+            )  # Return series of samples. Values in-between segments will remain NaN
+            for seg in sorted_segments.itertuples():
+                mask = (t >= seg.expmtPrbAcqFirstTime) & (
+                    t <= (seg.expmtPrbAcqFirstTime + seg.segmentDuration)
+                )
+                # print(mask)
+                # print( t - (seg.expmtPrbAcqFirstTime + seg.segmentDuration))
+                # print( (t - (seg.expmtPrbAcqFirstTime + seg.segmentDuration) <= 0))
+                s[mask] = (
+                    (t[mask] - seg.expmtPrbAcqFirstTime) * seg.imSampRate
+                    + seg.start_sample
+                )
+            if sync_table:
+                return NotImplementedError(
+                    """TODO: probe time conversion for time2sample"""
+                )
+            return s.astype(int)
+
+        if sample2time_or_time2sample == "sample2time":
+            return sample2time
+        elif sample2time_or_time2sample == "time2sample":
+            return time2sample
+        else:
+            assert False
+
+    def get_sample2time(
+        self,
+        wneSubject,
+        experiment: str,
+        alias: str,
+        probe: str,
+        sorting: str,
+        allow_no_sync_file=False,
+    ) -> Callable:
+
+        return self._get_time_sample_conversion_function(
+            wneSubject,
+            experiment,
+            alias,
+            probe,
+            sorting,
+            "sample2time",
+            allow_no_sync_file=allow_no_sync_file,
+        )
+
+    def get_time2sample(
+        self,
+        wneSubject,
+        experiment: str,
+        alias: str,
+        probe: str,
+        sorting: str,
+        allow_no_sync_file=False,
+    ) -> Callable:
+
+        return self._get_time_sample_conversion_function(
+            wneSubject,
+            experiment,
+            alias,
+            probe,
+            sorting,
+            "time2sample",
+            allow_no_sync_file=allow_no_sync_file,
+        )
 
     # TODO: Likely deprecated. Remove.
     def remap_probe_times(
