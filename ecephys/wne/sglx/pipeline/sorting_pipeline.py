@@ -144,10 +144,13 @@ class SpikeInterfaceSortingPipeline:
         # All as properties in case we change project for SortingPipeline object
         # And because all preprocessing is done in a lazy way anyways
         self._raw_si_recording = None
-        self._segments = None
         self._preprocessed_si_recording = None  # si.BaseRecording
         self._kilosort_binary_recording_extractor = None
         self._si_sorting_extractor = None
+        self._segments = None
+        prior_segments_path = self.main_output_dir / SEGMENTS_FNAME
+        if prior_segments_path.exists():
+            self._segments = ece_utils.read_htsv(prior_segments_path)
 
         # TODO use only properties
         # Pipeline steps, specific to SI
