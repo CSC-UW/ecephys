@@ -341,12 +341,12 @@ class Project:
                 s[mask] = (
                     (t[mask] - seg.expmtPrbAcqFirstTime) * seg.imSampRate
                     + seg.start_sample
-                )
+                ).astype(int)
             if sync_table:
                 return NotImplementedError(
                     """TODO: probe time conversion for time2sample"""
                 )
-            return s.astype(int)
+            return s
 
         if sample2time_or_time2sample == "sample2time":
             return sample2time
