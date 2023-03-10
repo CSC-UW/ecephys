@@ -18,12 +18,14 @@ from ..subjects import Subject
 from ...projects import Project
 from ... import constants
 from .... import utils as ece_utils
+from .... import hypnogram as hp
 
 # TODO: Be consistent about using logger vs print
 logger = logging.getLogger(__name__)
 
 Pathlike = Union[Path, str]
 POSTPRO_OPTS_FNAME = "postpro_opts.yaml"
+HYPNO_FNAME = "simplified_hypnogram.htsv"
 
 
 """
@@ -53,6 +55,7 @@ class SpikeInterfacePostprocessingPipeline:
         rerun_existing: bool = True,
         n_jobs: int = 1,
         options_source: Union[str, Path] = "wneProject",
+        hypnogram_source: Union[str, Path, Project] = None,
     ):
         # These properties are private, because they should not be modified after instantiation
         self._wneProject = wneProject
@@ -109,6 +112,22 @@ class SpikeInterfacePostprocessingPipeline:
                     f"Prior opts: {prior_opts}\n"
                 )
 
+        # Pull hypnogram if provided
+        if hypnogram_source is None:
+            self.hypnogram = None
+        else:
+            if isinstance(hypnogram_source, Project):
+                hypno_path = hypnogram_source.get_experiment_subject_file(
+                    experiment,
+                    wneSubject.name,
+                    HYPNO_FNAME,
+                )
+            elif isinstance(hypnogram_source, (str, Path)):
+                hypno_path = Path(hypnogram_source)
+            else:
+                raise ValueError(f"Unrecognize type for `hypnogram_source`: {hypnogram_source}")
+            self.hypnogram = self.load_and_format_hypnogram(hypno_path)
+
         # Set compute details
         self.job_kwargs = {
             "n_jobs": self._nJobs,
@@ -148,6 +167,44 @@ class SpikeInterfacePostprocessingPipeline:
     def waveforms_output_dir(self) -> Path:
         """Below postprocessing_output_dir because content deleted by spikeinterface"""
         return self.postprocessing_output_dir / "si_output"
+    
+    # TODO: All this def belongs elsewhere... but I don't know where
+    def load_and_format_hypnogram(self, hypno_path):
+        """Load, convert to si sorting sample indices, select epochs."""
+        if not hypno_path.exists():
+            raise FileNotFoundError(
+                f"""Expected to find a hypnogram at `{hypno_path}`."""
+            )
+        hypno = ece_utils.read_htsv(hypno_path)
+
+        # Trim hypnogram so that each bout falls within segments
+        segments = self._sorting_pipeline._segments
+        segments = segments[segments["type"] == "keep"]
+        segment_starts = segments.expmtPrbAcqFirstTime
+        segment_ends = segments.expmtPrbAcqFirstTime + segments.segmentDuration
+        hypno = hp.trim_multiple_epochs(
+            hypno,
+            segment_starts,
+            segment_ends
+        )
+        
+        time2sample = self._wneProject.get_time2sample(
+            self._wneSubject,
+            self._experiment,
+            self._alias,
+            self._probe,
+            self._sorting_basename,
+            allow_no_sync_file=True
+        )
+
+        hypno["start_frame"] = time2sample(hypno["start_time"])
+        hypno["end_frame"] = time2sample(hypno["end_time"])
+
+        # Since we trimmed the hypnogram to match segments, 
+        # either both or None of start_frame/end_frame should be Nan
+        assert all(hypno.isnull().all(axis=1) == hypno.isnull().all(axis=1))
+
+        return hypno[~hypno.isnull().any(axis=1)]
 
     @property
     def is_postprocessed(self) -> bool:

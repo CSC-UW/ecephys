@@ -14,6 +14,7 @@ Options:
   --rerun_existing                   Rerun rather than load things.
   --options_source==<ofn>            Name of options file (applied to all input datasets) [default: {OPTIONS_SOURCE}]
   --projectName==<pn>                Project name [default: {PROJECT_NAME}]
+  --hypnogramProjectName==<pn>       Where to pull hypnograms from
   --experimentName==<en>             Exp name [default: {EXPERIMENT_NAME}]
   --aliasName==<an>                  Alias name [default: {ALIAS_NAME}]
   --postprocessingName==<ppn>        Name of postprocessing output dir. [default: {POSTPROCESSING_NAME}]
@@ -55,6 +56,11 @@ if __name__ == "__main__":
         wneSubject = subjLib.get_subject(subjectName)
         wneProject = projLib.get_project(args["--projectName"])
 
+        if args["--hypnogramProjectName"]:
+            hypnogram_source = projLib.get_project(args["--hypnogramProjectName"])
+        else:
+            hypnogram_source = None
+
         postpro_pipeline = SpikeInterfacePostprocessingPipeline(
             wneProject,
             wneSubject,
@@ -66,6 +72,7 @@ if __name__ == "__main__":
             rerun_existing=args["--rerun_existing"],
             n_jobs=args["--n_jobs"],
             options_source=args["--options_source"],
+            hypnogram_source=hypnogram_source,
         )
         print(f"Postpro pipeline: {postpro_pipeline}\n")
         print(f"Pipeline opts: {postpro_pipeline._opts}")
