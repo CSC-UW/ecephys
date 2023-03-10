@@ -148,6 +148,18 @@ class SpikeInterfacePostprocessingPipeline:
         assert (self._sorting_pipeline.sorter_output_dir / "cluster_info.tsv").exists(), (
             f"You need to open/save this sorting with Phy first."
         )
+    
+    def __repr__(self):
+        repr = f"""
+        {self.__class__}
+        Postprocessing output dir: {self.postprocessing_output_dir}
+        Options source: {self._opts_src}
+        """
+        if self.hypnogram is not None:
+            repr += f"""Hypnogram: {self.hypnogram.groupby('state').describe()["duration"]}"""
+        else:
+            repr += f"Hypnogram: None"
+        return repr
 
     # Paths
 
