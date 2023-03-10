@@ -267,7 +267,7 @@ class Project:
         # Compute which samples in the recording belong to each segment.
         sorted_segments = segments[segments["type"] == "keep"].copy()
         sorted_segments["nSegmentSamples"] = (
-            sorted_segments["end_frame"] - sorted_segments["start_frame"] + 1
+            sorted_segments["end_frame"] - sorted_segments["start_frame"]
         )  # N of sorted samples in each segment
 
         cum_sorted_samples_by_end = sorted_segments[
@@ -279,7 +279,7 @@ class Project:
         sorted_segments[
             "start_sample"
         ] = cum_sorted_samples_by_start  # First sample index of concatenated recording belonging to each semgent
-        sorted_segments["end_sample"] = cum_sorted_samples_by_end - 1
+        sorted_segments["end_sample"] = cum_sorted_samples_by_end
 
         # Given a sample number in the SI recording, we can now figure out:
         #   (1) the segment it came from
@@ -293,7 +293,7 @@ class Project:
             s = s.astype("float")
             for seg in sorted_segments.itertuples():
                 mask = (s >= seg.start_sample) & (
-                    s <= seg.end_sample
+                    s < seg.end_sample
                 )  # Mask samples belonging to this segment
                 s[mask] = (
                     (s[mask] - seg.start_sample) / seg.imSampRate
