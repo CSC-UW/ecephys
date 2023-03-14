@@ -800,6 +800,8 @@ def trim(df: pd.DataFrame, start, end) -> pd.DataFrame:
     df = df[~starts_after]
     df["duration"] = df["end_time"] - df["start_time"]
     assert all(df["duration"] > 0)
+    assert all(df["start_time"] >= start)
+    assert all(df["end_time"] <= end)
     return df.reset_index(drop=True)
 
 
