@@ -30,7 +30,7 @@ class SpikeInterfaceKilosortSorting:
             If not provided, times will be according to the probe's sample clock (e.g. sample / fs)
 
         """
-        self.si_obj = si_obj
+        self.si_obj: se.KiloSortSortingExtractor = si_obj
 
         # If no time mapping function is provided, just provide times according to this probe's sample clock.
         if sample2time is None:
