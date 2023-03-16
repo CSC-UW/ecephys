@@ -298,32 +298,28 @@ class SpikeInterfacePostprocessingPipeline:
             )
 
     def run_postprocessing(self):
-        UNIT_LOCATIONS_METHOD = "center_of_mass"
 
-        with Timing(name="Compute principal components: "):
-            print("Computing principal components.")
-            sp.compute_principal_components(
-                self.waveform_extractor,
-                load_if_exists=True,
-                n_components=5,
-                mode="by_channel_local",
-                n_jobs=self._nJobs,
-            )
+        if not "postprocessing" in self._opts:
+            raise ValueError("Expected 'postprocessing' entry in postprocessing option file.")
 
-        with Timing(name="Compute unit locations: "):
-            print(f"Computing unit locations (method={UNIT_LOCATIONS_METHOD}")
-            sp.compute_unit_locations(
-                self.waveform_extractor,
-                load_if_exists=True,
-                method=UNIT_LOCATIONS_METHOD,
-            )
+        # Set job kwargs for all
+        si.set_global_job_kwargs(n_jobs=self._nJobs)
 
-        with Timing(name="Compute template metrics: "):
-            print("Computing template metrics")
-            sp.compute_template_metrics(
-                self.waveform_extractor,
-                load_if_exists=True,
-            )
+        # Iterate on spikeinterface.postprocessing functions by name
+        for func_name, func_kwargs in self._opts["postprocessing"].items():
+
+            if not hasattr(sp, func_name):
+                raise ValueError(
+                    "Could not find function `{func_name}` in spikeinterface.postprocessing module"
+                )
+            func = getattr(sp, func_name)
+
+            with Timing(name=f"{func_name}: "):
+                func(
+                    self.waveform_extractor,
+                    load_if_exists=True,
+                    **func_kwargs,
+                )
 
         self.run_metrics()
 

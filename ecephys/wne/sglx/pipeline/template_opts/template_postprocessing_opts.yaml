@@ -6,7 +6,18 @@ waveforms: # Passed to extract_waveforms
   method: radius
   radius_um: 400
   num_spikes_for_sparsity: 500
-postprocessing: {}
+postprocessing: # <spikeinterface.postprocessing_function_name> : <params>
+  compute_principal_components:
+    n_components: 5
+    mode: by_channel_local
+  compute_unit_locations:
+    method: center_of_mass
+  compute_template_metrics: {}
+  compute_spike_amplitudes: {}
+  compute_spike_locations:
+    ms_before: 1.0
+    ms_after: 1.5
+    method: 'center_of_mass'
 metrics:
   num_spikes: {}
   firing_rate: {}
