@@ -230,11 +230,10 @@ class SpikeInterfacePostprocessingPipeline:
 
     def load_waveform_extractor(self) -> si.WaveformExtractor:
         """Load a waveform extractor. This may `extract` previously computed and saved waveforms."""
-        MS_BEFORE = 1.5
-        MS_AFTER = 2.5
-        MAX_SPIKES_PER_UNIT = 2000
-        SPARSITY_RADIUS = 400
-        NUM_SPIKES_FOR_SPARSITY = 500
+
+        if not "waveforms" in self._opts:
+            raise ValueError("Expected 'waveforms' entry in postprocessing option file.")
+        waveforms_kwargs = self._opts["waveforms"]
 
         assert (
             self._sorting_pipeline.is_sorted
@@ -264,13 +263,7 @@ class SpikeInterfacePostprocessingPipeline:
                     sorting,
                     folder=self.waveforms_output_dir,
                     overwrite=True,
-                    ms_before=MS_BEFORE,
-                    ms_after=MS_AFTER,
-                    max_spikes_per_unit=MAX_SPIKES_PER_UNIT,
-                    sparse=True,
-                    num_spikes_for_sparsity=NUM_SPIKES_FOR_SPARSITY,
-                    method="radius",
-                    radius_um=SPARSITY_RADIUS,
+                    **waveforms_kwargs,
                     **self.job_kwargs,
                 )
         return we
