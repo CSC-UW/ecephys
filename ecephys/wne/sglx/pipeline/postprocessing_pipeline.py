@@ -275,26 +275,26 @@ class SpikeInterfacePostprocessingPipeline:
         return self._si_waveform_extractor
 
     def run_metrics(self):
-        # Get list of metrics
-        # get set of params across metrics
-        metrics_opts = self._opts["metrics"].copy()
-        metrics_names = list(metrics_opts.keys())
-        params = {}
-        for metric_dict in metrics_opts.values():
-            params.update(metric_dict)
 
+        if not "metrics" in self._opts:
+            raise ValueError("Expected 'metrics' entry in postprocessing option file.")
+        metrics_opts = self._opts["metrics"]
+
+        # Set job kwargs for all
+        si.set_global_job_kwargs(n_jobs=self._nJobs)
+
+        metrics_names = list(metrics_opts.keys())
         print(f"Running metrics: {metrics_names}")
-        print(f"Metrics params: {params}")
+        print(f"Metrics params: {metrics_opts}")
 
         print("Computing metrics")
         with Timing(name="Compute metrics: "):
             sq.compute_quality_metrics(
                 self.waveform_extractor,
                 metric_names=metrics_names,
-                n_jobs=self._nJobs,
+                qm_params=metrics_opts,
                 progress_bar=True,
                 verbose=True,
-                **params,
             )
 
     def run_postprocessing(self):
