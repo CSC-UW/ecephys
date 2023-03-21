@@ -20,13 +20,39 @@ from ... import constants
 from .... import utils as ece_utils
 from .... import hypnogram as hp
 
+from ecephys.utils.siutils import cut_and_combine_si_extractors
+
 # TODO: Be consistent about using logger vs print
 logger = logging.getLogger(__name__)
 
 Pathlike = Union[Path, str]
 POSTPRO_OPTS_FNAME = "postpro_opts.yaml"
 HYPNO_FNAME = "simplified_hypnogram.htsv"
+OUTPUT_HYPNO_FNAME = "hypnogram.htsv"
 
+HYPNO_SIMPLIFIED_STATES = {
+    "Wake": "Wake",
+    "W": "Wake",
+    "aWk": "Wake",
+    "qWk": "Wake",
+    "QWK": "Wake",
+    "NREM": "NREM",
+    "N1": "NREM",
+    "N2": "NREM",
+    "REM": "REM",
+    "Arousal": "None",
+    "MA": "None",
+    "Trans": "Other",
+    "IS": "Other",
+    "Art": "Other",
+    "None": "Other",
+}
+
+HYPNOGRAM_IGNORED_STATES = [
+    "Other",
+    None,
+    "None",
+]
 
 """
 - <project>
@@ -38,7 +64,10 @@ HYPNO_FNAME = "simplified_hypnogram.htsv"
                         - sorter_output/ # This is the sorter output directory
                     - preprocessing # This is the preprocessing output directory
                     - <basename> # This is the postprocessing output directory
-                        - si_output/ # This is Spikeinterface's output ("waveforms") directory. Everything in there may be deleted by spikeinterface
+                        - si_output_full/ # This is Spikeinterface's output ("waveforms") directory for the whole recording. Everything in there may be deleted by spikeinterface
+                        - si_output_<vigilance_state_1>/ # Waveform directory for vigilance_state_1
+                        - si_output_<vigilance_state_2>/ # Waveform directory for vigilance_state_2
+                        ...
 """
 
 
@@ -114,7 +143,8 @@ class SpikeInterfacePostprocessingPipeline:
 
         # Pull hypnogram if provided
         if hypnogram_source is None:
-            self.hypnogram = None
+            self._hypnogram = None
+            self._hypnogram_states = None
         else:
             if isinstance(hypnogram_source, Project):
                 hypno_path = hypnogram_source.get_experiment_subject_file(
@@ -126,7 +156,18 @@ class SpikeInterfacePostprocessingPipeline:
                 hypno_path = Path(hypnogram_source)
             else:
                 raise ValueError(f"Unrecognize type for `hypnogram_source`: {hypnogram_source}")
-            self.hypnogram = self.load_and_format_hypnogram(hypno_path)
+            self._hypnogram = self.load_and_format_hypnogram(hypno_path)
+            self._hypnogram_states = self._hypnogram.state.unique()
+            assert not None in self._hypnogram_states
+        
+        # Run postprocessing state_by_state:
+        self._run_by_state = False
+        self._opts_by_state = None
+        if "by_hypnogram_state" in self._opts:
+            self._run_by_state = True
+            self._opts_by_state = self._opts["by_hypnogram_state"]
+            assert {"waveforms", "postprocessing", "metrics"}.issubset(self._opts_by_state)
+            assert self._hypnogram is not None, "Opts request processing by state, but no hypnogram was found"
 
         # Set compute details
         self.job_kwargs = {
@@ -135,8 +176,9 @@ class SpikeInterfacePostprocessingPipeline:
             "progress_bar": True,
         }
 
-        # Input, output files and folders, specific to SI
-        self._si_waveform_extractor = None
+        # Cached waveform extractors
+        # Keys are vigilance state. `None` entry is the full recording
+        self._si_waveform_extractor_by_state = {}
 
         self.check_sorting_output()
     
@@ -155,8 +197,8 @@ class SpikeInterfacePostprocessingPipeline:
         Postprocessing output dir: {self.postprocessing_output_dir}
         Options source: {self._opts_src}
         """
-        if self.hypnogram is not None:
-            repr += f"""Hypnogram: {self.hypnogram.groupby('state').describe()["duration"]}"""
+        if self._hypnogram is not None:
+            repr += f"""Hypnogram: {self._hypnogram.groupby('state').describe()["duration"]}"""
         else:
             repr += f"Hypnogram: None"
         return repr
@@ -175,11 +217,6 @@ class SpikeInterfacePostprocessingPipeline:
     def postprocessing_output_dir(self) -> Path:
         return self.main_output_dir / self._postprocessing_name
 
-    @property
-    def waveforms_output_dir(self) -> Path:
-        """Below postprocessing_output_dir because content deleted by spikeinterface"""
-        return self.postprocessing_output_dir / "si_output"
-    
     # TODO: All this def belongs elsewhere... but I don't know where
     def load_and_format_hypnogram(self, hypno_path):
         """Load, convert to si sorting sample indices, select epochs."""
@@ -187,7 +224,12 @@ class SpikeInterfacePostprocessingPipeline:
             raise FileNotFoundError(
                 f"""Expected to find a hypnogram at `{hypno_path}`."""
             )
-        hypno = ece_utils.read_htsv(hypno_path)
+        
+        # Load as FloatHypnogram, simplify and revert to DataFrame
+        hypno = hp.FloatHypnogram.from_htsv(hypno_path)
+        hypno = hypno.replace_states(HYPNO_SIMPLIFIED_STATES)
+        hypno = hypno.drop_states(HYPNOGRAM_IGNORED_STATES)
+        hypno = hypno._df
 
         # Trim hypnogram so that each bout falls within segments
         segments = self._sorting_pipeline._segments
@@ -216,42 +258,93 @@ class SpikeInterfacePostprocessingPipeline:
         # either both or None of start_frame/end_frame should be Nan
         assert all(hypno.isnull().all(axis=1) == hypno.isnull().all(axis=1))
 
+        # Return bouts fully within segments
         return hypno[~hypno.isnull().any(axis=1)]
+    
+    # State dependant
 
-    @property
-    def is_postprocessed(self) -> bool:
+    def is_postprocessed_by_state(self, state=None) -> bool:
         return (
             self._sorting_pipeline.is_sorted
-            and self.waveforms_output_dir.exists()
+            and self.get_waveforms_output_dir_by_state(state=state).exists()
             and (
-                self.waveforms_output_dir / "quality_metrics" / "metrics.csv"
+                self.get_waveforms_output_dir_by_state(state=state) / "quality_metrics" / "metrics.csv"
             ).exists()
         )
 
-    def load_waveform_extractor(self) -> si.WaveformExtractor:
+    def get_waveforms_output_dir_by_state(self, state=None) -> Path:
+        """Below postprocessing_output_dir because content deleted by spikeinterface"""
+        dirname = "si_output"
+        if state is not None:
+            dirname += f"_{state}"
+        return self.postprocessing_output_dir / dirname
+
+    def get_waveform_extractor_by_state(self, state=None) -> si.WaveformExtractor:
+        """Return cached or load/extract (full or state-specific) waveform extractor."""
+        if self._si_waveform_extractor_by_state.get(state, None) is None:
+            self._si_waveform_extractor_by_state[state] = self.load_or_extract_waveform_extractor_by_state(state=state)
+        return self._si_waveform_extractor_by_state[state]
+
+    def get_recording_for_waveforms_by_state(self, state=None) -> si.BaseRecording:
+        """Return cached or load/extract (full or state-specific) waveform extractor."""
+        rec = self._sorting_pipeline.processed_extractor_for_waveforms
+
+        if state is None:
+            return rec
+        
+        return cut_and_combine_si_extractors(
+            rec,
+            self._hypnogram[self._hypnogram["state"] == state].copy(),
+            combine="concatenate",
+        )
+
+    def get_sorting_for_waveforms_by_state(self, state=None) -> si.BaseSorting:
+        """Return cached or load/extract (full or state-specific) waveform extractor."""
+        sorting = self._sorting_pipeline.sorting_extractor
+
+        if state is None:
+            return sorting
+
+        return cut_and_combine_si_extractors(
+            sorting, 
+            self._hypnogram[self._hypnogram["state"] == state],
+            combine="concatenate"
+        )
+    
+    def get_opts_by_state(self, state=None):
+        if state is None:
+            return self._opts
+
+        return self._opts_by_state
+
+    def load_or_extract_waveform_extractor_by_state(self, state=None, opts=None) -> si.WaveformExtractor:
         """Load a waveform extractor. This may `extract` previously computed and saved waveforms."""
 
-        if not "waveforms" in self._opts:
-            raise ValueError("Expected 'waveforms' entry in postprocessing option file.")
-        waveforms_kwargs = self._opts["waveforms"]
+        opts = self.get_opts_by_state(state=state)
+
+        if not "waveforms" in opts:
+            raise ValueError(f"Expected 'waveforms' entry in postprocessing options: {opts}.")
+        waveforms_kwargs = opts["waveforms"]
 
         assert (
             self._sorting_pipeline.is_sorted
         ), "Cannot load waveform extractor for unsorted recording."
 
-        waveform_recording = self._sorting_pipeline.processed_extractor_for_waveforms
-        sorting = self._sorting_pipeline.sorting_extractor
+        waveform_recording = self.get_recording_for_waveforms_by_state(state=state)
+        waveform_sorting = self.get_sorting_for_waveforms_by_state(state=state)
+        waveform_output_dir = self.get_waveforms_output_dir_by_state(state=state) 
+        assert waveform_recording.get_total_samples() == waveform_sorting.get_total_samples()
 
         # If we have already extracted waveforms before, re-use those.
-        precomputed_waveforms = not self._rerun_existing and self.is_postprocessed
-        if precomputed_waveforms:
+        load_precomputed_waveforms = not self._rerun_existing and self.is_postprocessed_by_state(state=state)
+        if load_precomputed_waveforms:
             print(
                 f"Loading precomputed waveforms. Will use this recording: {waveform_recording}"
             )
             we = si.WaveformExtractor.load_from_folder(
-                self.waveforms_output_dir,
+                waveform_output_dir,
                 with_recording=False,
-                sorting=sorting,
+                sorting=waveform_sorting,
             )
             # Hack to have recording even if we deleted or moved the data,
             # because load_from_folder(.., with_recording=True) assumes same recording file locations etc
@@ -260,25 +353,22 @@ class SpikeInterfacePostprocessingPipeline:
             with Timing(name="Extract waveforms: "):
                 we = si.extract_waveforms(
                     waveform_recording,
-                    sorting,
-                    folder=self.waveforms_output_dir,
+                    waveform_sorting,
+                    folder=waveform_output_dir,
                     overwrite=True,
                     **waveforms_kwargs,
                     **self.job_kwargs,
                 )
+
         return we
 
-    @property
-    def waveform_extractor(self) -> si.WaveformExtractor:
-        if self._si_waveform_extractor is None:
-            self._si_waveform_extractor = self.load_waveform_extractor()
-        return self._si_waveform_extractor
+    def _run_si_metrics_by_state(self, state=None):
 
-    def run_metrics(self):
+        opts = self.get_opts_by_state(state=state)
 
-        if not "metrics" in self._opts:
-            raise ValueError("Expected 'metrics' entry in postprocessing option file.")
-        metrics_opts = self._opts["metrics"]
+        if not "metrics" in opts:
+            raise ValueError(f"Expected 'metrics' entry in postprocessing options: {opts}")
+        metrics_opts = opts["metrics"]
 
         # Set job kwargs for all
         si.set_global_job_kwargs(n_jobs=self._nJobs)
@@ -290,23 +380,26 @@ class SpikeInterfacePostprocessingPipeline:
         print("Computing metrics")
         with Timing(name="Compute metrics: "):
             sq.compute_quality_metrics(
-                self.waveform_extractor,
+                self.get_waveform_extractor_by_state(state=state),
                 metric_names=metrics_names,
                 qm_params=metrics_opts,
                 progress_bar=True,
                 verbose=True,
             )
 
-    def run_postprocessing(self):
+    def _run_si_postprocessing_by_state(self, state=None):
 
-        if not "postprocessing" in self._opts:
-            raise ValueError("Expected 'postprocessing' entry in postprocessing option file.")
+        opts = self.get_opts_by_state(state=state)
+
+        if not "postprocessing" in opts:
+            raise ValueError("Expected 'postprocessing' entry in postprocessing options: {opts}")
+        postprocessing_opts = opts["postprocessing"]
 
         # Set job kwargs for all
         si.set_global_job_kwargs(n_jobs=self._nJobs)
 
         # Iterate on spikeinterface.postprocessing functions by name
-        for func_name, func_kwargs in self._opts["postprocessing"].items():
+        for func_name, func_kwargs in postprocessing_opts.items():
 
             if not hasattr(sp, func_name):
                 raise ValueError(
@@ -316,12 +409,32 @@ class SpikeInterfacePostprocessingPipeline:
 
             with Timing(name=f"{func_name}: "):
                 func(
-                    self.waveform_extractor,
+                    self.get_waveform_extractor_by_state(state=state),
                     load_if_exists=True,
                     **func_kwargs,
                 )
 
-        self.run_metrics()
+
+    def run_postprocessing(self):
+
+        # Whole recording
+        print("Run full recording")
+        self._run_si_postprocessing_by_state(state=None)
+        self._run_si_metrics_by_state(state=None)
+        print("\n\n")
+
+        if self._run_by_state:
+            for state in self._hypnogram_states:
+                print(f"Run state={state}")
+                self._run_si_postprocessing_by_state(state=state)
+                self._run_si_metrics_by_state(state=state)
+                print("\n\n")
+
+        # Save hypnogram used
+        ece_utils.write_htsv(
+            self._hypnogram,
+            self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
+        )
 
         # Save options used
         with open(self.postprocessing_output_dir / POSTPRO_OPTS_FNAME, "w") as f:

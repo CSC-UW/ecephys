@@ -28,7 +28,7 @@ metrics:
   sliding_rp_violation: {}
   amplitude_cutoff: {}
   amplitude_median: {}
-  # drift: {} # Not implemented (need slow spike locations)
+  drift: {}
   ## PCA metrics (slow)
   isolation_distance: {}
   l_ratio: {}
@@ -36,3 +36,21 @@ metrics:
   nearest_neighbor: {}
   nn_isolation: {}
   nn_noise_overlap: {}
+by_hypnogram_state:
+  waveforms: # Passed to extract_waveforms
+    ms_before: 1.5
+    ms_after: 2.5
+    max_spikes_per_unit: 100
+    sparse: True
+    method: radius
+    radius_um: 400
+    num_spikes_for_sparsity: 500
+  postprocessing: {}
+  metrics:
+    num_spikes: {}
+    firing_rate: {}
+    presence_ratio: {}
+    snr: {}
+    isi_violation: {}
+    rp_violation: {}
+    sliding_rp_violation: {}

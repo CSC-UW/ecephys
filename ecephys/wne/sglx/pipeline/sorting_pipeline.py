@@ -417,7 +417,12 @@ class SpikeInterfaceSortingPipeline:
     @property
     def sorting_extractor(self) -> si.KiloSortSortingExtractor:
         if self._si_sorting_extractor is None:
-            self._si_sorting_extractor = se.read_kilosort(self.sorter_output_dir)
+            sorting = se.read_kilosort(self.sorter_output_dir)
+            if not sorting.has_recording():
+                sorting.register_recording(
+                    self.processed_extractor_for_waveforms
+                )
+            self._si_sorting_extractor = sorting
         return self._si_sorting_extractor
 
     ##### Reinstantiate ######

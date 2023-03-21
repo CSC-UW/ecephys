@@ -1,5 +1,40 @@
+from spikeinterface.core import concatenate_sortings, concatenate_recordings
 import spikeinterface.extractors as se
 from pathlib import Path
+
+
+def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
+    assert {"start_frame", "end_frame", "state"}.issubset(epochs_df)
+    assert len(epochs_df.state.unique()) == 1
+
+    if not isinstance(si_object, (se.BaseSorting, se.BaseRecording)):
+        raise ValueError(
+            "Unrecognized datatype for si_object. "
+            "Expected spikeinterface BaseSorting or BaseRecording."
+        )
+
+    si_segments = []
+    for epoch in epochs_df.itertuples():
+        si_segments.append(
+            si_object.frame_slice(
+                start_frame=epoch.start_frame,
+                end_frame=epoch.end_frame
+            )
+        )
+    
+    if combine == "concatenate":
+
+        if isinstance(si_object, se.BaseSorting):
+            return concatenate_sortings(si_segments)
+        elif isinstance(si_object, se.BaseRecording):
+            return concatenate_recordings(si_segments)
+
+    elif combine == "append":
+        raise NotImplementedError
+
+    assert False
+
+
 
 
 def load_kilosort_bin_as_si_recording(
