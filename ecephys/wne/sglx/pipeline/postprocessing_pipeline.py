@@ -395,13 +395,15 @@ class SpikeInterfacePostprocessingPipeline:
 
         print("Computing metrics")
         with Timing(name="Compute metrics: "):
-            sq.compute_quality_metrics(
+            metrics = sq.compute_quality_metrics(
                 self.get_waveform_extractor_by_state(state=state),
                 metric_names=metrics_names,
                 qm_params=metrics_opts,
                 progress_bar=True,
                 verbose=True,
             )
+
+        return metrics
 
     def _run_si_postprocessing_by_state(self, state=None):
 
@@ -436,15 +438,27 @@ class SpikeInterfacePostprocessingPipeline:
         # Whole recording
         print("Run full recording")
         self._run_si_postprocessing_by_state(state=None)
-        self._run_si_metrics_by_state(state=None)
+        all_states_metrics = self._run_si_metrics_by_state(state=None)
         print("\n\n")
 
         if self._run_by_state:
             for state in self._hypnogram_states:
                 print(f"Run state={state}")
                 self._run_si_postprocessing_by_state(state=state)
-                self._run_si_metrics_by_state(state=state)
+                state_metrics = self._run_si_metrics_by_state(state=state)
+                # Check same cluster ids
+                assert state_metrics.index.equals(all_states_metrics.index)
+                # Append state to column names and add to aggregate array
+                state_metrics.columns = [c + f"_{state}" for c in state_metrics.columns]
+                all_states_metrics = all_states_metrics.join(state_metrics)
                 print("\n\n")
+
+        # Save aggregated metrics
+        all_states_metrics.to_csv(
+            self.postprocessing_output_dir/"metrics.csv",
+            index=True,
+            index_label="cluster_id"
+        )
 
         # Save hypnogram used
         ece_utils.write_htsv(
