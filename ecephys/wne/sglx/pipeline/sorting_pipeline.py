@@ -315,6 +315,7 @@ class SpikeInterfaceSortingPipeline:
         self._is_preprocessed = True
 
         # Save options used
+        self.main_output_dir.mkdir(exist_ok=True, parents=True)
         with open(self.main_output_dir / OPTS_FNAME, "w") as f:
             yaml.dump(self.opts, f)
         ece_utils.write_htsv(self._exclusions, self.main_output_dir / EXCLUSIONS_FNAME)
@@ -372,7 +373,7 @@ class SpikeInterfaceSortingPipeline:
             raise NotImplementedError()
 
         # Sort
-        self.main_output_dir.mkdir(exist_ok=True, parents=True)  # Necessary?
+        assert self.main_output_dir.exists() # Created during prepro
         with Timing(name="Run spikeinterface sorter"):
             ss.run_sorter(
                 sorter_name,
