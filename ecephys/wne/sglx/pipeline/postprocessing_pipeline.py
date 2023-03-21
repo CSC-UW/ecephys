@@ -3,6 +3,7 @@ from horology import Timing
 import json
 import logging
 import pandas as pd
+from pandas.testing import assert_frame_equal
 from pathlib import Path
 import probeinterface as pi
 from typing import Optional, Union
@@ -159,7 +160,22 @@ class SpikeInterfacePostprocessingPipeline:
             self._hypnogram = self.load_and_format_hypnogram(hypno_path)
             self._hypnogram_states = self._hypnogram.state.unique()
             assert not None in self._hypnogram_states
-        
+
+        # Ensure we use same hypno as previously
+        prior_hypno_path = self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
+        if prior_hypno_path.exists():
+            prior_hypno = ece_utils.read_htsv(prior_hypno_path)
+            try:
+                assert_frame_equal(
+                    prior_hypno, self._hypnogram, check_dtype=False
+                )
+            except AssertionError as e:
+                raise ValueError(
+                    f"New hypnogram doesn't match previously used hypnogram file at {prior_hypno_path}:\n"
+                    f"Consider instantiating pipeline object with `SpikeinterfacePostprocessingPipeline.load_from_folder`\n"
+                    f"{e}"
+                )
+
         # Run postprocessing state_by_state:
         self._run_by_state = False
         self._opts_by_state = None
@@ -478,7 +494,13 @@ class SpikeInterfacePostprocessingPipeline:
             raise FileNotFoundError(
                 f"Could not find all required files in {postpro_output_dir}"
             )
-        
+
+        saved_hypnogram_path=(postpro_output_dir / OUTPUT_HYPNO_FNAME)
+        if saved_hypnogram_path.exists():
+            hypnogram_source = saved_hypnogram_path
+        else:
+            hypnogram_source = None
+
         return SpikeInterfacePostprocessingPipeline(
             wneProject,
             wneSubject,
@@ -489,4 +511,5 @@ class SpikeInterfacePostprocessingPipeline:
             postprocessing_name,
             rerun_existing=rerun_existing,
             options_source=(postpro_output_dir / POSTPRO_OPTS_FNAME),
+            hypnogram_source=hypnogram_source,
         )
