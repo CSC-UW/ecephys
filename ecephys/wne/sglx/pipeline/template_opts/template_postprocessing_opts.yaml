@@ -1,7 +1,7 @@
 waveforms: # Passed to extract_waveforms
   ms_before: 1.5
   ms_after: 2.5
-  max_spikes_per_unit: 2000
+  max_spikes_per_unit: 1000
   sparse: True
   method: radius
   radius_um: 400
@@ -21,21 +21,35 @@ postprocessing: # <spikeinterface.postprocessing_function_name> : <params>
 metrics:
   num_spikes: {}
   firing_rate: {}
-  presence_ratio: {}
+  presence_ratio:
+    bin_duration_s: 180
+    mean_fr_ratio_thresh: 0.1
   snr: {}
   isi_violation: {}
   rp_violation: {}
-  sliding_rp_violation: {}
+  sliding_rp_violation:
+    bin_size_ms: 0.2
+    window_size_s: 0.05
+    exclude_ref_period_below_ms: 0.5
+    max_ref_period_ms: 5
   amplitude_cutoff: {}
   amplitude_median: {}
-  drift: {}
+  drift:
+    interval_s: 180 
+    min_spikes_per_interval: 90
   ## PCA metrics (slow)
-  isolation_distance: {}
-  l_ratio: {}
-  d_prime: {}
-  nearest_neighbor: {}
-  nn_isolation: {}
-  nn_noise_overlap: {}
+  nn_isolation:
+    min_spikes: 200
+    min_fr: 0.05
+    n_components: 5
+  nn_noise_overlap:
+    min_spikes: 200
+    min_fr: 0.0
+    n_components: 5
+  # isolation_distance: {}
+  # l_ratio: {}
+  # d_prime: {}
+  # nearest_neighbor: {}
 by_hypnogram_state:
   waveforms: # Passed to extract_waveforms
     ms_before: 1.5
@@ -49,8 +63,14 @@ by_hypnogram_state:
   metrics:
     num_spikes: {}
     firing_rate: {}
-    presence_ratio: {}
+    presence_ratio:
+      bin_duration_s: 180
+      mean_fr_ratio_thresh: 0.1
     snr: {}
     isi_violation: {}
     rp_violation: {}
-    sliding_rp_violation: {}
+    sliding_rp_violation:
+      bin_size_ms: 0.2
+      window_size_s: 0.05
+      exclude_ref_period_below_ms: 0.5
+      max_ref_period_ms: 5
