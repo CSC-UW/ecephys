@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from .units import ClusterTrains
+from ecephys.units import ClusterTrains
 
 
 def _add_cluster_properties_to_dataarray(

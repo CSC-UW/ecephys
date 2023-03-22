@@ -1,9 +1,7 @@
-import colorcet as cc
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
+from abc import ABC, abstractproperty
 import logging
-import seaborn as sns
+
+import colorcet as cc
 from IPython.display import display
 from ipywidgets import (
     BoundedFloatText,
@@ -19,11 +17,272 @@ from ipywidgets import (
     jslink,
 )
 from matplotlib.colors import is_color_like, to_rgba
-from ecephys.units import sorting, spikes
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from pandas.api import types
+import seaborn as sns
 
-from ..sharptrack import SHARPTrack
+from ecephys.sharptrack import SHARPTrack
 
 logger = logging.getLogger(__name__)
+
+
+#####
+# Trains datatype utils
+#####
+
+
+def takes_trains(func):
+    """A decorator you can use on your own functions to ensure that the first argument passed is a valid trains frame."""
+
+    def wrapped_function(trains, *args, **kwargs):
+        if "t" not in trains.columns:
+            raise ValueError(
+                f"Problem with trains frame passed to {func.__name__}: `t` column not found."
+            )
+        if not types.is_object_dtype(trains["t"].dtype):
+            raise ValueError(
+                f"Problem with trains frame passed to {func.__name__}: `t` column dtype is not object."
+            )
+        return func(trains, *args, **kwargs)
+
+    return wrapped_function
+
+
+@takes_trains
+def silent(trains):
+    return trains["t"].isna()
+
+
+def takes_unit_trains(func):
+    """A decorator you can use on your own functions to ensure that the first argument passed is a valid unit trains frame.
+    A valid unit trains frame is indexed by cluster_id."""
+
+    @takes_trains
+    def wrapped_function(unitTrains, *args, **kwargs):
+        if unitTrains.index.name != "cluster_id":
+            raise ValueError(
+                f"Problem with unit trains frame passed to {func.__name__}: Not indexed by cluster_id."
+            )
+
+        return func(unitTrains, *args, **kwargs)
+
+    return wrapped_function
+
+
+# TODO: Allow many-to-1  units-to-train merge
+@takes_unit_trains
+def add_cluster_info(unitTrains, clusterInfo, propertiesToAdd):
+    """Add column(s) with cluster properties to a unit trains frame.
+
+    Parameters:
+    ===========
+    unitTrains: DataFrame
+        Unit spike triains. Cannot be depth trains, structure trains, etc.
+    clusterInfo DataFrame
+        One column per cluster property. Must contain a 'cluster_id' column.
+    propertiesToAdd: DataFrame column indexer
+        The properties from clusterInfo to add.
+
+    Returns:
+    ========
+    unitTrains, still indexed by cluster_id, but with properties added as additional columns.
+    """
+    if isinstance(propertiesToAdd, str):
+        propertiesToAdd = [propertiesToAdd]
+    if not isinstance(propertiesToAdd, list):
+        raise ValueError(f"Expected list, got {type(propertiesToAdd)}")
+    return pd.merge(
+        clusterInfo[propertiesToAdd + ["cluster_id"]],
+        unitTrains,
+        on="cluster_id",
+        validate="one_to_one",
+    ).set_index("cluster_id")
+
+
+#####
+# Spikes datatype utils
+#####
+
+
+def takes_spikes_frame(func):
+    """A decorator you can use on your own functions to ensure that the first argument passed is a valid Spikes frame."""
+
+    def wrapped_function(spikes, *args, **kwargs):
+        if "t" not in spikes.columns:
+            raise ValueError(
+                f"Problem with spikes frame passed to {func.__name__}: `t` column not found."
+            )
+        if not types.is_numeric_dtype(spikes["t"].dtype):
+            raise ValueError(
+                f"Problem with spikes frame passed to {func.__name__}: `t` column dtype is not numeric."
+            )
+        if "cluster_id" not in spikes.columns:
+            raise ValueError(
+                f"Problem with spikes frame passed to {func.__name__}: `cluster_id` column not found."
+            )
+        return func(spikes, *args, **kwargs)
+
+    return wrapped_function
+
+
+@takes_spikes_frame
+def between_time(spikes, start_time=-float("Inf"), end_time=float("Inf")):
+    mask = (spikes["t"] >= start_time) & (spikes["t"] <= end_time)
+    return spikes.loc[mask]
+
+
+@takes_spikes_frame
+def add_cluster_info(spikes, clusterInfo, propertiesToAdd):
+    """Add column(s) with cluster properties to a spikes frame.
+
+    Parameters:
+    ===========
+    spikes: DataFrame
+    clusterInfo DataFrame
+        One column per cluster property. Must contain a 'cluster_id' column.
+    propertiesToAdd: DataFrame column indexer
+        The properties from clusterInfo to add.
+    """
+    if isinstance(propertiesToAdd, str):
+        propertiesToAdd = [propertiesToAdd]
+    if not isinstance(propertiesToAdd, list):
+        raise ValueError(f"Expected list, got {type(propertiesToAdd)}")
+    return pd.merge(
+        clusterInfo[propertiesToAdd + ["cluster_id"]],
+        spikes,
+        on="cluster_id",
+        validate="one_to_many",
+    )
+
+
+@takes_spikes_frame
+def as_trains(spikes, oneTrainPer="cluster_id"):
+    "Returns a dataframe grouped (i.e. indexed) by `oneTrainPer`. Will contain a `t` column containing, for each train, the spike times."
+    return pd.DataFrame(
+        spikes.groupby(
+            oneTrainPer,
+            observed=False,  # Represent all categories
+        )["t"].unique()
+    )
+
+
+#####
+# Sorting objects
+#####
+
+# I am not convinced these classes should exist at all.
+# TODO: Cache certain properties that only need to be computed once.
+
+
+class Sorting(ABC):
+    @abstractproperty
+    def firstSpikeTime(self):
+        pass
+
+    @abstractproperty
+    def lastSpikeTime(self):
+        pass
+
+    @abstractproperty
+    def nClusters(self):
+        pass
+
+    # TODO: This is 4/3 slower than getting individual unit trains 1 by 1, especially if unit trains are the ultimate desired format.
+    @staticmethod
+    def get_all_spike_times_from_si_obj(siSorting, timeConverter=None):
+        [(spikeSamples, clusterIDs)] = siSorting.get_all_spike_trains()
+        spikeTimes = spikeSamples / siSorting.get_sampling_frequency()
+        spikes = pd.DataFrame(
+            {
+                "t": spikeTimes,
+                "cluster_id": clusterIDs,
+            }
+        )
+        if timeConverter is not None:
+            spikes["t"] = timeConverter(spikes["t"].values)
+        return spikes
+
+
+class SingleProbeSorting(Sorting):
+    def __init__(self, siSorting, timeConverter=None):
+        """
+        Parameters:
+        ===========
+        siSorting: UnitsSelectionSorting
+        timeConverter: function
+            Takes an array of spike times t, and returns a new array of corresponding spike times.
+            This is used to map spike times from one probe to another, since the SpikeInterface objects can not do this.
+        """
+        self._si = siSorting
+        self._timeConverter = timeConverter
+        self.spikes = self.get_all_spike_times_from_si_obj(siSorting, timeConverter)
+
+    def __repr__(self):
+        return repr(self.si)
+
+    @property
+    def si(self):
+        return self._si
+
+    @property
+    def firstSpikeTime(self):
+        return self.spikes["t"].min()
+
+    @property
+    def lastSpikeTime(self):
+        return self.spikes["t"].max()
+
+    @property
+    def clusterInfo(self):
+        clusterInfo = pd.DataFrame(self.si._properties)
+        clusterInfo["cluster_id"] = self.si.get_unit_ids()
+        return clusterInfo
+
+    @property
+    def nClusters(self):
+        return len(self.si.get_unit_ids())
+
+    @property
+    def structuresByDepth(self):
+        return self.clusterInfo.sort_values("depth")["structure"].unique().tolist()
+
+    def clone(self):
+        return SingleProbeSorting(self.si.clone(), self._timeConverter)
+
+
+class MultiProbeSorting(Sorting):
+    def __init__(self, single_probe_sortings):
+        self.sortings = single_probe_sortings
+
+    @property
+    def firstSpikeTime(self):
+        return min(sorting.firstSpikeTime for probe, sorting in self.sortings.items())
+
+    @property
+    def lastSpikeTime(self):
+        return max(sorting.lastSpikeTime for probe, sorting in self.sortings.items())
+
+    @property
+    def nClusters(self):
+        return sum(sorting.nClusters for probe, sorting in self.sortings.items())
+
+    @property
+    def structuresByDepth(self):
+        return {
+            probe: sorting.structuresByDepth for probe, sorting in self.sortings.items()
+        }
+
+    def clone(self):
+        return MultiProbeSorting(
+            {probe: sorting.clone() for probe, sorting in self.sortings.items()}
+        )
+
+
+#####
+# Raster plots
+#####
 
 ##### Functions for adding rgba column to units
 
@@ -303,30 +562,26 @@ class Raster:
             return self._trains
 
     def update_trains(self):
-        if isinstance(self._sorting, sorting.SingleProbeSorting):
+        if isinstance(self._sorting, SingleProbeSorting):
             # Get spikes between the requested times
-            spks = spikes.between_time(
-                self._sorting.spikes, self.plotStart, self.plotEnd
-            )
+            spks = between_time(self._sorting.spikes, self.plotStart, self.plotEnd)
             # If spike trains should be grouped by something other than cluster_id, we need to add that info to the spikes frame.
             if self._oneTrainPer != "cluster_id":
-                spks = spikes.add_cluster_info(
+                spks = add_cluster_info(
                     spks, self._sorting.clusterInfo, self._oneTrainPer
                 )
             # Get the spike trains
-            self._trains = spikes.as_trains(spks, self._oneTrainPer)
+            self._trains = as_trains(spks, self._oneTrainPer)
         else:
             # Get spikes between the requested times
             spks = {
-                prb: spikes.between_time(srt.spikes, self.plotStart, self.plotEnd)
+                prb: between_time(srt.spikes, self.plotStart, self.plotEnd)
                 for prb, srt in self._sorting.sortings.items()
             }
             # If spike trains should be grouped by something other than cluster_id, we need to add that info to the spikes frame.
             if self._oneTrainPer != "cluster_id":
                 spks = {
-                    prb: spikes.add_cluster_info(
-                        spks[prb], srt.clusterInfo, self._oneTrainPer
-                    )
+                    prb: add_cluster_info(spks[prb], srt.clusterInfo, self._oneTrainPer)
                     for prb, srt in self._sorting.sortings.items()
                 }
 

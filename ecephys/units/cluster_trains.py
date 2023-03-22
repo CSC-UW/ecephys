@@ -1,7 +1,7 @@
 import numpy as np
 
 ClusterTrains = dict[str, np.ndarray]
-MultiprobeTrains = dict[str, ClusterTrains]
+# Key: Cluster ID, Value: Spike train (in seconds)
 
 
 def convert_cluster_trains_to_spike_vector(
@@ -33,4 +33,4 @@ def convert_cluster_trains_to_spike_vector(
     spikes = spikes[order]
     cluster_ids = cluster_ids[order]
 
-    return spikes, cluster_ids
+    return spikes, cluster_ids, order

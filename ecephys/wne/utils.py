@@ -1,7 +1,7 @@
 from typing import Optional
-from .. import utils, units
-from .projects import Project
-from . import sglx
+from ecephys import units, utils
+from ecephys.wne import sglx
+from ecephys.wne.projects import Project
 
 
 def load_singleprobe_sorting(
@@ -25,9 +25,9 @@ def load_singleprobe_sorting(
     )
 
     # Fix extractor
-    extractor = units.fix_isi_violations_ratio(extractor)
-    extractor = units.fix_noise_cluster_labels(extractor)
-    extractor = units.fix_uncurated_cluster_labels(extractor)
+    extractor = units.si_ks_sorting.fix_isi_violations_ratio(extractor)
+    extractor = units.si_ks_sorting.fix_noise_cluster_labels(extractor)
+    extractor = units.si_ks_sorting.fix_uncurated_cluster_labels(extractor)
 
     # Add anatomy to the extractor, if available.
     if wneAnatomyProject is None:
@@ -37,6 +37,6 @@ def load_singleprobe_sorting(
     )
     if anatomy_file.exists():
         structs = utils.read_htsv(anatomy_file)
-        extractor = units.add_cluster_structures(extractor, structs)
+        extractor = units.si_ks_sorting.add_cluster_structures(extractor, structs)
 
     return units.SpikeInterfaceKilosortSorting(extractor, sample2time)
