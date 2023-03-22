@@ -287,7 +287,7 @@ class Timeseries2D(Timeseries):
 
         return spgs
 
-    def ssq_stft(self, n_fft=None, hop_len=None, **kwargs):
+    def ssq_stft(self, **kwargs):
         """
         See `help(ssqueezepy.stft)`.
 
@@ -300,32 +300,31 @@ class Timeseries2D(Timeseries):
         hop_len:
             STFT stride, or number of samples to skip/hop over between subsequent
             windowings. Relates to 'overlap' as `overlap = n_fft - hop_len`
-            Defaults to nfft // 2
         dtype: str['float32', 'float64'] / None
             Compute precision; use 'float32` for speed & memory at expense of
             accuracy (negligible for most purposes).
             Defaults to 'float32'
         """
-        if n_fft is None:
-            n_fft = ssq.p2up(int(self.fs * 4))[0]
+        # if n_fft is None:
+        #    n_fft = ssq.p2up(int(self.fs * 4))[0]
+        # if not "window" in kwargs:
+        #    kwargs["window"] = "hamming"
+        if not "n_fft" in kwargs:
+            kwargs["n_fft"] = ssq.p2up(int(self.fs))[0]
         if not "hop_len" in kwargs:
-            kwargs["hop_len"] = n_fft // 2
-        if not "window" in kwargs:
-            kwargs["window"] = "hamming"
+            kwargs["hop_len"] = kwargs["n_fft"] // 4
         if not "dtype" in kwargs:
             kwargs["dtype"] = "float32"
         if ("fs" in kwargs) and (kwargs["fs"] != self.fs):
             raise ValueError(f"Was passed fs={kwargs['fs']}, but expected {self.fs}.")
 
         logger.debug(f"Calling SSQ STFT with the following kwargs: {kwargs}")
-        _, Wx, freqs, _, *_ = ssq.ssq_stft(
-            self.values.T, fs=self.fs, n_fft=n_fft, **kwargs
-        )
+        _, Wx, freqs, _, *_ = ssq.ssq_stft(self.values.T, fs=self.fs, **kwargs)
 
         ns = self.time.size
-        time = (np.linspace(0, ns, Wx.shape[-1], endpoint=False) + (n_fft / 2)) / float(
-            self.fs
-        ) + self.time.values.min()
+        time = (
+            np.linspace(0, ns, Wx.shape[-1], endpoint=False) + (kwargs["hop_len"] / 2)
+        ) / float(self.fs) + self.time.values.min()
 
         return xr.DataArray(
             np.atleast_3d(np.abs(Wx)),

@@ -95,7 +95,7 @@ class Hypnogram:
 
         return mask
 
-    def get_states(self, times):
+    def get_states(self, times: np.ndarray, default_value="") -> np.ndarray:
         """Given an array of times, label each time with its state.
         Parameters:
         -----------
@@ -106,12 +106,17 @@ class Hypnogram:
         states (n_times,)
             The state label for each sample in `times`.
         """
-        labels = pd.Series([""] * len(times))
-        for bout in self.itertuples():
-            times_in_bout = (times >= bout.start_time) & (times <= bout.end_time)
-            labels.values[times_in_bout] = bout.state
+        assert np.all(np.diff(times) >= 0), "The times must be increasing."
+        assert times.ndim == 1
 
-        return labels.values
+        epoch_idxs = np.searchsorted(
+            times, np.c_[self.start_time.to_numpy(), self.end_time.to_numpy()]
+        )
+        dtype = "object" if isinstance(default_value, str) else None
+        result = np.full_like(times, fill_value=default_value, dtype=dtype)
+        for i, ep in enumerate(epoch_idxs):
+            result[ep[0] : ep[1]] = self.state.iloc[i]
+        return result
 
     def covers_time(self, times):
         """Given an array of times, return True where that time is covered by
@@ -262,6 +267,22 @@ class FloatHypnogram(Hypnogram):
         """
         return self.__class__(self.loc[self.duration > duration])
 
+    def keep_between_time(self, start_time=None, end_time=None):
+        """Keep all hypnogram bouts that fall between two times
+
+        Paramters:
+        ----------
+        start_time: in seconds
+        end_time: in seconds
+        """
+        if start_time is None:
+            start_time = self.start_time.min()
+        if end_time is None:
+            end_time = self.end_time.max()
+
+        keep = (self.start_time >= start_time) & (self.end_time <= end_time)
+        return self.__class__(self._df[keep])
+
     def get_consolidated(
         self,
         states,
@@ -390,7 +411,7 @@ class DatetimeHypnogram(Hypnogram):
         df["duration"] = df.duration / pd.to_timedelta("1s")
         return FloatHypnogram(df)
 
-    def keep_first(self, cumulative_duration):
+    def keep_first(self, cumulative_duration, trim=True):
         """Keep hypnogram bouts until a cumulative duration is reached.
 
         Parameters:
@@ -398,10 +419,20 @@ class DatetimeHypnogram(Hypnogram):
         cumulative_duration:
             Any valid timedelta specifier, `02:30:10` for 2h, 30m, 10s.
         """
-        keep = self.duration.cumsum() <= pd.to_timedelta(cumulative_duration)
-        return self.__class__(self.loc[keep])
+        if trim:
+            excess = self.duration.cumsum() - pd.to_timedelta(cumulative_duration)
+            is_excess = excess > pd.to_timedelta(0)
+            if not is_excess.any():
+                return self
+            amount_to_trim = excess[is_excess].min()
+            trim_until = self.loc[is_excess].end_time.min() - amount_to_trim
+            new = trim_hypnogram(self._df, self.start_time.min(), trim_until)
+        else:
+            keep = self.duration.cumsum() <= pd.to_timedelta(cumulative_duration)
+            new = self.loc[keep]
+        return self.__class__(new)
 
-    def keep_last(self, cumulative_duration):
+    def keep_last(self, cumulative_duration, trim=True):
         """Keep only a given amount of time at the end of a hypnogram.
 
         Parameters:
@@ -409,10 +440,20 @@ class DatetimeHypnogram(Hypnogram):
         cumulative_duration:
             Any valid timedelta specifier, `02:30:10` for 2h, 30m, 10s.
         """
-        keep = np.cumsum(self.duration[::-1])[::-1] <= pd.to_timedelta(
-            cumulative_duration
-        )
-        return self.__class__(self.loc[keep])
+        if trim:
+            excess = self.duration[::-1].cumsum() - pd.to_timedelta(cumulative_duration)
+            is_excess = excess > pd.to_timedelta(0)
+            if not is_excess.any():
+                return self
+            amount_to_trim = excess[is_excess].min()
+            trim_until = self.loc[is_excess].start_time.max() + amount_to_trim
+            new = trim_hypnogram(self._df, trim_until, self.end_time.max())
+        else:
+            keep = np.cumsum(self.duration[::-1])[::-1] <= pd.to_timedelta(
+                cumulative_duration
+            )
+            new = self.loc[keep]
+        return self.__class__(new)
 
     def keep_between_time(self, start_time, end_time):
         """Keep all hypnogram bouts that fall between two times of day.
@@ -434,7 +475,7 @@ class DatetimeHypnogram(Hypnogram):
         )
         return self.__class__(self.iloc[keep])
 
-    def keep_between_datetime(self, start_time, end_time):
+    def keep_between_datetime(self, start_time=None, end_time=None):
         """Keep all hypnogram bouts that fall between two datetimes.
 
         Paramters:
@@ -444,6 +485,10 @@ class DatetimeHypnogram(Hypnogram):
         end_time:
             The ending time, either as a datetime object or as a datetime string, e.g. '2021-12-30T22:00:01'
         """
+        if start_time is None:
+            start_time = self.start_time.min()
+        if end_time is None:
+            end_time = self.end_time.max()
         start_time, end_time = _check_datetime(start_time), _check_datetime(end_time)
         keep = (self.start_time >= start_time) & (self.end_time <= end_time)
         return self.__class__(self.loc[keep])
@@ -779,7 +824,7 @@ def fill_gaps(df: pd.DataFrame, longerThan, **kwargs) -> pd.DataFrame:
     )
 
 
-def trim(df: pd.DataFrame, start, end) -> pd.DataFrame:
+def trim_hypnogram(df: pd.DataFrame, start, end) -> pd.DataFrame:
     """Trim a hypnogram to start and end within a specified time range.
     Actually will truncate bouts if they extend beyond the range."""
     if not {"state", "start_time", "end_time", "duration"}.issubset(df):

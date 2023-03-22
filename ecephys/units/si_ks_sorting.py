@@ -1,4 +1,6 @@
 import logging
+from typing import Callable, Optional, Union
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -6,8 +8,8 @@ import seaborn as sns
 import sklearn.metrics as skmetrics
 import spikeinterface as si
 import spikeinterface.extractors as se
-from typing import Callable, Optional, Union
-from .utils import refine_clusters
+
+from ecephys.units import siutils
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,7 @@ class SpikeInterfaceKilosortSorting:
             If not provided, times will be according to the probe's sample clock (e.g. sample / fs)
 
         """
-        self.si_obj = si_obj
+        self.si_obj: se.KiloSortSortingExtractor = si_obj
 
         # If no time mapping function is provided, just provide times according to this probe's sample clock.
         if sample2time is None:
@@ -175,7 +177,7 @@ class SpikeInterfaceKilosortSorting:
 
     def refine_clusters(self, filters: dict):
         """Refine clusters, and conveniently wrap the result, so that the user doesn't have to."""
-        new_obj = refine_clusters(self.si_obj, filters)
+        new_obj = siutils.refine_clusters(self.si_obj, filters)
         return self.__class__(new_obj, self.sample2time)
 
     def select_clusters(self, clusterIDs):

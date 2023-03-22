@@ -206,6 +206,9 @@ class Subject:
         # to ensure that you never get a segment table unless it is actually proven to produce a valid extractor object.
         return recording, segments
 
+    def get_tdt_block_path(self, experiment: str):
+        return Path(self.doc["experiments"][experiment]["tdt_block_path"])
+
     @staticmethod
     def load_yaml_doc(yaml_path: Path) -> dict:
         """Load a YAML file that contains only one document."""

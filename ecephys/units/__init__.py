@@ -1,7 +1,4 @@
-from .io import *
-from .utils import *
-from .raster import *
-from .sorting import *
-from .si_ks_sorting import *
-from .spikes import *
-from .trains import *
+from ecephys.units.si_ks_sorting import SpikeInterfaceKilosortSorting
+from ecephys.units.cluster_trains import ClusterTrains
+from ecephys.units.multiprobe_sorting import MultiprobeSorting
+from ecephys.units.deprecated import SingleProbeSorting, MultiProbeSorting

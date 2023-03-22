@@ -280,7 +280,7 @@ def plot_hypnogram_overlay(
     t1_column="start_time",
     t2_column="end_time",
     ax=None,
-    xlim=None,
+    xlim="ax",
     ymin=0,
     ymax=1,
     figsize=(18, 3),
@@ -295,7 +295,8 @@ def plot_hypnogram_overlay(
     ax: matplotlib.Axes, optional
         An axes upon which to plot.
     """
-    xlim = ax.get_xlim() if (ax and not xlim) else xlim
+    if (xlim == "ax") and (not ax is None):
+        xlim = ax.get_xlim()
 
     ax = check_ax(ax, figsize=figsize)
 
@@ -311,7 +312,8 @@ def plot_hypnogram_overlay(
             ymax=ymax,
         )
 
-    ax.set_xlim(xlim)
+    if xlim:
+        ax.set_xlim(xlim)
     return ax
 
 
@@ -627,3 +629,27 @@ def interactive_colormesh_explorer(time, sig, y=None, figsize=(20, 8)):
     )
 
     display(ui, out)
+
+
+def grouped_barplot(df, cat, subcat, val, err):
+    """Like sns.barplot(data=df, x=cat, hue=subcat, y=val), but with controllable error bars using err=col_name
+    See https://stackoverflow.com/questions/42017049/how-to-add-error-bars-on-a-grouped-barplot-from-a-column"""
+    u = df[cat].unique()
+    x = np.arange(len(u))
+    subx = df[subcat].unique()
+    offsets = (np.arange(len(subx)) - np.arange(len(subx)).mean()) / (len(subx) + 1.0)
+    width = np.diff(offsets).mean()
+    for i, gr in enumerate(subx):
+        dfg = df[df[subcat] == gr]
+        plt.bar(
+            x + offsets[i],
+            dfg[val].values,
+            width=width,
+            label="{}".format(gr),
+            yerr=dfg[err].values,
+        )
+    plt.xlabel(cat)
+    plt.ylabel(val)
+    plt.xticks(x, u)
+    plt.legend()
+    plt.show()
