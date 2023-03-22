@@ -95,7 +95,7 @@ class Hypnogram:
 
         return mask
 
-    def get_states(self, times):
+    def get_states(self, times: np.ndarray, default_value="") -> np.ndarray:
         """Given an array of times, label each time with its state.
         Parameters:
         -----------
@@ -106,12 +106,17 @@ class Hypnogram:
         states (n_times,)
             The state label for each sample in `times`.
         """
-        labels = pd.Series([""] * len(times))
-        for bout in self.itertuples():
-            times_in_bout = (times >= bout.start_time) & (times <= bout.end_time)
-            labels.values[times_in_bout] = bout.state
+        assert np.all(np.diff(times) >= 0), "The times must be increasing."
+        assert times.ndim == 1
 
-        return labels.values
+        epoch_idxs = np.searchsorted(
+            times, np.c_[self.start_time.to_numpy(), self.end_time.to_numpy()]
+        )
+        dtype = "object" if isinstance(default_value, str) else None
+        result = np.full_like(times, fill_value=default_value, dtype=dtype)
+        for i, ep in enumerate(epoch_idxs):
+            result[ep[0] : ep[1]] = self.state.iloc[i]
+        return result
 
     def covers_time(self, times):
         """Given an array of times, return True where that time is covered by
