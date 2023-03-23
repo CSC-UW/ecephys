@@ -367,7 +367,18 @@ def read_metadata(files):
     """Takes a list of pathlib.Path
     See https://billkarsh.github.io/SpikeGLX/Sgl_help/Metadata_30.html"""
     meta_dict = [readMeta(f) for f in files]
-    df = pd.DataFrame(meta_dict).assign(path=files)
+    df = pd.DataFrame(meta_dict)
+
+    metadata_is_missing = df.isna().all(
+        axis=1
+    )  # Sometimes a file exists but is empty, and no metadata is found
+    df = df.assign(path=files)
+    df = df[~metadata_is_missing]  # Drop the empty files
+    if metadata_is_missing.any():  # Warn the user
+        for f in df[metadata_is_missing].path.to_numpy():
+            logging.info(
+                f"No metadata found for {f}. SpikeGLX probably wrote an empty file. Dropping."
+            )
 
     meta_types = dict()
     meta_types["always_present"] = {

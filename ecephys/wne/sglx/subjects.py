@@ -1,16 +1,17 @@
-import logging
-import yaml
 import itertools as it
+import logging
+from pathlib import Path
+from typing import Optional
+import yaml
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
 import spikeinterface as si
 import spikeinterface.extractors as se
-from typing import Optional, Union
 
 from . import sessions, experiments
-from ...sglx import file_mgmt
-from ... import utils as ece_utils
+from ecephys.sglx import file_mgmt
+from ecephys import utils
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class Subject:
         return f"wneSubject: {self.name}"
 
     def refresh_cache(self) -> pd.DataFrame:
+        logger.debug(f"Refreshing cache for: {self.name}")
         sessionFrames = [
             file_mgmt.filelist_to_frame(
                 sessions.get_session_files_from_multiple_locations(sessionDict)
@@ -243,7 +245,10 @@ class SubjectLibrary:
 
     def refresh_cache(self) -> pd.DataFrame:
         names = self.get_subject_names()
-        subjectCaches = [Subject(self.get_subject_file(name)).cache for name in names]
+        subjectCaches = []
+        for name in names:
+            logger.debug(f"Refreshing cache for {name}")
+            subjectCaches.append(Subject(self.get_subject_file(name)).cache)
         self.cache = pd.concat(
             subjectCaches, keys=names, names=["subject"]
         ).reset_index(level=0)
@@ -316,13 +321,11 @@ def segment_experiment_frame_for_spikeinterface(
             .clip(0, ns)
         )
         exclusions.loc[mask, "end_frame"] = (
-            (exclusions.loc[mask, "end_time"] * file.imSampRate)
-            .astype(int)
-            .clip(0, ns)
+            (exclusions.loc[mask, "end_time"] * file.imSampRate).astype(int).clip(0, ns)
         )
 
         # Do the actual splitting of the entire file around the exclusions
-        file_segments = ece_utils.reconcile_labeled_intervals(
+        file_segments = utils.reconcile_labeled_intervals(
             exclusions.loc[mask, ["start_frame", "end_frame", "type"]],
             pd.DataFrame({"start_frame": [0], "end_frame": [ns], "type": "keep"}),
             "start_frame",
@@ -339,7 +342,7 @@ def segment_experiment_frame_for_spikeinterface(
         frames_to_shift = np.intersect1d(
             file_segments[~keep]["end_frame"].values,
             file_segments["start_frame"].values,
-        ) # End of each bad segment followed by another segment (excludes the last one)
+        )  # End of each bad segment followed by another segment (excludes the last one)
         i = file_segments["end_frame"].isin(frames_to_shift)
         j = file_segments["start_frame"].isin(frames_to_shift)
         file_segments.loc[i, "end_frame"] += 1
@@ -365,7 +368,7 @@ def segment_experiment_frame_for_spikeinterface(
 
     stab = segments.merge(ftab, on="fname")
 
-    stab["nSegmentSamp"] = (stab["end_frame"] - stab["start_frame"])
+    stab["nSegmentSamp"] = stab["end_frame"] - stab["start_frame"]
     stab["segmentDuration"] = stab["nSegmentSamp"].div(stab["imSampRate"])
 
     return stab
