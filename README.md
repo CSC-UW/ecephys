@@ -2,6 +2,24 @@
 Python tools for extracellular electrophysiology at the Wisconsin Institute for Sleep and Consciousness.
 
 ## Installation
+
+### Requirements:
+
+spikeinterface, ``CSC-UW`` github fork, `wisc/dev` branch:
+
+```
+pip install "git+ssh://git@github.com/CSC-UW/spikeinterface.git@wisc/dev
+```
+or (editable mode)
+```
+git clone https://github.com/CSC-UW/spikeinterface.git
+cd spikeinterface
+pip install -e .
+```
+
+### Ecephys
+
+
 ```
 git clone https://github.com/CSC-UW/ecephys.git
 cd ecephys
