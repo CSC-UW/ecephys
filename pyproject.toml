@@ -28,8 +28,8 @@ ipympl = "^0.9.1"
 tdt = "^0.5.3"
 bg-atlasapi = "^1.0.2"
 ripple-detection = "^1.1.0"
-spikeinterface = {path = "../spikeinterface", develop = true}
-#spikeinterface = {git = "https://github.com/CSC-UW/spikeinterface.git", rev = "wisc/dev"}
+# spikeinterface = {path = "../spikeinterface", develop = true}
+# spikeinterface = {git = "https://github.com/CSC-UW/spikeinterface.git", rev = "wisc/dev"}
 kcsd = {git = "https://github.com/Neuroinflab/kCSD-python.git", rev = "master"}
 ibllib = "^2.13.3"
 ssqueezepy = "^0.6.3"
