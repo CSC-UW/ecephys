@@ -1,3 +1,5 @@
+# TODO: Convert times to canonical timebase BEFORE saving
+
 import logging
 import neurodsp
 from tqdm.auto import tqdm
@@ -72,7 +74,7 @@ def do_alias(
         lfp = sglxr.load_trigger(
             lfpFile.path,
             t0=lfpFile.expmtPrbAcqFirstTime,
-            dt0=lfpFile.expmtPrbAcqFirstDatetime,  # TODO: Convert times BEFORE saving
+            dt0=lfpFile.expmtPrbAcqFirstDatetime,
         )
 
         logger.info("Processing chunks...")

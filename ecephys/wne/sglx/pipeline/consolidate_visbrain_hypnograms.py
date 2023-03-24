@@ -13,20 +13,15 @@ logger = logging.getLogger(__name__)
 
 
 def do_experiment_probe(
-    srcProject: Project,
+    wneProject: Project,
     wneSubject: Subject,
     experiment: str,
     probe: str,
-    destProject: Optional[Project] = None,
-    # alias: str,
 ):
-    if destProject is None:
-        destProject = srcProject
     vbHgs = list()
     lfpTable = wneSubject.get_lfp_bin_table(experiment, probe=probe)
-    # lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
     for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [vbFile] = srcProject.get_sglx_counterparts(
+        [vbFile] = wneProject.get_sglx_counterparts(
             wneSubject.name,
             [lfpFile.path],
             constants.VISBRAIN_EXT,
@@ -45,10 +40,7 @@ def do_experiment_probe(
     if vbHgs:
         hg = pd.concat(vbHgs).sort_values("start_time").reset_index(drop=True)
         hg = hypnogram.FloatHypnogram.clean(hg)
-        # hypnoFile = destProject.get_alias_subject_file(
-        #    experiment, alias, wneSubject.name, constants.HYPNOGRAM_FNAME
-        # )
-        hypnoFile = destProject.get_experiment_subject_file(
+        hypnoFile = wneProject.get_experiment_subject_file(
             experiment, wneSubject.name, constants.HYPNOGRAM_FNAME
         )
         hg.write_htsv(hypnoFile)

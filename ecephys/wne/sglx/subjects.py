@@ -59,6 +59,11 @@ class Subject:
         frame = self.cache[
             self.cache["session"].isin(sessionIDs)
         ]  # Get the cache slice containing this experiment.
+        if frame.empty:
+            logger.info(
+                f"No frame found for {self.name}: {experiment} with recording session IDs: {sessionIDs} \n"
+                "There is probably a problem with this subject's YAML file."
+            )
         frame = experiments.add_experiment_times(frame)
         # This exists to get around limitations of SpikeInterface, so can hopefully be removed one day.
         frame = _get_gate_dir_trigger_file_index(frame)

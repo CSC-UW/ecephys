@@ -37,6 +37,7 @@ import pickle
 import spikeinterface.extractors as se
 from typing import Callable, Union, Optional
 import yaml
+from ecephys import hypnogram
 from . import constants
 from .sglx import sessions
 from .. import sglx as ece_sglx
@@ -516,6 +517,17 @@ class Project:
                 for prb in probes
             }
         )
+
+
+def load_hypnogram(
+    self, experiment: str, subject: str, simplify: bool = True
+) -> hypnogram.Hypnogram:
+    f = self.get_experiment_subject_file(experiment, subject, constants.HYPNOGRAM_FNAME)
+    hyp = hypnogram.FloatHypnogram.from_htsv(f)
+    if simplify:
+        hyp = hyp.replace_states(constants.SIMPLIFIED_STATES)
+
+    return hyp
 
 
 class ProjectLibrary:
