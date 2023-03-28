@@ -238,7 +238,10 @@ class Project:
         sorting,
         return_all_segment_types=False,
     ):
-        """Load a sorting's segment file"""
+        """Load a sorting's segment file.
+        
+        Add a couple useful columns: `nSegmentSamp`, `segmentDuration`, `segmentExpmtPrbAcqFirstTime`, `segmentExpmtPrbAcqLastTime`
+        """
         segment_file = (
             self.get_alias_subject_directory(experiment, alias, wneSubject.name)
             / f"{sorting}.{probe}"
@@ -252,6 +255,13 @@ class Project:
         segments = ece_utils.read_htsv(
             segment_file
         )
+
+        segments["nSegmentSamp"] = segments["end_frame"] - segments["start_frame"]
+        segments["segmentDuration"] = segments["nSegmentSamp"].div(segments["imSampRate"])
+        segments["segmentExpmtPrbAcqFirstTime"] = segments["expmtPrbAcqFirstTime"] + \
+            segments["start_frame"].div(segments["imSampRate"])
+        segments["segmentExpmtPrbAcqLastTime"] = segments["segmentExpmtPrbAcqFirstTime"] + \
+            segments["segmentDuration"]
 
         if return_all_segment_types:
             return segments
