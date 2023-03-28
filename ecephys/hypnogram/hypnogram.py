@@ -850,16 +850,6 @@ def trim_hypnogram(df: pd.DataFrame, start, end) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
-def trim_multiple_epochs(df: pd.DataFrame, starts: pd.Series, ends: pd.Series) -> pd.DataFrame:
-    """Trim hypnogram to start and end within several specified time ranges."""
-    if not len(starts) == len(ends):
-        raise ValueError("Expected series of equal length for `starts` and `ends` kwargs.")
-    dfs = []
-    for start, end in zip(starts.values, ends.values):
-        dfs.append(trim(df, start, end))
-    return pd.concat(dfs).reset_index(drop=True)
-
-
 def clean(df: pd.DataFrame, condenseTol, missingDataTol, zero) -> pd.DataFrame:
     df = remove_subsumed(df)
     df = condense(df, condenseTol)
