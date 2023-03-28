@@ -323,7 +323,7 @@ class Project:
         #   (2) the file that segment belongs to
         #   (3) how to map that file's times into our canonical timebase.
         # We make a function that does this for an arbitrary array of sample numbers in the SI object, so we can use it later as needed.
-        if sync_table:
+        if sync_table is not None:
             sync_table = sync_table.set_index("source")
 
         # TODO: Rename start_sample -> si_start_sample?
@@ -338,7 +338,7 @@ class Project:
                     + seg.expmtPrbAcqFirstTime
                     + seg.start_frame / seg.imSampRate
                 )  # Convert to number of seconds in this probe's (expmtPrbAcq) timebase
-                if sync_table:
+                if sync_table is not None:
                     sync_entry = sync_table.loc[
                         seg.fname
                     ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
@@ -472,15 +472,15 @@ class Project:
         )
 
 
-def load_hypnogram(
-    self, experiment: str, subject: str, simplify: bool = True
-) -> hypnogram.Hypnogram:
-    f = self.get_experiment_subject_file(experiment, subject, constants.HYPNOGRAM_FNAME)
-    hyp = hypnogram.FloatHypnogram.from_htsv(f)
-    if simplify:
-        hyp = hyp.replace_states(constants.SIMPLIFIED_STATES)
+    def load_hypnogram(
+        self, experiment: str, subject: str, simplify: bool = True
+    ) -> hypnogram.Hypnogram:
+        f = self.get_experiment_subject_file(experiment, subject, constants.HYPNOGRAM_FNAME)
+        hyp = hypnogram.FloatHypnogram.from_htsv(f)
+        if simplify:
+            hyp = hyp.replace_states(constants.SIMPLIFIED_STATES)
 
-    return hyp
+        return hyp
 
 
 class ProjectLibrary:
