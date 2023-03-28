@@ -228,6 +228,35 @@ class Project:
         fname = opts["probes"][probe]["SHARP-Track"]
         file = self.get_experiment_subject_file(experiment, subject, fname)
         return sharptrack.SHARPTrack(file)
+    
+    def load_segments_table(
+        self,
+        wneSubject,
+        experiment,
+        alias,
+        probe,
+        sorting,
+        return_all_segment_types=False,
+    ):
+        """Load a sorting's segment file"""
+        segment_file = (
+            self.get_alias_subject_directory(experiment, alias, wneSubject.name)
+            / f"{sorting}.{probe}"
+            / "segments.htsv"
+        )
+        if not segment_file.exists():
+            raise FileNotFoundError(
+                f"Segment table not found at {segment_file}."
+            )
+
+        segments = ece_utils.read_htsv(
+            segment_file
+        )
+
+        if return_all_segment_types:
+            return segments
+
+        return segments[segments["type"] == "keep"]
 
     def get_sample2time(
         self,
@@ -262,18 +291,13 @@ class Project:
             )  # Used to map this probe's times to imec0.
 
         # Load segment table
-        segment_file = (
-            self.get_alias_subject_directory(experiment, alias, wneSubject.name)
-            / f"{sorting}.{probe}"
-            / "segments.htsv"
-        )
-        if not segment_file.exists():
-            logger.info(
-                f"Unable to create sample2time function. Segment table not found at {segment_file}."
-            )
-            return None
-        segments = ece_utils.read_htsv(
-            segment_file
+        segments = self.load_segments_table(
+            wneSubject,
+            experiment,
+            alias,
+            probe,
+            sorting,
+            return_all_segment_types=False,
         )  # Used to map SI sorting samples to this probe's times.
 
         # Get all the good segments (aka the ones in the sorting), in chronological order.
