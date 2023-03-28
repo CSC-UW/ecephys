@@ -7,6 +7,7 @@ from typing import Union, Optional
 from . import xrutils
 
 Pathlike = Union[Path, str]
+ArrayLike = Union[np.array, list]
 
 
 def write_htsv(df: pd.DataFrame, file: Pathlike):
@@ -151,24 +152,19 @@ def dt_series_to_seconds(
     return (dt_series - t0).dt.total_seconds().values
 
 
-# TODO: Is this still used? If so, document.
-def get_epocs(df: pd.DataFrame, col: str, t: str) -> pd.DataFrame:
-    edges = np.where(np.diff(df[col]))
+def get_edges_start_end_samples_df(state_vector: ArrayLike):
+    """Return df with `state`, `start_frame`, `end_frame` cols from array of states."""
+    edges = np.where(state_vector[1:] != state_vector[0:-1])
     left_edges = np.insert(edges, 0, -1) + 1
-    right_edges = np.append(edges, len(df) - 1)
-    epocs = pd.DataFrame(
+    right_edges = np.append(edges, len(state_vector) - 1) + 1
+    df = pd.DataFrame(
         {
-            f"start_{t}": df.iloc[left_edges][t].values,
-            f"end_{t}": df.iloc[right_edges][t].values,
-            col: df.iloc[left_edges][col].values,
+            f"state": np.array(state_vector)[left_edges.astype(int)],
+            f"start_frame": left_edges,
+            f"end_frame": right_edges,
         }
-    ).set_index([f"start_{t}", f"end_{t}"])
-
-    for left, right, val in zip(left_edges, right_edges, epocs[col]):
-        epoc = df.iloc[left:right]
-        assert all(epoc[col].values == val), f"{col} should not change during an epoch."
-
-    return epocs
+    )
+    return df
 
 
 def reconcile_labeled_intervals(
