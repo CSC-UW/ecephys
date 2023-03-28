@@ -205,10 +205,11 @@ class SpikeInterfacePostprocessingPipeline:
         Options source: {self._opts_src}
         """
         if self._hypnogram is not None:
-            repr += f"""Hypnogram: {self._hypnogram.groupby('state').describe()["duration"]}"""
+            repr += f"""Hypnogram: {self._hypnogram.groupby('state')["duration"].sum()}"""
         else:
             repr += f"Hypnogram: None"
-        return repr
+
+        return repr + f"\n\nSorting pipeline: {self._sorting_pipeline}"
 
     # Paths
 
@@ -382,6 +383,16 @@ class SpikeInterfacePostprocessingPipeline:
 
     def run_postprocessing(self):
 
+        # Save hypnogram used
+        ece_utils.write_htsv(
+            self._hypnogram,
+            self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
+        )
+
+        # Save options used
+        with open(self.postprocessing_output_dir / POSTPRO_OPTS_FNAME, "w") as f:
+            yaml.dump(self._opts, f)
+
         # Whole recording
         print("Run full recording")
         self._run_si_postprocessing_by_state(state=None)
@@ -406,16 +417,6 @@ class SpikeInterfacePostprocessingPipeline:
             index=True,
             index_label="cluster_id"
         )
-
-        # Save hypnogram used
-        ece_utils.write_htsv(
-            self._hypnogram,
-            self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
-        )
-
-        # Save options used
-        with open(self.postprocessing_output_dir / POSTPRO_OPTS_FNAME, "w") as f:
-            yaml.dump(self._opts, f)
 
         print("Done postprocessing.")
 

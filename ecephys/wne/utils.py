@@ -90,7 +90,6 @@ def load_hypnogram_for_si_slicing(
     # of time vector
     segment_decimated_frame_states_list = []
     for segment in segments.itertuples():
-        print('yo')
         segment_start_time = segment.segmentExpmtPrbAcqFirstTime
         segment_end_time = segment.segmentExpmtPrbAcqLastTime
         segment_decimated_frame_timestamps = decimated_frame_timestamps[
