@@ -90,6 +90,7 @@ class SpikeInterfacePostprocessingPipeline:
             self._alias,
             self._probe,
             self._sorting_basename,
+            rerun_existing=False,
         )
 
         # Set the location where options should be loaded from. Either...
@@ -144,7 +145,7 @@ class SpikeInterfacePostprocessingPipeline:
                     precision_s=0.01,
                     allow_no_sync_file=True,
                     simplify=True,
-                ).drop_states(HYPNOGRAM_IGNORED_STATES)._df
+                ).drop_states(HYPNOGRAM_IGNORED_STATES)._df.reset_index(drop=True)
             elif isinstance(hypnogram_source, (str, Path)):
                 raise NotImplementedError()
             else:

@@ -221,7 +221,7 @@ class SpikeInterfaceSortingPipeline:
             f"{self._probe}.ap.{constants.ARTIFACTS_FNAME}",
         )
         if artifacts_file.exists():
-            return ece_utils.read_htsv(artifacts_file)
+            return ece_utils.read_htsv(artifacts_file).reset_index(drop=True)
         else:
             return pd.DataFrame(
                 {"fname": [], "start_time": [], "end_time": [], "type": []}
