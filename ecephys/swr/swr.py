@@ -39,7 +39,7 @@ def ripple_bandpass_filter(sampling_frequency, ripple_band=(125, 250), plot=Fals
         ripple_band[1] + TRANSITION_BAND,
         nyquist,
     ]
-    taps = signal.remez(ORDER, desired, [0, 1, 0], Hz=sampling_frequency)
+    taps = signal.remez(ORDER, desired, [0, 1, 0], fs=sampling_frequency)
     if plot:
         w, h = signal.freqz(taps, [1], worN=1024)
         plot_filter_response(sampling_frequency, w, h, "Ripple filter response.")
