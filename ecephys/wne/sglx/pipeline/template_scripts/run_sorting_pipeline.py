@@ -14,7 +14,7 @@ Options:
   --input==<subjectName,probeName>   (Repeatable) Comma-separated pair of the form `<subjectName>,<probeName>`
   --prepro_only                      Run only preprocessing, not full pipeline (drift correction)
   --rerun_existing                   Rerun rather than load things.
-  --options_source==<ofn>            Name of options file (applied to all input datasets) [default: {OPTIONS_SOURCE}]
+  --options_source==<ofn>            Name of options file (applied to all input datasets) [default: {OPTIONS_SOURCE}] # TODO
   --projectName==<pn>                Project name [default: {PROJECT_NAME}]
   --experimentName==<en>             Exp name [default: {EXPERIMENT_NAME}]
   --aliasName==<an>                  Alias name [default: {ALIAS_NAME}]

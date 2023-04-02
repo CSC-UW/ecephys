@@ -18,6 +18,7 @@ from .sorting_pipeline import SpikeInterfaceSortingPipeline, get_main_output_dir
 from ..subjects import Subject
 from ...projects import Project
 from ... import constants
+from ...utils import load_hypnogram_for_si_slicing
 from .... import utils as ece_utils
 from .... import hypnogram as hp
 
@@ -28,29 +29,13 @@ logger = logging.getLogger(__name__)
 
 Pathlike = Union[Path, str]
 POSTPRO_OPTS_FNAME = "postpro_opts.yaml"
-HYPNO_FNAME = "simplified_hypnogram.htsv"
 OUTPUT_HYPNO_FNAME = "hypnogram.htsv"
-
-HYPNO_SIMPLIFIED_STATES = {
-    "Wake": "Wake",
-    "W": "Wake",
-    "aWk": "Wake",
-    "qWk": "Wake",
-    "QWK": "Wake",
-    "NREM": "NREM",
-    "N1": "NREM",
-    "N2": "NREM",
-    "REM": "REM",
-    "Arousal": "None",
-    "MA": "None",
-    "Trans": "Other",
-    "IS": "Other",
-    "Art": "Other",
-    "None": "Other",
-}
 
 HYPNOGRAM_IGNORED_STATES = [
     "Other",
+    "IS",
+    "Artifact",
+    "MA",
     None,
     "None",
 ]
@@ -148,16 +133,22 @@ class SpikeInterfacePostprocessingPipeline:
             self._hypnogram_states = None
         else:
             if isinstance(hypnogram_source, Project):
-                hypno_path = hypnogram_source.get_experiment_subject_file(
-                    experiment,
-                    wneSubject.name,
-                    HYPNO_FNAME,
-                )
+                self._hypnogram = load_hypnogram_for_si_slicing(
+                    hypnogram_source,
+                    self._wneProject,
+                    self._wneSubject,
+                    self._experiment,
+                    self._alias,
+                    self._probe,
+                    self._sorting_basename,
+                    precision_s=0.01,
+                    allow_no_sync_file=True,
+                    simplify=True,
+                ).drop_states(HYPNOGRAM_IGNORED_STATES)._df
             elif isinstance(hypnogram_source, (str, Path)):
-                hypno_path = Path(hypnogram_source)
+                raise NotImplementedError()
             else:
                 raise ValueError(f"Unrecognize type for `hypnogram_source`: {hypnogram_source}")
-            self._hypnogram = self.load_and_format_hypnogram(hypno_path)
             self._hypnogram_states = self._hypnogram.state.unique()
             assert not None in self._hypnogram_states
 
@@ -214,10 +205,11 @@ class SpikeInterfacePostprocessingPipeline:
         Options source: {self._opts_src}
         """
         if self._hypnogram is not None:
-            repr += f"""Hypnogram: {self._hypnogram.groupby('state').describe()["duration"]}"""
+            repr += f"""Hypnogram: {self._hypnogram.groupby('state')["duration"].sum()}"""
         else:
             repr += f"Hypnogram: None"
-        return repr
+
+        return repr + f"\n\nSorting pipeline: {self._sorting_pipeline}"
 
     # Paths
 
@@ -232,50 +224,6 @@ class SpikeInterfacePostprocessingPipeline:
     @property
     def postprocessing_output_dir(self) -> Path:
         return self.main_output_dir / self._postprocessing_name
-
-    # TODO: All this def belongs elsewhere... but I don't know where
-    def load_and_format_hypnogram(self, hypno_path):
-        """Load, convert to si sorting sample indices, select epochs."""
-        if not hypno_path.exists():
-            raise FileNotFoundError(
-                f"""Expected to find a hypnogram at `{hypno_path}`."""
-            )
-        
-        # Load as FloatHypnogram, simplify and revert to DataFrame
-        hypno = hp.FloatHypnogram.from_htsv(hypno_path)
-        hypno = hypno.replace_states(HYPNO_SIMPLIFIED_STATES)
-        hypno = hypno.drop_states(HYPNOGRAM_IGNORED_STATES)
-        hypno = hypno._df
-
-        # Trim hypnogram so that each bout falls within segments
-        segments = self._sorting_pipeline._segments
-        segments = segments[segments["type"] == "keep"]
-        segment_starts = segments.expmtPrbAcqFirstTime
-        segment_ends = segments.expmtPrbAcqFirstTime + segments.segmentDuration
-        hypno = hp.trim_multiple_epochs(
-            hypno,
-            segment_starts,
-            segment_ends
-        )
-        
-        time2sample = self._wneProject.get_time2sample(
-            self._wneSubject,
-            self._experiment,
-            self._alias,
-            self._probe,
-            self._sorting_basename,
-            allow_no_sync_file=True
-        )
-
-        hypno["start_frame"] = time2sample(hypno["start_time"])
-        hypno["end_frame"] = time2sample(hypno["end_time"])
-
-        # Since we trimmed the hypnogram to match segments, 
-        # either both or None of start_frame/end_frame should be Nan
-        assert all(hypno.isnull().all(axis=1) == hypno.isnull().all(axis=1))
-
-        # Return bouts fully within segments
-        return hypno[~hypno.isnull().any(axis=1)]
     
     # State dependant
 
@@ -435,6 +383,16 @@ class SpikeInterfacePostprocessingPipeline:
 
     def run_postprocessing(self):
 
+        # Save hypnogram used
+        ece_utils.write_htsv(
+            self._hypnogram,
+            self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
+        )
+
+        # Save options used
+        with open(self.postprocessing_output_dir / POSTPRO_OPTS_FNAME, "w") as f:
+            yaml.dump(self._opts, f)
+
         # Whole recording
         print("Run full recording")
         self._run_si_postprocessing_by_state(state=None)
@@ -459,16 +417,6 @@ class SpikeInterfacePostprocessingPipeline:
             index=True,
             index_label="cluster_id"
         )
-
-        # Save hypnogram used
-        ece_utils.write_htsv(
-            self._hypnogram,
-            self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
-        )
-
-        # Save options used
-        with open(self.postprocessing_output_dir / POSTPRO_OPTS_FNAME, "w") as f:
-            yaml.dump(self._opts, f)
 
         print("Done postprocessing.")
 

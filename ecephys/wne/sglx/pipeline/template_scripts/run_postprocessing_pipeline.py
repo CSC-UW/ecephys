@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-"""Run sorting pipeline.
+"""Run postprocessing pipeline.
 
 Modify script to change default argument values
 
@@ -12,7 +12,7 @@ Options:
   -h --help                          Show this screen.
   --input==<subjectName,probeName,sortingBasename>   (Repeatable) Comma-separated pair of the form `<subjectName>,<probeName>,<sorting_basename>`
   --rerun_existing                   Rerun rather than load things.
-  --options_source==<ofn>            Name of options file (applied to all input datasets) [default: {OPTIONS_SOURCE}]
+  --options_source==<ofn>            Source of options file (applied to all input datasets) [default: {OPTIONS_SOURCE}]
   --projectName==<pn>                Project name [default: {PROJECT_NAME}]
   --hypnogramProjectName==<pn>       Where to pull hypnograms from
   --experimentName==<en>             Exp name [default: {EXPERIMENT_NAME}]

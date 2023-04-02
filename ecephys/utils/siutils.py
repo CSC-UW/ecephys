@@ -35,8 +35,6 @@ def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
     assert False
 
 
-
-
 def load_kilosort_bin_as_si_recording(
     ks_output_dir,
     fname="temp_wh.dat",
