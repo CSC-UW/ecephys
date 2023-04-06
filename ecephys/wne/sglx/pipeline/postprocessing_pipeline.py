@@ -147,7 +147,10 @@ class SpikeInterfacePostprocessingPipeline:
                     simplify=True,
                 ).drop_states(HYPNOGRAM_IGNORED_STATES)._df.reset_index(drop=True)
             elif isinstance(hypnogram_source, (str, Path)):
-                raise NotImplementedError()
+                # Only when instantiating with load_from_folder
+                prior_hypno_path = self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
+                assert prior_hypno_path == hypnogram_source
+                self._hypnogram = ece_utils.read_htsv(hypnogram_source)
             else:
                 raise ValueError(f"Unrecognize type for `hypnogram_source`: {hypnogram_source}")
             self._hypnogram_states = self._hypnogram.state.unique()
