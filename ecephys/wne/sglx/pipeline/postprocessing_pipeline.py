@@ -67,7 +67,7 @@ class SpikeInterfacePostprocessingPipeline:
         probe: str,
         sorting_basename: str,
         postprocessing_name: str = "postprocessing_df",
-        rerun_existing: bool = True,
+        rerun_existing: bool = False,
         n_jobs: int = 1,
         options_source: Union[str, Path] = "wneProject",
         hypnogram_source: Union[str, Path, Project] = None,
