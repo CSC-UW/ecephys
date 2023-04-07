@@ -432,6 +432,12 @@ def preprocess_si_recording(
                 rerun_existing=rerun_existing,
                 job_kwargs=job_kwargs,
             )
+        elif step_name == "whiten":
+            # Backwards compatibility
+            step_params = step_params.copy()
+            if not "dtype" in step_params:
+                step_params["dtype"] = "float32"
+            si_rec = PREPRO_FUNCTIONS[step_name](si_rec, **step_params)
         else:
             si_rec = PREPRO_FUNCTIONS[step_name](si_rec, **step_params)
 
