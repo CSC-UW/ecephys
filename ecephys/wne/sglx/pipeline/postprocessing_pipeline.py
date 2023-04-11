@@ -387,11 +387,13 @@ class SpikeInterfacePostprocessingPipeline:
 
     def run_postprocessing(self):
 
+        self.postprocessing_output_dir.mkdir(exist_ok=True)
         # Save hypnogram used
-        ece_utils.write_htsv(
-            self._hypnogram,
-            self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
-        )
+        if self._hypnogram is not None:
+            ece_utils.write_htsv(
+                self._hypnogram,
+                self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
+            )
 
         # Save options used
         with open(self.postprocessing_output_dir / POSTPRO_OPTS_FNAME, "w") as f:
