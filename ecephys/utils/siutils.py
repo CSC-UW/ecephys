@@ -1,6 +1,8 @@
-from spikeinterface.core import concatenate_sortings, concatenate_recordings
-import spikeinterface.extractors as se
 from pathlib import Path
+
+import spikeinterface.extractors as se
+from spikeinterface.core import concatenate_recordings, concatenate_sortings
+from spikeinterface.core.waveform_tools import has_exceeding_spikes
 
 
 def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
@@ -13,12 +15,24 @@ def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
             "Expected spikeinterface BaseSorting or BaseRecording."
         )
 
+    frame_slice_kwargs = {}
+    if isinstance(si_object, se.BaseSorting):
+        # Disable redundant check_spike_frames in Sorting.frame_slice
+        assert si_object.has_recording()
+        if has_exceeding_spikes(si_object._recording, si_object):
+            raise ValueError(
+                "The sorting object has spikes exceeding the recording duration. You have to remove those spikes "
+                "with the `spikeinterface.curation.remove_excess_spikes()` function"
+            )
+        frame_slice_kwargs = {'check_spike_frames': False}
+
     si_segments = []
     for epoch in epochs_df.itertuples():
         si_segments.append(
             si_object.frame_slice(
                 start_frame=epoch.start_frame,
-                end_frame=epoch.end_frame
+                end_frame=epoch.end_frame,
+                **frame_slice_kwargs,
             )
         )
     
