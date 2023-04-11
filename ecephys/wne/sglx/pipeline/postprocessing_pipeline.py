@@ -67,7 +67,7 @@ class SpikeInterfacePostprocessingPipeline:
         probe: str,
         sorting_basename: str,
         postprocessing_name: str = "postprocessing_df",
-        rerun_existing: bool = True,
+        rerun_existing: bool = False,
         n_jobs: int = 1,
         options_source: Union[str, Path] = "wneProject",
         hypnogram_source: Union[str, Path, Project] = None,
@@ -90,6 +90,7 @@ class SpikeInterfacePostprocessingPipeline:
             self._alias,
             self._probe,
             self._sorting_basename,
+            rerun_existing=False,
         )
 
         # Set the location where options should be loaded from. Either...
@@ -144,9 +145,12 @@ class SpikeInterfacePostprocessingPipeline:
                     precision_s=0.01,
                     allow_no_sync_file=True,
                     simplify=True,
-                ).drop_states(HYPNOGRAM_IGNORED_STATES)._df
+                ).drop_states(HYPNOGRAM_IGNORED_STATES)._df.reset_index(drop=True)
             elif isinstance(hypnogram_source, (str, Path)):
-                raise NotImplementedError()
+                # Only when instantiating with load_from_folder
+                prior_hypno_path = self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
+                assert prior_hypno_path == hypnogram_source
+                self._hypnogram = ece_utils.read_htsv(hypnogram_source)
             else:
                 raise ValueError(f"Unrecognize type for `hypnogram_source`: {hypnogram_source}")
             self._hypnogram_states = self._hypnogram.state.unique()
@@ -383,11 +387,13 @@ class SpikeInterfacePostprocessingPipeline:
 
     def run_postprocessing(self):
 
+        self.postprocessing_output_dir.mkdir(exist_ok=True)
         # Save hypnogram used
-        ece_utils.write_htsv(
-            self._hypnogram,
-            self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
-        )
+        if self._hypnogram is not None:
+            ece_utils.write_htsv(
+                self._hypnogram,
+                self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
+            )
 
         # Save options used
         with open(self.postprocessing_output_dir / POSTPRO_OPTS_FNAME, "w") as f:
