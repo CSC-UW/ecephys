@@ -1,4 +1,4 @@
-from spikeinterface.core import concatenate_sortings, concatenate_recordings
+import spikeinterface as si
 import spikeinterface.extractors as se
 from pathlib import Path
 
@@ -17,17 +17,16 @@ def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
     for epoch in epochs_df.itertuples():
         si_segments.append(
             si_object.frame_slice(
-                start_frame=epoch.start_frame,
-                end_frame=epoch.end_frame
+                start_frame=epoch.start_frame, end_frame=epoch.end_frame
             )
         )
-    
+
     if combine == "concatenate":
 
         if isinstance(si_object, se.BaseSorting):
-            return concatenate_sortings(si_segments)
+            return si.concatenate_sortings(si_segments)
         elif isinstance(si_object, se.BaseRecording):
-            return concatenate_recordings(si_segments)
+            return si.concatenate_recordings(si_segments)
 
     elif combine == "append":
         raise NotImplementedError
