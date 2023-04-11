@@ -508,25 +508,28 @@ class LFPs(Timeseries2D, Laminar):
 
         # Drop bad signals and redundant signals
         sigs = self.drop_sel({self._sigdim: drop}, errors="ignore")
-        sigs = sigs.groupby("y").first()
+        u, ix = np.unique(sigs["y"], return_index=True)
+        sigs = sigs.isel(channel=ix)
 
         # Convert um to mm for KCSD package.
         elePosMm = sigs["y"].values / umPerMm
 
         # Compute kCSD
-        sigs = sigs.transpose("y", "time")
-        k = kcsd.KCSD1D(elePosMm.reshape(-1, 1), sigs.values, **kCsdKwargs)
+        k = kcsd.KCSD1D(
+            elePosMm.reshape(-1, 1),
+            sigs.transpose("channel", "time").values,
+            **kCsdKwargs,
+        )
         if doLCurve:
             print("Performing L-Curve parameter estimation...")
             k.L_curve()
 
         # Check and format result
-        assert (k.estm_x.size == self["y"].size) and np.allclose(
-            k.estm_x * umPerMm, self["y"].values
+        assert (k.estm_x.size == sigs["y"].size) and np.allclose(
+            k.estm_x * umPerMm, sigs["y"].values
         ), "CSD returned estimates that do not match original signal positions exactly."
-        csd = self._da.copy()
-        csd.values = k.values("CSD").T
-        return Timeseries2D(csd.assign_attrs(kcsd=k))
+        sigs.values = k.values("CSD").T
+        return Timeseries2D(sigs.assign_attrs(kcsd=k))
 
     def synthetic_emg(self, **emgKwargs):
         """Estimate the EMG from LFP signals, using the `emg_from_lfp` subpackage.
