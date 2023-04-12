@@ -525,11 +525,14 @@ class LFPs(Timeseries2D, Laminar):
             k.L_curve()
 
         # Check and format result
-        assert (k.estm_x.size == sigs["y"].size) and np.allclose(
-            k.estm_x * umPerMm, sigs["y"].values
+        estm_locs = np.round(k.estm_x * umPerMm)
+        mask = self.y.isin(estm_locs)
+        assert (
+            estm_locs.size == mask.sum()
         ), "CSD returned estimates that do not match original signal positions exactly."
-        sigs.values = k.values("CSD").T
-        return Timeseries2D(sigs.assign_attrs(kcsd=k))
+        csd = xr.zeros_like(self.sel(channel=mask))
+        csd.values = k.values("CSD").T
+        return Timeseries2D(csd.assign_attrs(kcsd=k))
 
     def synthetic_emg(self, **emgKwargs):
         """Estimate the EMG from LFP signals, using the `emg_from_lfp` subpackage.
