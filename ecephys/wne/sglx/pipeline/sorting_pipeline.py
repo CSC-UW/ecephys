@@ -124,7 +124,7 @@ class SpikeInterfaceSortingPipeline:
             prior_exclusions = ece_utils.read_htsv(prior_exclusions_path)
             try:
                 assert_frame_equal(
-                    prior_exclusions, self._exclusions, check_dtype=False
+                    prior_exclusions, self._exclusions, check_dtype=False, check_index_type=False,
                 )
             except AssertionError as e:
                 raise ValueError(
