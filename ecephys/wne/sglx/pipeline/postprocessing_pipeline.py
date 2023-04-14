@@ -456,6 +456,10 @@ class SpikeInterfacePostprocessingPipeline:
         cluster_group = pd.read_csv(
             cluster_group_path, sep="\t"
         )
+        # Add cluster with "unsorted" group if missing
+        for cluster_id in metrics.cluster_id.unique():
+            if cluster_id not in cluster_group.cluster_id:
+                cluster_group.loc[len(cluster_group), ['cluster_id','group']] = cluster_id, "unsorted"
         
         return pd.merge(
             metrics,
@@ -486,6 +490,8 @@ class SpikeInterfacePostprocessingPipeline:
         for name in tqdm(select_cols):
 
             if not is_numeric_dtype(metrics[name]):
+                continue
+            if metrics[name].isna().all():
                 continue
 
             if metrics[name].max() > 1:
