@@ -89,7 +89,7 @@ def add_structures_to_extractor(extractor, structs) -> se.KiloSortSortingExtract
     return extractor
 
 
-def refine_clusters(si_obj, filters={}):
+def refine_clusters(si_obj, filters=None):
     """Subselect clusters based on filters.
 
     Parameters:
@@ -112,6 +112,9 @@ def refine_clusters(si_obj, filters={}):
     SpikeInterface renames the 'group' columns in cluster_info.tsv to 'quality'.
     Tom previously created an 'unsorted' category of 'quality', which is now 'NaN' (or whatever the default is)
     """
+    if filters is None:
+        filters = {}
+
     keep = np.ones_like(si_obj.get_unit_ids())
     for property, filter in filters.items():
         if not property in si_obj.get_property_keys():
