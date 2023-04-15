@@ -30,6 +30,9 @@ def get_sorting_info(ks_dir):
     return d
 
 
+# TODO Delete??? Use project.get_kilosort_extractor?? 
+# I don't think we should use KSLabel at all, rather keep the property as "unsorted"
+# I don't think there is an issue with isi_violations_ratio
 def load_extractor(kilosort_output_dir) -> se.KiloSortSortingExtractor:
     """Get a KiloSort extractor, with various corrections made."""
     extractor = se.KiloSortSortingExtractor(kilosort_output_dir)
