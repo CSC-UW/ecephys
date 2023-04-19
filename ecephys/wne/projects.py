@@ -199,14 +199,21 @@ class Project:
         )
         return list(opts["probes"].keys())
 
+    def get_main_sorting_dir(
+        self, subject: str, experiment: str, alias: str, probe: str, sorting: str
+    ):
+        return (
+            self.get_alias_subject_directory(experiment, alias, subject)
+            / f"{sorting}.{probe}"
+        )
+
     # TODO: If no sortingName is provided, a sensible default should be obtained from WNE opts, so that you do not have do remember the sorting ID for every animal.
     def get_kilosort_extractor(
         self, subject: str, experiment: str, alias: str, probe: str, sorting: str, postprocessing: str = None,
     ) -> se.KiloSortSortingExtractor:
         """Load the contents of a Kilosort output directory. This takes ~20-25s per 100 clusters."""
-        main_sorting_dir = (
-            self.get_alias_subject_directory(experiment, alias, subject)
-            / f"{sorting}.{probe}"
+        main_sorting_dir = self.get_main_sorting_dir(
+            subject, experiment, alias, probe, sorting
         )
         sorter_output_dir = main_sorting_dir / "si_output/sorter_output"
         assert sorter_output_dir.is_dir(), f"Expected Kilosort directory not found: {sorter_output_dir}"
@@ -227,6 +234,19 @@ class Project:
                 extractor.set_property(key=prop_name, values=metrics[prop_name], ids=metrics["cluster_id"].values)
 
         return extractor
+    
+    def get_sorting_hypnogram(
+        self, subject: str, experiment: str, alias: str, probe: str, sorting: str, postprocessing: str,
+    ):
+        main_sorting_dir = self.get_main_sorting_dir(
+            subject, experiment, alias, probe, sorting
+        )
+        postprocessing_dir = main_sorting_dir / postprocessing
+        hyp_path = postprocessing_dir / "hypnogram.htsv"
+        assert postprocessing_dir.is_dir(), f"Expected Kilosort directory not found: {postprocessing_dir}"
+        assert hyp_path.exists(), f"Expected `hypnogram.htsv` file in: {postprocessing_dir}"
+
+        return ece_utils.read_htsv(hyp_path)
 
     def get_sharptrack(
         self, subject: str, experiment: str, probe: str
