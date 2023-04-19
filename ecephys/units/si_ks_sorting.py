@@ -6,10 +6,10 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import sklearn.metrics as skmetrics
+
 import spikeinterface as si
 import spikeinterface.extractors as se
-
-from ecephys.units import siutils
+from ecephys.units import siutils, ephyv_raster
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ class SpikeInterfaceKilosortSorting:
         self,
         si_obj: Union[se.KiloSortSortingExtractor, si.UnitsSelectionSorting],
         sample2time: Optional[Callable] = None,
+        hypnogram: Optional[pd.DataFrame] = None,
     ):
         """
         This class is primarily used to map spike samples from one probe to spike times on another, since the SpikeInterface objects can not do this.
@@ -30,8 +31,13 @@ class SpikeInterfaceKilosortSorting:
         sample2time:
             Takes an array of spikeinterface sample numbers and maps them to timestamps. Ideally a vectorized function.
             If not provided, times will be according to the probe's sample clock (e.g. sample / fs)
-
+        hypnogram:
+            Hypnogram with 'start_time', 'end_time', 'duration' columns
+            in the same timebase as the sample2time function, and
+            `start_frame`, `end_frame` columns for each bout matching 
+            the spikeinterface sorting/recording frame ids. 
         """
+        self.hypnogram: pd.DataFrame = hypnogram
         self.si_obj: se.KiloSortSortingExtractor = si_obj
 
         # If no time mapping function is provided, just provide times according to this probe's sample clock.
@@ -178,12 +184,12 @@ class SpikeInterfaceKilosortSorting:
     def refine_clusters(self, filters: dict):
         """Refine clusters, and conveniently wrap the result, so that the user doesn't have to."""
         new_obj = siutils.refine_clusters(self.si_obj, filters)
-        return self.__class__(new_obj, self.sample2time)
+        return self.__class__(new_obj, self.sample2time, hypnogram=self.hypnogram)
 
     def select_clusters(self, clusterIDs):
         """Select clusters, and conveniently wrap the result, so that the user doesn't have to."""
         new_obj = self.si_obj.select_units(clusterIDs)
-        return self.__class__(new_obj, self.sample2time)
+        return self.__class__(new_obj, self.sample2time, hypnogram=self.hypnogram)
 
     def get_trains(self, cluster_ids=None) -> dict:
         """Get spike trains for a list of clusters (default all)."""
@@ -193,6 +199,9 @@ class SpikeInterfaceKilosortSorting:
             id: self.sample2time(self.si_obj.get_unit_spike_train(id))
             for id in cluster_ids
         }  # Getting spike trains cluster-by-cluster is MUCH faster than getting them all together.
+
+    def plot_interactive_ephyviewer_raster(self):
+        ephyv_raster.plot_interactive_ephyviewer_raster(self)
 
 
 def fix_isi_violations_ratio(
