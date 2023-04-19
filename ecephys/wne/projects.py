@@ -224,7 +224,7 @@ class Project:
             # Load metrics and add as properties
             postprocessing_dir = main_sorting_dir / postprocessing
             metrics_path = postprocessing_dir / "metrics.csv"
-            assert postprocessing_dir.is_dir(), f"Expected Kilosort directory not found: {postprocessing_dir}"
+            assert postprocessing_dir.is_dir(), f"Expected postprocessing directory not found: {postprocessing_dir}"
             assert metrics_path.exists(), f"Expected `metrics.csv` file in: {postprocessing_dir}"
 
             metrics = pd.read_csv(metrics_path)
