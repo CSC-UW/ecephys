@@ -124,12 +124,17 @@ def load_singleprobe_sorting(
     alias: str,
     probe: str,
     sorting: str,
+    postprocessing: str = None,
     wneAnatomyProject: Optional[Project] = None,
+    allow_no_sync_file=True,
 ) -> units.SpikeInterfaceKilosortSorting:
 
     # Get function for converting SI samples to imec0 timebase
+    if allow_no_sync_file:
+        import warnings
+        warnings.warn("Maybe loading sample2time without probe-to-probe synchronization, watch out")
     sample2time = wneSortingProject.get_sample2time(
-        wneSubject, experiment, alias, probe, sorting
+        wneSubject, experiment, alias, probe, sorting, allow_no_sync_file=allow_no_sync_file
     )
 
     # Load extractor
@@ -137,19 +142,29 @@ def load_singleprobe_sorting(
         wneSubject.name, experiment, alias, probe, sorting
     )
 
+    if postprocessing is not None:
+        hypnogram = wneSortingProject.get_sorting_hypnogram(
+            wneSubject.name, experiment, alias, probe, sorting, postprocessing
+        )
+    else:
+        hypnogram = None
+
+    # TODO Keep???
     # Fix extractor
-    extractor = units.si_ks_sorting.fix_isi_violations_ratio(extractor)
-    extractor = units.si_ks_sorting.fix_noise_cluster_labels(extractor)
-    extractor = units.si_ks_sorting.fix_uncurated_cluster_labels(extractor)
+    # extractor = units.si_ks_sorting.fix_isi_violations_ratio(extractor)
+    # extractor = units.si_ks_sorting.fix_noise_cluster_labels(extractor)
+    # extractor = units.si_ks_sorting.fix_uncurated_cluster_labels(extractor)
 
     # Add anatomy to the extractor, if available.
-    if wneAnatomyProject is None:
-        wneAnatomyProject = wneSortingProject
-    anatomy_file = wneAnatomyProject.get_experiment_subject_file(
-        experiment, wneSubject.name, f"{probe}.structures.htsv"
-    )
-    if anatomy_file.exists():
+    if wneAnatomyProject is not None:
+        anatomy_file = wneAnatomyProject.get_experiment_subject_file(
+            experiment, wneSubject.name, f"{probe}.structures.htsv"
+        )
+        assert anatomy_file.exists(), f"Could not find anatomy file at: {anatomy_file}"
         structs = utils.read_htsv(anatomy_file)
-        extractor = units.si_ks_sorting.add_cluster_structures(extractor, structs)
+    else:
+        structs = None
 
-    return units.SpikeInterfaceKilosortSorting(extractor, sample2time)
+    extractor = units.si_ks_sorting.add_cluster_structures(extractor, structs)
+
+    return units.SpikeInterfaceKilosortSorting(extractor, sample2time, hypnogram=hypnogram)

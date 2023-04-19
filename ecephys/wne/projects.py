@@ -24,25 +24,30 @@ project_directory: /path/to/other_project
 
 """
 
+import json
+import logging
+import pickle
+from pathlib import Path
+from typing import Callable, Optional, Union
+
+import numpy as np
 # Tom's notes:
 # Experiments + aliases assumed, sessions not?
 # Only projects.yaml is required to resolve paths?
 # You could name a project the same thing as an experiment
 # You could name a project "Common" or "Scoring" or "Sorting"
-import json
-import logging
-import numpy as np
-from pathlib import Path
-import pickle
-import spikeinterface.extractors as se
-from typing import Callable, Union, Optional
+import pandas as pd
 import yaml
+
+import spikeinterface.extractors as se
 from ecephys import hypnogram
+from ecephys.units.si_ks_sorting import SpikeInterfaceKilosortSorting
+
+from .. import sglx as ece_sglx
+from .. import sharptrack, sync, units
+from .. import utils as ece_utils
 from . import constants
 from .sglx import sessions
-from .. import sglx as ece_sglx
-from .. import utils as ece_utils
-from .. import units, sync, sharptrack
 
 Pathlike = Union[Path, str]
 
@@ -194,25 +199,54 @@ class Project:
         )
         return list(opts["probes"].keys())
 
-    # TODO: If no sortingName is provided, a sensible default should be obtained from WNE opts, so that you do not have do remember the sorting ID for every animal.
-    def get_kilosort_extractor(
+    def get_main_sorting_dir(
         self, subject: str, experiment: str, alias: str, probe: str, sorting: str
-    ) -> se.KiloSortSortingExtractor:
-        """Load the contents of a Kilosort output directory. This takes ~20-25s per 100 clusters."""
-        dir = (
+    ):
+        return (
             self.get_alias_subject_directory(experiment, alias, subject)
             / f"{sorting}.{probe}"
-        ) / "sorter_output"
-        assert dir.is_dir(), f"Expected Kilosort directory not found: {dir}"
-        extractor = se.read_kilosort(dir, keep_good_only=False)
+        )
 
-        # Check that quality metrics are available
-        # TODO: Figure out how to automatically regenerate cluster_info.tsv without making all of phy a dependency, so we can stop doing this manually.
-        if not any("isi_viol" in prop for prop in extractor.get_property_keys()):
-            msg = "Quality metrics not found. Either they have not been run, or cluster_info.tsv has not been regenerated to include metrics.csv. You can do this manually by opening the data in Phy and clicking 'save'."
-            logger.warning(msg)
+    # TODO: If no sortingName is provided, a sensible default should be obtained from WNE opts, so that you do not have do remember the sorting ID for every animal.
+    def get_kilosort_extractor(
+        self, subject: str, experiment: str, alias: str, probe: str, sorting: str, postprocessing: str = None,
+    ) -> se.KiloSortSortingExtractor:
+        """Load the contents of a Kilosort output directory. This takes ~20-25s per 100 clusters."""
+        main_sorting_dir = self.get_main_sorting_dir(
+            subject, experiment, alias, probe, sorting
+        )
+        sorter_output_dir = main_sorting_dir / "si_output/sorter_output"
+        assert sorter_output_dir.is_dir(), f"Expected Kilosort directory not found: {sorter_output_dir}"
+        assert (sorter_output_dir/"spike_times.npy").exists(), f"Expected `spike_times.npy` file in: {sorter_output_dir}"
+        extractor = se.read_kilosort(sorter_output_dir, keep_good_only=False)
+
+        if postprocessing is not None:
+            # Load metrics and add as properties
+            postprocessing_dir = main_sorting_dir / postprocessing
+            metrics_path = postprocessing_dir / "metrics.csv"
+            assert postprocessing_dir.is_dir(), f"Expected postprocessing directory not found: {postprocessing_dir}"
+            assert metrics_path.exists(), f"Expected `metrics.csv` file in: {postprocessing_dir}"
+
+            metrics = pd.read_csv(metrics_path)
+            assert all([c in metrics.columns] for c in "cluster_id")
+
+            for prop_name in metrics.columns:
+                extractor.set_property(key=prop_name, values=metrics[prop_name], ids=metrics["cluster_id"].values)
 
         return extractor
+    
+    def get_sorting_hypnogram(
+        self, subject: str, experiment: str, alias: str, probe: str, sorting: str, postprocessing: str,
+    ):
+        main_sorting_dir = self.get_main_sorting_dir(
+            subject, experiment, alias, probe, sorting
+        )
+        postprocessing_dir = main_sorting_dir / postprocessing
+        hyp_path = postprocessing_dir / "hypnogram.htsv"
+        assert postprocessing_dir.is_dir(), f"Expected Kilosort directory not found: {postprocessing_dir}"
+        assert hyp_path.exists(), f"Expected `hypnogram.htsv` file in: {postprocessing_dir}"
+
+        return ece_utils.read_htsv(hyp_path)
 
     def get_sharptrack(
         self, subject: str, experiment: str, probe: str
@@ -398,89 +432,6 @@ class Project:
         assert "prb2prb" in sync_models, "Probe-to-probe sync models not found in file."
         model = sync_models["prb2prb"][fromProbe][toProbe]
         return sync.remap_times(times, model)
-
-    # TODO: Likely deprecated. Remove.
-    def load_singleprobe_sorting(
-        self,
-        subject: str,
-        experiment: str,
-        probe: str,
-        alias: str = "full",
-        sortingID: str = "ks2_5_catgt_df_postpro_2_metrics_all_isi",  # TODO: This should probably no longer be the default
-        filters: dict = {
-            "n_spikes": (2, np.Inf),
-            "quality": {"good", "mua"},
-        },  # TODO: n_spikes should probably start at 100
-        sharptrack: bool = True,
-        remapTimes: bool = True,
-    ) -> units.SingleProbeSorting:
-        """Load a single probe's sorted spikes, optionally filtered and augmented with additional information.
-
-        Parameters:
-        ===========
-        subject: str
-        experiment: str
-        probe: str
-            The probe to load, e.g. "imec1"
-        alias: str
-        sortingID: str
-            See `Project.get_kilosort_extractor()`
-        filters: dict
-            See `ecephys.units.refine_clusters`
-        sharptrack: True/False
-            Load SHARPTrack data for this subject, and use it to add augment the sorting data with anatomical structures.
-        remap_times: True/False
-            Use precomputed sync models to remap this probe's spike times to the experiment's canonical timebase.
-
-        Returns:
-        ========
-        sps: ecephys.units.SingleProbeSorting
-        """
-        extractor = self.get_kilosort_extractor(
-            subject, experiment, alias, probe, sortingID
-        )
-        sorting = units.refine_clusters(extractor, filters)
-        if sharptrack:
-            st = self.get_sharptrack(subject, experiment, probe)
-            units.add_structures_from_sharptrack(sorting, st)
-        if remapTimes:
-            remapper = lambda t: self.remap_probe_times(subject, experiment, probe, t)
-            return units.SingleProbeSorting(sorting, remapper)
-        else:
-            return units.SingleProbeSorting(sorting)
-
-    # TODO: Likely deprecated. Remove.
-    def load_multiprobe_sorting(
-        self,
-        subject: str,
-        experiment: str,
-        probes: Optional[list[str]] = None,
-        **kwargs,
-    ) -> units.MultiProbeSorting:
-        """Load sorted spikes from multiple probes, optionally filtered and augmented with additional information.
-
-        Parameters:
-        ===========
-        subject: str
-        experiment: str
-        probes: [str] or None
-            If None, load all probes. Otherwise, takes a list of probe names to load.
-        **kwargs:
-            See `Project.load_singleprobe_sorting`.
-
-        Returns:
-        ========
-        mps: ecephys.units.MultiProbeSorting
-        """
-        if probes is None:
-            probes = self.get_all_probes(subject, experiment)
-        return units.MultiProbeSorting(
-            {
-                prb: self.load_singleprobe_sorting(subject, experiment, prb, **kwargs)
-                for prb in probes
-            }
-        )
-
 
     def load_hypnogram(
         self, experiment: str, subject: str, simplify: bool = True

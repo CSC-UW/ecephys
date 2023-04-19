@@ -19,6 +19,14 @@ pip install -e .
 
   - For spike-interface drift correction: `pytorch``
 
+
+  - For suprafast `ephyviewer` rasterplot:
+
+```
+conda install -c conda-forge pyqt qtpy qtconsole
+pip install pyqt5 ephyviewer
+```
+
 ### Ecephys
 
 
