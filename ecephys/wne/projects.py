@@ -433,32 +433,6 @@ class Project:
         model = sync_models["prb2prb"][fromProbe][toProbe]
         return sync.remap_times(times, model)
 
-    def load_si_ks_sorting(
-        self, wneSubject, experiment: str, alias: str, probe: str, sorting: str, postprocessing: str = None,
-        allow_no_sync_file=True
-    ):
-        si_sorting = self.get_kilosort_extractor(
-            wneSubject.name, experiment, alias, probe, sorting, postprocessing
-        )
-
-        if allow_no_sync_file:
-            import warnings
-            warnings.warn("Maybe loading sample2time without probe-to-probe synchronization, watch out")
-
-        sample2time = self.get_sample2time(
-            wneSubject,
-            experiment,
-            alias,
-            probe,
-            sorting,
-            allow_no_sync_file=allow_no_sync_file,
-        )
-
-        return SpikeInterfaceKilosortSorting(
-            si_sorting,
-            sample2time,
-        )
-
     def load_hypnogram(
         self, experiment: str, subject: str, simplify: bool = True
     ) -> hypnogram.Hypnogram:
