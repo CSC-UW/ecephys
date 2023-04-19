@@ -41,7 +41,7 @@ netcdf4 = "^1.6.2"
 isort = "^5.11.4"
 deepdiff = "^6.2.3"
 chardet = "5.1.0"
-ephyviewer = "1.6.1.dev0"
+ephyviewer = "^1.6.0"
 
 
 [tool.poetry.dev-dependencies]
