@@ -177,7 +177,7 @@ class Hypnogram:
         minimum_endpoint_bout_duration,
         maximum_antistate_bout_duration,
         frac=0.8,
-    ):
+    ) -> Hypnogram:
         """Get periods of consolidated sleep, wake, or any arbitrary set of states.
 
         A period is considered consolidated if more than a given fraction of its duration
@@ -401,6 +401,10 @@ class FloatHypnogram(Hypnogram):
         df = df[["state", "start_time", "end_time", "duration"]]
         return cls(df)
 
+    def trim(self, start: float, end: float) -> FloatHypnogram:
+        new = trim_hypnogram(self._df, start, end)
+        return self.__class__(new)
+
 
 class DatetimeHypnogram(Hypnogram):
     def as_float(self):
@@ -411,7 +415,7 @@ class DatetimeHypnogram(Hypnogram):
         df["duration"] = df.duration / pd.to_timedelta("1s")
         return FloatHypnogram(df)
 
-    def keep_first(self, cumulative_duration, trim=True):
+    def keep_first(self, cumulative_duration, trim=True) -> DatetimeHypnogram:
         """Keep hypnogram bouts until a cumulative duration is reached.
 
         Parameters:
@@ -432,7 +436,7 @@ class DatetimeHypnogram(Hypnogram):
             new = self.loc[keep]
         return self.__class__(new)
 
-    def keep_last(self, cumulative_duration, trim=True):
+    def keep_last(self, cumulative_duration, trim=True) -> DatetimeHypnogram:
         """Keep only a given amount of time at the end of a hypnogram.
 
         Parameters:
@@ -519,6 +523,10 @@ class DatetimeHypnogram(Hypnogram):
             pd.to_timedelta(maximum_antistate_bout_duration),
             frac=frac,
         )
+
+    def trim(self, start, end) -> DatetimeHypnogram:
+        new = trim_hypnogram(self._df, start, end)
+        return self.__class__(new)
 
     @classmethod
     def clean(cls, df: pd.DataFrame):
@@ -844,7 +852,11 @@ def trim_hypnogram(df: pd.DataFrame, start, end) -> pd.DataFrame:
     starts_after = df["start_time"] >= df["end_time"]
     df = df[~starts_after]
     df["duration"] = df["end_time"] - df["start_time"]
-    assert all(df["duration"] > 0)
+
+    zero = np.array([0], dtype=df["duration"].dtype)[
+        0
+    ]  # Represents duration of length 0, regardless of dtype
+    assert all(df["duration"] > zero)
     assert all(df["start_time"] >= start)
     assert all(df["end_time"] <= end)
     return df.reset_index(drop=True)
