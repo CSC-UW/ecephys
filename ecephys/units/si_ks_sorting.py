@@ -280,6 +280,11 @@ def add_cluster_structures(
         Secondary motor cortex	M2	2021.108179419525	6609.023746701847	4587.915567282322
         Out of brain	OOB	1050.9762532981529	7659.999999999999	6609.023746701847
     """
+    if structs is None:
+        extractor.set_property("structure", "NaN")
+        extractor.set_property("acronym", "NaN")
+        return extractor
+
     depths = extractor.get_property("depth")
     structures = np.empty(depths.shape, dtype=object)
     acronyms = np.empty(depths.shape, dtype=object)
