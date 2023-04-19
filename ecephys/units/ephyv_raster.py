@@ -10,6 +10,25 @@ def plot_interactive_ephyviewer_raster(si_ks_sorting):
     # #Create the main window that can contain several viewers
     win = ephyviewer.MainViewer(debug=True, show_auto_scale=True)
 
+    # Add hypnogram ayyy
+    if si_ks_sorting.hypnogram is not None:
+
+        hyp = si_ks_sorting.hypnogram
+        all_epochs = []
+        for state in hyp.state.unique():
+            mask = hyp["state"] == state
+            all_epochs.append({
+                "name": state,
+                "label": np.array([state for _ in range(mask.sum())]),
+                "time": hyp[mask].start_time.values,
+                "duration": hyp[mask].duration.values,
+            })
+
+        source_epochs = ephyviewer.InMemoryEpochSource(all_epochs=all_epochs)
+        view = ephyviewer.EpochViewer(source=source_epochs, name='Hypnogram')
+
+        win.add_view(view, location="bottom", orientation="vertical")
+
     # Iterate on structures by mean depth
     properties = si_ks_sorting.properties
     group_means = properties.groupby("acronym")["depth"].mean().reset_index()
@@ -42,24 +61,6 @@ def plot_interactive_ephyviewer_raster(si_ks_sorting):
 
         win.add_view(view, location="bottom", orientation="vertical")
 
-    # Add hypnogram ayyy
-    if si_ks_sorting.hypnogram is not None:
-
-        hyp = si_ks_sorting.hypnogram
-        all_epochs = []
-        for state in hyp.state.unique():
-            mask = hyp["state"] == state
-            all_epochs.append({
-                "name": state,
-                "label": np.array([state for _ in range(mask.sum())]),
-                "time": hyp[mask].start_time.values,
-                "duration": hyp[mask].duration.values,
-            })
-
-        source_epochs = ephyviewer.InMemoryEpochSource(all_epochs=all_epochs)
-        view = ephyviewer.EpochViewer(source=source_epochs, name='Hypnogram')
-
-        win.add_view(view, location="bottom", orientation="vertical")
 
     win.show()
     app.exec()
