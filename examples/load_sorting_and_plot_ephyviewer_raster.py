@@ -11,6 +11,12 @@ sorting_basename = "ks_mplloc_30s_cln"
 postprocessing_name = "postpro_48h"
 sharedDataProjectName = "shared_s3"
 
+filters = {
+    "quality": {"good", "mua"}, # "quality" property is "group" from phy curation. Remove noise
+    "firing_rate": (0.5, float("Inf")),
+    # ...
+}
+
 subjectsDir = wet.get_subjects_directory()
 projectsFile = wet.get_projects_file()
 
@@ -31,4 +37,6 @@ si_ks_sorting = load_singleprobe_sorting(
     wneAnatomyProject=wneSharedProject,
     wneHypnogramProject=wneSharedProject,
 )
+si_ks_sorting = si_ks_sorting.refine_clusters(filters)
+
 si_ks_sorting.plot_interactive_ephyviewer_raster()
