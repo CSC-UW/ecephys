@@ -1,6 +1,8 @@
 import ephyviewer
 from tqdm import tqdm
 import numpy as np
+from ecephys.plot import state_colors
+import matplotlib.colors
 
 
 def plot_interactive_ephyviewer_raster(si_ks_sorting):
@@ -14,8 +16,10 @@ def plot_interactive_ephyviewer_raster(si_ks_sorting):
     if si_ks_sorting.hypnogram is not None:
 
         hyp = si_ks_sorting.hypnogram
+        all_states = hyp.state.unique()
         all_epochs = []
-        for state in hyp.state.unique():
+
+        for state in all_states:
             mask = hyp["state"] == state
             all_epochs.append({
                 "name": state,
@@ -26,6 +30,10 @@ def plot_interactive_ephyviewer_raster(si_ks_sorting):
 
         source_epochs = ephyviewer.InMemoryEpochSource(all_epochs=all_epochs)
         view = ephyviewer.EpochViewer(source=source_epochs, name='Hypnogram')
+
+        # Set usual Hypnogram colors
+        for i, state in enumerate(all_states):
+            view.by_channel_params[f"ch{i}", 'color'] = matplotlib.colors.rgb2hex(state_colors[state])
 
         win.add_view(view, location="bottom", orientation="vertical")
 
@@ -60,7 +68,6 @@ def plot_interactive_ephyviewer_raster(si_ks_sorting):
         view = ephyviewer.SpikeTrainViewer(source=source, name=f"Structure: {struct}")
 
         win.add_view(view, location="bottom", orientation="vertical")
-
 
     win.show()
     app.exec()
