@@ -37,6 +37,10 @@ def plot_interactive_ephyviewer_raster(si_ks_sorting):
 
         win.add_view(view, location="bottom", orientation="vertical")
 
+        # Add event list for navigation
+        view = ephyviewer.EventList(source=source_epochs, name='event')
+        win.add_view(view, location='bottom',  orientation='horizontal')
+
     # Iterate on structures by mean depth
     properties = si_ks_sorting.properties
     group_means = properties.groupby("acronym")["depth"].mean().reset_index()
