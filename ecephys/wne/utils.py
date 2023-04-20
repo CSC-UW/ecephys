@@ -140,7 +140,7 @@ def load_singleprobe_sorting(
 
     # Load extractor
     extractor = wneSortingProject.get_kilosort_extractor(
-        wneSubject.name, experiment, alias, probe, sorting
+        wneSubject.name, experiment, alias, probe, sorting, postprocessing=postprocessing
     )
 
     if wneHypnogramProject is not None:
