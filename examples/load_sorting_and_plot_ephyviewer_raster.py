@@ -9,7 +9,7 @@ experiment = "novel_objects_deprivation"
 alias = "full"
 sorting_basename = "ks_mplloc_30s_cln"
 postprocessing_name = "postpro_48h"
-anatomyProjectName = "shared_s3"
+sharedDataProjectName = "shared_s3"
 
 subjectsDir = wet.get_subjects_directory()
 projectsFile = wet.get_projects_file()
@@ -18,7 +18,7 @@ subjLib = wne.sglx.SubjectLibrary(subjectsDir)
 projLib = wne.ProjectLibrary(projectsFile)
 wneSubject = subjLib.get_subject(subjectName)
 wneSortingProject = projLib.get_project(sortingProjectName)
-wneAnatomyProject = projLib.get_project(anatomyProjectName)
+wneSharedProject = projLib.get_project(sharedDataProjectName)
 
 si_ks_sorting = load_singleprobe_sorting(
     wneSortingProject,
@@ -28,6 +28,7 @@ si_ks_sorting = load_singleprobe_sorting(
     probe,
     sorting_basename,
     postprocessing=postprocessing_name,
-    wneAnatomyProject=wneAnatomyProject,
+    wneAnatomyProject=wneSharedProject,
+    wneHypnogramProject=wneSharedProject,
 )
 si_ks_sorting.plot_interactive_ephyviewer_raster()

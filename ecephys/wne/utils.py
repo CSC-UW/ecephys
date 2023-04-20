@@ -126,6 +126,7 @@ def load_singleprobe_sorting(
     sorting: str,
     postprocessing: str = None,
     wneAnatomyProject: Optional[Project] = None,
+    wneHypnogramProject: Optional[Project] = None,
     allow_no_sync_file=True,
 ) -> units.SpikeInterfaceKilosortSorting:
 
@@ -142,7 +143,11 @@ def load_singleprobe_sorting(
         wneSubject.name, experiment, alias, probe, sorting
     )
 
-    if postprocessing is not None:
+    if wneHypnogramProject is not None:
+        hypnogram = wneHypnogramProject.load_hypnogram(
+            experiment, wneSubject.name, simplify=True
+        )._df
+    elif postprocessing is not None:
         hypnogram = wneSortingProject.get_sorting_hypnogram(
             wneSubject.name, experiment, alias, probe, sorting, postprocessing
         )
