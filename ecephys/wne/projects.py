@@ -244,7 +244,11 @@ class Project:
         postprocessing_dir = main_sorting_dir / postprocessing
         hyp_path = postprocessing_dir / "hypnogram.htsv"
         assert postprocessing_dir.is_dir(), f"Expected Kilosort directory not found: {postprocessing_dir}"
-        assert hyp_path.exists(), f"Expected `hypnogram.htsv` file in: {postprocessing_dir}"
+
+        if not hyp_path.exists():
+            import warnings
+            warnings.warn(f"No `hypnogram.htsv` file in postpro dir. Returning None")
+            return None
 
         return ece_utils.read_htsv(hyp_path)
 
