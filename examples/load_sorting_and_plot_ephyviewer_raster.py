@@ -7,8 +7,8 @@ subjectName = "CNPIX12-Santiago"
 probe = "imec1"
 experiment = "novel_objects_deprivation"
 alias = "full"
-sorting_basename = "sorting"
-postprocessing_name = "postpro"
+sorting = "sorting"
+postprocessing = "postpro"
 sharedDataProjectName = "shared_s3"
 
 filters = {
@@ -32,8 +32,8 @@ si_ks_sorting = load_singleprobe_sorting(
     experiment,
     alias,
     probe,
-    sorting_basename=sorting_basename,
-    postprocessing=postprocessing_name,
+    sorting=sorting,
+    postprocessing=postprocessing,
     wneAnatomyProject=wneSharedProject,
     wneHypnogramProject=wneSharedProject,
 )
