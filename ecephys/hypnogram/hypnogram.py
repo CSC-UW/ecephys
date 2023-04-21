@@ -56,7 +56,7 @@ class Hypnogram:
             index=False,
         )
 
-    def keep_states(self, states):
+    def keep_states(self, states) -> Hypnogram:
         """Return all bouts of the given states.
         Parameters:
         -----------
@@ -64,7 +64,7 @@ class Hypnogram:
         """
         return self.__class__(self._df[self._df["state"].isin(states)])
 
-    def drop_states(self, states):
+    def drop_states(self, states) -> Hypnogram:
         """Drop all bouts of the given states.
         Parameters:
         -----------
@@ -72,11 +72,11 @@ class Hypnogram:
         """
         return self.__class__(self._df[~self._df["state"].isin(states)])
 
-    def replace_states(self, replacement_dict):
+    def replace_states(self, replacement_dict) -> Hypnogram:
         """Takes a dict where keys are current states and values are desired states, and updates the hypnogram accoridngly."""
         return self.__class__(self._df.replace(replacement_dict))
 
-    def mask_times_by_state(self, times, states):
+    def mask_times_by_state(self, times, states) -> np.ndarray:
         """Return a mask that is true where times belong to specific states.
         Parameters
         ----------
@@ -118,7 +118,7 @@ class Hypnogram:
             result[ep[0] : ep[1]] = self.state.iloc[i]
         return result
 
-    def covers_time(self, times):
+    def covers_time(self, times) -> np.ndarray:
         """Given an array of times, return True where that time is covered by
         the hypnogram."""
         covered = np.full_like(times, False, dtype="bool")
@@ -143,7 +143,7 @@ class Hypnogram:
         )
         return self.groupby("state").duration.sum() / total_time
 
-    def reconcile(self, other, how="self"):
+    def reconcile(self, other, how="self") -> Hypnogram:
         """Reconcile this hypnogram with another, per `reconcile_hypnograms`.
 
         Parameters:
@@ -251,14 +251,14 @@ class FloatHypnogram(Hypnogram):
             path, columns=["state", "end_time"], sep="\t", index=False, header=False
         )
 
-    def as_datetime(self, start_datetime):
+    def as_datetime(self, start_datetime) -> DatetimeHypnogram:
         df = self._df.copy()
         df["start_time"] = start_datetime + pd.to_timedelta(df["start_time"], "s")
         df["end_time"] = start_datetime + pd.to_timedelta(df["end_time"], "s")
         df["duration"] = pd.to_timedelta(df["duration"], "s")
         return DatetimeHypnogram(df)
 
-    def keep_longer(self, duration):
+    def keep_longer(self, duration) -> FloatHypnogram:
         """Keep bouts longer than a given duration.
 
         Parameters:
@@ -267,7 +267,7 @@ class FloatHypnogram(Hypnogram):
         """
         return self.__class__(self.loc[self.duration > duration])
 
-    def keep_between_time(self, start_time=None, end_time=None):
+    def keep_between_time(self, start_time=None, end_time=None) -> FloatHypnogram:
         """Keep all hypnogram bouts that fall between two times
 
         Paramters:
@@ -290,7 +290,7 @@ class FloatHypnogram(Hypnogram):
         minimum_endpoint_bout_duration=0,
         maximum_antistate_bout_duration=np.inf,
         frac=0.8,
-    ):
+    ) -> FloatHypnogram:
         """See Hypnogram.get_consolidated"""
         return Hypnogram.get_consolidated(
             self,
@@ -306,7 +306,7 @@ class FloatHypnogram(Hypnogram):
         return cls(clean(df, condenseTol=1, missingDataTol=1, zero=0))
 
     @classmethod
-    def get_dummy(cls, start_time=0.0, end_time=np.Inf):
+    def get_dummy(cls, start_time=0.0, end_time=np.Inf) -> FloatHypnogram:
         """Return an empty, unscored hypnogram.
 
         Parameters
@@ -329,13 +329,13 @@ class FloatHypnogram(Hypnogram):
         return cls(df)
 
     @classmethod
-    def from_htsv(cls, file):
+    def from_htsv(cls, file) -> FloatHypnogram:
         assert Path(file).suffix == ".htsv", "File must use extension .htsv"
         df = pd.read_csv(file, sep="\t", header=0)
         return cls(df)
 
     @classmethod
-    def from_visbrain(cls, file):
+    def from_visbrain(cls, file) -> FloatHypnogram:
         """Load a Visbrain formatted hypnogram."""
         df = pd.read_csv(file, sep="\t", names=["state", "end_time"], comment="*")
 
@@ -347,7 +347,7 @@ class FloatHypnogram(Hypnogram):
         return cls(df)
 
     @classmethod
-    def from_Spike2(cls, file):
+    def from_Spike2(cls, file) -> FloatHypnogram:
         """Load a Spike2 formatted hypnogram."""
         df = pd.read_table(
             file,
@@ -360,7 +360,7 @@ class FloatHypnogram(Hypnogram):
         return cls(df)
 
     @classmethod
-    def from_SleepSign(cls, file):
+    def from_SleepSign(cls, file) -> FloatHypnogram:
         """Load a SleepSign hypnogram, exported using the `trend` function."""
         df = pd.read_table(
             file,
@@ -407,7 +407,7 @@ class FloatHypnogram(Hypnogram):
 
 
 class DatetimeHypnogram(Hypnogram):
-    def as_float(self):
+    def as_float(self) -> FloatHypnogram:
         df = self._df.copy()
         start_datetime = df.start_time.min()
         df["start_time"] = (df.start_time - start_datetime) / pd.to_timedelta("1s")
@@ -459,7 +459,7 @@ class DatetimeHypnogram(Hypnogram):
             new = self.loc[keep]
         return self.__class__(new)
 
-    def keep_between_time(self, start_time, end_time):
+    def keep_between_time(self, start_time, end_time) -> DatetimeHypnogram:
         """Keep all hypnogram bouts that fall between two times of day.
         Analagous to `pandas.DataFrame.between_time`.
 
@@ -479,7 +479,9 @@ class DatetimeHypnogram(Hypnogram):
         )
         return self.__class__(self.iloc[keep])
 
-    def keep_between_datetime(self, start_time=None, end_time=None):
+    def keep_between_datetime(
+        self, start_time=None, end_time=None
+    ) -> DatetimeHypnogram:
         """Keep all hypnogram bouts that fall between two datetimes.
 
         Paramters:
@@ -497,7 +499,7 @@ class DatetimeHypnogram(Hypnogram):
         keep = (self.start_time >= start_time) & (self.end_time <= end_time)
         return self.__class__(self.loc[keep])
 
-    def keep_longer(self, duration):
+    def keep_longer(self, duration) -> DatetimeHypnogram:
         """Keep bouts longer than a given duration.
 
         Parameters:
@@ -514,7 +516,7 @@ class DatetimeHypnogram(Hypnogram):
         minimum_endpoint_bout_duration="0S",
         maximum_antistate_bout_duration=pd.Timedelta.max,
         frac=0.8,
-    ):
+    ) -> DatetimeHypnogram:
         return Hypnogram.get_consolidated(
             self,
             states,
@@ -529,7 +531,7 @@ class DatetimeHypnogram(Hypnogram):
         return self.__class__(new)
 
     @classmethod
-    def clean(cls, df: pd.DataFrame):
+    def clean(cls, df: pd.DataFrame) -> DatetimeHypnogram:
         return cls(
             clean(
                 df,
@@ -540,7 +542,7 @@ class DatetimeHypnogram(Hypnogram):
         )
 
     @classmethod
-    def from_htsv(cls, file):
+    def from_htsv(cls, file) -> DatetimeHypnogram:
         """Load a hypnogram whose entries are valid datetime strings."""
         assert Path(file).suffix == ".htsv", "File must use extension .htsv"
         try:
@@ -559,7 +561,7 @@ class DatetimeHypnogram(Hypnogram):
 #####
 
 
-def get_separated_wake_hypnogram(qwk_intervals, awk_intervals):
+def get_separated_wake_hypnogram(qwk_intervals, awk_intervals) -> Hypnogram:
     """Turn a list of quiet wake and active wake intervals into a hypnogram.
 
     Parameters
