@@ -4,6 +4,7 @@ from scipy.stats import median_abs_deviation
 from collections.abc import Iterable
 from functools import reduce
 from rich.console import Console
+import sortednp, heapq
 
 _console = Console()
 
@@ -123,6 +124,31 @@ def nrows(x):
 # Get rid of this
 def ncols(x):
     return x.shape[1]
+
+# https://medium.com/@amitrajit_bose/merge-k-sorted-arrays-6f9427661e67
+def kway_sortednp_merge(arrays):
+    if len(arrays) == 0:
+        return np.array([])
+    elif len(arrays) == 1:
+        return arrays[0]
+    elif len(arrays) == 2:
+        return sortednp.merge(arrays[0], arrays[1])
+    # return sortednp.kway_merge(arrays)
+
+    lists = [a.tolist() for a in arrays]
+    final_list = []
+    heap = [(mylst[0], i, 0) for i, mylst in enumerate(lists) if mylst]
+    heapq.heapify(heap)
+
+    while heap:
+        val, list_ind, element_ind = heapq.heappop(heap)
+        final_list.append(val)
+        if element_ind + 1 < len(lists[list_ind]):
+            next_tuple = (lists[list_ind][element_ind + 1],
+                          list_ind,
+                          element_ind + 1)
+            heapq.heappush(heap, next_tuple)
+    return np.array(final_list)
 
 
 def find_nearest(array, value, tie_select="first"):

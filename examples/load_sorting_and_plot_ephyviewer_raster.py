@@ -11,6 +11,8 @@ sorting = "sorting"
 postprocessing = "postpro"
 sharedDataProjectName = "shared_s3"
 
+aggregate_spikes_by = "depth"  # "depth"/"cluster_id" or any other property
+
 filters = {
     "quality": {"good", "mua"}, # "quality" property is "group" from phy curation. Remove noise
     "firing_rate": (0.5, float("Inf")),
@@ -39,4 +41,4 @@ si_ks_sorting = load_singleprobe_sorting(
 )
 si_ks_sorting = si_ks_sorting.refine_clusters(filters)
 
-si_ks_sorting.plot_interactive_ephyviewer_raster()
+si_ks_sorting.plot_interactive_ephyviewer_raster(by=aggregate_spikes_by)

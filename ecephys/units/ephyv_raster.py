@@ -5,7 +5,10 @@ from ecephys.plot import state_colors
 import matplotlib.colors
 
 
-def plot_interactive_ephyviewer_raster(si_ks_sorting):
+DEPTH_STEP = 20
+
+
+def plot_interactive_ephyviewer_raster(si_ks_sorting, by="cluster_id"):
 
     app = ephyviewer.mkQApp()
 
@@ -45,26 +48,43 @@ def plot_interactive_ephyviewer_raster(si_ks_sorting):
     properties = si_ks_sorting.properties
     group_means = properties.groupby("acronym")["depth"].mean().reset_index()
     sorted_means = group_means.sort_values(by="depth", ascending=False)
+
     for _, struct_row in sorted_means.iterrows():
         struct = struct_row["acronym"]
         mask = properties["acronym"] == struct
+        struct_properties = properties[mask]
 
-        # Sort clusters by depth within each structure
-        sorted_struct_properties = properties[mask].sort_values(
-            by="depth", ascending=False
-        )
+        if by == "depth":
+            tgt_values = np.arange(
+                struct_properties.depth.min(),
+                struct_properties.depth.max() + DEPTH_STEP,
+                DEPTH_STEP
+            )[::-1] # Descending depths between structure min/max in 20um steps
+        else:
+            # Sort units by depth within each structure
+            sorted_struct_properties = struct_properties.sort_values(
+                by="depth", ascending=False
+            )
+            tgt_values = sorted_struct_properties[by].unique() # Still sorted
 
         all_struct_spikes = []
-        for cluster_row in tqdm(
-            list(sorted_struct_properties.itertuples()),
+        for tgt_value in tqdm(
+            tgt_values,
             desc=f"Loading spikes for structure `{struct}`"
         ):
-            cluster_id = cluster_row.cluster_id
-            label = f"{cluster_row.cluster_id}, d={cluster_row.depth}"
+
+            label = f"{by}: {tgt_value}"
+            
+            if by != "cluster_id":
+                ids = struct_properties[struct_properties[by] == tgt_value].cluster_id.values
+                label = f"{label}, ids={ids}"
+
+            train = si_ks_sorting.get_trains(
+                by=by,
+                tgt_values=[tgt_value]
+            )[tgt_value]
             all_struct_spikes.append({
-                'time': si_ks_sorting.get_trains(
-                    cluster_ids=[cluster_id]
-                )[cluster_id],
+                'time': train,
                 'name': label,
             })
 
