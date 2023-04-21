@@ -209,9 +209,10 @@ class Project:
 
     # TODO: If no sortingName is provided, a sensible default should be obtained from WNE opts, so that you do not have do remember the sorting ID for every animal.
     def get_kilosort_extractor(
-        self, subject: str, experiment: str, alias: str, probe: str, sorting: str, postprocessing: str = None,
+        self, subject: str, experiment: str, alias: str, probe: str, sorting: str = "sorting", postprocessing: str = "postpro",
     ) -> se.KiloSortSortingExtractor:
         """Load the contents of a Kilosort output directory. This takes ~20-25s per 100 clusters."""
+
         main_sorting_dir = self.get_main_sorting_dir(
             subject, experiment, alias, probe, sorting
         )
@@ -220,11 +221,13 @@ class Project:
         assert (sorter_output_dir/"spike_times.npy").exists(), f"Expected `spike_times.npy` file in: {sorter_output_dir}"
         extractor = se.read_kilosort(sorter_output_dir, keep_good_only=False)
 
-        if postprocessing is not None:
-            # Load metrics and add as properties
-            postprocessing_dir = main_sorting_dir / postprocessing
+        # Load metrics and add as properties
+        postprocessing_dir = main_sorting_dir / postprocessing
+        if not postprocessing_dir.is_dir():
+            import warnings
+            warnings.warn(f"Could not find postprocessing dir. Ignoring metrics: {postprocessing_dir}")
+        else:
             metrics_path = postprocessing_dir / "metrics.csv"
-            assert postprocessing_dir.is_dir(), f"Expected postprocessing directory not found: {postprocessing_dir}"
             assert metrics_path.exists(), f"Expected `metrics.csv` file in: {postprocessing_dir}"
 
             metrics = pd.read_csv(metrics_path)
@@ -236,15 +239,18 @@ class Project:
         return extractor
     
     def get_sorting_hypnogram(
-        self, subject: str, experiment: str, alias: str, probe: str, sorting: str, postprocessing: str,
+        self, subject: str, experiment: str, alias: str, probe: str, sorting: str = "sorting", postprocessing: str = "postpro",
     ):
         main_sorting_dir = self.get_main_sorting_dir(
             subject, experiment, alias, probe, sorting
         )
         postprocessing_dir = main_sorting_dir / postprocessing
         hyp_path = postprocessing_dir / "hypnogram.htsv"
-        assert postprocessing_dir.is_dir(), f"Expected Kilosort directory not found: {postprocessing_dir}"
-        assert hyp_path.exists(), f"Expected `hypnogram.htsv` file in: {postprocessing_dir}"
+
+        if not hyp_path.exists():
+            import warnings
+            warnings.warn(f"No `hypnogram.htsv` file in postpro dir. Returning None")
+            return None
 
         return ece_utils.read_htsv(hyp_path)
 

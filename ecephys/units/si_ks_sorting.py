@@ -9,9 +9,12 @@ import sklearn.metrics as skmetrics
 
 import spikeinterface as si
 import spikeinterface.extractors as se
-from ecephys.units import siutils, ephyv_raster
+from ecephys.units import ephyv_raster, siutils
+from ecephys.utils.misc import kway_sortednp_merge
 
 logger = logging.getLogger(__name__)
+
+
 
 
 class SpikeInterfaceKilosortSorting:
@@ -191,17 +194,40 @@ class SpikeInterfaceKilosortSorting:
         new_obj = self.si_obj.select_units(clusterIDs)
         return self.__class__(new_obj, self.sample2time, hypnogram=self.hypnogram)
 
-    def get_trains(self, cluster_ids=None) -> dict:
+    def _get_aggregate_train(self, property_column, property_value) -> np.array:
+        mask = self.properties[property_column] == property_value
+        tgt_clusters = self.properties[mask].cluster_id.values
+        return kway_sortednp_merge([
+                train
+                for train in self.get_trains_by_cluster_ids(
+                    cluster_ids=tgt_clusters
+                ).values()
+        ])
+
+    def get_trains_by_cluster_ids(self, cluster_ids=None) -> dict:
         """Get spike trains for a list of clusters (default all)."""
         if cluster_ids is None:
             cluster_ids = self.si_obj.get_unit_ids()
         return {
             id: self.sample2time(self.si_obj.get_unit_spike_train(id))
             for id in cluster_ids
-        }  # Getting spike trains cluster-by-cluster is MUCH faster than getting them all together.
+        } # Getting spike trains cluster-by-cluster is MUCH faster than getting them all together.
 
-    def plot_interactive_ephyviewer_raster(self):
-        ephyv_raster.plot_interactive_ephyviewer_raster(self)
+    def get_trains(self, by="cluster_id", tgt_values=None) -> dict:
+
+        if by == "cluster_id":
+            return self.get_trains_by_cluster_ids(cluster_ids=tgt_values)
+
+        if tgt_values is None:
+            tgt_values = self.properties[by].unique()
+
+        return {
+            v: self._get_aggregate_train(by, v)
+            for v in tgt_values
+        }
+
+    def plot_interactive_ephyviewer_raster(self, *args, **kwargs):
+        ephyv_raster.plot_interactive_ephyviewer_raster(self, *args, **kwargs)
 
 
 def fix_isi_violations_ratio(
