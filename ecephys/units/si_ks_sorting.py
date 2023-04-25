@@ -203,12 +203,12 @@ class SpikeInterfaceKilosortSorting:
     def refine_clusters(self, filters: dict):
         """Refine clusters, and conveniently wrap the result, so that the user doesn't have to."""
         new_obj = siutils.refine_clusters(self.si_obj, filters)
-        return self.__class__(new_obj, self.sample2time, hypnogram=self.hypnogram)
+        return self.__class__(new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs)
 
     def select_clusters(self, clusterIDs):
         """Select clusters, and conveniently wrap the result, so that the user doesn't have to."""
         new_obj = self.si_obj.select_units(clusterIDs)
-        return self.__class__(new_obj, self.sample2time, hypnogram=self.hypnogram)
+        return self.__class__(new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs)
 
     def _get_aggregate_train(self, property_column, property_value) -> np.array:
         mask = self.properties[property_column] == property_value
