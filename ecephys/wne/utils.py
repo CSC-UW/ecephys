@@ -178,3 +178,35 @@ def load_singleprobe_sorting(
     return units.SpikeInterfaceKilosortSorting(extractor, sample2time, hypnogram=hypnogram, structs=structs)
 
 
+def load_multiprobe_sorting(
+    wneSortingProject: Project,
+    wneSubject: sglx.Subject,
+    experiment: str,
+    alias: str,
+    probes: list[str],
+    sortings: list[str] = None,
+    postprocessings: list[str] = None,
+    wneAnatomyProject: Optional[Project] = None,
+    wneHypnogramProject: Optional[Project] = None,
+    allow_no_sync_file=True,
+) -> units.MultiprobeSorting:
+    
+    if sortings is None:
+        sortings = [None for _ in range(len(probes))]
+    if postprocessings is None:
+        postprocessings = [None for _ in range(len(probes))]
+
+    return units.MultiprobeSorting({
+        probe: load_singleprobe_sorting(
+            wneSortingProject,
+            wneSubject,
+            experiment,
+            alias,
+            probe = probe,
+            sorting = sortings[i],
+            postprocessing = postprocessings[i],
+            wneAnatomyProject = wneAnatomyProject,
+            wneHypnogramProject = wneHypnogramProject,
+            allow_no_sync_file=allow_no_sync_file,
+        ) for i, probe in enumerate(probes)
+    })
