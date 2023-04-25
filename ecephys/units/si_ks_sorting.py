@@ -7,9 +7,10 @@ import pandas as pd
 import seaborn as sns
 import sklearn.metrics as skmetrics
 
+import ephyviewer
 import spikeinterface as si
 import spikeinterface.extractors as se
-from ecephys.units import ephyv_raster, siutils
+from ecephys.units import ephyviewerutils, siutils
 from ecephys.utils.misc import kway_sortednp_merge
 
 logger = logging.getLogger(__name__)
@@ -235,8 +236,28 @@ class SpikeInterfaceKilosortSorting:
             for v in tgt_values
         }
 
-    def plot_interactive_ephyviewer_raster(self, *args, **kwargs):
-        ephyv_raster.plot_interactive_ephyviewer_raster(self, *args, **kwargs)
+    def plot_interactive_ephyviewer_raster(self, tgt_struct_acronyms: list[str] = None, by : str = "depth"):
+
+        app = ephyviewer.mkQApp()
+        win = ephyviewer.MainViewer(debug=True, show_auto_scale=True, global_xsize_zoom=True)
+
+        if self.hypnogram is not None:
+            win = ephyviewerutils.add_hypnogram_to_window(win, self.hypnogram)
+
+        all_structures = self.structs.sort_values(by="lo", ascending=False).acronym.values # Descending depths
+        
+        if tgt_struct_acronyms is None:
+            tgt_struct_acronyms = all_structures
+        else:
+            assert all([s in all_structures for s in tgt_struct_acronyms])
+
+        for tgt_struct_acronym in tgt_struct_acronyms:
+            win = ephyviewerutils.add_spiketrainviewer_to_window(
+                win, self, by=by, tgt_struct_acronym=tgt_struct_acronym, probe=None
+            )
+
+        win.show()
+        app.exec()
 
 
 def fix_isi_violations_ratio(
