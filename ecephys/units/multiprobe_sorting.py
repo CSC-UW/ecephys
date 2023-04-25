@@ -14,7 +14,7 @@ class MultiprobeSorting:
 
     @property
     def probes(self) -> list[str]:
-        return list(self.sortings.keys())
+        return sorted(list(self.sortings.keys()))
 
     def si_cluster_ids_to_multiprobe_cluster_ids(
         self, probe: str, si_cluster_ids: np.ndarray
