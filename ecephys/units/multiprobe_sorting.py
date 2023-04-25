@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal
+import ephyviewer
+from ecephys.units import ephyviewerutils
 
 from ecephys.units import SpikeInterfaceKilosortSorting, ClusterTrains
 
@@ -69,3 +71,34 @@ class MultiprobeSorting:
                 prb_trains[new_id] = prb_trains.pop(old_id)
             trains.update(prb_trains)
         return trains
+
+    def plot_interactive_ephyviewer_raster(self, tgt_struct_acronyms : dict[str, list[str]] = None, by="depth"):
+
+        app = ephyviewer.mkQApp()
+        win = ephyviewer.MainViewer(debug=True, show_auto_scale=True, global_xsize_zoom=True)
+
+        if tgt_struct_acronyms is None:
+            tgt_struct_acronyms = {
+                prb: None for prb in self.probes
+            }
+
+        if self.hypnogram is not None:
+            win = ephyviewerutils.add_hypnogram_to_window(win, self.hypnogram)
+
+        for prb in self.probes:
+
+            all_prb_structures = self._sortings[prb].structs.sort_values(by="lo", ascending=False).acronym.values # Descending depths
+
+            prb_tgt_struct_acronyms = tgt_struct_acronyms.get(prb, None)
+            if prb_tgt_struct_acronyms is None:
+                prb_tgt_struct_acronyms = all_prb_structures
+            else:
+                assert all([s in all_prb_structures for s in tgt_struct_acronyms])
+
+            for tgt_struct_acronym in prb_tgt_struct_acronyms:
+                win = ephyviewerutils.add_spiketrainviewer_to_window(
+                    win, self._sortings[prb], by=by, tgt_struct_acronym=tgt_struct_acronym, probe=prb,
+                )
+
+        win.show()
+        app.exec()
