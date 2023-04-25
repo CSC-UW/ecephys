@@ -7,9 +7,10 @@ import pandas as pd
 import seaborn as sns
 import sklearn.metrics as skmetrics
 
+import ephyviewer
 import spikeinterface as si
 import spikeinterface.extractors as se
-from ecephys.units import ephyv_raster, siutils
+from ecephys.units import ephyviewerutils, siutils
 from ecephys.utils.misc import kway_sortednp_merge
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,7 @@ class SpikeInterfaceKilosortSorting:
         si_obj: Union[se.KiloSortSortingExtractor, si.UnitsSelectionSorting],
         sample2time: Optional[Callable] = None,
         hypnogram: Optional[pd.DataFrame] = None,
+        structs: Optional[pd.DataFrame] = None,
     ):
         """
         This class is primarily used to map spike samples from one probe to spike times on another, since the SpikeInterface objects can not do this.
@@ -39,9 +41,23 @@ class SpikeInterfaceKilosortSorting:
             in the same timebase as the sample2time function, and
             `start_frame`, `end_frame` columns for each bout matching 
             the spikeinterface sorting/recording frame ids. 
+        structs: pd.DataFrame
+            Frame with `lo`, `hi`, `span`, `structure`, `acronym` fields.
+            Cluster's structure/acronym assignation are added as properties, and the structure
+            array is saved as `self.structs` attribute.
         """
         self.hypnogram: pd.DataFrame = hypnogram
         self.si_obj: se.KiloSortSortingExtractor = si_obj
+
+        if structs is None:
+            structs = pd.DataFrame([{
+                "structure": "Full probe",
+                "acronym": "All",
+                "lo": self.properties.depth.min(),
+                "hi": self.properties.depth.max(),
+            }])
+        self.structs = structs
+        self.si_obj = add_cluster_structures(self.si_obj, structs)
 
         # If no time mapping function is provided, just provide times according to this probe's sample clock.
         if sample2time is None:
@@ -187,12 +203,12 @@ class SpikeInterfaceKilosortSorting:
     def refine_clusters(self, filters: dict):
         """Refine clusters, and conveniently wrap the result, so that the user doesn't have to."""
         new_obj = siutils.refine_clusters(self.si_obj, filters)
-        return self.__class__(new_obj, self.sample2time, hypnogram=self.hypnogram)
+        return self.__class__(new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs)
 
     def select_clusters(self, clusterIDs):
         """Select clusters, and conveniently wrap the result, so that the user doesn't have to."""
         new_obj = self.si_obj.select_units(clusterIDs)
-        return self.__class__(new_obj, self.sample2time, hypnogram=self.hypnogram)
+        return self.__class__(new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs)
 
     def _get_aggregate_train(self, property_column, property_value) -> np.array:
         mask = self.properties[property_column] == property_value
@@ -226,8 +242,28 @@ class SpikeInterfaceKilosortSorting:
             for v in tgt_values
         }
 
-    def plot_interactive_ephyviewer_raster(self, *args, **kwargs):
-        ephyv_raster.plot_interactive_ephyviewer_raster(self, *args, **kwargs)
+    def plot_interactive_ephyviewer_raster(self, tgt_struct_acronyms: list[str] = None, by : str = "depth"):
+
+        app = ephyviewer.mkQApp()
+        win = ephyviewer.MainViewer(debug=True, show_auto_scale=True, global_xsize_zoom=True)
+
+        if self.hypnogram is not None:
+            win = ephyviewerutils.add_hypnogram_to_window(win, self.hypnogram)
+
+        all_structures = self.structs.sort_values(by="lo", ascending=False).acronym.values # Descending depths
+        
+        if tgt_struct_acronyms is None:
+            tgt_struct_acronyms = all_structures
+        else:
+            assert all([s in all_structures for s in tgt_struct_acronyms])
+
+        for tgt_struct_acronym in tgt_struct_acronyms:
+            win = ephyviewerutils.add_spiketrainviewer_to_window(
+                win, self, by=by, tgt_struct_acronym=tgt_struct_acronym, probe=None
+            )
+
+        win.show()
+        app.exec()
 
 
 def fix_isi_violations_ratio(
@@ -306,10 +342,6 @@ def add_cluster_structures(
         Secondary motor cortex	M2	2021.108179419525	6609.023746701847	4587.915567282322
         Out of brain	OOB	1050.9762532981529	7659.999999999999	6609.023746701847
     """
-    if structs is None:
-        extractor.set_property("structure", "NaN")
-        extractor.set_property("acronym", "NaN")
-        return extractor
 
     depths = extractor.get_property("depth")
     structures = np.empty(depths.shape, dtype=object)

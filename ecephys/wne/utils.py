@@ -130,6 +130,11 @@ def load_singleprobe_sorting(
     allow_no_sync_file=True,
 ) -> units.SpikeInterfaceKilosortSorting:
 
+    if sorting is None:
+        sorting = "sorting"
+    if postprocessing is None:
+        postprocessing = "postpro"
+
     # Get function for converting SI samples to imec0 timebase
     if allow_no_sync_file:
         import warnings
@@ -165,11 +170,46 @@ def load_singleprobe_sorting(
         anatomy_file = wneAnatomyProject.get_experiment_subject_file(
             experiment, wneSubject.name, f"{probe}.structures.htsv"
         )
-        assert anatomy_file.exists(), f"Could not find anatomy file at: {anatomy_file}"
+        assert anatomy_file.exists(), (
+            f"Could not find anatomy file at: {anatomy_file}.\n"
+            f"Set `wneAnatomyProject = None` in kwargs to ignore anatomy."
+        )
         structs = utils.read_htsv(anatomy_file)
     else:
         structs = None
 
-    extractor = units.si_ks_sorting.add_cluster_structures(extractor, structs)
+    return units.SpikeInterfaceKilosortSorting(extractor, sample2time, hypnogram=hypnogram, structs=structs)
 
-    return units.SpikeInterfaceKilosortSorting(extractor, sample2time, hypnogram=hypnogram)
+
+def load_multiprobe_sorting(
+    wneSortingProject: Project,
+    wneSubject: sglx.Subject,
+    experiment: str,
+    alias: str,
+    probes: list[str],
+    sortings_by_probe: dict[str, str] = None,
+    postprocessings_by_probe: dict[str, str] = None,
+    wneAnatomyProject: Optional[Project] = None,
+    wneHypnogramProject: Optional[Project] = None,
+    allow_no_sync_file=True,
+) -> units.MultiprobeSorting:
+    
+    if sortings is None:
+        sortings = {prb: None for prb in probes}
+    if postprocessings is None:
+        postprocessings = {prb: None for prb in probes}
+
+    return units.MultiprobeSorting({
+        probe: load_singleprobe_sorting(
+            wneSortingProject,
+            wneSubject,
+            experiment,
+            alias,
+            probe = probe,
+            sorting = sortings_by_probe[probe],
+            postprocessing = postprocessings_by_probe[probe],
+            wneAnatomyProject = wneAnatomyProject,
+            wneHypnogramProject = wneHypnogramProject,
+            allow_no_sync_file=allow_no_sync_file,
+        ) for probe in probes
+    })
