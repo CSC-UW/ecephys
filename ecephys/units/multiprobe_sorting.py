@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from pandas.testing import assert_frame_equal
 
 from ecephys.units import SpikeInterfaceKilosortSorting, ClusterTrains
 
@@ -7,6 +8,13 @@ from ecephys.units import SpikeInterfaceKilosortSorting, ClusterTrains
 class MultiprobeSorting:
     def __init__(self, sortings: dict[str, SpikeInterfaceKilosortSorting]):
         self._sortings = sortings
+        self.hypnogram = self.sortings[self.probes[0]].hypnogram
+        # All singleprobe sorting's hypnogram should be equal
+        for prb in self.probes:
+            if self.hypnogram is None:
+                assert self._sortings[prb].hypnogram is None
+            else:
+                assert_frame_equal(self.hypnogram, self._sortings[prb].hypnogram)
 
     @property
     def sortings(self) -> dict[str, SpikeInterfaceKilosortSorting]:
