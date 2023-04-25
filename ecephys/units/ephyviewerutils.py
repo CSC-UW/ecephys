@@ -51,14 +51,15 @@ def add_spiketrainviewer_to_window(
         tgt_properties = properties[mask]
         lo = sorting.structs.set_index("acronym").loc[tgt_struct_acronym, "lo"]
         hi = sorting.structs.set_index("acronym").loc[tgt_struct_acronym, "hi"]
-        view_name = f"Struct: {tgt_struct_acronym}, {lo}-{hi}um"
+        view_name = f"Structure: {tgt_struct_acronym}, Depths: {lo}-{hi}um"
     else:
         tgt_properties = properties
         lo = sorting.structs.lo.min()
         hi = sorting.structs.hi.max()
         view_name = "Struct: full probe, {lo}-{hi}um"
+    view_name = f"{view_name}, N={len(tgt_properties)} units"
     if probe is not None:
-        view_name += f", probe={probe}"
+        view_name = f"Probe: {probe}, {view_name}"
 
     # Get tgt values for grouping trains within structure
     if by == "depth":
@@ -74,7 +75,7 @@ def add_spiketrainviewer_to_window(
     all_struct_spikes = []
     for tgt_value in tqdm(
         tgt_values,
-        desc=f"Loading spikes for structure(s) `{tgt_properties.acronym.unique()}`"
+        desc=f"Loading spikes for view: `{view_name}`"
     ):
 
         label = f"{by}: {tgt_value}"
