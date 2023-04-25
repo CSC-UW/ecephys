@@ -170,7 +170,10 @@ def load_singleprobe_sorting(
         anatomy_file = wneAnatomyProject.get_experiment_subject_file(
             experiment, wneSubject.name, f"{probe}.structures.htsv"
         )
-        assert anatomy_file.exists(), f"Could not find anatomy file at: {anatomy_file}"
+        assert anatomy_file.exists(), (
+            f"Could not find anatomy file at: {anatomy_file}.\n"
+            f"Set `wneAnatomyProject = None` in kwargs to ignore anatomy."
+        )
         structs = utils.read_htsv(anatomy_file)
     else:
         structs = None

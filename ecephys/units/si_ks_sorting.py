@@ -47,11 +47,17 @@ class SpikeInterfaceKilosortSorting:
             array is saved as `self.structs` attribute.
         """
         self.hypnogram: pd.DataFrame = hypnogram
-        self.structs: pd.DataFrame = structs
-        self.si_obj: se.KiloSortSortingExtractor = add_cluster_structures(
-            si_obj,
-            structs,
-        )
+        self.si_obj: se.KiloSortSortingExtractor = si_obj
+
+        if structs is None:
+            structs = pd.DataFrame([{
+                "structure": "Full probe",
+                "acronym": "All",
+                "lo": self.properties.depth.min(),
+                "hi": self.properties.depth.max(),
+            }])
+        self.structs = structs
+        self.si_obj = add_cluster_structures(self.si_obj, structs)
 
         # If no time mapping function is provided, just provide times according to this probe's sample clock.
         if sample2time is None:
@@ -336,10 +342,6 @@ def add_cluster_structures(
         Secondary motor cortex	M2	2021.108179419525	6609.023746701847	4587.915567282322
         Out of brain	OOB	1050.9762532981529	7659.999999999999	6609.023746701847
     """
-    if structs is None:
-        extractor.set_property("structure", "NaN")
-        extractor.set_property("acronym", "NaN")
-        return extractor
 
     depths = extractor.get_property("depth")
     structures = np.empty(depths.shape, dtype=object)
