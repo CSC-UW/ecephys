@@ -23,6 +23,7 @@ class SpikeInterfaceKilosortSorting:
         si_obj: Union[se.KiloSortSortingExtractor, si.UnitsSelectionSorting],
         sample2time: Optional[Callable] = None,
         hypnogram: Optional[pd.DataFrame] = None,
+        structs: Optional[pd.DataFrame] = None,
     ):
         """
         This class is primarily used to map spike samples from one probe to spike times on another, since the SpikeInterface objects can not do this.
@@ -39,9 +40,17 @@ class SpikeInterfaceKilosortSorting:
             in the same timebase as the sample2time function, and
             `start_frame`, `end_frame` columns for each bout matching 
             the spikeinterface sorting/recording frame ids. 
+        structs: pd.DataFrame
+            Frame with `lo`, `hi`, `span`, `structure`, `acronym` fields.
+            Cluster's structure/acronym assignation are added as properties, and the structure
+            array is saved as `self.structs` attribute.
         """
         self.hypnogram: pd.DataFrame = hypnogram
-        self.si_obj: se.KiloSortSortingExtractor = si_obj
+        self.structs: pd.DataFrame = structs
+        self.si_obj: se.KiloSortSortingExtractor = add_cluster_structures(
+            si_obj,
+            structs,
+        )
 
         # If no time mapping function is provided, just provide times according to this probe's sample clock.
         if sample2time is None:

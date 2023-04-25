@@ -170,6 +170,6 @@ def load_singleprobe_sorting(
     else:
         structs = None
 
-    extractor = units.si_ks_sorting.add_cluster_structures(extractor, structs)
+    return units.SpikeInterfaceKilosortSorting(extractor, sample2time, hypnogram=hypnogram, structs=structs)
 
-    return units.SpikeInterfaceKilosortSorting(extractor, sample2time, hypnogram=hypnogram)
+
