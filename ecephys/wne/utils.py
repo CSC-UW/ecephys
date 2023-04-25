@@ -130,6 +130,11 @@ def load_singleprobe_sorting(
     allow_no_sync_file=True,
 ) -> units.SpikeInterfaceKilosortSorting:
 
+    if sorting is None:
+        sorting = "sorting"
+    if postprocessing is None:
+        postprocessing = "postpro"
+
     # Get function for converting SI samples to imec0 timebase
     if allow_no_sync_file:
         import warnings
