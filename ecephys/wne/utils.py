@@ -18,7 +18,7 @@ def load_hypnogram_for_si_slicing(
     sorting: str,
     precision_s: float = None,
     allow_no_sync_file: bool = False,
-    simplify: bool = True
+    simplify: bool = True,
 ) -> hypnogram.Hypnogram:
     """Return df with `state`, `start_frame`, `end_frame` columns.
 
@@ -56,7 +56,9 @@ def load_hypnogram_for_si_slicing(
         in expmtAcqPrb timebase, and `start_frame`, `end_frame` columns for each
         bout matching the spikeinterface sorting/recording frame ids.
     """
-    raw_hypno = wneHypnoProject.load_hypnogram(experiment, wneSubject.name, simplify=simplify)
+    raw_hypno = wneHypnoProject.load_hypnogram(
+        experiment, wneSubject.name, simplify=simplify
+    )
 
     segments = wneSortingProject.load_segments_table(
         wneSubject,
@@ -97,7 +99,9 @@ def load_hypnogram_for_si_slicing(
             & (decimated_frame_timestamps <= segment_end_time)
         ]
         segment_decimated_frame_states_list.append(
-            raw_hypno.get_states(segment_decimated_frame_timestamps, default_value="Other")
+            raw_hypno.get_states(
+                segment_decimated_frame_timestamps, default_value="Other"
+            )
         )
 
     # (nsamples,) array of states for whole sorting
@@ -108,8 +112,12 @@ def load_hypnogram_for_si_slicing(
 
     # df with start_frame, end_frame columns, in original indices
     frame_hypno = decimated_frame_hypno.copy()
-    frame_hypno["start_frame"] = (decimation_n_samples * decimated_frame_hypno["start_frame"]).clip(upper=total_n_samples)
-    frame_hypno["end_frame"] = (decimation_n_samples * decimated_frame_hypno["end_frame"]).clip(upper=total_n_samples)
+    frame_hypno["start_frame"] = (
+        decimation_n_samples * decimated_frame_hypno["start_frame"]
+    ).clip(upper=total_n_samples)
+    frame_hypno["end_frame"] = (
+        decimation_n_samples * decimated_frame_hypno["end_frame"]
+    ).clip(upper=total_n_samples)
     frame_hypno["start_time"] = sample2time(frame_hypno["start_frame"])
     frame_hypno["end_time"] = sample2time(frame_hypno["end_frame"])
     frame_hypno["duration"] = frame_hypno["end_time"] - frame_hypno["start_time"]
@@ -138,14 +146,27 @@ def load_singleprobe_sorting(
     # Get function for converting SI samples to imec0 timebase
     if allow_no_sync_file:
         import warnings
-        warnings.warn("Maybe loading sample2time without probe-to-probe synchronization, watch out")
+
+        warnings.warn(
+            "Maybe loading sample2time without probe-to-probe synchronization, watch out"
+        )
     sample2time = wneSortingProject.get_sample2time(
-        wneSubject, experiment, alias, probe, sorting, allow_no_sync_file=allow_no_sync_file
+        wneSubject,
+        experiment,
+        alias,
+        probe,
+        sorting,
+        allow_no_sync_file=allow_no_sync_file,
     )
 
     # Load extractor
     extractor = wneSortingProject.get_kilosort_extractor(
-        wneSubject.name, experiment, alias, probe, sorting, postprocessing=postprocessing
+        wneSubject.name,
+        experiment,
+        alias,
+        probe,
+        sorting,
+        postprocessing=postprocessing,
     )
 
     if wneHypnogramProject is not None:
@@ -178,7 +199,9 @@ def load_singleprobe_sorting(
     else:
         structs = None
 
-    return units.SpikeInterfaceKilosortSorting(extractor, sample2time, hypnogram=hypnogram, structs=structs)
+    return units.SpikeInterfaceKilosortSorting(
+        extractor, sample2time, hypnogram=hypnogram, structs=structs
+    )
 
 
 def load_multiprobe_sorting(
@@ -187,29 +210,32 @@ def load_multiprobe_sorting(
     experiment: str,
     alias: str,
     probes: list[str],
-    sortings_by_probe: dict[str, str] = None,
-    postprocessings_by_probe: dict[str, str] = None,
+    sortings: dict[str, str] = None,
+    postprocessings: dict[str, str] = None,
     wneAnatomyProject: Optional[Project] = None,
     wneHypnogramProject: Optional[Project] = None,
     allow_no_sync_file=True,
 ) -> units.MultiprobeSorting:
-    
+
     if sortings is None:
         sortings = {prb: None for prb in probes}
     if postprocessings is None:
         postprocessings = {prb: None for prb in probes}
 
-    return units.MultiprobeSorting({
-        probe: load_singleprobe_sorting(
-            wneSortingProject,
-            wneSubject,
-            experiment,
-            alias,
-            probe = probe,
-            sorting = sortings_by_probe[probe],
-            postprocessing = postprocessings_by_probe[probe],
-            wneAnatomyProject = wneAnatomyProject,
-            wneHypnogramProject = wneHypnogramProject,
-            allow_no_sync_file=allow_no_sync_file,
-        ) for probe in probes
-    })
+    return units.MultiprobeSorting(
+        {
+            probe: load_singleprobe_sorting(
+                wneSortingProject,
+                wneSubject,
+                experiment,
+                alias,
+                probe=probe,
+                sorting=sortings[probe],
+                postprocessing=postprocessings[probe],
+                wneAnatomyProject=wneAnatomyProject,
+                wneHypnogramProject=wneHypnogramProject,
+                allow_no_sync_file=allow_no_sync_file,
+            )
+            for probe in probes
+        }
+    )
