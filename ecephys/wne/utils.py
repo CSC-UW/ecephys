@@ -187,17 +187,17 @@ def load_multiprobe_sorting(
     experiment: str,
     alias: str,
     probes: list[str],
-    sortings: list[str] = None,
-    postprocessings: list[str] = None,
+    sortings_by_probe: dict[str, str] = None,
+    postprocessings_by_probe: dict[str, str] = None,
     wneAnatomyProject: Optional[Project] = None,
     wneHypnogramProject: Optional[Project] = None,
     allow_no_sync_file=True,
 ) -> units.MultiprobeSorting:
     
     if sortings is None:
-        sortings = [None for _ in range(len(probes))]
+        sortings = {prb: None for prb in probes}
     if postprocessings is None:
-        postprocessings = [None for _ in range(len(probes))]
+        postprocessings = {prb: None for prb in probes}
 
     return units.MultiprobeSorting({
         probe: load_singleprobe_sorting(
@@ -206,10 +206,10 @@ def load_multiprobe_sorting(
             experiment,
             alias,
             probe = probe,
-            sorting = sortings[i],
-            postprocessing = postprocessings[i],
+            sorting = sortings_by_probe[probe],
+            postprocessing = postprocessings_by_probe[probe],
             wneAnatomyProject = wneAnatomyProject,
             wneHypnogramProject = wneHypnogramProject,
             allow_no_sync_file=allow_no_sync_file,
-        ) for i, probe in enumerate(probes)
+        ) for probe in probes
     })
