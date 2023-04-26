@@ -16,8 +16,6 @@ from ecephys.utils.misc import kway_sortednp_merge
 logger = logging.getLogger(__name__)
 
 
-
-
 class SpikeInterfaceKilosortSorting:
     def __init__(
         self,
@@ -39,8 +37,8 @@ class SpikeInterfaceKilosortSorting:
         hypnogram:
             Hypnogram with 'start_time', 'end_time', 'duration' columns
             in the same timebase as the sample2time function, and
-            `start_frame`, `end_frame` columns for each bout matching 
-            the spikeinterface sorting/recording frame ids. 
+            `start_frame`, `end_frame` columns for each bout matching
+            the spikeinterface sorting/recording frame ids.
         structs: pd.DataFrame
             Frame with `lo`, `hi`, `span`, `structure`, `acronym` fields.
             Cluster's structure/acronym assignation are added as properties, and the structure
@@ -50,12 +48,16 @@ class SpikeInterfaceKilosortSorting:
         self.si_obj: se.KiloSortSortingExtractor = si_obj
 
         if structs is None:
-            structs = pd.DataFrame([{
-                "structure": "Full probe",
-                "acronym": "All",
-                "lo": self.properties.depth.min(),
-                "hi": self.properties.depth.max(),
-            }])
+            structs = pd.DataFrame(
+                [
+                    {
+                        "structure": "Full probe",
+                        "acronym": "All",
+                        "lo": self.properties.depth.min(),
+                        "hi": self.properties.depth.max(),
+                    }
+                ]
+            )
         self.structs = structs
         self.si_obj = add_cluster_structures(self.si_obj, structs)
 
@@ -203,22 +205,28 @@ class SpikeInterfaceKilosortSorting:
     def refine_clusters(self, filters: dict):
         """Refine clusters, and conveniently wrap the result, so that the user doesn't have to."""
         new_obj = siutils.refine_clusters(self.si_obj, filters)
-        return self.__class__(new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs)
+        return self.__class__(
+            new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs
+        )
 
     def select_clusters(self, clusterIDs):
         """Select clusters, and conveniently wrap the result, so that the user doesn't have to."""
         new_obj = self.si_obj.select_units(clusterIDs)
-        return self.__class__(new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs)
+        return self.__class__(
+            new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs
+        )
 
     def _get_aggregate_train(self, property_column, property_value) -> np.array:
         mask = self.properties[property_column] == property_value
         tgt_clusters = self.properties[mask].cluster_id.values
-        return kway_sortednp_merge([
+        return kway_sortednp_merge(
+            [
                 train
                 for train in self.get_trains_by_cluster_ids(
                     cluster_ids=tgt_clusters
                 ).values()
-        ])
+            ]
+        )
 
     def get_trains_by_cluster_ids(self, cluster_ids=None) -> dict:
         """Get spike trains for a list of clusters (default all)."""
@@ -227,7 +235,7 @@ class SpikeInterfaceKilosortSorting:
         return {
             id: self.sample2time(self.si_obj.get_unit_spike_train(id))
             for id in cluster_ids
-        } # Getting spike trains cluster-by-cluster is MUCH faster than getting them all together.
+        }  # Getting spike trains cluster-by-cluster is MUCH faster than getting them all together.
 
     def get_trains(self, by="cluster_id", tgt_values=None) -> dict:
 
@@ -237,21 +245,24 @@ class SpikeInterfaceKilosortSorting:
         if tgt_values is None:
             tgt_values = self.properties[by].unique()
 
-        return {
-            v: self._get_aggregate_train(by, v)
-            for v in tgt_values
-        }
+        return {v: self._get_aggregate_train(by, v) for v in tgt_values}
 
-    def plot_interactive_ephyviewer_raster(self, tgt_struct_acronyms: list[str] = None, by : str = "depth"):
+    def plot_interactive_ephyviewer_raster(
+        self, tgt_struct_acronyms: list[str] = None, by: str = "depth"
+    ):
 
         app = ephyviewer.mkQApp()
-        win = ephyviewer.MainViewer(debug=True, show_auto_scale=True, global_xsize_zoom=True)
+        win = ephyviewer.MainViewer(
+            debug=True, show_auto_scale=True, global_xsize_zoom=True
+        )
 
         if self.hypnogram is not None:
             win = ephyviewerutils.add_hypnogram_to_window(win, self.hypnogram)
 
-        all_structures = self.structs.sort_values(by="lo", ascending=False).acronym.values # Descending depths
-        
+        all_structures = self.structs.sort_values(
+            by="lo", ascending=False
+        ).acronym.values  # Descending depths
+
         if tgt_struct_acronyms is None:
             tgt_struct_acronyms = all_structures
         else:
@@ -286,10 +297,11 @@ def fix_isi_violations_ratio(
     return extractor
 
 
+# DEPRECATED: Because we should never be using KSLabel.
 def fix_noise_cluster_labels(
     extractor: se.KiloSortSortingExtractor,
 ) -> se.KiloSortSortingExtractor:
-    """KiloSort labels noise clusters at nan, so we relabel as `noise` to match SI behavior."""
+    """Although cluster_KSLabel.tsv never contains nan, when loaded by SpikeInterface, KSLabel can be nan. These are noise clusters, so we relabel as `noise` to match SI behavior."""
     property_keys = extractor.get_property_keys()
     if "KSLabel" in property_keys:
         logger.info(
@@ -301,6 +313,7 @@ def fix_noise_cluster_labels(
     return extractor
 
 
+# DEPRECATED: Because we should never be using KSLabel.
 def fix_uncurated_cluster_labels(
     extractor: se.KiloSortSortingExtractor,
 ) -> se.KiloSortSortingExtractor:
