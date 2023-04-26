@@ -2,6 +2,7 @@ import deepdiff
 from horology import Timing
 import json
 import logging
+import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal
 from pathlib import Path
@@ -15,6 +16,7 @@ import spikeinterface.full as si
 import spikeinterface.postprocessing as sp
 import spikeinterface.qualitymetrics as sq
 import spikeinterface.sorters as ss
+from spikeinterface.qualitymetrics.misc_metrics import compute_amplitude_cutoffs
 
 from .sorting_pipeline import SpikeInterfaceSortingPipeline, get_main_output_dir
 from ..subjects import Subject
@@ -64,6 +66,24 @@ METRICS_COLUMNS_TO_PLOT = [
                         - si_output_<vigilance_state_2>/ # Waveform directory for vigilance_state_2
                         ...
 """
+
+
+# Hacking around Spikeinterface: Load kilosort `amplitudes.npy` file directly
+# to compute amplitude_cutoff metric, since this metric doesn't work
+# With the amplitudes available in SI.
+def _load_kilosort_amplitudes_by_cluster(we, ks_dir):
+
+    # Only for full sorting
+    assert not isinstance(we.sorting, (si.ConcatenateSegmentSorting, si.FrameSliceSorting))
+    assert isinstance(we.sorting, (si.KiloSortSortingExtractor, si.PhySortingExtractor))
+
+    spike_amplitudes = np.load(ks_dir/"amplitudes.npy")
+    spike_unit_ids = np.load(ks_dir/"spike_clusters.npy")
+
+    return [{
+        unit_id: np.atleast_1d(spike_amplitudes[np.where(spike_unit_ids == unit_id)[0]].squeeze())
+        for unit_id in np.unique(spike_unit_ids)
+    }]
 
 
 class SpikeInterfacePostprocessingPipeline:
@@ -294,9 +314,9 @@ class SpikeInterfacePostprocessingPipeline:
     
     def get_opts_by_state(self, state=None):
         if state is None:
-            return self._opts
+            return self._opts.copy()
 
-        return self._opts_by_state
+        return self._opts_by_state.copy()
 
     def load_or_extract_waveform_extractor_by_state(self, state=None, opts=None) -> si.WaveformExtractor:
         """Load a waveform extractor. This may `extract` previously computed and saved waveforms."""
@@ -351,6 +371,28 @@ class SpikeInterfacePostprocessingPipeline:
             raise ValueError(f"Expected 'metrics' entry in postprocessing options: {opts}")
         metrics_opts = opts["metrics"]
 
+        we = self.get_waveform_extractor_by_state(state=state)
+
+        run_amplitude_cutoffs = False
+        if "amplitude_cutoff" in metrics_opts:
+            if state is not None:
+                raise ValueError(
+                    "`amplitude_cutoff` metric is only available for full recording (not by state).\n"
+                    "Please modify postpro opts"
+                )
+            print("Computing amplitude_cutoff metric separately")
+            amplitude_cutoff_opts = metrics_opts.pop("amplitude_cutoff")
+            kilosort_spike_amplitudes = _load_kilosort_amplitudes_by_cluster(
+                we,
+                self._sorting_pipeline.sorter_output_dir
+            )
+            amplitude_cutoff_res = compute_amplitude_cutoffs(
+                we,
+                spike_amplitudes = kilosort_spike_amplitudes,
+                **amplitude_cutoff_opts,
+            )
+            run_amplitude_cutoffs = True
+
         # Set job kwargs for all
         si.set_global_job_kwargs(n_jobs=self._nJobs)
 
@@ -361,12 +403,15 @@ class SpikeInterfacePostprocessingPipeline:
         print("Computing metrics")
         with Timing(name="Compute metrics: "):
             metrics = sq.compute_quality_metrics(
-                self.get_waveform_extractor_by_state(state=state),
+                we,
                 metric_names=metrics_names,
                 qm_params=metrics_opts,
                 progress_bar=True,
                 verbose=True,
             )
+
+        if run_amplitude_cutoffs:
+            metrics["amplitude_cutoff"] = pd.Series(amplitude_cutoff_res)
 
         return metrics
 
