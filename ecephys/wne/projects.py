@@ -379,11 +379,13 @@ class Project:
         # TODO: Rename start_sample -> si_start_sample?
         def sample2time(s):
             s = s.astype("float")
+            t = np.empty(s.size, dtype="float")
+            t[:] = np.nan  # Check a posteriori if we covered all input samples
             for seg in sorted_segments.itertuples():
                 mask = (s >= seg.start_sample) & (
                     s < seg.end_sample
                 )  # Mask samples belonging to this segment
-                s[mask] = (
+                t[mask] = (
                     (s[mask] - seg.start_sample) / seg.imSampRate
                     + seg.expmtPrbAcqFirstTime
                     + seg.start_frame / seg.imSampRate
@@ -392,10 +394,15 @@ class Project:
                     sync_entry = sync_table.loc[
                         seg.fname
                     ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
-                    s[mask] = (
-                        sync_entry.slope * s[mask] + sync_entry.intercept
+                    t[mask] = (
+                        sync_entry.slope * t[mask] + sync_entry.intercept
                     )  # Sync to imec0 (expmtPrbAcq) timebase
-            return s
+            assert not any(np.isnan(t)), (
+                "Some of the provided sample indices were not covered by segments \n"
+                "and therefore couldn't be converted to time"
+            )
+
+            return t
 
         return sample2time
 
