@@ -114,10 +114,10 @@ def load_hypnogram_for_si_slicing(
     frame_hypno = decimated_frame_hypno.copy()
     frame_hypno["start_frame"] = (
         decimation_n_samples * decimated_frame_hypno["start_frame"]
-    ).clip(upper=total_n_samples)
+    ).clip(upper=total_n_samples - 1)
     frame_hypno["end_frame"] = (
         decimation_n_samples * decimated_frame_hypno["end_frame"]
-    ).clip(upper=total_n_samples)
+    ).clip(upper=total_n_samples - 1)
     frame_hypno["start_time"] = sample2time(frame_hypno["start_frame"])
     frame_hypno["end_time"] = sample2time(frame_hypno["end_frame"])
     frame_hypno["duration"] = frame_hypno["end_time"] - frame_hypno["start_time"]
