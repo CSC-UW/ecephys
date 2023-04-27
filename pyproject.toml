@@ -43,7 +43,7 @@ deepdiff = "^6.2.3"
 chardet = "5.1.0"
 ephyviewer = "^1.6.0"
 sortednp = "^0.4.0"
-
+ipython = "^8.12.0"
 
 [tool.poetry.dev-dependencies]
 altair = "^4.2.0"
