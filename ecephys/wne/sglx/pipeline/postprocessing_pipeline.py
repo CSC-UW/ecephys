@@ -501,16 +501,17 @@ class SpikeInterfacePostprocessingPipeline:
         cluster_group = pd.read_csv(
             cluster_group_path, sep="\t"
         )
-        # Add cluster with "unsorted" group if missing
-        for cluster_id in metrics.cluster_id.unique():
-            if cluster_id not in cluster_group.cluster_id:
-                cluster_group.loc[len(cluster_group), ['cluster_id','group']] = cluster_id, "unsorted"
-        
-        return pd.merge(
+        assert set(cluster_group.cluster_id) <= set(metrics.cluster_id)
+
+        metrics_with_group = pd.merge(
             metrics,
             cluster_group,
             on="cluster_id",
+            how="left",  # Some clusters may be missing from cluster_group.tsv
         )
+        metrics_with_group.loc[metrics_with_group["group"].isna(), "group"] = "unsorted"
+
+        return metrics_with_group
 
     def plot_summary(self):
 
