@@ -78,18 +78,18 @@ class MultiprobeSorting:
             trains.update(prb_trains)
         return trains
 
-    def plot_interactive_ephyviewer_raster(self, tgt_struct_acronyms : dict[str, list[str]] = None, by="depth"):
+    def add_ephyviewer_hypnogram_view(self, window):
+        if self.hypnogram is not None:
+            window = ephyviewerutils.add_hypnogram_to_window(window, self.hypnogram)
+        return window
 
-        app = ephyviewer.mkQApp()
-        win = ephyviewer.MainViewer(debug=True, show_auto_scale=True, global_xsize_zoom=True)
-
+    def add_ephyviewer_spiketrain_views(
+        self, window, by: str = "depth", tgt_struct_acronyms: dict[str, list] = None,
+    ):
         if tgt_struct_acronyms is None:
             tgt_struct_acronyms = {
                 prb: None for prb in self.probes
             }
-
-        if self.hypnogram is not None:
-            win = ephyviewerutils.add_hypnogram_to_window(win, self.hypnogram)
 
         for prb in self.probes:
 
@@ -102,9 +102,22 @@ class MultiprobeSorting:
                 assert all([s in all_prb_structures for s in tgt_struct_acronyms])
 
             for tgt_struct_acronym in prb_tgt_struct_acronyms:
-                win = ephyviewerutils.add_spiketrainviewer_to_window(
-                    win, self._sortings[prb], by=by, tgt_struct_acronym=tgt_struct_acronym, probe=prb,
+                window = ephyviewerutils.add_spiketrainviewer_to_window(
+                    window, self._sortings[prb], by=by, tgt_struct_acronym=tgt_struct_acronym, probe=prb,
                 )
+        
+        return window
 
-        win.show()
+    def plot_interactive_ephyviewer_raster(
+        self, by: str = "depth", tgt_struct_acronyms: dict[str, list] = None, 
+    ):
+        app = ephyviewer.mkQApp()
+        window = ephyviewer.MainViewer(
+            debug=True, show_auto_scale=True, global_xsize_zoom=True
+        )
+
+        window = self.add_ephyviewer_hypnogram_view(window)
+        window = self.add_ephyviewer_spiketrain_views(window, by=by, tgt_struct_acronyms=tgt_struct_acronyms)
+
+        window.show()
         app.exec()

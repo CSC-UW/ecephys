@@ -207,11 +207,31 @@ class Project:
             / f"{sorting}.{probe}"
         )
 
-    # TODO: If no sortingName is provided, a sensible default should be obtained from WNE opts, so that you do not have do remember the sorting ID for every animal.
     def get_kilosort_extractor(
         self, subject: str, experiment: str, alias: str, probe: str, sorting: str = "sorting", postprocessing: str = "postpro",
     ) -> se.KiloSortSortingExtractor:
-        """Load the contents of a Kilosort output directory. This takes ~20-25s per 100 clusters."""
+        """Load the contents of a Kilosort output directory. This takes ~20-25s per 100 clusters.
+        
+        We keep only a subset of the properties loaded by si.read_kilosort(), since some of those
+        may contain obsolete metrics, added to the sorting directory and integrated into cluster_info.tsv 
+        to inform curation.
+        We then add as properties all the metrics from the postprocessing directory.
+        """
+
+        PROPERTIES_FROM_SORTING_DIR = [
+            'Amplitude',
+            'ContamPct',
+            'KSLabel',
+            'acronym',
+            'amp',
+            'ch',
+            'depth',
+            'fr',
+            'n_spikes',
+            'quality',
+            'sh',
+            'structure',
+        ]
 
         main_sorting_dir = self.get_main_sorting_dir(
             subject, experiment, alias, probe, sorting
@@ -220,6 +240,11 @@ class Project:
         assert sorter_output_dir.is_dir(), f"Expected Kilosort directory not found: {sorter_output_dir}"
         assert (sorter_output_dir/"spike_times.npy").exists(), f"Expected `spike_times.npy` file in: {sorter_output_dir}"
         extractor = se.read_kilosort(sorter_output_dir, keep_good_only=False)
+
+        # Keep only properties of interest
+        for property in extractor.get_property_keys():
+            if property not in PROPERTIES_FROM_SORTING_DIR:
+                extractor.delete_property(property)
 
         # Load metrics and add as properties
         postprocessing_dir = main_sorting_dir / postprocessing
@@ -237,7 +262,7 @@ class Project:
                 extractor.set_property(key=prop_name, values=metrics[prop_name], ids=metrics["cluster_id"].values)
 
         return extractor
-    
+
     def get_sorting_hypnogram(
         self, subject: str, experiment: str, alias: str, probe: str, sorting: str = "sorting", postprocessing: str = "postpro",
     ):

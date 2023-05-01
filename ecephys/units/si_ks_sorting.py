@@ -247,17 +247,9 @@ class SpikeInterfaceKilosortSorting:
 
         return {v: self._get_aggregate_train(by, v) for v in tgt_values}
 
-    def plot_interactive_ephyviewer_raster(
-        self, tgt_struct_acronyms: list[str] = None, by: str = "depth"
+    def add_ephyviewer_spiketrain_views(
+        self, window, by: str = "depth", tgt_struct_acronyms: list[str] = None,
     ):
-
-        app = ephyviewer.mkQApp()
-        win = ephyviewer.MainViewer(
-            debug=True, show_auto_scale=True, global_xsize_zoom=True
-        )
-
-        if self.hypnogram is not None:
-            win = ephyviewerutils.add_hypnogram_to_window(win, self.hypnogram)
 
         all_structures = self.structs.sort_values(
             by="lo", ascending=False
@@ -269,11 +261,30 @@ class SpikeInterfaceKilosortSorting:
             assert all([s in all_structures for s in tgt_struct_acronyms])
 
         for tgt_struct_acronym in tgt_struct_acronyms:
-            win = ephyviewerutils.add_spiketrainviewer_to_window(
-                win, self, by=by, tgt_struct_acronym=tgt_struct_acronym, probe=None
+            window = ephyviewerutils.add_spiketrainviewer_to_window(
+                window, self, by=by, tgt_struct_acronym=tgt_struct_acronym, probe=None
             )
 
-        win.show()
+        return window
+
+    def add_ephyviewer_hypnogram_view(self, window):
+        if self.hypnogram is not None:
+            window = ephyviewerutils.add_hypnogram_to_window(window, self.hypnogram)
+        return window
+
+    def plot_interactive_ephyviewer_raster(
+        self, by: str = "depth", tgt_struct_acronyms: list[str] = None, 
+    ):
+
+        app = ephyviewer.mkQApp()
+        window = ephyviewer.MainViewer(
+            debug=True, show_auto_scale=True, global_xsize_zoom=True
+        )
+
+        window = self.add_ephyviewer_hypnogram_view(window)
+        window = self.add_ephyviewer_spiketrain_views(window, by=by, tgt_struct_acronyms=tgt_struct_acronyms)
+
+        window.show()
         app.exec()
 
 
