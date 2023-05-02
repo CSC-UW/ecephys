@@ -60,9 +60,9 @@ class MultiprobeSorting:
             props = pd.concat([props, prb_props])
         return props.reset_index(drop=True)
     
-    def refine_clusters(self, filters_by_probe: dict[str, dict]):
+    def refine_clusters(self, filters_by_probe: dict[str, dict], include_nans : bool = True):
         return self.__class__({
-            prb: sorting.refine_clusters(filters_by_probe[prb])
+            prb: sorting.refine_clusters(filters_by_probe[prb], include_nans=include_nans)
             for prb, sorting in self._sortings.items()
         })
 

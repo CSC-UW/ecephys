@@ -202,9 +202,9 @@ class SpikeInterfaceKilosortSorting:
         )
         return ax
 
-    def refine_clusters(self, filters: dict):
+    def refine_clusters(self, filters: dict, include_nans: bool = True):
         """Refine clusters, and conveniently wrap the result, so that the user doesn't have to."""
-        new_obj = siutils.refine_clusters(self.si_obj, filters)
+        new_obj = siutils.refine_clusters(self.si_obj, filters, include_nans=include_nans)
         return self.__class__(
             new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs
         )

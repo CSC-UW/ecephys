@@ -56,7 +56,10 @@ multiprobe_sorting = load_multiprobe_sorting(
     wneAnatomyProject=wneSharedProject,
     wneHypnogramProject=wneSharedProject,
 )
-multiprobe_sorting = multiprobe_sorting.refine_clusters(filters)
+multiprobe_sorting = multiprobe_sorting.refine_clusters(
+    filters,
+    include_nans=True,
+)
 
 multiprobe_sorting.plot_interactive_ephyviewer_raster(
     by=aggregate_spikes_by,
