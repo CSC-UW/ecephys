@@ -216,36 +216,41 @@ class SpikeInterfaceKilosortSorting:
             new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs
         )
 
-    def _get_aggregate_train(self, property_column, property_value) -> np.array:
+    def _get_aggregate_train(self, property_column, property_value, as_sample_indices=False) -> np.array:
         mask = self.properties[property_column] == property_value
         tgt_clusters = self.properties[mask].cluster_id.values
         return kway_sortednp_merge(
             [
                 train
                 for train in self.get_trains_by_cluster_ids(
-                    cluster_ids=tgt_clusters
+                    cluster_ids=tgt_clusters,
+                    as_sample_indices=as_sample_indices,
                 ).values()
             ]
         )
 
-    def get_trains_by_cluster_ids(self, cluster_ids=None) -> dict:
+    def get_trains_by_cluster_ids(self, cluster_ids=None, as_sample_indices=False) -> dict:
         """Get spike trains for a list of clusters (default all)."""
         if cluster_ids is None:
             cluster_ids = self.si_obj.get_unit_ids()
+        if as_sample_indices:
+            func = lambda x: x
+        else:
+            func = self.sample2time
         return {
-            id: self.sample2time(self.si_obj.get_unit_spike_train(id))
+            id: func(self.si_obj.get_unit_spike_train(id))
             for id in cluster_ids
         }  # Getting spike trains cluster-by-cluster is MUCH faster than getting them all together.
 
-    def get_trains(self, by="cluster_id", tgt_values=None) -> dict:
+    def get_trains(self, by="cluster_id", tgt_values=None, as_sample_indices=False) -> dict:
 
         if by == "cluster_id":
-            return self.get_trains_by_cluster_ids(cluster_ids=tgt_values)
+            return self.get_trains_by_cluster_ids(cluster_ids=tgt_values, as_sample_indices=as_sample_indices)
 
         if tgt_values is None:
             tgt_values = self.properties[by].unique()
 
-        return {v: self._get_aggregate_train(by, v) for v in tgt_values}
+        return {v: self._get_aggregate_train(by, v, as_sample_indices=as_sample_indices) for v in tgt_values}
 
     def add_ephyviewer_spiketrain_views(
         self, window, by: str = "depth", tgt_struct_acronyms: list[str] = None,
