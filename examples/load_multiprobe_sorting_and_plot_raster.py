@@ -21,7 +21,7 @@ sharedDataProjectName = "shared_s3"
 
 df_filters = {
     "quality": {"good", "mua"}, # "quality" property is "group" from phy curation. Remove noise
-    "firing_rate": (0.5, float("Inf")),
+    "firing_rate": (0.0, float("Inf")),  # No need when plotting by depth
     # ...
 }
 filters = {
