@@ -47,8 +47,27 @@ class SpikeInterfaceKilosortSorting:
         self.hypnogram: pd.DataFrame = hypnogram
         self.si_obj: se.KiloSortSortingExtractor = si_obj
 
-        if structs is None:
-            structs = pd.DataFrame(
+        self._structs = structs
+        self.si_obj = add_cluster_structures(self.si_obj, self.structs)
+
+        # If no time mapping function is provided, just provide times according to this probe's sample clock.
+        self._sample2time = sample2time
+
+    def __repr__(self):
+        return f"Wrapped {repr(self.si_obj)}"
+
+    @property
+    def sample2time(self):
+        if self._sample2time is None:
+            fs = self.si_obj.get_sampling_frequency()
+            return lambda x: x / fs
+        else:
+            return self._sample2time
+
+    @property
+    def structs(self) -> pd.DataFrame:
+        if self._structs is None:
+            return pd.DataFrame(
                 [
                     {
                         "structure": "Full probe",
@@ -58,18 +77,7 @@ class SpikeInterfaceKilosortSorting:
                     }
                 ]
             )
-        self.structs = structs
-        self.si_obj = add_cluster_structures(self.si_obj, structs)
-
-        # If no time mapping function is provided, just provide times according to this probe's sample clock.
-        if sample2time is None:
-            fs = si_obj.get_sampling_frequency()
-            self.sample2time = lambda x: x / fs
-        else:
-            self.sample2time = sample2time
-
-    def __repr__(self):
-        return f"Wrapped {repr(self.si_obj)}"
+        return self._structs
 
     @property
     def properties(self) -> pd.DataFrame:
@@ -77,6 +85,18 @@ class SpikeInterfaceKilosortSorting:
         df = pd.DataFrame(self.si_obj._properties)
         df["cluster_id"] = self.si_obj.get_unit_ids()
         return df
+
+    @property
+    def has_anatomy(self):
+        return (self._structs is not None)
+
+    @property
+    def has_hypnogram(self):
+        return (self.hypnogram is not None)
+
+    @property
+    def has_sample2time(self):
+        return (self._sample2time is not None)
 
     def plot_property_by_quality(
         self, property: str, ax: Optional[plt.Axes] = None
