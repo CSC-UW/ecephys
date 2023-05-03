@@ -118,15 +118,20 @@ class Hypnogram:
             result[ep[0] : ep[1]] = self.state.iloc[i]
         return result
 
-    def covers_time(self, times) -> np.ndarray:
+    def covers_time(self, times: np.ndarray) -> np.ndarray:
         """Given an array of times, return True where that time is covered by
         the hypnogram."""
-        covered = np.full_like(times, False, dtype="bool")
-        for bout in self.itertuples():
-            times_in_bout = (times >= bout.start_time) & (times <= bout.end_time)
-            covered[times_in_bout] = True
 
-        return covered
+        assert np.all(np.diff(times) >= 0), "The times must be increasing."
+        assert times.ndim == 1
+
+        epoch_idxs = np.searchsorted(
+            times, np.c_[self.start_time.to_numpy(), self.end_time.to_numpy()]
+        )
+        result = np.full_like(times, fill_value=False, dtype="bool")
+        for i, ep in enumerate(epoch_idxs):
+            result[ep[0] : ep[1]] = True
+        return result
 
     def fractional_occupancy(self, ignore_gaps=True):
         """Return a DataFrame with the time spent in each state, as a fraction of
@@ -407,11 +412,13 @@ class FloatHypnogram(Hypnogram):
 
 
 class DatetimeHypnogram(Hypnogram):
-    def as_float(self) -> FloatHypnogram:
+    def as_float(self, t0=0.0) -> FloatHypnogram:
         df = self._df.copy()
         start_datetime = df.start_time.min()
         df["start_time"] = (df.start_time - start_datetime) / pd.to_timedelta("1s")
+        df["start_time"] += t0
         df["end_time"] = (df.end_time - start_datetime) / pd.to_timedelta("1s")
+        df["end_time"] += t0
         df["duration"] = df.duration / pd.to_timedelta("1s")
         return FloatHypnogram(df)
 
