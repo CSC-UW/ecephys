@@ -93,7 +93,8 @@ def add_spiketrainviewer_to_window(
         all_struct_spikes.append({
             'time': sorting.get_trains(
                 by=by,
-                tgt_values=[tgt_value]
+                tgt_values=[tgt_value],
+                verbose=False,
             )[tgt_value],
             'name': label,
         })

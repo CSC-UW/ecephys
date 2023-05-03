@@ -12,6 +12,7 @@ import spikeinterface as si
 import spikeinterface.extractors as se
 from ecephys.units import ephyviewerutils, siutils
 from ecephys.utils.misc import kway_sortednp_merge
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -249,39 +250,61 @@ class SpikeInterfaceKilosortSorting:
                 for train in self.get_trains_by_cluster_ids(
                     cluster_ids=tgt_clusters,
                     as_sample_indices=as_sample_indices,
+                    verbose=False,
                 ).values()
             ]
         )
 
     def get_trains_by_cluster_ids(
-        self, cluster_ids=None, as_sample_indices=False
+        self,
+        cluster_ids=None,
+        as_sample_indices=False,
+        verbose=True,
     ) -> dict:
         """Get spike trains for a list of clusters (default all)."""
         if cluster_ids is None:
             cluster_ids = self.si_obj.get_unit_ids()
+
         if as_sample_indices:
             func = lambda x: x
         else:
             func = self.sample2time
+
+        if verbose:
+            iterator = tqdm(cluster_ids, desc="Loading trains by clusters: ")
+        else:
+            iterator = cluster_ids
+
         return {
-            id: func(self.si_obj.get_unit_spike_train(id)) for id in cluster_ids
+            id: func(self.si_obj.get_unit_spike_train(id)) for id in iterator
         }  # Getting spike trains cluster-by-cluster is MUCH faster than getting them all together.
 
     def get_trains(
-        self, by="cluster_id", tgt_values=None, as_sample_indices=False
+        self,
+        by="cluster_id",
+        tgt_values=None,
+        as_sample_indices=False,
+        verbose=True,
     ) -> dict:
 
         if by == "cluster_id":
             return self.get_trains_by_cluster_ids(
-                cluster_ids=tgt_values, as_sample_indices=as_sample_indices
+                cluster_ids=tgt_values,
+                as_sample_indices=as_sample_indices,
+                verbose=verbose,
             )
 
         if tgt_values is None:
             tgt_values = self.properties[by].unique()
 
+        if verbose:
+            iterator = tqdm(tgt_values, desc="Loading trains by `{by}`: ")
+        else:
+            iterator = tgt_values
+
         return {
             v: self._get_aggregate_train(by, v, as_sample_indices=as_sample_indices)
-            for v in tgt_values
+            for v in iterator
         }
 
     def add_ephyviewer_spiketrain_views(
