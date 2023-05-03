@@ -88,15 +88,15 @@ class SpikeInterfaceKilosortSorting:
 
     @property
     def has_anatomy(self):
-        return (self._structs is not None)
+        return self._structs is not None
 
     @property
     def has_hypnogram(self):
-        return (self.hypnogram is not None)
+        return self.hypnogram is not None
 
     @property
     def has_sample2time(self):
-        return (self._sample2time is not None)
+        return self._sample2time is not None
 
     def plot_property_by_quality(
         self, property: str, ax: Optional[plt.Axes] = None
@@ -224,7 +224,9 @@ class SpikeInterfaceKilosortSorting:
 
     def refine_clusters(self, filters: dict, include_nans: bool = True):
         """Refine clusters, and conveniently wrap the result, so that the user doesn't have to."""
-        new_obj = siutils.refine_clusters(self.si_obj, filters, include_nans=include_nans)
+        new_obj = siutils.refine_clusters(
+            self.si_obj, filters, include_nans=include_nans
+        )
         return self.__class__(
             new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs
         )
@@ -236,7 +238,9 @@ class SpikeInterfaceKilosortSorting:
             new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs
         )
 
-    def _get_aggregate_train(self, property_column, property_value, as_sample_indices=False) -> np.array:
+    def _get_aggregate_train(
+        self, property_column, property_value, as_sample_indices=False
+    ) -> np.array:
         mask = self.properties[property_column] == property_value
         tgt_clusters = self.properties[mask].cluster_id.values
         return kway_sortednp_merge(
@@ -249,7 +253,9 @@ class SpikeInterfaceKilosortSorting:
             ]
         )
 
-    def get_trains_by_cluster_ids(self, cluster_ids=None, as_sample_indices=False) -> dict:
+    def get_trains_by_cluster_ids(
+        self, cluster_ids=None, as_sample_indices=False
+    ) -> dict:
         """Get spike trains for a list of clusters (default all)."""
         if cluster_ids is None:
             cluster_ids = self.si_obj.get_unit_ids()
@@ -258,22 +264,31 @@ class SpikeInterfaceKilosortSorting:
         else:
             func = self.sample2time
         return {
-            id: func(self.si_obj.get_unit_spike_train(id))
-            for id in cluster_ids
+            id: func(self.si_obj.get_unit_spike_train(id)) for id in cluster_ids
         }  # Getting spike trains cluster-by-cluster is MUCH faster than getting them all together.
 
-    def get_trains(self, by="cluster_id", tgt_values=None, as_sample_indices=False) -> dict:
+    def get_trains(
+        self, by="cluster_id", tgt_values=None, as_sample_indices=False
+    ) -> dict:
 
         if by == "cluster_id":
-            return self.get_trains_by_cluster_ids(cluster_ids=tgt_values, as_sample_indices=as_sample_indices)
+            return self.get_trains_by_cluster_ids(
+                cluster_ids=tgt_values, as_sample_indices=as_sample_indices
+            )
 
         if tgt_values is None:
             tgt_values = self.properties[by].unique()
 
-        return {v: self._get_aggregate_train(by, v, as_sample_indices=as_sample_indices) for v in tgt_values}
+        return {
+            v: self._get_aggregate_train(by, v, as_sample_indices=as_sample_indices)
+            for v in tgt_values
+        }
 
     def add_ephyviewer_spiketrain_views(
-        self, window, by: str = "depth", tgt_struct_acronyms: list[str] = None,
+        self,
+        window,
+        by: str = "depth",
+        tgt_struct_acronyms: list[str] = None,
     ):
 
         all_structures = self.structs.sort_values(
@@ -298,7 +313,9 @@ class SpikeInterfaceKilosortSorting:
         return window
 
     def plot_interactive_ephyviewer_raster(
-        self, by: str = "depth", tgt_struct_acronyms: list[str] = None, 
+        self,
+        by: str = "depth",
+        tgt_struct_acronyms: list[str] = None,
     ):
 
         app = ephyviewer.mkQApp()
@@ -307,7 +324,9 @@ class SpikeInterfaceKilosortSorting:
         )
 
         window = self.add_ephyviewer_hypnogram_view(window)
-        window = self.add_ephyviewer_spiketrain_views(window, by=by, tgt_struct_acronyms=tgt_struct_acronyms)
+        window = self.add_ephyviewer_spiketrain_views(
+            window, by=by, tgt_struct_acronyms=tgt_struct_acronyms
+        )
 
         window.show()
         app.exec()
