@@ -41,9 +41,15 @@ def add_hypnogram_to_window(window: ephyviewer.MainViewer, hypnogram: pd.DataFra
 
 def add_spiketrainviewer_to_window(
         window: ephyviewer.MainViewer, sorting, by="cluster_id", tgt_struct_acronym=None, probe=None,
+        view_params=None,
     ):
 
     properties = sorting.properties
+
+    if view_params is None:
+        view_params = {
+            "display_labels": False
+        }
     
     # Structure-wide information
     if tgt_struct_acronym is not None:
@@ -94,6 +100,9 @@ def add_spiketrainviewer_to_window(
 
     source = ephyviewer.InMemorySpikeSource(all_spikes=all_struct_spikes)
     view = ephyviewer.SpikeTrainViewer(source=source, name=view_name)
+
+    for p, v in view_params.items():
+        view.params[p] = v
 
     window.add_view(view, location="bottom", orientation="vertical")
 

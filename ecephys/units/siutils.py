@@ -89,7 +89,7 @@ def add_structures_to_extractor(extractor, structs) -> se.KiloSortSortingExtract
     return extractor
 
 
-def refine_clusters(si_obj, filters=None):
+def refine_clusters(si_obj, filters=None, include_nans=True):
     """Subselect clusters based on filters.
 
     Parameters:
@@ -102,6 +102,11 @@ def refine_clusters(si_obj, filters=None):
         Sets specify allowable values for categorical properties.
         For example, {"n_spikes": (2, np.Inf)} will load only clusters with 2 or more spikes.
         For example, {"quality": {"good", "mua"}} will load only clusters marked as such after curation and QMs.
+    include_nans: bool, default True
+        For several properties/metrics (including the cluster "group"/"quality" possibly set during curation),
+        the value of the property may be np.NaN for some clusters. If True, we include those clusters (effectively
+        filtering based on a property only when this property has a valid value)
+
 
     Returns:
     ========
@@ -110,13 +115,13 @@ def refine_clusters(si_obj, filters=None):
     Notes:
     ======
     SpikeInterface renames the 'group' columns in cluster_info.tsv to 'quality'.
-    Tom previously created an 'unsorted' category of 'quality', which is now 'NaN' (or whatever the default is)
     """
     if filters is None:
         filters = {}
 
     keep = np.ones_like(si_obj.get_unit_ids())
     for property, filter in filters.items():
+        values = si_obj.get_property(property)
         if not property in si_obj.get_property_keys():
             logger.warning(
                 f"Cluster property {property} not found. Unable to filter clusters based on {property}."
@@ -124,19 +129,22 @@ def refine_clusters(si_obj, filters=None):
             continue
         if isinstance(filter, tuple):
             lo, hi = filter
-            values = si_obj.get_property(property)
+            assert types.is_numeric_dtype(
+                np.array(filter)
+            ), f"Expected a numeric dtype for values in tuple: `{filter}`. Specify values of interest as a set (rather than tuple) for non-numerical properties."
             assert types.is_numeric_dtype(
                 values.dtype
             ), f"Cannot select a range of values for cluster property {property} with dtype {values.dtype}. Expected a numeric dtype."
             mask = np.logical_and(values >= lo, values <= hi)
-            keep = keep & mask
         elif isinstance(filter, set):
-            mask = np.isin(si_obj.get_property(property), list(filter))
-            keep = keep & mask
+            mask = np.isin(values, list(filter))
         else:
             raise ValueError(
                 f"Cluster property {property} was provided as type {type(filter)}. Expected a tuple for selecting a range of numerical values, or a set for selecting categorical variables."
             )
+        if include_nans:
+            mask = pd.isna(values) | mask
+        keep = keep & mask
         print(f"{property}: {filter} excludes {mask.size - mask.sum()} clusters.")
 
     print(

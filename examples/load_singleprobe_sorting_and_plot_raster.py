@@ -14,7 +14,7 @@ sharedDataProjectName = "shared_s3"
 
 filters = {
     "quality": {"good", "mua"}, # "quality" property is "group" from phy curation. Remove noise
-    "firing_rate": (0.5, float("Inf")),
+    "firing_rate": (0.0, float("Inf")),  # No need when plotting by depth
     # ...
 }
 
@@ -44,7 +44,10 @@ si_ks_sorting = load_singleprobe_sorting(
     wneAnatomyProject=wneSharedProject,
     wneHypnogramProject=wneSharedProject,
 )
-si_ks_sorting = si_ks_sorting.refine_clusters(filters)
+si_ks_sorting = si_ks_sorting.refine_clusters(
+    filters,
+    include_nans=True,
+)
 
 si_ks_sorting.plot_interactive_ephyviewer_raster(
     by=aggregate_spikes_by,
