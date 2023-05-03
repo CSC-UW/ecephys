@@ -1,4 +1,5 @@
 # TODO: Convert times to canonical timebase BEFORE saving
+# TODO: Handle dropping of duplicate timestamps across files?
 
 import logging
 import neurodsp

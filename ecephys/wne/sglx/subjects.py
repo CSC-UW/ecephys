@@ -10,8 +10,9 @@ import spikeinterface as si
 import spikeinterface.extractors as se
 
 from . import sessions, experiments
-from ecephys.sglx import file_mgmt
+from ecephys import hypnogram as hg
 from ecephys import utils
+from ecephys.sglx import file_mgmt
 
 logger = logging.getLogger(__name__)
 
@@ -377,3 +378,23 @@ def segment_experiment_frame_for_spikeinterface(
     stab["segmentDuration"] = stab["nSegmentSamp"].div(stab["imSampRate"])
 
     return stab
+
+
+def float_hypnogram_to_datetime(
+    subj: Subject, experiment: str, hyp: hg.FloatHypnogram, hyp_prb: str
+) -> hg.DatetimeHypnogram:
+    df = hyp._df.copy()
+    df["start_time"] = subj.t2dt(experiment, hyp_prb, df["start_time"])
+    df["end_time"] = subj.t2dt(experiment, hyp_prb, df["end_time"])
+    df["duration"] = df["end_time"] - df["start_time"]
+    return hg.DatetimeHypnogram(df)
+
+
+def datetime_hypnogram_to_float(
+    subj: Subject, experiment: str, hyp: hg.DatetimeHypnogram, hyp_prb: str
+) -> hg.FloatHypnogram:
+    df = hyp._df.copy()
+    df["start_time"] = subj.dt2t(experiment, hyp_prb, df["start_time"])
+    df["end_time"] = subj.dt2t(experiment, hyp_prb, df["end_time"])
+    df["duration"] = df["end_time"] - df["start_time"]
+    return hg.FloatHypnogram(df)

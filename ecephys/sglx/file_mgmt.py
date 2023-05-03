@@ -332,7 +332,7 @@ def replace_ftype(path, extension, remove_probe=False, remove_stream=False):
     """
     run, gate, trigger, probe, stream, ftype = parse_sglx_fname(path.name)
 
-    name = path.with_suffix(extension).name
+    name = path.with_suffix(f"{extension}").name
     name = name.replace(f".{probe}", "") if remove_probe else name
     name = name.replace(f".{stream}", "") if remove_stream else name
 

@@ -31,23 +31,16 @@ from pathlib import Path
 from typing import Callable, Optional, Union
 
 import numpy as np
-# Tom's notes:
-# Experiments + aliases assumed, sessions not?
-# Only projects.yaml is required to resolve paths?
-# You could name a project the same thing as an experiment
-# You could name a project "Common" or "Scoring" or "Sorting"
 import pandas as pd
+import spikeinterface.extractors as se
 import yaml
 
-import spikeinterface.extractors as se
 from ecephys import hypnogram
-from ecephys.units.si_ks_sorting import SpikeInterfaceKilosortSorting
-
-from .. import sglx as ece_sglx
-from .. import sharptrack, sync, units
-from .. import utils as ece_utils
-from . import constants
-from .sglx import sessions
+import ecephys.sglx
+from ecephys import sharptrack
+from ecephys import sync
+import ecephys.utils
+from ecephys import wne
 
 Pathlike = Union[Path, str]
 
@@ -170,14 +163,16 @@ class Project:
         --------
         list of pathlib.Path
         """
-        counterparts = sessions.mirror_raw_data_paths(
+        counterparts = wne.sglx.mirror_raw_data_paths(
             self.get_subject_directory(subject), paths
         )  # Mirror paths at the project's subject directory
         counterparts = [
-            ece_sglx.file_mgmt.replace_ftype(p, extension, remove_probe, remove_stream)
+            ecephys.sglx.file_mgmt.replace_ftype(
+                p, extension, remove_probe, remove_stream
+            )
             for p in counterparts
         ]
-        return ece_utils.remove_duplicates(counterparts)
+        return ecephys.utils.remove_duplicates(counterparts)
 
     def load_experiment_subject_json(
         self, experiment: str, subject: str, fname: str
@@ -195,7 +190,7 @@ class Project:
 
     def get_all_probes(self, subject: str, experiment: str) -> list[str]:
         opts = self.load_experiment_subject_json(
-            experiment, subject, constants.EXP_PARAMS_FNAME
+            experiment, subject, wne.EXP_PARAMS_FNAME
         )
         return list(opts["probes"].keys())
 
@@ -208,37 +203,47 @@ class Project:
         )
 
     def get_kilosort_extractor(
-        self, subject: str, experiment: str, alias: str, probe: str, sorting: str = "sorting", postprocessing: str = "postpro",
+        self,
+        subject: str,
+        experiment: str,
+        alias: str,
+        probe: str,
+        sorting: str = "sorting",
+        postprocessing: str = "postpro",
     ) -> se.KiloSortSortingExtractor:
         """Load the contents of a Kilosort output directory. This takes ~20-25s per 100 clusters.
-        
+
         We keep only a subset of the properties loaded by si.read_kilosort(), since some of those
-        may contain obsolete metrics, added to the sorting directory and integrated into cluster_info.tsv 
+        may contain obsolete metrics, added to the sorting directory and integrated into cluster_info.tsv
         to inform curation.
         We then add as properties all the metrics from the postprocessing directory.
         """
 
         PROPERTIES_FROM_SORTING_DIR = [
-            'Amplitude',
-            'ContamPct',
-            'KSLabel',
-            'acronym',
-            'amp',
-            'ch',
-            'depth',
-            'fr',
-            'n_spikes',
-            'quality',
-            'sh',
-            'structure',
+            "Amplitude",
+            "ContamPct",
+            "KSLabel",
+            "acronym",
+            "amp",
+            "ch",
+            "depth",
+            "fr",
+            "n_spikes",
+            "quality",
+            "sh",
+            "structure",
         ]
 
         main_sorting_dir = self.get_main_sorting_dir(
             subject, experiment, alias, probe, sorting
         )
         sorter_output_dir = main_sorting_dir / "si_output/sorter_output"
-        assert sorter_output_dir.is_dir(), f"Expected Kilosort directory not found: {sorter_output_dir}"
-        assert (sorter_output_dir/"spike_times.npy").exists(), f"Expected `spike_times.npy` file in: {sorter_output_dir}"
+        assert (
+            sorter_output_dir.is_dir()
+        ), f"Expected Kilosort directory not found: {sorter_output_dir}"
+        assert (
+            sorter_output_dir / "spike_times.npy"
+        ).exists(), f"Expected `spike_times.npy` file in: {sorter_output_dir}"
         extractor = se.read_kilosort(sorter_output_dir, keep_good_only=False)
 
         # Keep only properties of interest
@@ -250,21 +255,36 @@ class Project:
         postprocessing_dir = main_sorting_dir / postprocessing
         if not postprocessing_dir.is_dir():
             import warnings
-            warnings.warn(f"Could not find postprocessing dir. Ignoring metrics: {postprocessing_dir}")
+
+            warnings.warn(
+                f"Could not find postprocessing dir. Ignoring metrics: {postprocessing_dir}"
+            )
         else:
             metrics_path = postprocessing_dir / "metrics.csv"
-            assert metrics_path.exists(), f"Expected `metrics.csv` file in: {postprocessing_dir}"
+            assert (
+                metrics_path.exists()
+            ), f"Expected `metrics.csv` file in: {postprocessing_dir}"
 
             metrics = pd.read_csv(metrics_path)
             assert all([c in metrics.columns] for c in "cluster_id")
 
             for prop_name in metrics.columns:
-                extractor.set_property(key=prop_name, values=metrics[prop_name], ids=metrics["cluster_id"].values)
+                extractor.set_property(
+                    key=prop_name,
+                    values=metrics[prop_name],
+                    ids=metrics["cluster_id"].values,
+                )
 
         return extractor
 
     def get_sorting_hypnogram(
-        self, subject: str, experiment: str, alias: str, probe: str, sorting: str = "sorting", postprocessing: str = "postpro",
+        self,
+        subject: str,
+        experiment: str,
+        alias: str,
+        probe: str,
+        sorting: str = "sorting",
+        postprocessing: str = "postpro",
     ):
         main_sorting_dir = self.get_main_sorting_dir(
             subject, experiment, alias, probe, sorting
@@ -274,10 +294,11 @@ class Project:
 
         if not hyp_path.exists():
             import warnings
+
             warnings.warn(f"No `hypnogram.htsv` file in postpro dir. Returning None")
             return None
 
-        return ece_utils.read_htsv(hyp_path)
+        return ecephys.utils.read_htsv(hyp_path)
 
     def get_sharptrack(
         self, subject: str, experiment: str, probe: str
@@ -288,12 +309,12 @@ class Project:
         filename.mat is then to be found in the same location as experiment_params.json (i.e.e the experiment-subject directory)
         """
         opts = self.load_experiment_subject_json(
-            experiment, subject, constants.EXP_PARAMS_FNAME
+            experiment, subject, wne.EXP_PARAMS_FNAME
         )
         fname = opts["probes"][probe]["SHARP-Track"]
         file = self.get_experiment_subject_file(experiment, subject, fname)
         return sharptrack.SHARPTrack(file)
-    
+
     def load_segments_table(
         self,
         wneSubject,
@@ -304,7 +325,7 @@ class Project:
         return_all_segment_types=False,
     ):
         """Load a sorting's segment file.
-        
+
         Add a couple useful columns: `nSegmentSamp`, `segmentDuration`, `segmentExpmtPrbAcqFirstTime`, `segmentExpmtPrbAcqLastTime`
         """
         segment_file = (
@@ -313,20 +334,20 @@ class Project:
             / "segments.htsv"
         )
         if not segment_file.exists():
-            raise FileNotFoundError(
-                f"Segment table not found at {segment_file}."
-            )
+            raise FileNotFoundError(f"Segment table not found at {segment_file}.")
 
-        segments = ece_utils.read_htsv(
-            segment_file
-        )
+        segments = ecephys.utils.read_htsv(segment_file)
 
         segments["nSegmentSamp"] = segments["end_frame"] - segments["start_frame"]
-        segments["segmentDuration"] = segments["nSegmentSamp"].div(segments["imSampRate"])
-        segments["segmentExpmtPrbAcqFirstTime"] = segments["expmtPrbAcqFirstTime"] + \
-            segments["start_frame"].div(segments["imSampRate"])
-        segments["segmentExpmtPrbAcqLastTime"] = segments["segmentExpmtPrbAcqFirstTime"] + \
-            segments["segmentDuration"]
+        segments["segmentDuration"] = segments["nSegmentSamp"].div(
+            segments["imSampRate"]
+        )
+        segments["segmentExpmtPrbAcqFirstTime"] = segments[
+            "expmtPrbAcqFirstTime"
+        ] + segments["start_frame"].div(segments["imSampRate"])
+        segments["segmentExpmtPrbAcqLastTime"] = (
+            segments["segmentExpmtPrbAcqFirstTime"] + segments["segmentDuration"]
+        )
 
         if return_all_segment_types:
             return segments
@@ -361,7 +382,7 @@ class Project:
                 logger.info(f"Could not find sync table at {probe_sync_file}.")
                 return None
         else:
-            sync_table = ece_utils.read_htsv(
+            sync_table = ecephys.utils.read_htsv(
                 probe_sync_file
             )  # Used to map this probe's times to imec0.
 
@@ -472,13 +493,15 @@ class Project:
         return sync.remap_times(times, model)
 
     def load_hypnogram(
-        self, experiment: str, subject: str, simplify: bool = True
+        self,
+        experiment: str,
+        subject: str,
+        simplify: bool = True,
     ) -> hypnogram.Hypnogram:
-        f = self.get_experiment_subject_file(experiment, subject, constants.HYPNOGRAM_FNAME)
+        f = self.get_experiment_subject_file(experiment, subject, wne.HYPNOGRAM_FNAME)
         hyp = hypnogram.FloatHypnogram.from_htsv(f)
         if simplify:
-            hyp = hyp.replace_states(constants.SIMPLIFIED_STATES)
-
+            hyp = hyp.replace_states(wne.SIMPLIFIED_STATES)
         return hyp
 
 
