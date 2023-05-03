@@ -173,10 +173,6 @@ def load_singleprobe_sorting(
         hypnogram = wneHypnogramProject.load_hypnogram(
             experiment, wneSubject.name, simplify=True
         )._df
-    elif postprocessing is not None:
-        hypnogram = wneSortingProject.get_sorting_hypnogram(
-            wneSubject.name, experiment, alias, probe, sorting, postprocessing
-        )
     else:
         hypnogram = None
 
