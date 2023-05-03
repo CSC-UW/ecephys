@@ -8,6 +8,7 @@ import sortednp, heapq
 
 _console = Console()
 
+
 def warn(msg):
     _console.print(f"Warning: {msg}", style="bright_yellow")
 
@@ -51,6 +52,24 @@ def replace_outliers(x, n_mad=6, fill_value=np.nan):
     mad = median_abs_deviation(x)
     threshold = np.median(x) + n_mad * mad
     x[x > threshold] = fill_value
+    return x
+
+
+def clip_outliers(x, method="mad", n_devs=6):
+    if method == "mad":
+        center = np.median(x)
+        dev = median_abs_deviation(x)
+    elif method == "std":
+        center = np.mean(x)
+        dev = np.std(x)
+    else:
+        raise ValueError(f"Unrecognized method: {dev}")
+
+    hi = center + n_devs * dev
+    lo = center - n_devs * dev
+
+    x[x > hi] = hi
+    x[x < lo] = lo
     return x
 
 
@@ -110,10 +129,6 @@ def item_intersection(l):
     return reduce(lambda x, y: dict(x.items() & y.items()), l)
 
 
-
-
-
-
 # -------------------- Array utilities --------------------
 
 # Get rid of this
@@ -124,6 +139,7 @@ def nrows(x):
 # Get rid of this
 def ncols(x):
     return x.shape[1]
+
 
 # https://medium.com/@amitrajit_bose/merge-k-sorted-arrays-6f9427661e67
 def kway_sortednp_merge(arrays):
@@ -144,9 +160,7 @@ def kway_sortednp_merge(arrays):
         val, list_ind, element_ind = heapq.heappop(heap)
         final_list.append(val)
         if element_ind + 1 < len(lists[list_ind]):
-            next_tuple = (lists[list_ind][element_ind + 1],
-                          list_ind,
-                          element_ind + 1)
+            next_tuple = (lists[list_ind][element_ind + 1], list_ind, element_ind + 1)
             heapq.heappush(heap, next_tuple)
     return np.array(final_list)
 
