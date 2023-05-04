@@ -55,7 +55,7 @@ def add_experiment_times(ftab: pd.DataFrame) -> pd.DataFrame:
         )
         # Combine the (super-precise) timestamps WITHIN each acquisition segment, with the (less precise)* offsets BETWEEN acquisitions segments.
         # *(These offsets have to be estimated using file creation times). Tests indicate that these are precise to within a few msec.)
-        # TODO: One wonders if we should do this at all, since it is imprecise up to msecs.
+        # TODO: Add expmtPrbAcqFirstSample and expmtPrbAcqLastSample fields?
         for acq, seg in zip(acqs, segs):
             segAcquisitionDatetime = seg["prbRecDatetime"] - pd.to_timedelta(
                 seg["firstTime"], "s"

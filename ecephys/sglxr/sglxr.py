@@ -111,6 +111,7 @@ def _to_seconds_from_file_start(x, meta, **kwargs):
     raise ValueError(f"Could not convert {x} to time.")
 
 
+# TODO: Also return a `sample` coord on the time dimension
 def load_trigger(
     bin_path, channels=None, start_time=0, end_time=np.Inf, t0=0.0, dt0="fileCreateTime"
 ):

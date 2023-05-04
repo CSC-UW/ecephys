@@ -252,8 +252,42 @@ class Timeseries2D(Timeseries):
             plt.title(f"First {plotDur}s of filtered signal")
         return self.__class__(da)
 
-    def stft(self, **kwargs):
-        Sfs, stft_times, Sxx = ecephys.signal.stft(self.values.T, self.fs, **kwargs)
+    def stft(self, gap_tolerance=0.001, **kwargs):
+        """Perform STFT, works on discontinuous segments of data that have been concatenated together.
+
+        Parameters:
+        -----------
+        gap_tolerance: float
+            Segments are defined by gaps in the data longer than this value, in milliseconds
+        """
+        dt = np.diff(self.time.values)
+        assert np.all(dt >= 0), "The times must be increasing."
+        jumps = dt > ((1 / self.fs) + gap_tolerance)
+        jump_ixs = np.where(jumps)[0]  # The jumps are between ix and ix + 1
+        segments = np.insert(jump_ixs + 1, 0, 0)
+        segments = np.append(segments, self.time.size + 1)
+        segments = [(i, j) for i, j in zip(segments[:-1], segments[1:])]
+
+        segment_sizes = [self.time.values[i:j].size for i, j in segments]
+        assert (
+            np.sum(segment_sizes) == self.time.values.size
+        ), "Every sample in the data must be accounted for."
+        return xr.concat(
+            [
+                self.__class__(self.isel(time=slice(i, j)))._stft(**kwargs)
+                for i, j in segments
+            ],
+            dim="time",
+        )
+
+    def _stft(self, **kwargs):
+        """Only works for continuous segments of evenly-sample data."""
+        assert np.all(
+            np.diff(self["time"].values) >= 0
+        ), "The times must be increasing."
+        Sfs, stft_times, Sxx = ecephys.signal.stft(
+            self.values.T, self.fs, t0=float(self["time"][0]), **kwargs
+        )
         return xr.DataArray(
             Sxx,
             dims=(self._sigdim, "frequency", "time"),

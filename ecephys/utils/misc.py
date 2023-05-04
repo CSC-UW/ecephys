@@ -1,11 +1,15 @@
-import numpy as np
-import itertools as it
-from scipy.stats import median_abs_deviation
 from collections.abc import Iterable
 from functools import reduce
-from rich.console import Console
-import sortednp, heapq
+import itertools as it
+import logging
 
+import heapq
+import numpy as np
+from rich.console import Console
+from scipy.stats import median_abs_deviation
+import sortednp
+
+logger = logging.getLogger(__name__)
 _console = Console()
 
 
@@ -403,3 +407,39 @@ def get_interval_complements(intervals, start_time, end_time):
         complement.append((l, r))
 
     return complement
+
+
+# -------------------- Miscellaneous --------------------
+
+
+def hotfix_times(times: np.ndarray) -> bool:
+    """Given an array of times that should be increasingly monotonically, find decreases and force the offending timestamps to no-change.
+    This is horribly inefficient. If you actually expect lots of hotfixes, do better."""
+    cum_n_lzd = 0
+    n_lzd = -1
+    n_iters = 0
+    while n_lzd != 0:
+        diffs = np.diff(times)
+        # Find zero diffs, generally NOT an issue
+        zd = diffs == 0
+        n_zd = zd.sum()
+        if n_zd > 0:
+            logger.debug(f"Found {n_zd} zero diffs in timestamps on pass {n_iters}.")
+        # Find less-than-zero diffs, generally YES an issue
+        lzd = diffs < 0
+        n_lzd = lzd.sum()
+        cum_n_lzd += n_lzd
+        if n_lzd > 0:
+            logger.debug(
+                f"Found {n_lzd} less-than-zero diffs in timestamps on pass {n_iters}. Hotfixing..."
+            )
+            lzd_ixs = np.where(lzd)[0]
+            # Problematic were between times[lzd_ixs] and times[lzd_ixs + 1]
+            times[lzd_ixs] = times[lzd_ixs + 1]  # Turn these into zero diffs
+        n_iters += 1
+
+    if cum_n_lzd > 0:
+        logger.warning(
+            f"Hotfixed {cum_n_lzd} less-than-zero diffs in timestamps over {n_iters + 1} passes."
+        )
+    return cum_n_lzd

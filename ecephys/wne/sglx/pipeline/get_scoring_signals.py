@@ -13,7 +13,7 @@ from ecephys import wne
 logger = logging.getLogger(__name__)
 
 
-def resample(sig: xr.DataArray, target_fs: int) -> tuple(np.ndarray, np.ndarray):
+def resample(sig: xr.DataArray, target_fs: int) -> tuple[np.ndarray, np.ndarray]:
     f = interp.interp1d(sig.time, sig.T, kind="cubic")
     new_times = np.arange(sig.time.min(), sig.time.max(), 1 / target_fs)
     new_data = f(new_times)
@@ -39,6 +39,8 @@ def prepare_lfp(lfp: xr.DataArray, target_fs: int) -> xr.DataArray:
     lfp = lfp.drop_duplicates(dim="time", keep="first")  # Takes ~40s for 48h
     t, data = resample(lfp, target_fs)  # Takes ~5m for 48h
     data = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0)
+    for i in range(data.shape[0]):
+        data[i] = utils.clip_outliers(data[i], method="mad", n_devs=24)
     lbls = [f"LF{ch}" for ch in lfp.channel.values]
     return xr.DataArray(
         data,
@@ -52,7 +54,7 @@ def prepare_emg(emg: xr.DataArray, target_fs: int) -> xr.DataArray:
     emg = emg.drop_duplicates(dim="time", keep="first")
     t, data = resample(emg, target_fs)
     data = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0)
-    data = utils.clip_outliers(data)
+    data = utils.clip_outliers(data, method="mad", n_devs=6)
     assert data.ndim == 1, "Expected exactly one dEMG"
     lbls = ["dEMG"]
     return xr.DataArray(
@@ -110,7 +112,7 @@ def do_experiment(
     lfp_file = proj.get_experiment_subject_file(
         experiment, subj.name, f"{probe}.lf.zarr"
     )
-    lfp = xr.open_dataarray(lfp_file)
+    lfp = xr.open_dataarray(lfp_file, engine="zarr")
     lfp = lfp.sel(channel=lfp_chans)
 
     target_fs = int(wne.VISBRAIN_FS)
