@@ -313,20 +313,33 @@ class SpikeInterfaceKilosortSorting:
         window,
         by: str = "depth",
         tgt_struct_acronyms: list[str] = None,
+        group_by_structure: bool = True,
     ):
 
-        all_structures = self.structs.sort_values(
-            by="lo", ascending=False
-        ).acronym.values  # Descending depths
+        if group_by_structure:
 
-        if tgt_struct_acronyms is None:
-            tgt_struct_acronyms = all_structures
+            all_structures = self.structs.sort_values(
+                by="lo", ascending=False
+            ).acronym.values  # Descending depths
+
+            if tgt_struct_acronyms is None:
+                tgt_struct_acronyms = all_structures
+            else:
+                assert all([s in all_structures for s in tgt_struct_acronyms])
+
+            for tgt_struct_acronym in tgt_struct_acronyms:
+                window = ephyviewerutils.add_spiketrainviewer_to_window(
+                    window,
+                    self,
+                    by=by,
+                    tgt_struct_acronym=tgt_struct_acronym,
+                    probe=None,
+                )
+
         else:
-            assert all([s in all_structures for s in tgt_struct_acronyms])
-
-        for tgt_struct_acronym in tgt_struct_acronyms:
+            # Full probe
             window = ephyviewerutils.add_spiketrainviewer_to_window(
-                window, self, by=by, tgt_struct_acronym=tgt_struct_acronym, probe=None
+                window, self, by=by, tgt_struct_acronym=None, probe=None
             )
 
         return window
