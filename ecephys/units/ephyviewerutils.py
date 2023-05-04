@@ -8,6 +8,41 @@ import matplotlib.colors
 DEPTH_STEP = 20
 
 
+def add_traceviewer_to_window(
+    window: ephyviewer.MainViewer,
+    sigs: np.array,
+    sample_rate: float,
+    t_start: float,
+    channel_names: np.array,
+    view_name: str = "Traces",
+    view_params: dict = None,
+):
+    """Add traceviewer
+
+    Parameters:
+    window: ephyviewer.MainWindow
+    sigs: np.array
+        (nchans x nsamples)
+    sample_rate
+    t_start
+    """
+    source = ephyviewer.InMemoryAnalogSignalSource(
+        np.transpose(sigs), sample_rate, t_start, channel_names=channel_names
+    )
+
+    view = ephyviewer.TraceViewer(source=source, name=view_name)
+
+    if view_params is None:
+        view_params = {}
+    for p, v in view_params.items():
+        print(p, v)
+        view.params[p] = v
+
+    window.add_view(view, location="bottom")
+
+    return window
+
+
 def add_epochviewer_to_window(
     window: ephyviewer.MainViewer,
     events_df: pd.DataFrame,
