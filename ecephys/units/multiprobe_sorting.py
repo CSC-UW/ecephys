@@ -1,10 +1,11 @@
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal
-import ephyviewer
-from ecephys.units import ephyviewerutils
 
-from ecephys.units import SpikeInterfaceKilosortSorting, ClusterTrains
+import ecephys
+import ephyviewer
+from ecephys.units import (ClusterTrains, SpikeInterfaceKilosortSorting,
+                           ephyviewerutils)
 
 
 class MultiprobeSorting:
@@ -80,7 +81,12 @@ class MultiprobeSorting:
 
     def add_ephyviewer_hypnogram_view(self, window):
         if self.hypnogram is not None:
-            window = ephyviewerutils.add_hypnogram_to_window(window, self.hypnogram)
+            window = ephyviewerutils.add_epochviewer_to_window(
+                window,
+                self.hypnogram,
+                view_name="Hypnogram",
+                state_colors=ecephys.plot.state_colors,
+            )
         return window
 
     def add_ephyviewer_spiketrain_views(

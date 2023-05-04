@@ -12,6 +12,7 @@ import spikeinterface as si
 import spikeinterface.extractors as se
 from ecephys.units import ephyviewerutils, siutils
 from ecephys.utils.misc import kway_sortednp_merge
+import ecephys
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
@@ -332,7 +333,12 @@ class SpikeInterfaceKilosortSorting:
 
     def add_ephyviewer_hypnogram_view(self, window):
         if self.hypnogram is not None:
-            window = ephyviewerutils.add_hypnogram_to_window(window, self.hypnogram)
+            window = ephyviewerutils.add_epochviewer_to_window(
+                window,
+                self.hypnogram,
+                view_name="Hypnogram",
+                state_colors=ecephys.plot.state_colors,
+            )
         return window
 
     def plot_interactive_ephyviewer_raster(

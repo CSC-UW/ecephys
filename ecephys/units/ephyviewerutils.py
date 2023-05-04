@@ -1,7 +1,6 @@
 import ephyviewer
 from tqdm import tqdm
 import numpy as np
-from ecephys.plot import state_colors
 import pandas as pd
 import matplotlib.colors
 
@@ -9,32 +8,45 @@ import matplotlib.colors
 DEPTH_STEP = 20
 
 
-def add_hypnogram_to_window(window: ephyviewer.MainViewer, hypnogram: pd.DataFrame):
+def add_epochviewer_to_window(
+    window: ephyviewer.MainViewer, events_df: pd.DataFrame, view_name="Events", state_colors=None,
+    add_event_list=True,
+):
+    """Add epoch/event view from frame of bouts.
+    
+    Parameters:
+    window: ephyviewer.MainViewer
+    event_df: pd.DataFrame
+        Frame with "start_time", "state", "duration" columns
+    """
+    assert all([c in events_df.columns for c in ["start_time", "state", "duration"]])
 
-    all_states = hypnogram.state.unique()
+    all_states = events_df["state"].unique()
     all_epochs = []
 
     for state in all_states:
-        mask = hypnogram["state"] == state
+        mask = events_df["state"] == state
         all_epochs.append({
             "name": state,
             "label": np.array([state for _ in range(mask.sum())]),
-            "time": hypnogram[mask].start_time.values,
-            "duration": hypnogram[mask].duration.values,
+            "time": events_df[mask]["start_time"].values,
+            "duration": events_df[mask]["duration"].values,
         })
 
     source_epochs = ephyviewer.InMemoryEpochSource(all_epochs=all_epochs)
-    view = ephyviewer.EpochViewer(source=source_epochs, name='Hypnogram')
+    view = ephyviewer.EpochViewer(source=source_epochs, name=view_name)
 
-    # Set usual Hypnogram colors
-    for i, state in enumerate(all_states):
-        view.by_channel_params[f"ch{i}", 'color'] = matplotlib.colors.rgb2hex(state_colors[state])
+    # Set usual colors
+    if state_colors:
+        for i, state in enumerate(all_states):
+            view.by_channel_params[f"ch{i}", 'color'] = matplotlib.colors.rgb2hex(state_colors[state])
 
     window.add_view(view, location="bottom", orientation="vertical")
 
-    # Add event list for navigation
-    view = ephyviewer.EventList(source=source_epochs, name='event')
-    window.add_view(view, location='bottom',  orientation='horizontal')
+    if add_event_list:
+        # Add event list for navigation
+        view = ephyviewer.EventList(source=source_epochs, name=f"{view_name} list")
+        window.add_view(view, location='bottom',  orientation='horizontal')
 
     return window
 
