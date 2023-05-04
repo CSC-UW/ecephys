@@ -74,7 +74,7 @@ def add_spiketrainviewer_to_window(
         tgt_properties = properties
         lo = sorting.structs.lo.min()
         hi = sorting.structs.hi.max()
-        view_name = "Struct: full probe, {lo}-{hi}um"
+        view_name = f"Struct: full probe, {lo}-{hi}um"
     view_name = f"{view_name}, N={len(tgt_properties)} units"
     if probe is not None:
         view_name = f"Probe: {probe}, {view_name}"
