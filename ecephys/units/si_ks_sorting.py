@@ -15,6 +15,13 @@ from ecephys.utils.misc import kway_sortednp_merge
 import ecephys
 from tqdm import tqdm
 
+try:
+    import on_off_detection
+except ImportError:
+    _has_on_off_detection = False
+else:
+    _has_on_off_detection = True
+
 logger = logging.getLogger(__name__)
 
 
@@ -372,6 +379,150 @@ class SpikeInterfaceKilosortSorting:
 
         window.show()
         app.exec()
+
+    def run_off_detection(
+        self,
+        tgt_states=None,
+        on_off_method="hmmem",
+        on_off_params=None,
+        spatial_detection=False,
+        spatial_params=None,
+        split_by_structure=False,
+        tgt_structure_acronyms=None,
+        n_jobs=10,
+    ):
+        """Run global/local OFF detection.
+
+        Parameters:
+        ===========
+        tgt_states: list[str]
+            List of hypnogram states that are cut and concatenated.  "NoData"
+            epochs are excluded. Epochs not fully comprised within recording
+            start/end are
+            excluded.
+        on_off_method: str
+            Method for OFF detection (default "hmmem")
+        on_off_params: str
+            Params for OFF detection
+        spatial_detection: bool
+            If True, perform spatial OFF detection
+            (on_off_detection.SpatialOffModel). Otherwise, perform global OFF
+            detection (on_off_detection.OnOffModel).  If False, `spatial_params`
+            are ignored. (default False)
+        spatial_params: dict
+            Params for spatial aggregation of OFF periods. Must be None if
+            `spatial_detection` is False.  split_by_structure: bool If True, off
+            (spatial) detection is performed separately for all target
+            structures. (default False)
+        tgt_structure_acronyms: list[str]
+            List of structure acronyms for which (spatial/global) OFF detection
+            is performed. If `split_by_structure` is False, a single pass of
+            (global/spatial) off detection is performed, for all structures at
+            once. By default, all structures are included.
+        n_jobs: int
+            Parallelize across windows. Spatial off detection only.
+        
+        Return:
+        =======
+        pd.DataFrame:
+            Off period frame with "state" (all "off"), "start_time", "end_time", "duration" columns,
+            and possibly "window_depths", ... columns for spatial Off detection
+        """
+
+        if not _has_on_off_detection:
+            raise ImportError(
+                "Please install `on_off_detection` package from https://github.com/csc-uw/on_off_detection"
+            )
+        if not self.has_hypnogram:
+            raise ValueError(
+                "A hypnogram is required for off detection (to exclude 'NoData' epochs)."
+            )
+        if not spatial_detection:
+            assert (
+                spatial_params is None
+            ), f"Set `spatial_params=None` if `spatial_detection` is False."
+
+        print(
+            f"Running ON/OFF detection. Cutting/concatenating the following hypnogram states: {tgt_states}"
+        )
+
+        # Get trains from structures of interest
+        all_structure_acronyms = [s for s in self.structs.acronym.unique()]
+        if tgt_structure_acronyms is None:
+            tgt_structure_acronyms = all_structure_acronyms
+        assert all([s in all_structure_acronyms for s in tgt_structure_acronyms]), (
+            f"Invalid value in `tgt_structure_acronyms={tgt_structure_acronyms}`. "
+            f"Available structures: {all_structure_acronyms}"
+        )
+        properties = self.properties[
+            self.properties.acronym.isin(tgt_structure_acronyms)
+        ]
+        all_trains = self.get_trains_by_cluster_ids(
+            cluster_ids=properties.cluster_id.values, verbose=True
+        )
+
+        # Get requested subset of epochs and check they have actual spiking activity
+        # Remove "NoData"
+        all_allowed_states = [s for s in self.hypnogram.state.unique() if s != "NoData"]
+        if tgt_states is None:
+            tgt_states = all_allowed_states
+        assert all(
+            [s in all_allowed_states for s in tgt_states]
+        ), f"Invalid value in `tgt_states={tgt_states}`. Available states: {all_allowed_states}"
+        mask = self.hypnogram.state.isin(tgt_states)
+        # Remove epochs starting/ending before/after start/end of recording (avoid spurious OFF)
+        first_spike_t = min([min(t) for t in all_trains.values()])
+        last_spike_t = max([max(t) for t in all_trains.values()])
+        mask = (
+            mask
+            & (self.hypnogram["start_time"] >= first_spike_t)
+            & (self.hypnogram["end_time"] <= last_spike_t)
+        )
+        hypnogram = self.hypnogram[mask]
+
+        # Iterate on structures of interest
+        if split_by_structure:
+            structures_to_aggregate = [[s] for s in tgt_structure_acronyms]
+        else:
+            structures_to_aggregate = [tgt_structure_acronyms]
+        all_structures_dfs = []
+        for structures in structures_to_aggregate:
+            print(
+                f"Running ON/OFF detection for all units in the following structures: {structures}"
+            )
+            tgt_properties = properties[properties.acronym.isin(structures)]
+            tgt_trains = [
+                all_trains[row.cluster_id] for row in tgt_properties.itertuples()
+            ]
+            tgt_cluster_ids = [row.cluster_id for row in tgt_properties.itertuples()]
+            tgt_depths = [row.depth for row in tgt_properties.itertuples()]
+
+            if not spatial_detection:
+                df = on_off_detection.OnOffModel(
+                    tgt_trains,
+                    None,
+                    cluster_ids=tgt_cluster_ids,
+                    method=on_off_method,
+                    params=on_off_params,
+                    bouts_df=hypnogram,
+                ).run()
+            else:
+                df = on_off_detection.SpatialOffModel(
+                    tgt_trains,
+                    tgt_depths,
+                    None,
+                    cluster_ids=tgt_cluster_ids,
+                    on_off_method=on_off_method,
+                    on_off_params=on_off_params,
+                    spatial_params=spatial_params,
+                    bouts_df=hypnogram,
+                    n_jobs=n_jobs,
+                ).run()
+            df["structures"] = [structures] * len(df)
+
+            all_structures_dfs.append(df[df["state"] == "off"])
+
+        return pd.concat(all_structures_dfs).reset_index(drop=True)
 
 
 def fix_isi_violations_ratio(
