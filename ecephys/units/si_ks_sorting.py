@@ -12,6 +12,15 @@ import spikeinterface as si
 import spikeinterface.extractors as se
 from ecephys.units import ephyviewerutils, siutils
 from ecephys.utils.misc import kway_sortednp_merge
+import ecephys
+from tqdm import tqdm
+
+try:
+    import on_off_detection
+except ImportError:
+    _has_on_off_detection = False
+else:
+    _has_on_off_detection = True
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +56,27 @@ class SpikeInterfaceKilosortSorting:
         self.hypnogram: pd.DataFrame = hypnogram
         self.si_obj: se.KiloSortSortingExtractor = si_obj
 
-        if structs is None:
-            structs = pd.DataFrame(
+        self._structs = structs
+        self.si_obj = add_cluster_structures(self.si_obj, self.structs)
+
+        # If no time mapping function is provided, just provide times according to this probe's sample clock.
+        self._sample2time = sample2time
+
+    def __repr__(self):
+        return f"Wrapped {repr(self.si_obj)}"
+
+    @property
+    def sample2time(self):
+        if self._sample2time is None:
+            fs = self.si_obj.get_sampling_frequency()
+            return lambda x: x / fs
+        else:
+            return self._sample2time
+
+    @property
+    def structs(self) -> pd.DataFrame:
+        if self._structs is None:
+            return pd.DataFrame(
                 [
                     {
                         "structure": "Full probe",
@@ -58,18 +86,7 @@ class SpikeInterfaceKilosortSorting:
                     }
                 ]
             )
-        self.structs = structs
-        self.si_obj = add_cluster_structures(self.si_obj, structs)
-
-        # If no time mapping function is provided, just provide times according to this probe's sample clock.
-        if sample2time is None:
-            fs = si_obj.get_sampling_frequency()
-            self.sample2time = lambda x: x / fs
-        else:
-            self.sample2time = sample2time
-
-    def __repr__(self):
-        return f"Wrapped {repr(self.si_obj)}"
+        return self._structs
 
     @property
     def properties(self) -> pd.DataFrame:
@@ -77,6 +94,18 @@ class SpikeInterfaceKilosortSorting:
         df = pd.DataFrame(self.si_obj._properties)
         df["cluster_id"] = self.si_obj.get_unit_ids()
         return df
+
+    @property
+    def has_anatomy(self):
+        return self._structs is not None
+
+    @property
+    def has_hypnogram(self):
+        return self.hypnogram is not None
+
+    @property
+    def has_sample2time(self):
+        return self._sample2time is not None
 
     def plot_property_by_quality(
         self, property: str, ax: Optional[plt.Axes] = None
@@ -204,7 +233,9 @@ class SpikeInterfaceKilosortSorting:
 
     def refine_clusters(self, filters: dict, include_nans: bool = True):
         """Refine clusters, and conveniently wrap the result, so that the user doesn't have to."""
-        new_obj = siutils.refine_clusters(self.si_obj, filters, include_nans=include_nans)
+        new_obj = siutils.refine_clusters(
+            self.si_obj, filters, include_nans=include_nans
+        )
         return self.__class__(
             new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs
         )
@@ -216,7 +247,9 @@ class SpikeInterfaceKilosortSorting:
             new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs
         )
 
-    def _get_aggregate_train(self, property_column, property_value, as_sample_indices=False) -> np.array:
+    def _get_aggregate_train(
+        self, property_column, property_value, as_sample_indices=False
+    ) -> np.array:
         mask = self.properties[property_column] == property_value
         tgt_clusters = self.properties[mask].cluster_id.values
         return kway_sortednp_merge(
@@ -225,60 +258,113 @@ class SpikeInterfaceKilosortSorting:
                 for train in self.get_trains_by_cluster_ids(
                     cluster_ids=tgt_clusters,
                     as_sample_indices=as_sample_indices,
+                    verbose=False,
                 ).values()
             ]
         )
 
-    def get_trains_by_cluster_ids(self, cluster_ids=None, as_sample_indices=False) -> dict:
+    def get_trains_by_cluster_ids(
+        self,
+        cluster_ids=None,
+        as_sample_indices=False,
+        verbose=True,
+    ) -> dict:
         """Get spike trains for a list of clusters (default all)."""
         if cluster_ids is None:
             cluster_ids = self.si_obj.get_unit_ids()
+
         if as_sample_indices:
             func = lambda x: x
         else:
             func = self.sample2time
+
+        if verbose:
+            iterator = tqdm(cluster_ids, desc="Loading trains by clusters: ")
+        else:
+            iterator = cluster_ids
+
         return {
-            id: func(self.si_obj.get_unit_spike_train(id))
-            for id in cluster_ids
+            id: func(self.si_obj.get_unit_spike_train(id)) for id in iterator
         }  # Getting spike trains cluster-by-cluster is MUCH faster than getting them all together.
 
-    def get_trains(self, by="cluster_id", tgt_values=None, as_sample_indices=False) -> dict:
+    def get_trains(
+        self,
+        by="cluster_id",
+        tgt_values=None,
+        as_sample_indices=False,
+        verbose=True,
+    ) -> dict:
 
         if by == "cluster_id":
-            return self.get_trains_by_cluster_ids(cluster_ids=tgt_values, as_sample_indices=as_sample_indices)
+            return self.get_trains_by_cluster_ids(
+                cluster_ids=tgt_values,
+                as_sample_indices=as_sample_indices,
+                verbose=verbose,
+            )
 
         if tgt_values is None:
             tgt_values = self.properties[by].unique()
 
-        return {v: self._get_aggregate_train(by, v, as_sample_indices=as_sample_indices) for v in tgt_values}
+        if verbose:
+            iterator = tqdm(tgt_values, desc="Loading trains by `{by}`: ")
+        else:
+            iterator = tgt_values
+
+        return {
+            v: self._get_aggregate_train(by, v, as_sample_indices=as_sample_indices)
+            for v in iterator
+        }
 
     def add_ephyviewer_spiketrain_views(
-        self, window, by: str = "depth", tgt_struct_acronyms: list[str] = None,
+        self,
+        window,
+        by: str = "depth",
+        tgt_struct_acronyms: list[str] = None,
+        group_by_structure: bool = True,
     ):
 
-        all_structures = self.structs.sort_values(
-            by="lo", ascending=False
-        ).acronym.values  # Descending depths
+        if group_by_structure:
 
-        if tgt_struct_acronyms is None:
-            tgt_struct_acronyms = all_structures
+            all_structures = self.structs.sort_values(
+                by="lo", ascending=False
+            ).acronym.values  # Descending depths
+
+            if tgt_struct_acronyms is None:
+                tgt_struct_acronyms = all_structures
+            else:
+                assert all([s in all_structures for s in tgt_struct_acronyms])
+
+            for tgt_struct_acronym in tgt_struct_acronyms:
+                window = ephyviewerutils.add_spiketrainviewer_to_window(
+                    window,
+                    self,
+                    by=by,
+                    tgt_struct_acronym=tgt_struct_acronym,
+                    probe=None,
+                )
+
         else:
-            assert all([s in all_structures for s in tgt_struct_acronyms])
-
-        for tgt_struct_acronym in tgt_struct_acronyms:
+            # Full probe
             window = ephyviewerutils.add_spiketrainviewer_to_window(
-                window, self, by=by, tgt_struct_acronym=tgt_struct_acronym, probe=None
+                window, self, by=by, tgt_struct_acronym=None, probe=None
             )
 
         return window
 
     def add_ephyviewer_hypnogram_view(self, window):
         if self.hypnogram is not None:
-            window = ephyviewerutils.add_hypnogram_to_window(window, self.hypnogram)
+            window = ephyviewerutils.add_epochviewer_to_window(
+                window,
+                self.hypnogram,
+                view_name="Hypnogram",
+                state_colors=ecephys.plot.state_colors,
+            )
         return window
 
     def plot_interactive_ephyviewer_raster(
-        self, by: str = "depth", tgt_struct_acronyms: list[str] = None, 
+        self,
+        by: str = "depth",
+        tgt_struct_acronyms: list[str] = None,
     ):
 
         app = ephyviewer.mkQApp()
@@ -287,10 +373,156 @@ class SpikeInterfaceKilosortSorting:
         )
 
         window = self.add_ephyviewer_hypnogram_view(window)
-        window = self.add_ephyviewer_spiketrain_views(window, by=by, tgt_struct_acronyms=tgt_struct_acronyms)
+        window = self.add_ephyviewer_spiketrain_views(
+            window, by=by, tgt_struct_acronyms=tgt_struct_acronyms
+        )
 
         window.show()
         app.exec()
+
+    def run_off_detection(
+        self,
+        tgt_states=None,
+        on_off_method="hmmem",
+        on_off_params=None,
+        spatial_detection=False,
+        spatial_params=None,
+        split_by_structure=False,
+        tgt_structure_acronyms=None,
+        n_jobs=10,
+    ):
+        """Run global/local OFF detection.
+
+        Parameters:
+        ===========
+        tgt_states: list[str]
+            List of hypnogram states that are cut and concatenated.  "NoData"
+            epochs are excluded. Epochs not fully comprised within recording
+            start/end are
+            excluded.
+        on_off_method: str
+            Method for OFF detection (default "hmmem")
+        on_off_params: str
+            Params for OFF detection
+        spatial_detection: bool
+            If True, perform spatial OFF detection
+            (on_off_detection.SpatialOffModel). Otherwise, perform global OFF
+            detection (on_off_detection.OnOffModel).  If False, `spatial_params`
+            are ignored. (default False)
+        spatial_params: dict
+            Params for spatial aggregation of OFF periods. Must be None if
+            `spatial_detection` is False.  split_by_structure: bool If True, off
+            (spatial) detection is performed separately for all target
+            structures. (default False)
+        tgt_structure_acronyms: list[str]
+            List of structure acronyms for which (spatial/global) OFF detection
+            is performed. If `split_by_structure` is False, a single pass of
+            (global/spatial) off detection is performed, for all structures at
+            once. By default, all structures are included.
+        n_jobs: int
+            Parallelize across windows. Spatial off detection only.
+        
+        Return:
+        =======
+        pd.DataFrame:
+            Off period frame with "state" (all "off"), "start_time", "end_time", "duration" columns,
+            and possibly "window_depths", ... columns for spatial Off detection
+        """
+
+        if not _has_on_off_detection:
+            raise ImportError(
+                "Please install `on_off_detection` package from https://github.com/csc-uw/on_off_detection"
+            )
+        if not self.has_hypnogram:
+            raise ValueError(
+                "A hypnogram is required for off detection (to exclude 'NoData' epochs)."
+            )
+        if not spatial_detection:
+            assert (
+                spatial_params is None
+            ), f"Set `spatial_params=None` if `spatial_detection` is False."
+
+        print(
+            f"Running ON/OFF detection. Cutting/concatenating the following hypnogram states: {tgt_states}"
+        )
+
+        # Get trains from structures of interest
+        all_structure_acronyms = [s for s in self.structs.acronym.unique()]
+        if tgt_structure_acronyms is None:
+            tgt_structure_acronyms = all_structure_acronyms
+        assert all([s in all_structure_acronyms for s in tgt_structure_acronyms]), (
+            f"Invalid value in `tgt_structure_acronyms={tgt_structure_acronyms}`. "
+            f"Available structures: {all_structure_acronyms}"
+        )
+        properties = self.properties[
+            self.properties.acronym.isin(tgt_structure_acronyms)
+        ]
+        all_trains = self.get_trains_by_cluster_ids(
+            cluster_ids=properties.cluster_id.values, verbose=True
+        )
+
+        # Get requested subset of epochs and check they have actual spiking activity
+        # Remove "NoData"
+        all_allowed_states = [s for s in self.hypnogram.state.unique() if s != "NoData"]
+        if tgt_states is None:
+            tgt_states = all_allowed_states
+        assert all(
+            [s in all_allowed_states for s in tgt_states]
+        ), f"Invalid value in `tgt_states={tgt_states}`. Available states: {all_allowed_states}"
+        mask = self.hypnogram.state.isin(tgt_states)
+        # Remove epochs starting/ending before/after start/end of recording (avoid spurious OFF)
+        first_spike_t = min([min(t) for t in all_trains.values()])
+        last_spike_t = max([max(t) for t in all_trains.values()])
+        mask = (
+            mask
+            & (self.hypnogram["start_time"] >= first_spike_t)
+            & (self.hypnogram["end_time"] <= last_spike_t)
+        )
+        hypnogram = self.hypnogram[mask]
+
+        # Iterate on structures of interest
+        if split_by_structure:
+            structures_to_aggregate = [[s] for s in tgt_structure_acronyms]
+        else:
+            structures_to_aggregate = [tgt_structure_acronyms]
+        all_structures_dfs = []
+        for structures in structures_to_aggregate:
+            print(
+                f"Running ON/OFF detection for all units in the following structures: {structures}"
+            )
+            tgt_properties = properties[properties.acronym.isin(structures)]
+            tgt_trains = [
+                all_trains[row.cluster_id] for row in tgt_properties.itertuples()
+            ]
+            tgt_cluster_ids = [row.cluster_id for row in tgt_properties.itertuples()]
+            tgt_depths = [row.depth for row in tgt_properties.itertuples()]
+
+            if not spatial_detection:
+                df = on_off_detection.OnOffModel(
+                    tgt_trains,
+                    None,
+                    cluster_ids=tgt_cluster_ids,
+                    method=on_off_method,
+                    params=on_off_params,
+                    bouts_df=hypnogram,
+                ).run()
+            else:
+                df = on_off_detection.SpatialOffModel(
+                    tgt_trains,
+                    tgt_depths,
+                    None,
+                    cluster_ids=tgt_cluster_ids,
+                    on_off_method=on_off_method,
+                    on_off_params=on_off_params,
+                    spatial_params=spatial_params,
+                    bouts_df=hypnogram,
+                    n_jobs=n_jobs,
+                ).run()
+            df["structures"] = [structures] * len(df)
+
+            all_structures_dfs.append(df[df["state"] == "off"])
+
+        return pd.concat(all_structures_dfs).reset_index(drop=True)
 
 
 def fix_isi_violations_ratio(

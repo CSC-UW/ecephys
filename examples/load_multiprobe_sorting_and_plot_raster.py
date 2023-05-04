@@ -1,5 +1,4 @@
 import wisc_ecephys_tools as wet
-from ecephys import wne
 from ecephys.wne.utils import load_multiprobe_sorting
 
 # Data
@@ -36,14 +35,9 @@ tgt_struct_acronyms = {
 
 ### END USER
 
-subjectsDir = wet.get_subjects_directory()
-projectsFile = wet.get_projects_file()
-
-subjLib = wne.sglx.SubjectLibrary(subjectsDir)
-projLib = wne.ProjectLibrary(projectsFile)
-wneSubject = subjLib.get_subject(subjectName)
-wneSortingProject = projLib.get_project(sortingProjectName)
-wneSharedProject = projLib.get_project(sharedDataProjectName)
+wneSubject = wet.get_wne_subject(subjectName)
+wneSortingProject = wet.get_wne_project(sortingProjectName)
+wneSharedProject = wet.get_wne_project(sharedDataProjectName)
 
 multiprobe_sorting = load_multiprobe_sorting(
     wneSortingProject,
