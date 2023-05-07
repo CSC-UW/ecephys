@@ -118,21 +118,6 @@ class Hypnogram:
             result[ep[0] : ep[1]] = self.state.iloc[i]
         return result
 
-    def covers_time(self, times: np.ndarray) -> np.ndarray:
-        """Given an array of times, return True where that time is covered by
-        the hypnogram."""
-
-        assert np.all(np.diff(times) >= 0), "The times must be increasing."
-        assert times.ndim == 1
-
-        epoch_idxs = np.searchsorted(
-            times, np.c_[self.start_time.to_numpy(), self.end_time.to_numpy()]
-        )
-        result = np.full_like(times, fill_value=False, dtype="bool")
-        for i, ep in enumerate(epoch_idxs):
-            result[ep[0] : ep[1]] = True
-        return result
-
     def fractional_occupancy(self, ignore_gaps=True):
         """Return a DataFrame with the time spent in each state, as a fraction of
         the total time covered by the hypnogram.
@@ -287,6 +272,21 @@ class FloatHypnogram(Hypnogram):
 
         keep = (self.start_time >= start_time) & (self.end_time <= end_time)
         return self.__class__(self._df[keep])
+
+    def covers_time(self, times: np.ndarray[float]) -> np.ndarray[bool]:
+        """Given an array of times, return True where that time is covered by
+        the hypnogram."""
+
+        assert np.all(np.diff(times) >= 0), "The times must be increasing."
+        assert times.ndim == 1
+
+        epoch_idxs = np.searchsorted(
+            times, np.c_[self.start_time.to_numpy(), self.end_time.to_numpy()]
+        )
+        result = np.full_like(times, fill_value=False, dtype="bool")
+        for i, ep in enumerate(epoch_idxs):
+            result[ep[0] : ep[1]] = True
+        return result
 
     def get_consolidated(
         self,
@@ -516,6 +516,23 @@ class DatetimeHypnogram(Hypnogram):
         """
         return self.__class__(self.loc[self.duration > pd.to_timedelta(duration)])
 
+    def covers_time(self, times: np.ndarray[np.datetime64]) -> np.ndarray[bool]:
+        """Given an array of times, return True where that time is covered by
+        the hypnogram."""
+
+        assert np.all(
+            np.diff(times) >= np.timedelta64(0)
+        ), "The times must be increasing."
+        assert times.ndim == 1
+
+        epoch_idxs = np.searchsorted(
+            times, np.c_[self.start_time.to_numpy(), self.end_time.to_numpy()]
+        )
+        result = np.full_like(times, fill_value=False, dtype="bool")
+        for i, ep in enumerate(epoch_idxs):
+            result[ep[0] : ep[1]] = True
+        return result
+
     def get_consolidated(
         self,
         states,
@@ -739,7 +756,8 @@ def trim_overlap(df: pd.DataFrame) -> pd.DataFrame:
 
     Works by finding sets of bouts such that each bout in a set overlaps with at least one other bout in that set.
     For example, in {(0, 2), (1, 4}, (3, 5)}, (0, 2) and (3, 5) do not directly overlap, but both share overlap with (1, 4).
-    Once a set is found, take the longest bout within that set, trim others to fit it, repeat with the next longest bout, and so on."""
+    Once a set is found, take the longest bout within that set, trim others to fit it, repeat with the next longest bout, and so on.
+    """
     if not {"state", "start_time", "end_time", "duration"}.issubset(df):
         raise AttributeError(
             "Required columns `state`, `start_time`, `end_time`, and `duration` are not present."
