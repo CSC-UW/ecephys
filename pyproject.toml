@@ -8,19 +8,19 @@ description = "\"Python tools for extracellular electrophysiology\""
 authors = ["Graham Findlay <gfindlay@wisc.edu>"]
 
 [tool.poetry.dependencies]
-# Type annotations of the form list[tuple] require Python >=3.9. Numba and llvmlite currently require Python <3.11.
-python = "~3.10"
+# Type annotations of the form list[tuple] require Python >=3.9.
+python = "~3.11"
 black = "^22.6.0"
 scipy = "^1.8.1"
 numpy = "^1.18"
 pandas = "^1.5.0"
-xarray = {extras = ["io"], version = "^2023.04.2"}
+xarray = {extras = ["complete"], version = "^2023.04.2"}
 scikit-learn = "^1.1.1"
 statsmodels = "^0.13.2"
 mat73 = "^0.59"
 matplotlib = "3.5.1"
 PyYAML = "^6.0"
-seaborn = "^0"
+seaborn = "^0.12.2"
 colorcet = "^3.0.0"
 ipykernel = "^6.15.1"
 ipywidgets = "^7.7.1"
@@ -31,19 +31,19 @@ ripple-detection = "^1.1.0"
 # spikeinterface = {path = "../spikeinterface", develop = true}
 # spikeinterface = {git = "https://github.com/CSC-UW/spikeinterface.git", rev = "wisc/dev"}
 kcsd = {git = "https://github.com/Neuroinflab/kCSD-python.git", rev = "master"}
-ibllib = "^2.13.3"
+ibllib = "^2.13.6"
 ssqueezepy = "^0.6.3"
 pyfftw = "^0.13.0"
 pyEDFlib = "^0.1.30"
 horology = "^1.2.0"
 docopt = "^0.6.2"
-netcdf4 = "^1.6.2"
 isort = "^5.11.4"
 deepdiff = "^6.2.3"
 chardet = "5.1.0"
-ephyviewer = "^1.6.0"
+# ephyviewer = "^1.6.0"
 sortednp = "^0.4.0"
 ipython = "^8.12.0"
+dask = {extras = ["complete"], version = "^2023.4.1"}
 
 [tool.poetry.dev-dependencies]
 altair = "^4.2.0"
