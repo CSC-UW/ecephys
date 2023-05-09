@@ -1,32 +1,23 @@
+# TODO: Make and replace with gather_and_save_experiment_dataarray
 import logging
 from typing import Optional
 
 from tqdm.auto import tqdm
 
-from . import utils
-from ..subjects import Subject
-from ...projects import Project
-from ... import constants
-from .... import utils as ece_utils
-from .... import sglxr, xrsig
+from ecephys import sglxr
+from ecephys import utils
+from ecephys import wne
+from ecephys import xrsig
+from . import utils as pipeline_utils
+
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_EMG_OPTIONS = dict(
-    target_sf=20,
-    window_size=25.0,
-    wp=[300, 600],
-    ws=[275, 625],
-    gpass=1,
-    gstop=60,
-    ftype="butter",
-)
 
 
 def do_alias(
     opts: dict,
-    destProject: Project,
-    wneSubject: Subject,
+    destProject: wne.Project,
+    wneSubject: wne.sglx.Subject,
     experiment: str,
     alias: Optional[str] = None,
     **kwargs
@@ -35,7 +26,7 @@ def do_alias(
 
     for lfpFile in tqdm(list(lfpTable.itertuples())):
         [emgFile] = destProject.get_sglx_counterparts(
-            wneSubject.name, [lfpFile.path], constants.EMG_EXT
+            wneSubject.name, [lfpFile.path], wne.EMG_EXT
         )
         sig = sglxr.load_trigger(
             lfpFile.path,
@@ -43,16 +34,16 @@ def do_alias(
             t0=lfpFile.expmtPrbAcqFirstTime,  # TODO: Convert times before saving
             dt0=lfpFile.expmtPrbAcqFirstDatetime,
         )
-        emg = xrsig.LFPs(sig).synthetic_emg(**DEFAULT_EMG_OPTIONS)
-        ece_utils.save_xarray(emg, emgFile)
+        emg = xrsig.synthetic_emg(sig)
+        utils.save_xarray(emg, emgFile)
 
     for probe in lfpTable.probe.unique():
-        utils.gather_and_save_alias_dataarray(
+        pipeline_utils.gather_and_save_alias_dataarray(
             destProject,
             wneSubject,
             experiment,
             alias,
             probe,
-            constants.EMG_EXT,
-            constants.EMG_FNAME,
+            wne.EMG_EXT,
+            wne.EMG_FNAME,
         )
