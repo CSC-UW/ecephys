@@ -233,6 +233,9 @@ class Hypnogram:
                     break  # don't bother checking subperiods of good periods
         return matches
 
+    def covers_time(self) -> np.ndarray[bool]:
+        raise NotImplementedError
+
 
 class FloatHypnogram(Hypnogram):
     def write_visbrain(self, path):
