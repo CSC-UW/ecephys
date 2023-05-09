@@ -2,7 +2,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from . import core
+from . import deprecated
 import ecephys
 
 
@@ -21,7 +21,7 @@ def plot_yx_channel_vectors(
         color_lut = dict(zip(np.unique(da[dim]), sns.color_palette("colorblind")))
 
     for c in da[dim].values:
-        dat = core.LaminarScalars(da.sel({dim: c}))
+        dat = deprecated.LaminarScalars(da.sel({dim: c}))
         dat.plot_laminar(ax=ax, color=color_lut[c])
 
     if add_legend:
