@@ -1,7 +1,9 @@
 from collections.abc import Iterable
 from functools import reduce
 import itertools as it
+import json
 import logging
+import pathlib
 
 import heapq
 import numpy as np
@@ -18,6 +20,7 @@ def warn(msg):
 
 
 # -------------------- Filesystem utilities --------------------
+
 
 # Avoid PermissionError with shutil.copytree on NAS smb share
 # TODO: Move to wisc-specific
@@ -134,6 +137,7 @@ def item_intersection(l):
 
 
 # -------------------- Array utilities --------------------
+
 
 # Get rid of this
 def nrows(x):
@@ -361,7 +365,6 @@ def get_disjoint_interval_intersections(arr1, arr2):
     # Loop through all intervals unless one
     # of the interval gets exhausted
     while i < n and j < m:
-
         # Left bound for intersecting segment
         l = max(arr1[i][0], arr2[j][0])
 
@@ -443,3 +446,9 @@ def hotfix_times(times: np.ndarray) -> bool:
             f"Hotfixed {cum_n_lzd} less-than-zero diffs in timestamps over {n_iters + 1} passes."
         )
     return cum_n_lzd
+
+
+def write_json(obj: dict, path: pathlib.Path, indent: int = 4):
+    pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(obj, f, indent=indent, default=str)
