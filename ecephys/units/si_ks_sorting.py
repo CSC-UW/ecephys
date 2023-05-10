@@ -391,6 +391,7 @@ class SpikeInterfaceKilosortSorting:
         split_by_structure=False,
         tgt_structure_acronyms=None,
         n_jobs=10,
+        min_n_clusters=10,
     ):
         """Run global/local OFF detection.
 
@@ -422,6 +423,10 @@ class SpikeInterfaceKilosortSorting:
             once. By default, all structures are included.
         n_jobs: int
             Parallelize across windows. Spatial off detection only.
+        min_n_clusters: int
+            If the region/sorting of interest has less than this number of clusters,
+            do nothing (default 10)
+
         
         Return:
         =======
@@ -488,15 +493,22 @@ class SpikeInterfaceKilosortSorting:
             structures_to_aggregate = [tgt_structure_acronyms]
         all_structures_dfs = []
         for structures in structures_to_aggregate:
-            print(
-                f"Running ON/OFF detection for all units in the following structures: {structures}"
-            )
             tgt_properties = properties[properties.acronym.isin(structures)]
             tgt_trains = [
                 all_trains[row.cluster_id] for row in tgt_properties.itertuples()
             ]
             tgt_cluster_ids = [row.cluster_id for row in tgt_properties.itertuples()]
             tgt_depths = [row.depth for row in tgt_properties.itertuples()]
+
+            if len(tgt_trains) < min_n_clusters:
+                print(
+                    f"Two few (N={len(tgt_trains)} units in the following structures: {structures}. Passing ON/OFF detection"
+                )
+                continue
+            else:
+                print(
+                    f"Running ON/OFF detection for N={len(tgt_trains)} units in the following structures: {structures}"
+                )
 
             if not spatial_detection:
                 df = on_off_detection.OnOffModel(
@@ -522,6 +534,9 @@ class SpikeInterfaceKilosortSorting:
             df["structures"] = [structures] * len(df)
 
             all_structures_dfs.append(df[df["state"] == "off"])
+
+        if not len(all_structures_dfs):
+            return pd.DataFrame()
 
         return pd.concat(all_structures_dfs).reset_index(drop=True)
 
