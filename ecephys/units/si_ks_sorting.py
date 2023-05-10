@@ -357,7 +357,8 @@ class SpikeInterfaceKilosortSorting:
                 window,
                 self.hypnogram,
                 view_name="Hypnogram",
-                state_colors=ecephys.plot.state_colors,
+                name_column="state",
+                color_by_name=ecephys.plot.state_colors,
             )
         return window
 

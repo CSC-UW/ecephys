@@ -47,7 +47,8 @@ def add_epochviewer_to_window(
     window: ephyviewer.MainViewer,
     events_df: pd.DataFrame,
     view_name="Events",
-    state_colors=None,
+    name_column="state",
+    color_by_name=None,
     add_event_list=True,
 ):
     """Add epoch/event view from frame of bouts.
@@ -55,19 +56,19 @@ def add_epochviewer_to_window(
     Parameters:
     window: ephyviewer.MainViewer
     event_df: pd.DataFrame
-        Frame with "start_time", "state", "duration" columns
+        Frame with "start_time", "duration" and <name_column> columns
     """
     assert all([c in events_df.columns for c in ["start_time", "state", "duration"]])
 
-    all_states = events_df["state"].unique()
+    all_names = events_df[name_column].unique()
     all_epochs = []
 
-    for state in all_states:
-        mask = events_df["state"] == state
+    for name in all_names:
+        mask = events_df[name_column] == name
         all_epochs.append(
             {
-                "name": state,
-                "label": np.array([state for _ in range(mask.sum())]),
+                "name": name,
+                "label": np.array([name_column for _ in range(mask.sum())]),
                 "time": events_df[mask]["start_time"].values,
                 "duration": events_df[mask]["duration"].values,
             }
@@ -77,10 +78,10 @@ def add_epochviewer_to_window(
     view = ephyviewer.EpochViewer(source=source_epochs, name=view_name)
 
     # Set usual colors
-    if state_colors:
-        for i, state in enumerate(all_states):
+    if color_by_name:
+        for i, name in enumerate(all_names):
             view.by_channel_params[f"ch{i}", "color"] = matplotlib.colors.rgb2hex(
-                state_colors[state]
+                color_by_name[name]
             )
 
     window.add_view(view, location="bottom", orientation="vertical")
