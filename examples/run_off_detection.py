@@ -1,15 +1,35 @@
 import wisc_ecephys_tools as wet
 from ecephys.wne.utils import load_singleprobe_sorting
 import numpy as np
+import argparse
+
+# Parse experiment, alias, subjectName, probe from command line
+example_text = """
+example:
+
+python run_off_detection.py experiment alias CNPIX4-Doppio,imec0
+"""
+parser = argparse.ArgumentParser(
+    description=(
+        f"Run off detection."
+    ),
+    epilog=example_text,
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+)
+parser.add_argument("experiment", type=str, help="Name of experiment we run off for.")
+parser.add_argument("alias", type=str, help="Name of alias we run off for.")
+parser.add_argument("subject_probe", type=str, help="Target probe. Comma-separated string of the form `'<subjectName>,<probe>'")
+args = parser.parse_args()
+
+experiment = args.experiment
+alias = args.alias
+subject_probe = args.subject_probe
+subjectName, probe = subject_probe.split(",")
 
 # Data
 sortingProjectName = "shared_sortings"
-subjectName = "CNPIX11-Adrian"
-experiment = "novel_objects_deprivation"
-alias = "full"
-probe = "imec1"
-sorting = "sorting"
-postprocessing = "postpro"
+sorting = None
+postprocessing = None
 filters= {
     "quality": {"good", "mua"},
 }, # Exclude noise
