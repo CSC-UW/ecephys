@@ -1,4 +1,5 @@
 import wisc_ecephys_tools as wet
+import ecephys.utils
 from ecephys.wne.utils import load_singleprobe_sorting
 import numpy as np
 import argparse
@@ -36,7 +37,7 @@ filters= {
 
 # Output Path
 # Saves at /path/to/project/<experiment>/<subject>/<off_df_fname>
-off_df_fname = f"off_df.{probe}.csv"
+off_df_fname = f"{probe}.offs.htsv"
 outputProjectName = "test_project"
 
 # Params for OFF detection
@@ -118,4 +119,5 @@ off_df = sorting.run_off_detection(
     tgt_structure_acronyms=tgt_structure_acronyms,
     n_jobs=n_jobs,
 )
-off_df.to_csv(savepath)
+print(f"Save aggregate off frame at {savepath}")
+ecephys.utils.write_htsv(off_df, savepath)
