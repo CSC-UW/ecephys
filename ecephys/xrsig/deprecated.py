@@ -14,9 +14,7 @@ import ecephys.signal
 from ecephys import hypnogram
 from ecephys.signal import filt
 from ecephys import plot as eplt
-
-from .. import utils as ece_utils
-from . import utils
+from ecephys import utils as ece_utils
 
 logger = logging.getLogger("xrsig")
 
