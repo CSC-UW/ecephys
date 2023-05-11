@@ -391,7 +391,7 @@ class SpikeInterfaceKilosortSorting:
         split_by_structure=False,
         tgt_structure_acronyms=None,
         n_jobs=10,
-        min_n_clusters=10,
+        min_sum_fr=30,
     ):
         """Run global/local OFF detection.
 
@@ -423,9 +423,9 @@ class SpikeInterfaceKilosortSorting:
             once. By default, all structures are included.
         n_jobs: int
             Parallelize across windows. Spatial off detection only.
-        min_n_clusters: int
-            If the region/sorting of interest has less than this number of clusters,
-            do nothing (default 10)
+        min_sum_fr: float
+            If the cumulative firing rate for the region/sorting of interest 
+            is below this value, do nothing (default 30)
 
         
         Return:
@@ -500,14 +500,15 @@ class SpikeInterfaceKilosortSorting:
             tgt_cluster_ids = [row.cluster_id for row in tgt_properties.itertuples()]
             tgt_depths = [row.depth for row in tgt_properties.itertuples()]
 
-            if len(tgt_trains) < min_n_clusters:
+            sumFR = tgt_properties["fr"].sum()
+            if sumFR <= min_sum_fr:
                 print(
-                    f"Two few (N={len(tgt_trains)} units in the following structures: {structures}. Passing ON/OFF detection"
+                    f"Too few spikes (sumFR={sumFR}Hz) in the following structures: {structures}. Passing ON/OFF detection"
                 )
                 continue
             else:
                 print(
-                    f"Running ON/OFF detection for N={len(tgt_trains)} units in the following structures: {structures}"
+                    f"Running ON/OFF detection for N={len(tgt_trains)}units, sumFR={sumFR}Hz in the following structures: {structures}"
                 )
 
             try:
