@@ -510,27 +510,31 @@ class SpikeInterfaceKilosortSorting:
                     f"Running ON/OFF detection for N={len(tgt_trains)} units in the following structures: {structures}"
                 )
 
-            if not spatial_detection:
-                df = on_off_detection.OnOffModel(
-                    tgt_trains,
-                    None,
-                    cluster_ids=tgt_cluster_ids,
-                    method=on_off_method,
-                    params=on_off_params,
-                    bouts_df=hypnogram,
-                ).run()
-            else:
-                df = on_off_detection.SpatialOffModel(
-                    tgt_trains,
-                    tgt_depths,
-                    None,
-                    cluster_ids=tgt_cluster_ids,
-                    on_off_method=on_off_method,
-                    on_off_params=on_off_params,
-                    spatial_params=spatial_params,
-                    bouts_df=hypnogram,
-                    n_jobs=n_jobs,
-                ).run()
+            try:
+                if not spatial_detection:
+                    df = on_off_detection.OnOffModel(
+                        tgt_trains,
+                        None,
+                        cluster_ids=tgt_cluster_ids,
+                        method=on_off_method,
+                        params=on_off_params,
+                        bouts_df=hypnogram,
+                    ).run()
+                else:
+                    df = on_off_detection.SpatialOffModel(
+                        tgt_trains,
+                        tgt_depths,
+                        None,
+                        cluster_ids=tgt_cluster_ids,
+                        on_off_method=on_off_method,
+                        on_off_params=on_off_params,
+                        spatial_params=spatial_params,
+                        bouts_df=hypnogram,
+                        n_jobs=n_jobs,
+                    ).run()
+            except on_off_detection.ALL_METHOD_EXCEPTIONS as e:
+                print(f"\n\nException for structures {structures}: {e}\n\n Passing.\n")
+                continue
             df["structures"] = [structures] * len(df)
 
             all_structures_dfs.append(df[df["state"] == "off"])
