@@ -14,6 +14,7 @@ from ecephys.units import ephyviewerutils, siutils
 from ecephys.utils.misc import kway_sortednp_merge
 import ecephys
 from tqdm import tqdm
+import itertools
 
 try:
     import on_off_detection
@@ -384,6 +385,7 @@ class SpikeInterfaceKilosortSorting:
     def run_off_detection(
         self,
         tgt_states=None,
+        split_by_state=True,
         on_off_method="hmmem",
         on_off_params=None,
         spatial_detection=False,
@@ -402,6 +404,8 @@ class SpikeInterfaceKilosortSorting:
             epochs are excluded. Epochs not fully comprised within recording
             start/end are
             excluded.
+        split_by_state: bool
+            If True, we run OFF detection separately for each of the hypnogram states of interest
         on_off_method: str
             Method for OFF detection (default "hmmem")
         on_off_params: str
@@ -491,8 +495,15 @@ class SpikeInterfaceKilosortSorting:
             structures_to_aggregate = [[s] for s in tgt_structure_acronyms]
         else:
             structures_to_aggregate = [tgt_structure_acronyms]
+        
+        # Iterate on states of interest
+        if split_by_state:
+            states_to_aggregate = [[s] for s in hypnogram.state.unique()]
+        else:
+            states_to_aggregate = [hypnogram.state.unique()]
+
         all_structures_dfs = []
-        for structures in structures_to_aggregate:
+        for structures, states in itertools.product(structures_to_aggregate, states_to_aggregate):
             tgt_properties = properties[properties.acronym.isin(structures)]
             tgt_trains = [
                 all_trains[row.cluster_id] for row in tgt_properties.itertuples()
@@ -508,7 +519,8 @@ class SpikeInterfaceKilosortSorting:
                 continue
             else:
                 print(
-                    f"Running ON/OFF detection for N={len(tgt_trains)}units, sumFR={sumFR}Hz in the following structures: {structures}"
+                    f"Running ON/OFF detection for structures {structures}, states {states}.\n"
+                    f"N={len(tgt_trains)}units, sumFR={sumFR}Hz"
                 )
 
             try:
@@ -519,7 +531,7 @@ class SpikeInterfaceKilosortSorting:
                         cluster_ids=tgt_cluster_ids,
                         method=on_off_method,
                         params=on_off_params,
-                        bouts_df=hypnogram,
+                        bouts_df=hypnogram[hypnogram["state"].isin(states)],
                     ).run()
                 else:
                     df = on_off_detection.SpatialOffModel(
@@ -530,13 +542,14 @@ class SpikeInterfaceKilosortSorting:
                         on_off_method=on_off_method,
                         on_off_params=on_off_params,
                         spatial_params=spatial_params,
-                        bouts_df=hypnogram,
+                        bouts_df=hypnogram[hypnogram["state"].isin(states)],
                         n_jobs=n_jobs,
                     ).run()
             except on_off_detection.ALL_METHOD_EXCEPTIONS as e:
                 print(f"\n\nException for structures {structures}: {e}\n\n Passing.\n")
                 continue
             df["structures"] = [structures] * len(df)
+            df["states"] = [states] * len(df)
 
             all_structures_dfs.append(df[df["state"] == "off"])
 
