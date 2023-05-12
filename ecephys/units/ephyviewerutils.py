@@ -89,7 +89,7 @@ def add_epochviewer_to_window(
     if add_event_list:
         # Add event list for navigation
         view = ephyviewer.EventList(source=source_epochs, name=f"{view_name} list")
-        window.add_view(view, location="bottom", orientation="horizontal")
+        window.add_view(view, orientation="horizontal", split_with=view_name)
 
     return window
 
