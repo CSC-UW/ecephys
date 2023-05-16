@@ -119,6 +119,13 @@ def roundrobin(*iterables):
             nexts = it.cycle(it.islice(nexts, num_active))
 
 
+def pairwise(iterable):
+    "s -> (s0, s1), (s1, s2), (s2, s3), ..."
+    a, b = it.tee(iterable)
+    next(b, None)
+    return zip(a, b)
+
+
 # -------------------- Dict utilities --------------------
 
 

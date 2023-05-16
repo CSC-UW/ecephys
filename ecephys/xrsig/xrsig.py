@@ -285,8 +285,24 @@ def lazy_mapped_kernel_current_source_density(
     return csd
 
 
-def stft(da: xr.DataArray, gap_tolerance: float = 0.001, **kwargs) -> xr.DataArray:
-    """Perform STFT, works on discontinuous segments of data that have been concatenated together.
+def get_segments_with_info(da: xr.DataArray, gap_tolerance: float = 0.001):
+    segments = get_segments(da, gap_tolerance)
+    segment_tvecs = [da["time"].isel(time=slice(i, j)) for i, j in segments]
+    segment_tlens = [float(times[-1]) - float(times[0]) for times in segment_tvecs]
+    segment_ts = [(float(times[0]), float(times[-1])) for times in segment_tvecs]
+    segment_tgaps = [
+        next_seg_start - curr_seg_end
+        for (curr_seg_start, curr_seg_end), (
+            next_seg_start,
+            next_seg_end,
+        ) in utils.pairwise(segment_ts)
+    ]
+
+    return segments, segment_ts, segment_tlens, segment_tgaps
+
+
+def get_segments(da: xr.DataArray, gap_tolerance: float = 0.001) -> list[xr.DataArray]:
+    """Detect discontinuous segments of data that have been concatenated together.
 
     Parameters:
     -----------
@@ -306,6 +322,14 @@ def stft(da: xr.DataArray, gap_tolerance: float = 0.001, **kwargs) -> xr.DataArr
     assert (
         np.sum(segment_sizes) == da["time"].values.size
     ), "Every sample in the data must be accounted for."
+
+    return segments
+
+
+def stft(da: xr.DataArray, gap_tolerance: float = 0.001, **kwargs) -> xr.DataArray:
+    """Perform STFT, works on discontinuous segments of data that have been concatenated together."""
+    validate_2d_timeseries(da)
+    segments = get_segments(da, gap_tolerance=gap_tolerance)
     return xr.concat(
         [_stft(da.isel(time=slice(i, j)), **kwargs) for i, j in segments],
         dim="time",
