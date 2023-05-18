@@ -188,6 +188,11 @@ class Project:
         with open(path) as f:
             return yaml.load(f, Loader=yaml.SafeLoader)
 
+    def load_experiment_subject_params(self, experiment: str, subject: str) -> dict:
+        return self.load_experiment_subject_json(
+            experiment, subject, wne.constants.EXP_PARAMS_FNAME
+        )
+
     def get_all_probes(self, subject: str, experiment: str) -> list[str]:
         opts = self.load_experiment_subject_json(
             experiment, subject, wne.EXP_PARAMS_FNAME
@@ -363,7 +368,6 @@ class Project:
         sorting: str,
         allow_no_sync_file=False,
     ) -> Callable:
-
         # TODO: Once permissions are fixed, should come from f = wneProject.get_experiment_subject_file(experiment, wneSubject.name, f"prb_sync.ap.htsv")
         # Load probe sync table.
         probe_sync_file = (
@@ -492,17 +496,31 @@ class Project:
         model = sync_models["prb2prb"][fromProbe][toProbe]
         return sync.remap_times(times, model)
 
-    def load_hypnogram(
+    def load_float_hypnogram(
         self,
         experiment: str,
-        subject: str,
+        subject: wne.sglx.Subject,
         simplify: bool = True,
-    ) -> hypnogram.Hypnogram:
-        f = self.get_experiment_subject_file(experiment, subject, wne.HYPNOGRAM_FNAME)
-        hyp = hypnogram.FloatHypnogram.from_htsv(f)
+    ) -> hypnogram.FloatHypnogram:
+        f = self.get_experiment_subject_file(
+            experiment, subject.name, wne.HYPNOGRAM_FNAME
+        )
+        hg = hypnogram.FloatHypnogram.from_htsv(f)
         if simplify:
-            hyp = hyp.replace_states(wne.SIMPLIFIED_STATES)
-        return hyp
+            hg = hg.replace_states(wne.SIMPLIFIED_STATES)
+        return hg
+
+    def load_datetime_hypnogram(
+        self,
+        experiment: str,
+        subject: wne.sglx.Subject,
+        simplify: bool = True,
+    ) -> hypnogram.DatetimeHypnogram:
+        hg = self.load_float_hypnogram(experiment, subject, simplify)
+        params = self.load_experiment_subject_params(experiment, subject.name)
+        return wne.sglx.float_hypnogram_to_datetime(
+            subject, experiment, hg, params["hypnogram_probe"]
+        )
 
 
 class ProjectLibrary:

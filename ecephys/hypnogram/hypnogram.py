@@ -251,6 +251,36 @@ class FloatHypnogram(Hypnogram):
         df["duration"] = pd.to_timedelta(df["duration"], "s")
         return DatetimeHypnogram(df)
 
+    def keep_first(self, cumulative_duration: float, trim=True) -> FloatHypnogram:
+        """Keep hypnogram bouts until a cumulative duration is reached."""
+        if trim:
+            excess = self["duration"].cumsum() - cumulative_duration
+            is_excess = excess > 0
+            if not is_excess.any():
+                return self
+            amount_to_trim = excess[is_excess].min()
+            trim_until = self.loc[is_excess]["end_time"].min() - amount_to_trim
+            new = trim_hypnogram(self._df, self["start_time"].min(), trim_until)
+        else:
+            keep = self["duration"].cumsum() <= cumulative_duration
+            new = self.loc[keep]
+        return self.__class__(new)
+
+    def keep_last(self, cumulative_duration: float, trim=True) -> FloatHypnogram:
+        """Keep only a given amount of time at the end of a hypnogram."""
+        if trim:
+            excess = self["duration"][::-1].cumsum() - cumulative_duration
+            is_excess = excess > 0
+            if not is_excess.any():
+                return self
+            amount_to_trim = excess[is_excess].min()
+            trim_until = self.loc[is_excess]["start_time"].max() + amount_to_trim
+            new = trim_hypnogram(self._df, trim_until, self["end_time"].max())
+        else:
+            keep = np.cumsum(self["duration"][::-1])[::-1] <= cumulative_duration
+            new = self.loc[keep]
+        return self.__class__(new)
+
     def keep_longer(self, duration) -> FloatHypnogram:
         """Keep bouts longer than a given duration.
 
