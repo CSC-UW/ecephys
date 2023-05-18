@@ -9,7 +9,7 @@ import pandas as pd
 import spikeinterface as si
 import spikeinterface.extractors as se
 
-from ecephys.wne.sglx import sessions, experiments
+from . import sessions, experiments
 from ecephys import hypnogram as hg
 from ecephys import utils
 from ecephys.sglx import file_mgmt
