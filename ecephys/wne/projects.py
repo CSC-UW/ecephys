@@ -30,17 +30,14 @@ import pickle
 from pathlib import Path
 from typing import Callable, Optional, Union
 
+import ecephys.sglx
+import ecephys.utils
 import numpy as np
 import pandas as pd
 import spikeinterface.extractors as se
 import yaml
-
-from ecephys import hypnogram
-import ecephys.sglx
-from ecephys import sharptrack
-from ecephys import sync
-import ecephys.utils
-from ecephys import wne
+from ecephys import hypnogram, sharptrack, sync, wne
+from ecephys.wne import sglx
 
 Pathlike = Union[Path, str]
 
@@ -163,7 +160,7 @@ class Project:
         --------
         list of pathlib.Path
         """
-        counterparts = wne.sglx.mirror_raw_data_paths(
+        counterparts = sglx.mirror_raw_data_paths(
             self.get_subject_directory(subject), paths
         )  # Mirror paths at the project's subject directory
         counterparts = [
@@ -499,7 +496,7 @@ class Project:
     def load_float_hypnogram(
         self,
         experiment: str,
-        subject: wne.sglx.Subject,
+        subject: sglx.Subject,
         simplify: bool = True,
     ) -> hypnogram.FloatHypnogram:
         f = self.get_experiment_subject_file(
@@ -513,12 +510,12 @@ class Project:
     def load_datetime_hypnogram(
         self,
         experiment: str,
-        subject: wne.sglx.Subject,
+        subject: sglx.Subject,
         simplify: bool = True,
     ) -> hypnogram.DatetimeHypnogram:
         hg = self.load_float_hypnogram(experiment, subject, simplify)
         params = self.load_experiment_subject_params(experiment, subject.name)
-        return wne.sglx.float_hypnogram_to_datetime(
+        return sglx.float_hypnogram_to_datetime(
             subject, experiment, hg, params["hypnogram_probe"]
         )
 
