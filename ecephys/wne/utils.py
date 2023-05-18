@@ -2,15 +2,15 @@ from typing import Optional
 
 import numpy as np
 
-from ecephys import hypnogram, units, utils
-from ecephys.wne import sglx
-from ecephys.wne.projects import Project
-from ecephys.utils.pdutils import get_edges_start_end_samples_df
+from ecephys import hypnogram
+from ecephys import units
+from ecephys import utils
+from ecephys import wne
 
 
 def load_hypnogram_for_si_slicing(
-    wneHypnoProject: Project,
-    wneSortingProject: Project,
+    wneHypnoProject: wne.Project,
+    wneSortingProject: wne.Project,
     wneSubject,
     experiment: str,
     alias: str,
@@ -108,7 +108,7 @@ def load_hypnogram_for_si_slicing(
     decimated_frame_states = np.concatenate(segment_decimated_frame_states_list)
 
     # df with start_frame, end_frame columns, still in decimated indices
-    decimated_frame_hypno = get_edges_start_end_samples_df(decimated_frame_states)
+    decimated_frame_hypno = utils.get_edges_start_end_samples_df(decimated_frame_states)
 
     # df with start_frame, end_frame columns, in original indices
     frame_hypno = decimated_frame_hypno.copy()
@@ -126,18 +126,17 @@ def load_hypnogram_for_si_slicing(
 
 
 def load_singleprobe_sorting(
-    wneSortingProject: Project,
-    wneSubject: sglx.Subject,
+    wneSortingProject: wne.Project,
+    wneSubject: wne.sglx.Subject,
     experiment: str,
     alias: str,
     probe: str,
     sorting: str = "sorting",
     postprocessing: str = "postpro",
-    wneAnatomyProject: Optional[Project] = None,
-    wneHypnogramProject: Optional[Project] = None,
+    wneAnatomyProject: Optional[wne.Project] = None,
+    wneHypnogramProject: Optional[wne.Project] = None,
     allow_no_sync_file=True,
 ) -> units.SpikeInterfaceKilosortSorting:
-
     if sorting is None:
         sorting = "sorting"
     if postprocessing is None:
@@ -201,18 +200,17 @@ def load_singleprobe_sorting(
 
 
 def load_multiprobe_sorting(
-    wneSortingProject: Project,
-    wneSubject: sglx.Subject,
+    wneSortingProject: wne.Project,
+    wneSubject: wne.sglx.Subject,
     experiment: str,
     alias: str,
     probes: list[str],
     sortings: dict[str, str] = None,
     postprocessings: dict[str, str] = None,
-    wneAnatomyProject: Optional[Project] = None,
-    wneHypnogramProject: Optional[Project] = None,
+    wneAnatomyProject: Optional[wne.Project] = None,
+    wneHypnogramProject: Optional[wne.Project] = None,
     allow_no_sync_file=True,
 ) -> units.MultiprobeSorting:
-
     if sortings is None:
         sortings = {prb: None for prb in probes}
     if postprocessings is None:

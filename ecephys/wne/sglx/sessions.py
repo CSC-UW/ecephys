@@ -40,10 +40,12 @@ of AP data often requires specialized storage.
 
 from itertools import chain
 import logging
-import pandas as pd
-import re
 from pathlib import Path
-from ..sglx import file_mgmt
+import re
+
+import pandas as pd
+
+from ecephys.sglx import file_mgmt
 
 logger = logging.getLogger(__name__)
 
