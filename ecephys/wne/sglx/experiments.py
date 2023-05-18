@@ -1,8 +1,6 @@
 import itertools as it
-
 import pandas as pd
-
-from ecephys.sglx import file_mgmt
+from ...sglx import file_mgmt
 
 # TODO: Currently, there can be no clean `get_session_directory(subject_name, experiment_name) function,
 #       because there is no single session directory -- it can be split across AP and LF locations, and we

@@ -30,6 +30,8 @@ import pickle
 from pathlib import Path
 from typing import Optional, Union
 
+import ecephys.sglx
+import ecephys.utils
 import numpy as np
 import pandas as pd
 import spikeinterface.extractors as se

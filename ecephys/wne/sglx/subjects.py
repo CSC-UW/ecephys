@@ -120,7 +120,7 @@ class SGLXSubject:
 
     def dt2t(self, experiment: str, probe: str, dt):
         dt0, _ = self.get_experiment_data_times(experiment, probe, as_datetimes=True)
-        return (dt - dt0) / pd.to_timedelta("1s")
+        return (dt - np.datetime64(dt0)) / pd.to_timedelta("1s")
 
     def get_alias_datetimes(self, experiment: str, alias: str) -> list[tuple]:
         subaliases = self.doc["experiments"][experiment]["aliases"][alias]
