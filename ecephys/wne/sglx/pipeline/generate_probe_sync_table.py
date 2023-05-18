@@ -4,18 +4,21 @@ import pandas as pd
 
 from ecephys import sync
 from ecephys import utils
-from ecephys import wne
+from ecephys.wne import constants
+from ecephys.wne.sglx import SGLXProject
+from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne.sglx import utils as wne_sglx_utils
 
 
 def get_barcode_sync_table(
-    wneProject: wne.Project,
-    wneSubject: wne.sglx.Subject,
+    wneProject: SGLXProject,
+    wneSubject: SGLXSubject,
     experiment: str,
     stream: str = "ap",
 ) -> pd.DataFrame:
     def load_barcodes(binpath: pathlib.Path) -> pd.DataFrame:
-        [syncfile] = wneProject.get_sglx_counterparts(
-            wneSubject.name, [binpath], ".barcodes.htsv"
+        [syncfile] = wne_sglx_utils.get_sglx_file_counterparts(
+            wneProject, wneSubject.name, [binpath], ".barcodes.htsv"
         )
         return utils.read_htsv(syncfile)
 
@@ -39,7 +42,6 @@ def get_barcode_sync_table(
     fits = list()
     for probe in set(probes) - {"imec0"}:
         for i in range(nFiles):
-
             thisBinPath = ftabs[probe].iloc[i]["path"]
             thisSyncData = load_barcodes(thisBinPath)
 
@@ -79,13 +81,13 @@ def get_barcode_sync_table(
 
 
 def do_experiment(
-    wneProject: wne.Project,
-    wneSubject: wne.sglx.Subject,
+    wneProject: SGLXProject,
+    wneSubject: SGLXSubject,
     experiment: str,
     stream: str = "ap",
 ):
     opts = wneProject.load_experiment_subject_json(
-        experiment, wneSubject.name, wne.constants.EXP_PARAMS_FNAME
+        experiment, wneSubject.name, constants.EXP_PARAMS_FNAME
     )
     if opts["imSyncType"] != "barcode":
         raise NotImplementedError("Sync table generation only implemented for barcodes")

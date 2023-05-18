@@ -6,9 +6,12 @@ from tqdm.auto import tqdm
 
 from ecephys import sglxr
 from ecephys import utils
-from ecephys import wne
 from ecephys import xrsig
-from . import utils as pipeline_utils
+from ecephys.wne import constants
+from ecephys.wne.sglx import SGLXProject
+from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne.sglx import utils as wne_sglx_utils
+from ecephys.wne.sglx.pipeline import utils as pipeline_utils
 
 
 logger = logging.getLogger(__name__)
@@ -16,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 def do_alias(
     opts: dict,
-    destProject: wne.Project,
-    wneSubject: wne.sglx.Subject,
+    destProject: SGLXProject,
+    wneSubject: SGLXSubject,
     experiment: str,
     alias: Optional[str] = None,
     **kwargs
@@ -25,8 +28,8 @@ def do_alias(
     lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, **kwargs)
 
     for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [emgFile] = destProject.get_sglx_counterparts(
-            wneSubject.name, [lfpFile.path], wne.EMG_EXT
+        [emgFile] = wne_sglx_utils.get_sglx_file_counterparts(
+            destProject, wneSubject.name, [lfpFile.path], constants.EMG_EXT
         )
         sig = sglxr.load_trigger(
             lfpFile.path,
@@ -44,6 +47,6 @@ def do_alias(
             experiment,
             alias,
             probe,
-            wne.EMG_EXT,
-            wne.EMG_FNAME,
+            constants.EMG_EXT,
+            constants.EMG_FNAME,
         )

@@ -5,34 +5,46 @@ from typing import Callable, Optional
 import pandas as pd
 from tqdm.auto import tqdm
 
-from ..subjects import Subject
-from ...projects import Project
-from .... import utils, sync
+from ecephys import sync
+from ecephys import utils
+from ecephys.wne.sglx import SGLXProject
+from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne.sglx import utils as wne_sglx_utils
 
 logger = logging.getLogger(__name__)
 
 
-def save_sglx_imec_barcodes(wneProject: Project, wneSubject: Subject, binfile: Path):
+def save_sglx_imec_barcodes(
+    wneProject: SGLXProject, wneSubject: SGLXSubject, binfile: Path
+):
     times, values = sync.get_sglx_imec_barcodes(binfile)
     barcodes = pd.DataFrame({"time": times, "value": values})
-    [htsvFile] = wneProject.get_sglx_counterparts(
-        wneSubject.name, [binfile], ".barcodes.htsv"  # TODO: Make a WNE constant
+    [htsvFile] = wne_sglx_utils.get_sglx_file_counterparts(
+        wneProject,
+        wneSubject.name,
+        [binfile],
+        ".barcodes.htsv",  # TODO: Make a WNE constant
     )
     utils.write_htsv(barcodes, htsvFile)
 
 
-def save_sglx_imec_ttls(wneProject: Project, wneSubject: Subject, binfile: Path):
+def save_sglx_imec_ttls(
+    wneProject: SGLXProject, wneSubject: SGLXSubject, binfile: Path
+):
     rising, falling = sync.extract_ttl_edges_from_sglx_imec(binfile)
     ttls = pd.DataFrame({"rising": rising, "falling": falling})
-    [htsvFile] = wneProject.get_sglx_counterparts(
-        wneSubject.name, [binfile], ".ttls.htsv"  # TODO: Make a WNE constant
+    [htsvFile] = wne_sglx_utils.get_sglx_file_counterparts(
+        wneProject,
+        wneSubject.name,
+        [binfile],
+        ".ttls.htsv",  # TODO: Make a WNE constant
     )
     utils.write_htsv(ttls, htsvFile)
 
 
 def do_probe(
-    wneProject: Project,
-    wneSubject: Subject,
+    wneProject: SGLXProject,
+    wneSubject: SGLXSubject,
     experiment: str,
     prb: str,
     fn: Callable,
@@ -47,8 +59,8 @@ def do_probe(
 
 def do_experiment(
     opts: dict,
-    destProject: Project,
-    wneSubject: Subject,
+    destProject: SGLXProject,
+    wneSubject: SGLXSubject,
     experiment: str,
     probes: Optional[list[str]] = None,
     stream: str = "ap",

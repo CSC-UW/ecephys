@@ -4,18 +4,19 @@ from typing import Optional
 import pandas as pd
 from tqdm.auto import tqdm
 
-from ..subjects import Subject
-from ...projects import Project
-from ... import constants
-from .... import utils as ece_utils
+from ecephys import utils
+from ecephys.wne import constants
+from ecephys.wne.sglx import SGLXProject
+from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne.sglx import utils as wne_sglx_utils
 
 logger = logging.getLogger(__name__)
 
 
 def do_probe_stream(
-    srcProject: Project,
-    destProject: Project,
-    wneSubject: Subject,
+    srcProject: SGLXProject,
+    destProject: SGLXProject,
+    wneSubject: SGLXSubject,
     experiment: str,
     probe: str,
     stream: str,
@@ -25,7 +26,8 @@ def do_probe_stream(
         experiment, stream=stream, ftype="bin", probe=probe
     )
     for lfpfile in tqdm(list(ftab.itertuples())):
-        [artfile] = srcProject.get_sglx_counterparts(
+        [artfile] = wne_sglx_utils.get_sglx_file_counterparts(
+            srcProject,
             wneSubject.name,
             [lfpfile.path],
             constants.ARTIFACTS_EXT,
@@ -46,15 +48,15 @@ def do_probe_stream(
         outfile = destProject.get_experiment_subject_file(
             experiment, wneSubject.name, f"{probe}.{stream}.{constants.ARTIFACTS_FNAME}"
         )
-        ece_utils.write_htsv(df, outfile)
+        utils.write_htsv(df, outfile)
 
 
 def do_experiment(
-    srcProject: Project,
-    wneSubject: Subject,
+    srcProject: SGLXProject,
+    wneSubject: SGLXSubject,
     experiment: str,
     probes: Optional[list[str]] = None,
-    destProject: Optional[Project] = None,
+    destProject: Optional[SGLXProject] = None,
 ):
     if destProject is None:
         destProject = srcProject

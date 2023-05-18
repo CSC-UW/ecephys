@@ -1,9 +1,10 @@
-from horology import Timing
 import logging
+
+from horology import Timing
 import matplotlib.pyplot as plt
 import numpy as np
-import spikeinterface.full as si
 from spikeinterface import widgets
+import spikeinterface.full as si
 from spikeinterface.sortingcomponents import (
     motion_correction,
     motion_estimation,
@@ -18,7 +19,6 @@ logger = logging.getLogger(__name__)
 def get_raw_peak_fig(
     si_rec, peaks, peak_locations, motion, temporal_bins, spatial_bins, extra_check
 ):
-
     ALPHA = 0.002  # >= 0.002 or invisible
     if len(peaks) <= 50e6:
         DECIMATE_RATIO = 1
@@ -108,7 +108,6 @@ def _compute_peaks(
     peak_detection_params,
     job_kwargs,
 ):
-
     # Steps
     with Timing(name="Get noise levels: "):
         noise_levels = si.get_noise_levels(
@@ -118,12 +117,14 @@ def _compute_peaks(
         )
 
     with Timing(name="Detect peaks: "):
-        extract_dense_waveforms = peak_pipeline.ExtractDenseWaveforms(si_rec, return_output=False, **extract_waveforms_params)
+        extract_dense_waveforms = peak_pipeline.ExtractDenseWaveforms(
+            si_rec, return_output=False, **extract_waveforms_params
+        )
         pipeline_nodes = [
             extract_dense_waveforms,
             PEAK_LOCALIZATION_FUNCTIONS[peak_localization_method](
                 si_rec, **peak_localization_params, parents=[extract_dense_waveforms]
-            )
+            ),
         ]
 
         peaks, peak_locations = peak_detection.detect_peaks(
@@ -323,7 +324,6 @@ def _prepro_drift_correction(
         or not all([f.exists() for f in plot_filepaths.values()])
     )
     if make_debugging_plots:
-
         with Timing(name="Get corrected peaks (debugging figure): "):
             print("Correct motion on peaks")
             times = si_rec.get_times()
@@ -419,7 +419,9 @@ def preprocess_si_recording(
                 output_dir=output_dir,
                 noise_level_params=step_params.get("noise_level_params", None),
                 peak_detection_params=step_params.get("peak_detection_params", None),
-                extract_waveforms_params=step_params.get("extract_waveforms_params", None),
+                extract_waveforms_params=step_params.get(
+                    "extract_waveforms_params", None
+                ),
                 peak_localization_method=step_params.get(
                     "peak_localization_method", None
                 ),

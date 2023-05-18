@@ -29,11 +29,7 @@ import pandas as pd
 from docopt import docopt
 
 import wisc_ecephys_tools as wet
-from ecephys import wne
 from ecephys.wne.sglx.pipeline.sorting_pipeline import SpikeInterfaceSortingPipeline
-
-subjectsDir = wet.get_subjects_directory()
-projectsFile = wet.get_projects_file()
 
 DEFAULT_VALUES = {
     "PROJECT_NAME": "my_project",
@@ -45,19 +41,15 @@ DEFAULT_VALUES = {
 }
 
 if __name__ == "__main__":
-
     args = docopt(__doc__.format(**DEFAULT_VALUES), version="Naval Fate 2.0")
 
     print(f"Running all subject/probe pairs: {args['--input']}")
 
     for subject_probe in args["--input"]:
-
         subjectName, probe = subject_probe.split(",")
 
-        subjLib = wne.sglx.SubjectLibrary(subjectsDir)
-        projLib = wne.ProjectLibrary(projectsFile)
-        wneSubject = subjLib.get_subject(subjectName)
-        wneProject = projLib.get_project(args["--projectName"])
+        wneSubject = wet.get_wne_subject(subjectName)
+        wneProject = wet.get_wne_project(args["--projectName"])
 
         if args["--exclusionsPath"]:
             assert args["--exclusionsPath"].endswith("tsv")

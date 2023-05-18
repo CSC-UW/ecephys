@@ -1,27 +1,28 @@
 import logging
-from typing import Optional
 
 import pandas as pd
 from tqdm.auto import tqdm
 
-from ..subjects import Subject
-from ...projects import Project
-from ... import constants
-from .... import hypnogram
+from ecephys import hypnogram
+from ecephys.wne import constants
+from ecephys.wne.sglx import SGLXProject
+from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne.sglx import utils as wne_sglx_utils
 
 logger = logging.getLogger(__name__)
 
 
 def do_experiment_probe(
-    wneProject: Project,
-    wneSubject: Subject,
+    wneProject: SGLXProject,
+    wneSubject: SGLXSubject,
     experiment: str,
     probe: str,
 ):
     vbHgs = list()
     lfpTable = wneSubject.get_lfp_bin_table(experiment, probe=probe)
     for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [vbFile] = wneProject.get_sglx_counterparts(
+        [vbFile] = wne_sglx_utils.get_sglx_file_counterparts(
+            wneProject,
             wneSubject.name,
             [lfpFile.path],
             constants.VISBRAIN_EXT,

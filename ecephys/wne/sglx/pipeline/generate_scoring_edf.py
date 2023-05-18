@@ -5,10 +5,11 @@ from scipy import interpolate as interp
 from tqdm.auto import tqdm
 import xarray as xr
 
-from ..subjects import Subject
-from ...projects import Project
-from ... import constants
-from .... import sglxr
+from ecephys import sglxr
+from ecephys.wne import constants
+from ecephys.wne.sglx import SGLXProject
+from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne.sglx import utils as wne_sglx_utils
 
 
 def resample(sig, target_fs):
@@ -52,18 +53,19 @@ def do_file(lfpPath, emgPath, edfPath, scoringChans):
 # TODO: EDF has limited precision, and automatic determination of bit resolution often fails at long (e.g. 24h) timescales.
 def do_alias(
     opts: dict,
-    destProject: Project,
-    wneSubject: Subject,
+    destProject: SGLXProject,
+    wneSubject: SGLXSubject,
     experiment: str,
     alias: str,
     **kwargs,
 ):
     lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, **kwargs)
     for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [emgFile] = destProject.get_sglx_counterparts(
-            wneSubject.name, [lfpFile.path], constants.EMG_EXT
+        [emgFile] = wne_sglx_utils.get_sglx_file_counterparts(
+            destProject, wneSubject.name, [lfpFile.path], constants.EMG_EXT
         )
-        [edfFile] = destProject.get_sglx_counterparts(
+        [edfFile] = wne_sglx_utils.get_sglx_file_counterparts(
+            destProject,
             wneSubject.name,
             [lfpFile.path],
             constants.EDF_EXT,

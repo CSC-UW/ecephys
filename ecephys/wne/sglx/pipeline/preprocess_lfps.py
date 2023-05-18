@@ -6,15 +6,17 @@ import logging
 from tqdm.auto import tqdm
 
 from ecephys import sglxr
-from ecephys import wne
 from ecephys import xrsig
+from ecephys.wne.sglx import SGLXProject
+from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne.sglx import utils as wne_sglx_utils
 
 logger = logging.getLogger(__name__)
 
 
 def do_experiment(
-    destProject: wne.Project,
-    wneSubject: wne.sglx.Subject,
+    destProject: SGLXProject,
+    wneSubject: SGLXSubject,
     experiment: str,
     probe: str,
     bad_channels: list = None,  # Found in opts["probes"][probe]["badChannels"]

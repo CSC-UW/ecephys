@@ -6,6 +6,7 @@ from . import (
     generate_probe_sync_table,
     generate_scoring_edf,
     generate_tdt_sync_table,
+    get_scoring_signals,
     preprocess_lfps,
     preprocess_si_rec,
     sorting_pipeline,

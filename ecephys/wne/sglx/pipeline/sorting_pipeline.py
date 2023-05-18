@@ -1,24 +1,23 @@
-import deepdiff
-from horology import Timing
 import json
 import logging
+from pathlib import Path
+from typing import Optional, Union
+
+import deepdiff
+from horology import Timing
 import pandas as pd
 from pandas.testing import assert_frame_equal
-from pathlib import Path
 import probeinterface as pi
-from typing import Optional, Union
-import yaml
 import spikeinterface.extractors as se
 import spikeinterface.full as si
-import spikeinterface.postprocessing as sp
-import spikeinterface.qualitymetrics as sq
 import spikeinterface.sorters as ss
+import yaml
 
-from . import preprocess_si_rec
-from ..subjects import Subject
-from ...projects import Project
-from ... import constants
-from .... import utils as ece_utils
+from ecephys import utils
+from ecephys.wne import constants
+from ecephys.wne import Project
+from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne.sglx.pipeline import preprocess_si_rec
 
 # TODO: Be consistent about using logger vs print
 logger = logging.getLogger(__name__)
@@ -43,7 +42,7 @@ EXCLUSIONS_FNAME = "exclusions.htsv"
 
 def get_main_output_dir(
     wneProject: Project,
-    wneSubject: Subject,
+    wneSubject: SGLXSubject,
     experiment: str,
     alias: str,
     probe: str,
@@ -60,7 +59,7 @@ class SpikeInterfaceSortingPipeline:
     def __init__(
         self,
         wneProject: Project,
-        wneSubject: Subject,
+        wneSubject: SGLXSubject,
         experiment: str,
         alias: str,
         probe: str,
@@ -121,10 +120,13 @@ class SpikeInterfaceSortingPipeline:
         # Ensure we use the same exclusions as previously
         prior_exclusions_path = self.main_output_dir / EXCLUSIONS_FNAME
         if prior_exclusions_path.exists():
-            prior_exclusions = ece_utils.read_htsv(prior_exclusions_path)
+            prior_exclusions = utils.read_htsv(prior_exclusions_path)
             try:
                 assert_frame_equal(
-                    prior_exclusions, self._exclusions, check_dtype=False, check_index_type=False,
+                    prior_exclusions,
+                    self._exclusions,
+                    check_dtype=False,
+                    check_index_type=False,
                 )
             except AssertionError as e:
                 raise ValueError(
@@ -150,7 +152,7 @@ class SpikeInterfaceSortingPipeline:
         self._segments = None
         prior_segments_path = self.main_output_dir / SEGMENTS_FNAME
         if prior_segments_path.exists():
-            self._segments = ece_utils.read_htsv(prior_segments_path)
+            self._segments = utils.read_htsv(prior_segments_path)
 
         # TODO use only properties
         # Pipeline steps, specific to SI
@@ -221,7 +223,7 @@ class SpikeInterfaceSortingPipeline:
             f"{self._probe}.ap.{constants.ARTIFACTS_FNAME}",
         )
         if artifacts_file.exists():
-            return ece_utils.read_htsv(artifacts_file).reset_index(drop=True)
+            return utils.read_htsv(artifacts_file).reset_index(drop=True)
         else:
             return pd.DataFrame(
                 {"fname": [], "start_time": [], "end_time": [], "type": []}
@@ -240,7 +242,7 @@ class SpikeInterfaceSortingPipeline:
         # Ensure we used the same segments as previously
         prior_segments_path = self.main_output_dir / SEGMENTS_FNAME
         if prior_segments_path.exists():
-            prior_segments = ece_utils.read_htsv(prior_segments_path)
+            prior_segments = utils.read_htsv(prior_segments_path)
             try:
                 # Couldn't make it work for all columns because of rounding x dtype
                 cols_to_compare = [
@@ -303,7 +305,6 @@ class SpikeInterfaceSortingPipeline:
         return self.main_output_dir / "preprocessing"
 
     def run_preprocessing(self):
-
         raw_si_recording, segments = self.get_raw_si_recording()
         self._preprocessed_si_recording = preprocess_si_rec.preprocess_si_recording(
             raw_si_recording,
@@ -318,8 +319,8 @@ class SpikeInterfaceSortingPipeline:
         self.main_output_dir.mkdir(exist_ok=True, parents=True)
         with open(self.main_output_dir / OPTS_FNAME, "w") as f:
             yaml.dump(self.opts, f)
-        ece_utils.write_htsv(self._exclusions, self.main_output_dir / EXCLUSIONS_FNAME)
-        ece_utils.write_htsv(segments, self.main_output_dir / SEGMENTS_FNAME)
+        utils.write_htsv(self._exclusions, self.main_output_dir / EXCLUSIONS_FNAME)
+        utils.write_htsv(segments, self.main_output_dir / SEGMENTS_FNAME)
 
         # Save preprocessed probe
         pi.write_probeinterface(
@@ -373,7 +374,7 @@ class SpikeInterfaceSortingPipeline:
             raise NotImplementedError()
 
         # Sort
-        assert self.main_output_dir.exists() # Created during prepro
+        assert self.main_output_dir.exists()  # Created during prepro
         with Timing(name="Run spikeinterface sorter"):
             ss.run_sorter(
                 sorter_name,
@@ -396,7 +397,7 @@ class SpikeInterfaceSortingPipeline:
     def kilosort_binary_recording_extractor(self) -> si.BinaryRecordingExtractor:
         if self._kilosort_binary_recording_extractor is None:
             self._kilosort_binary_recording_extractor = (
-                ece_utils.siutils.load_kilosort_bin_as_si_recording(
+                utils.siutils.load_kilosort_bin_as_si_recording(
                     self.sorter_output_dir,
                     fname=self.preprocessed_bin_path.name,
                     si_probe=self.preprocessed_probe,
@@ -419,9 +420,7 @@ class SpikeInterfaceSortingPipeline:
         if self._si_sorting_extractor is None:
             sorting = se.read_kilosort(self.sorter_output_dir)
             if not sorting.has_recording():
-                sorting.register_recording(
-                    self.processed_extractor_for_waveforms
-                )
+                sorting.register_recording(self.processed_extractor_for_waveforms)
             self._si_sorting_extractor = sorting
         return self._si_sorting_extractor
 
@@ -431,7 +430,7 @@ class SpikeInterfaceSortingPipeline:
     def load_from_folder(
         cls,
         wneProject: Project,
-        wneSubject: Subject,
+        wneSubject: SGLXSubject,
         experiment: str,
         alias: str,
         probe: str,
@@ -465,7 +464,7 @@ class SpikeInterfaceSortingPipeline:
                 f"Could not find all required files in {main_output_dir}"
             )
 
-        exclusions = ece_utils.read_htsv(main_output_dir / EXCLUSIONS_FNAME)
+        exclusions = utils.read_htsv(main_output_dir / EXCLUSIONS_FNAME)
 
         return SpikeInterfaceSortingPipeline(
             wneProject,
