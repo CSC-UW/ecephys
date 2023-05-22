@@ -76,6 +76,7 @@ on_off_colors = {
     "off": "plum",
 }
 
+
 # This function is taken directly from neurodsp.plts.utils.
 # We cannot use the neurodsp package, because a critical IBL library shadows the name.
 def check_ax(ax, figsize=None):
@@ -567,6 +568,7 @@ def interactive_lfp_explorer(time, lfps, chan_labels=None, figsize=(20, 8)):
     display(ui, out)
 
 
+# TODO: Use imshow. Much faster
 def colormesh_explorer(
     time,
     sig,
@@ -702,7 +704,8 @@ def interactive_colormesh_explorer(time, sig, y=None, figsize=(20, 8)):
 
 def grouped_barplot(df, cat, subcat, val, err):
     """Like sns.barplot(data=df, x=cat, hue=subcat, y=val), but with controllable error bars using err=col_name
-    See https://stackoverflow.com/questions/42017049/how-to-add-error-bars-on-a-grouped-barplot-from-a-column"""
+    See https://stackoverflow.com/questions/42017049/how-to-add-error-bars-on-a-grouped-barplot-from-a-column
+    """
     u = df[cat].unique()
     x = np.arange(len(u))
     subx = df[subcat].unique()

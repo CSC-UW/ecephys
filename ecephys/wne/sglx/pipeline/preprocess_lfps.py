@@ -6,6 +6,7 @@ import logging
 from tqdm.auto import tqdm
 
 from ecephys import sglxr
+from ecephys import utils
 from ecephys import xrsig
 from ecephys.wne.sglx import SGLXProject
 from ecephys.wne.sglx import SGLXSubject
@@ -20,6 +21,7 @@ def do_experiment(
     experiment: str,
     probe: str,
     bad_channels: list = None,  # Found in opts["probes"][probe]["badChannels"]
+    chunk_duration: int = 300,  # Size of zarr chunks, in seconds
     **kwargs,
 ):
     """
@@ -74,10 +76,13 @@ def do_experiment(
         logger.info("Preprocessing...")
         lfp = xrsig.preprocess_neuropixels_ibl_style(lfp, bad_channels)
         lfp.name = "lfp"
+        lfp.attrs = utils.drop_unserializeable(lfp.attrs)
 
         logger.info(f"Saving to: {zarr_file}")
         if i == 0:
-            lfp = lfp.chunk({"channel": lfp.channel.size, "time": "auto"})
+            lfp = lfp.chunk(
+                {"channel": lfp.channel.size, "time": int(lfp.fs * chunk_duration)}
+            )  # If you choose to use the 'auto' chunksize setting, be warned: Different coords on the same dimension can be chunked differently.
             lfp.to_zarr(zarr_file, encoding={"lfp": {"dtype": "float32"}}, mode="w")
         else:
             lfp.to_zarr(zarr_file, append_dim="time")

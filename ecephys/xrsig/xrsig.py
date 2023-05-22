@@ -88,7 +88,7 @@ def spatially_interpolate_timeseries(
     if inplace:
         da = da.copy()
     da.values = voltage.interpolate_bad_channels(
-        lf.values.T, do_interp.astype("int"), x=x, y=da["y"].values
+        da.values.T, do_interp.astype("int"), x=x, y=da["y"].values
     ).T
     return da
 
