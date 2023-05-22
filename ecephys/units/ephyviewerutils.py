@@ -112,9 +112,9 @@ def add_spiketrainviewer_to_window(
     if tgt_struct_acronym is not None:
         mask = properties["acronym"] == tgt_struct_acronym
         tgt_properties = properties[mask]
-        lo = sorting.structs.set_index("acronym").loc[tgt_struct_acronym, "lo"]
-        hi = sorting.structs.set_index("acronym").loc[tgt_struct_acronym, "hi"]
-        view_name = f"Structure: {tgt_struct_acronym}, Depths: {lo}-{hi}um"
+        lo = sorting.structs.set_index("acronym").loc[tgt_struct_acronym, ["lo"]]
+        hi = sorting.structs.set_index("acronym").loc[tgt_struct_acronym, ["hi"]]
+        view_name = f"Structure: {tgt_struct_acronym}, Depths: {pd.Series(lo).values}-{pd.Series(hi).values}um"
     else:
         tgt_properties = properties
         lo = sorting.structs.lo.min()
@@ -127,7 +127,8 @@ def add_spiketrainviewer_to_window(
     # Get tgt values for grouping trains within structure
     if by == "depth":
         # Descending depths between structure min/max in 20um steps
-        tgt_values = np.arange(lo, hi + DEPTH_STEP, DEPTH_STEP)[::-1]
+        min_val, max_val = pd.Series(lo).min(), pd.Series(hi).min() # lo, hi may be Series if multiple rows for struct
+        tgt_values = np.arange(min_val, max_val + DEPTH_STEP, DEPTH_STEP)[::-1]
     else:
         # Units sorted by depth within each structure
         sorted_tgt_properties = tgt_properties.sort_values(by="depth", ascending=False)
