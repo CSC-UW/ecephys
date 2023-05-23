@@ -354,3 +354,4 @@ def _stft(da: xr.DataArray, **kwargs) -> xr.DataArray:
         },
         attrs=da.attrs,
     )
+
