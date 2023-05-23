@@ -92,13 +92,40 @@ def get_sink_detection_series(
 
 def detect_sinks(
     csd,
-    centerChan,
-    nCoarse,
-    nFine,
-    detectionThreshold,
-    boundaryThreshold,
-    minimumDuration,
-    thresholdType,
+    n_fine,
+    detection_threshold,
+    boundary_threshold,
+    minimum_duration,
+    threshold_type,
+):
+    ser = get_sink_detection_series(csd, n_fine_detection_chans=n_fine)
+
+    if threshold_type == "zscore":
+        fn = evd.detect_by_zscore
+    elif threshold_type == "value":
+        fn = evd.detect_by_value
+    else:
+        raise ValueError(f"thresholdType {threshold_type} not recognized.")
+
+    sinks = fn(
+        ser.values,
+        ser["time"].values,
+        detection_threshold,
+        boundary_threshold,
+        minimum_duration,
+    )
+    return swr.get_peak_info(ser, sinks)
+
+
+def _detect_sinks_deprecated(
+    csd,
+    center_channel,
+    n_coarse,
+    n_fine,
+    detection_threshold,
+    boundary_threshold,
+    minimum_duration,
+    threshold_type,
 ):
     """Detect current sinks, returning them as a dataframe.
 
@@ -119,26 +146,26 @@ def detect_sinks(
     thresholdType: str
         If 'zscore', interpret thresholds as zscores. If 'value', use absolute threshold values.
     """
-    chans = swr.get_coarse_detection_chans(centerChan, nCoarse, csd)
-    ser = get_sink_detection_series(csd, chans, nFine)
+    chans = swr.get_coarse_detection_chans(center_channel, n_coarse, csd)
+    ser = get_sink_detection_series(csd, chans, n_fine)
 
-    if thresholdType == "zscore":
+    if threshold_type == "zscore":
         fn = evd.detect_by_zscore
-    elif thresholdType == "value":
+    elif threshold_type == "value":
         fn = evd.detect_by_value
     else:
-        raise ValueError(f"thresholdType {thresholdType} not recognized.")
+        raise ValueError(f"thresholdType {threshold_type} not recognized.")
 
     sinks = fn(
         ser.values,
         ser.time.values,
-        detectionThreshold,
-        boundaryThreshold,
-        minimumDuration,
+        detection_threshold,
+        boundary_threshold,
+        minimum_duration,
     )
-    sinks.attrs["centerChannel"] = centerChan
-    sinks.attrs["nCoarse"] = nCoarse
-    sinks.attrs["nFine"] = nFine
+    sinks.attrs["centerChannel"] = center_channel
+    sinks.attrs["nCoarse"] = n_coarse
+    sinks.attrs["nFine"] = n_fine
     return swr.get_peak_info(ser, sinks)
 
 
@@ -225,6 +252,7 @@ def get_shift_timeseries(epocs, times):
 
 
 # -------------------- Plotting functions --------------------
+
 
 # Intended for use with single trigger files.
 # If channels can be restricted to a smaller number (e.g. just the detection channels),

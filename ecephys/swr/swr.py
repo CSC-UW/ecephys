@@ -99,7 +99,7 @@ def get_peak_info(sig, evts):
         return peak.item(), peak.time.item(), peak.channel.item()
 
     info = list(map(_get_peak_info, evts.itertuples()))
-    evts[["peakAmp", "peakTime", "peakChan"]] = info
+    evts[["pk_amp", "pk_time", "pk_chan_id"]] = info
     return evts
 
 
