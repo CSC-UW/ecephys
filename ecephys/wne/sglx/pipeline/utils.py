@@ -13,67 +13,64 @@ from ecephys.wne.sglx import utils as wne_sglx_utils
 #####
 
 
-def gather_alias_dataarray(
-    wneProject: SGLXProject,
-    wneSubject: SGLXSubject,
+def gather_counterpart_netcdfs(
+    wne_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
-    alias: str,
     probe: str,
-    daExt: str,
+    da_ext: str,
 ) -> xr.DataArray:
     "Gather netCDF."
-    assert daExt.endswith(".nc"), "Files to gather must use extension .nc"
-    lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
-    daFiles = wne_sglx_utils.get_sglx_file_counterparts(
-        wneProject, wneSubject.name, lfpTable.path.values, daExt
+    assert da_ext.endswith(".nc"), "Files to gather must use extension .nc"
+    lfp_table = wne_subject.get_lfp_bin_table(experiment, probe=probe)
+    da_files = wne_sglx_utils.get_sglx_file_counterparts(
+        wne_project, wne_subject.name, lfp_table.path.values, da_ext
     )
-    daList = [xr.load_dataarray(f) for f in daFiles if f.is_file()]
-    return xr.concat(daList, dim="time")
+    da_list = [xr.load_dataarray(f) for f in da_files if f.is_file()]
+    return xr.concat(da_list, dim="time")
 
 
-def remove_alias_dataarrays(
-    wneProject: SGLXProject,
-    wneSubject: SGLXSubject,
+def remove_counterpart_netcdfs(
+    wne_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
-    alias: str,
     probe: str,
-    daExt: str,
+    da_ext: str,
 ):
     "Remove netCDFs."
-    assert daExt.endswith(".nc"), "Files to gather must use extension .nc"
-    lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
-    daFiles = wne_sglx_utils.get_sglx_file_counterparts(
-        wneProject, wneSubject.name, lfpTable.path.values, daExt
+    assert da_ext.endswith(".nc"), "Files to gather must use extension .nc"
+    lfp_table = wne_subject.get_lfp_bin_table(experiment, probe=probe)
+    da_files = wne_sglx_utils.get_sglx_file_counterparts(
+        wne_project, wne_subject.name, lfp_table.path.values, da_ext
     )
-    for f in daFiles:
+    for f in da_files:
         f.unlink(missing_ok=True)
 
 
-def gather_and_save_alias_dataarray(
-    srcProject: SGLXProject,
-    wneSubject: SGLXSubject,
+def gather_and_save_counterpart_netcdfs(
+    src_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
-    alias: str,
     probe: str,
-    daExt: str,
-    outputName: str,
+    da_ext: str,
+    output_name: str,
     to_npy: bool = False,
-    removeAfter: bool = False,
-    destProject: Optional[SGLXProject] = None,
+    remove_after: bool = False,
+    dest_project: Optional[SGLXProject] = None,
 ):
     """Gather netCDF, save as ONE NPY."""
-    if destProject is None:
-        destProject = srcProject
-    da = gather_alias_dataarray(srcProject, wneSubject, experiment, alias, probe, daExt)
-    saveDir = destProject.get_alias_subject_directory(
-        experiment, alias, wneSubject.name
+    if dest_project is None:
+        dest_project = src_project
+    da = gather_counterpart_netcdfs(src_project, wne_subject, experiment, probe, da_ext)
+    save_dir = dest_project.get_experiment_subject_directory(
+        experiment, wne_subject.name
     )
     if to_npy:
-        utils.write_da_as_npy(da, outputName, saveDir)
+        utils.write_da_as_npy(da, output_name, save_dir)
     else:
-        utils.save_xarray(da, saveDir / outputName)
-    if removeAfter:
-        remove_alias_dataarrays(srcProject, wneSubject, experiment, alias, probe, daExt)
+        utils.save_xarray(da, save_dir / output_name)
+    if remove_after:
+        remove_counterpart_netcdfs(src_project, wne_subject, experiment, probe, da_ext)
 
 
 #####

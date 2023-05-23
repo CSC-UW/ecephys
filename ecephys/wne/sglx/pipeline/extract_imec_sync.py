@@ -15,27 +15,27 @@ logger = logging.getLogger(__name__)
 
 
 def save_sglx_imec_barcodes(
-    wneProject: SGLXProject, wneSubject: SGLXSubject, binfile: Path
+    wne_project: SGLXProject, wne_subject: SGLXSubject, binfile: Path
 ):
     times, values = sync.get_sglx_imec_barcodes(binfile)
     barcodes = pd.DataFrame({"time": times, "value": values})
-    [htsvFile] = wne_sglx_utils.get_sglx_file_counterparts(
-        wneProject,
-        wneSubject.name,
+    [htsv_file] = wne_sglx_utils.get_sglx_file_counterparts(
+        wne_project,
+        wne_subject.name,
         [binfile],
         ".barcodes.htsv",  # TODO: Make a WNE constant
     )
-    utils.write_htsv(barcodes, htsvFile)
+    utils.write_htsv(barcodes, htsv_file)
 
 
 def save_sglx_imec_ttls(
-    wneProject: SGLXProject, wneSubject: SGLXSubject, binfile: Path
+    wne_project: SGLXProject, wne_subject: SGLXSubject, binfile: Path
 ):
     rising, falling = sync.extract_ttl_edges_from_sglx_imec(binfile)
     ttls = pd.DataFrame({"rising": rising, "falling": falling})
     [htsvFile] = wne_sglx_utils.get_sglx_file_counterparts(
-        wneProject,
-        wneSubject.name,
+        wne_project,
+        wne_subject.name,
         [binfile],
         ".ttls.htsv",  # TODO: Make a WNE constant
     )
@@ -43,24 +43,24 @@ def save_sglx_imec_ttls(
 
 
 def do_probe(
-    wneProject: SGLXProject,
-    wneSubject: SGLXSubject,
+    wne_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
     prb: str,
     fn: Callable,
     stream: str = "ap",
 ):
-    ftab = wneSubject.get_experiment_frame(
+    ftab = wne_subject.get_experiment_frame(
         experiment, stream=stream, ftype="bin", probe=prb
     )
     for file in tqdm(list(ftab.itertuples()), desc="Files"):
-        fn(wneProject, wneSubject, file.path)
+        fn(wne_project, wne_subject, file.path)
 
 
 def do_experiment(
     opts: dict,
-    destProject: SGLXProject,
-    wneSubject: SGLXSubject,
+    dest_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
     probes: Optional[list[str]] = None,
     stream: str = "ap",
@@ -73,6 +73,6 @@ def do_experiment(
         raise ValueError(f"Got unexpected value {opts['imSyncType']} for 'imSyncType'.")
 
     if probes is None:
-        probes = wneSubject.get_experiment_probes(experiment)
+        probes = wne_subject.get_experiment_probes(experiment)
     for probe in probes:
-        do_probe(destProject, wneSubject, experiment, probe, fn, stream=stream)
+        do_probe(dest_project, wne_subject, experiment, probe, fn, stream=stream)

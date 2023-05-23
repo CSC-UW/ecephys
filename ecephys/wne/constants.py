@@ -1,6 +1,8 @@
 NETCDF_EXT = ".nc"
 EMG_EXT = ".emg.nc"
 EDF_EXT = ".edf"
+BDF_EXT = ".bdf"
+LFP_EXT = ".lf.zarr"
 ARTIFACTS_EXT = ".artifacts.csv"
 VISBRAIN_EXT = ".hypnogram.txt"
 VISBRAIN_FS = 100  # Visbrain will automatically resample everything to 100Hz, so just nip it in the bud.

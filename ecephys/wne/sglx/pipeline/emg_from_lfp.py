@@ -1,6 +1,6 @@
-# TODO: Make and replace with gather_and_save_experiment_dataarray
+# TODO: Save to zarr instead, and convert existing netCDF to zarr
+# TODO: Convert times before saving
 import logging
-from typing import Optional
 
 from tqdm.auto import tqdm
 
@@ -17,35 +17,33 @@ from ecephys.wne.sglx.pipeline import utils as pipeline_utils
 logger = logging.getLogger(__name__)
 
 
-def do_alias(
+def do_experiment(
     opts: dict,
-    destProject: SGLXProject,
-    wneSubject: SGLXSubject,
+    dest_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
-    alias: Optional[str] = None,
     **kwargs
 ):
-    lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, **kwargs)
+    lfp_table = wne_subject.get_lfp_bin_table(experiment, **kwargs)
 
-    for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [emgFile] = wne_sglx_utils.get_sglx_file_counterparts(
-            destProject, wneSubject.name, [lfpFile.path], constants.EMG_EXT
+    for lfp_file in tqdm(list(lfp_table.itertuples())):
+        [emg_file] = wne_sglx_utils.get_sglx_file_counterparts(
+            dest_project, wne_subject.name, [lfp_file.path], constants.EMG_EXT
         )
         sig = sglxr.load_trigger(
-            lfpFile.path,
-            opts["probes"][lfpFile.probe]["emgFromLfpChans"],
-            t0=lfpFile.expmtPrbAcqFirstTime,  # TODO: Convert times before saving
-            dt0=lfpFile.expmtPrbAcqFirstDatetime,
+            lfp_file.path,
+            opts["probes"][lfp_file.probe]["emgFromLfpChans"],
+            t0=lfp_file.expmtPrbAcqFirstTime,
+            dt0=lfp_file.expmtPrbAcqFirstDatetime,
         )
         emg = xrsig.synthetic_emg(sig)
-        utils.save_xarray(emg, emgFile)
+        utils.save_xarray(emg, emg_file)
 
-    for probe in lfpTable.probe.unique():
-        pipeline_utils.gather_and_save_alias_dataarray(
-            destProject,
-            wneSubject,
+    for probe in lfp_table.probe.unique():
+        pipeline_utils.gather_and_save_counterpart_netcdfs(
+            dest_project,
+            wne_subject,
             experiment,
-            alias,
             probe,
             constants.EMG_EXT,
             constants.EMG_FNAME,
