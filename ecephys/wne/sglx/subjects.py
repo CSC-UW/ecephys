@@ -247,7 +247,7 @@ class SGLXSubjectLibrary:
         return SGLXSubject(self.get_subject_file(subjectName), subjectFrame)
 
     def get_subject_names(self) -> list[str]:
-        return [f.stem for f in self.libdir.glob("*.yml")]
+        return sorted([f.stem for f in self.libdir.glob("*.yml")])
 
     def refresh_cache(self) -> pd.DataFrame:
         names = self.get_subject_names()
