@@ -74,7 +74,7 @@ spatial_params = None
 # 	'sort_all_window_offs_by_ascending': [False, False, True, True],
 # }  # Only if spatial_detection = True
 
-split_by_structure = False  # If True, run off detection separately per structure. One could perform spatial Off detection AND split by structure!
+split_by_structure = True  # If True, run off detection separately per structure. One could perform spatial Off detection AND split by structure!
 
 tgt_structure_acronyms = None  # List of acronyms of structures to include. All structures if None
 # tgt_structure_acronyms=["Po", "VM"]
@@ -111,6 +111,7 @@ sorting = sorting.refine_clusters(
 
 off_df = sorting.run_off_detection(
     tgt_states=tgt_states,
+    split_by_state=split_by_state,
     on_off_method=on_off_method,
     on_off_params=on_off_params,
     spatial_detection=spatial_detection,

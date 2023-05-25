@@ -551,7 +551,8 @@ class SpikeInterfaceKilosortSorting:
             df["structures"] = [structures] * len(df)
             df["states"] = [states] * len(df)
 
-            all_structures_dfs.append(df[df["state"] == "off"])
+            if len(df):
+                all_structures_dfs.append(df[df["state"] == "off"])
 
         if not len(all_structures_dfs):
             return pd.DataFrame()
