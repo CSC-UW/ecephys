@@ -13,35 +13,43 @@ logger = logging.getLogger(__name__)
 
 
 def do_experiment_probe(
-    wneProject: SGLXProject,
-    wneSubject: SGLXSubject,
+    wne_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
     probe: str,
 ):
-    vbHgs = list()
-    lfpTable = wneSubject.get_lfp_bin_table(experiment, probe=probe)
-    for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [vbFile] = wne_sglx_utils.get_sglx_file_counterparts(
-            wneProject,
-            wneSubject.name,
-            [lfpFile.path],
+    visbrain_hypnograms = list()
+    lfp_table = wne_subject.get_lfp_bin_table(experiment, probe=probe)
+    for lfp_file in tqdm(list(lfp_table.itertuples())):
+        [visbrain_hypnogram_file] = wne_sglx_utils.get_sglx_file_counterparts(
+            wne_project,
+            wne_subject.name,
+            [lfp_file.path],
             constants.VISBRAIN_EXT,
             remove_stream=True,
         )
-        if vbFile.is_file():
-            logger.debug(f"Loading file {vbFile.name}")
-            vbHg = hypnogram.FloatHypnogram.from_visbrain(vbFile)
-            vbHg[
+        if visbrain_hypnogram_file.is_file():
+            logger.debug(f"Loading file {visbrain_hypnogram_file.name}")
+            visbrain_hypnogram = hypnogram.FloatHypnogram.from_visbrain(
+                visbrain_hypnogram_file
+            )
+            visbrain_hypnogram[
                 ["start_time", "end_time"]
-            ] += lfpFile.expmtPrbAcqFirstTime  # TODO: Sync times BEFORE saving
-            vbHgs.append(vbHg)
+            ] += lfp_file.expmtPrbAcqFirstTime  # TODO: Sync times BEFORE saving
+            visbrain_hypnograms.append(visbrain_hypnogram)
         else:
-            logger.warning(f"Hypnogram {vbFile.name} not found. Skipping.")
+            logger.warning(
+                f"Hypnogram {visbrain_hypnogram_file.name} not found. Skipping."
+            )
 
-    if vbHgs:
-        hg = pd.concat(vbHgs).sort_values("start_time").reset_index(drop=True)
-        hg = hypnogram.FloatHypnogram.clean(hg)
-        hypnoFile = wneProject.get_experiment_subject_file(
-            experiment, wneSubject.name, constants.HYPNOGRAM_FNAME
+    if visbrain_hypnograms:
+        hg = (
+            pd.concat(visbrain_hypnograms)
+            .sort_values("start_time")
+            .reset_index(drop=True)
         )
-        hg.write_htsv(hypnoFile)
+        hg = hypnogram.FloatHypnogram.clean(hg)
+        consolidated_hypnogram_file = wne_project.get_experiment_subject_file(
+            experiment, wne_subject.name, constants.HYPNOGRAM_FNAME
+        )
+        hg.write_htsv(consolidated_hypnogram_file)
