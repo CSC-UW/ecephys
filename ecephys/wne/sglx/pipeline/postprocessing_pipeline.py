@@ -102,8 +102,8 @@ def _load_kilosort_amplitudes_by_cluster(we, ks_dir):
 class SpikeInterfacePostprocessingPipeline:
     def __init__(
         self,
-        wneProject: SGLXProject,
-        wneSubject: SGLXSubject,
+        sglxProject: SGLXProject,
+        sglxSubject: SGLXSubject,
         experiment: str,
         alias: str,
         probe: str,
@@ -115,8 +115,8 @@ class SpikeInterfacePostprocessingPipeline:
         hypnogram_source: Union[str, Path, SGLXProject] = None,
     ):
         # These properties are private, because they should not be modified after instantiation
-        self._wneProject = wneProject
-        self._wneSubject = wneSubject
+        self._sglxProject = sglxProject
+        self._sglxSubject = sglxSubject
         self._alias = alias
         self._experiment = experiment
         self._probe = probe
@@ -127,8 +127,8 @@ class SpikeInterfacePostprocessingPipeline:
 
         self._sorting_pipeline = (
             sorting_pipeline.SpikeInterfaceSortingPipeline.load_from_folder(
-                self._wneProject,
-                self._wneSubject,
+                self._sglxProject,
+                self._sglxSubject,
                 self._experiment,
                 self._alias,
                 self._probe,
@@ -141,9 +141,9 @@ class SpikeInterfacePostprocessingPipeline:
         #   (1) wneProject
         #   (2) A custom location of your choosing
         if options_source == "wneProject":
-            self._opts_src = wneProject.get_experiment_subject_file(
+            self._opts_src = sglxProject.get_experiment_subject_file(
                 experiment,
-                wneSubject.name,
+                sglxSubject.name,
                 constants.PREPROCESSING_PIPELINE_PARAMS_FNAME,
             )
         else:
@@ -181,8 +181,8 @@ class SpikeInterfacePostprocessingPipeline:
                 self._hypnogram = (
                     load_hypnogram_for_si_slicing(
                         hypnogram_source,
-                        self._wneProject,
-                        self._wneSubject,
+                        self._sglxProject,
+                        self._sglxSubject,
                         self._experiment,
                         self._alias,
                         self._probe,
@@ -623,8 +623,8 @@ class SpikeInterfacePostprocessingPipeline:
     @classmethod
     def load_from_folder(
         cls,
-        wneProject: SGLXProject,
-        wneSubject: SGLXSubject,
+        sglxProject: SGLXProject,
+        sglxSubject: SGLXSubject,
         experiment: str,
         alias: str,
         probe: str,
@@ -633,8 +633,8 @@ class SpikeInterfacePostprocessingPipeline:
         rerun_existing: bool = False,
     ):
         main_output_dir = sorting_pipeline.get_main_output_dir(
-            wneProject,
-            wneSubject,
+            sglxProject,
+            sglxSubject,
             experiment,
             alias,
             probe,
@@ -662,8 +662,8 @@ class SpikeInterfacePostprocessingPipeline:
             hypnogram_source = None
 
         return SpikeInterfacePostprocessingPipeline(
-            wneProject,
-            wneSubject,
+            sglxProject,
+            sglxSubject,
             experiment,
             alias,
             probe,
@@ -677,8 +677,8 @@ class SpikeInterfacePostprocessingPipeline:
 
 def load_hypnogram_for_si_slicing(
     wneHypnoProject: Project,
-    wneSortingProject: SGLXProject,
-    wneSubject,
+    sglxSortingProject: SGLXProject,
+    sglxSubject,
     experiment: str,
     alias: str,
     probe: str,
@@ -703,9 +703,9 @@ def load_hypnogram_for_si_slicing(
     ===========
     wneHypnoProject: Project
         Used to pull whole experiment hypnogram
-    wneSortingProject: Project,
+    sglxSortingProject: Project,
         Used to pull segment file and sample2time function of interest
-    wneSubject: Subject,
+    sglxSubject: SGLXSubject,
     experiment: str,
     alias: str,
     probe: str,
@@ -724,19 +724,19 @@ def load_hypnogram_for_si_slicing(
         bout matching the spikeinterface sorting/recording frame ids.
     """
     raw_hypno = wneHypnoProject.load_float_hypnogram(
-        experiment, wneSubject.name, simplify=simplify
+        experiment, sglxSubject.name, simplify=simplify
     )
 
-    segments = wneSortingProject.load_segments_table(
-        wneSubject,
+    segments = sglxSortingProject.load_segments_table(
+        sglxSubject,
         experiment,
         alias,
         probe,
         sorting,
         return_all_segment_types=False,
     )
-    sample2time = wneSortingProject.get_sample2time(
-        wneSubject,
+    sample2time = sglxSortingProject.get_sample2time(
+        sglxSubject,
         experiment,
         alias,
         probe,

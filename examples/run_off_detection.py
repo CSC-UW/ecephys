@@ -1,6 +1,6 @@
 import wisc_ecephys_tools as wet
 import ecephys.utils
-from ecephys.wne.utils import load_singleprobe_sorting
+from ecephys.wne.sglx.utils import load_singleprobe_sorting
 import numpy as np
 import argparse
 
@@ -38,11 +38,13 @@ filters= {
 # Output Path
 # Saves at /path/to/project/<experiment>/<subject>/<off_df_fname>
 off_df_fname = f"{probe}.offs.htsv"
-outputProjectName = "test_project"
+off_df_fname = f"{probe}.offs_bystruct_bystate_intermediate.htsv"
+outputProjectName = "shared_s3"
 
 # Params for OFF detection
 tgt_states = None  # List of vigilance states over which we subset spikes. We automatically exclude NoData and bouts before/after start/end of recording
 # tgt_states=["NREM"]
+split_by_state = True
 
 on_off_method = "hmmem"
 on_off_params = {
@@ -86,14 +88,14 @@ n_jobs = 10  # Only for spatial OFF detection
 savepath = wet.get_wne_project(outputProjectName).get_experiment_subject_file(experiment, subjectName, off_df_fname)
 print(f"\nWill save OFF at {savepath}\n")
 
-wneSubject = wet.get_wne_subject(subjectName)
-sortingProject = wet.get_wne_project(sortingProjectName)
+sglxSubject = wet.get_sglx_subject(subjectName)
+sortingProject = wet.get_sglx_project(sortingProjectName)
 anatomyProject = wet.get_wne_project("shared_s3")
 hypnogramProject = wet.get_wne_project("shared_s3")
 
 sorting = load_singleprobe_sorting(
     sortingProject,
-    wneSubject,
+    sglxSubject,
     experiment,
     alias,
     probe,

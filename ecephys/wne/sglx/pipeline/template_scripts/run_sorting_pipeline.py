@@ -48,7 +48,7 @@ if __name__ == "__main__":
     for subject_probe in args["--input"]:
         subjectName, probe = subject_probe.split(",")
 
-        wneSubject = wet.get_wne_subject(subjectName)
+        sglxSubject = wet.get_sglx_subject(subjectName)
         wneProject = wet.get_wne_project(args["--projectName"])
 
         if args["--exclusionsPath"]:
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
         sorting_pipeline = SpikeInterfaceSortingPipeline(
             wneProject,
-            wneSubject,
+            sglxSubject,
             args["--experimentName"],
             args["--aliasName"],
             probe,

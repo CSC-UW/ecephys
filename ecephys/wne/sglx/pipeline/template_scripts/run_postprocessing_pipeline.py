@@ -45,8 +45,8 @@ if __name__ == "__main__":
     for subject_probe in args["--input"]:
         subjectName, probe, sorting_basename = subject_probe.split(",")
 
-        wneSubject = wet.get_wne_subject(subjectName)
-        wneProject = wet.get_wne_project(args["--projectName"])
+        sglxSubject = wet.get_sglx_subject(subjectName)
+        sglxProject = wet.get_sglx_project(args["--projectName"])
 
         if args["--hypnogramProjectName"]:
             hypnogram_source = wet.get_wne_project(args["--hypnogramProjectName"])
@@ -54,8 +54,8 @@ if __name__ == "__main__":
             hypnogram_source = None
 
         postpro_pipeline = SpikeInterfacePostprocessingPipeline(
-            wneProject,
-            wneSubject,
+            sglxProject,
+            sglxSubject,
             args["--experimentName"],
             args["--aliasName"],
             probe,

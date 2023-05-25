@@ -26,7 +26,7 @@ class SGLXSubject:
         self.cache = self.refresh_cache() if subjectCache is None else subjectCache
 
     def __repr__(self) -> str:
-        return f"wneSubject: {self.name}"
+        return f"SGLXSubject: {self.name}"
 
     def refresh_cache(self) -> pd.DataFrame:
         logger.debug(f"Refreshing cache for: {self.name}")

@@ -1,11 +1,14 @@
 import logging
 import pathlib
-from typing import Callable
+from pathlib import Path
+from typing import Callable, Union
 
 import numpy as np
 
 from ecephys import utils
-from ecephys.wne import Project
+from ecephys.wne import Project, ProjectLibrary
+
+Pathlike = Union[Path, str]
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +16,9 @@ logger = logging.getLogger(__name__)
 class SGLXProject(Project):
     def __init__(self, project_name: str, project_dir: pathlib.Path):
         Project.__init__(self, project_name, project_dir)
+
+    def __repr__(self):
+        return f"sglxProject: {self.name}, {self.dir}"
 
     def load_segments_table(
         self,
@@ -149,3 +155,12 @@ class SGLXProject(Project):
             return t
 
         return sample2time
+
+
+class SGLXProjectLibrary(ProjectLibrary):
+    def __init__(self, projects_file: Pathlike):
+        ProjectLibrary.__init__(self, projects_file)
+
+    def get_project(self, project_name: str) -> SGLXProject:
+        doc = self.get_project_document(project_name)
+        return SGLXProject(project_name, Path(doc["project_directory"]))

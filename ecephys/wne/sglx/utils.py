@@ -83,8 +83,8 @@ def load_datetime_hypnogram(
 
 
 def load_singleprobe_sorting(
-    wneSortingProject: SGLXProject,
-    wneSubject: SGLXSubject,
+    sglxSortingProject: SGLXProject,
+    sglxSubject: SGLXSubject,
     experiment: str,
     alias: str,
     probe: str,
@@ -106,8 +106,8 @@ def load_singleprobe_sorting(
         warnings.warn(
             "Maybe loading sample2time without probe-to-probe synchronization, watch out"
         )
-    sample2time = wneSortingProject.get_sample2time(
-        wneSubject,
+    sample2time = sglxSortingProject.get_sample2time(
+        sglxSubject.name,
         experiment,
         alias,
         probe,
@@ -116,8 +116,8 @@ def load_singleprobe_sorting(
     )
 
     # Load extractor
-    extractor = wneSortingProject.get_kilosort_extractor(
-        wneSubject.name,
+    extractor = sglxSortingProject.get_kilosort_extractor(
+        sglxSubject.name,
         experiment,
         alias,
         probe,
@@ -127,7 +127,7 @@ def load_singleprobe_sorting(
 
     if wneHypnogramProject is not None:
         hypnogram = wneHypnogramProject.load_float_hypnogram(
-            experiment, wneSubject.name, simplify=True
+            experiment, sglxSubject.name, simplify=True
         )._df
     else:
         hypnogram = None
@@ -141,7 +141,7 @@ def load_singleprobe_sorting(
     # Add anatomy to the extractor, if available.
     if wneAnatomyProject is not None:
         anatomy_file = wneAnatomyProject.get_experiment_subject_file(
-            experiment, wneSubject.name, f"{probe}.structures.htsv"
+            experiment, sglxSubject.name, f"{probe}.structures.htsv"
         )
         assert anatomy_file.exists(), (
             f"Could not find anatomy file at: {anatomy_file}.\n"
@@ -157,8 +157,8 @@ def load_singleprobe_sorting(
 
 
 def load_multiprobe_sorting(
-    wneSortingProject: SGLXProject,
-    wneSubject: SGLXSubject,
+    sglxSortingProject: SGLXProject,
+    sglxSubject: SGLXSubject,
     experiment: str,
     alias: str,
     probes: list[str],
@@ -176,8 +176,8 @@ def load_multiprobe_sorting(
     return units.MultiprobeSorting(
         {
             probe: load_singleprobe_sorting(
-                wneSortingProject,
-                wneSubject,
+                sglxSortingProject,
+                sglxSubject,
                 experiment,
                 alias,
                 probe=probe,
