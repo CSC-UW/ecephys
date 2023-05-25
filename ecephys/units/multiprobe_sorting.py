@@ -86,7 +86,7 @@ class MultiprobeSorting:
                 self.hypnogram,
                 view_name="Hypnogram",
                 name_column="state",
-                colors_by_name=ecephys.plot.state_colors,
+                color_by_name=ecephys.plot.state_colors,
             )
         return window
 
