@@ -777,6 +777,9 @@ def _trim_overlap(df: pd.DataFrame) -> pd.DataFrame:
     rest.loc[trimHead, "start_time"] = longestBout["end_time"]
     rest["duration"] = rest["end_time"] - rest["start_time"]
 
+    # longestBout is a Series with dtype object, because it mixes strings and floats.
+    # Surprisingly, longestBout.to_frame().T carries this object dtype to ALL columns.
+    # So, we must reset the dtypes. Do this later, for efficiency.
     return (
         pd.concat([longestBout.to_frame().T, _trim_overlap(rest)])
         .sort_values("start_time")
@@ -811,7 +814,7 @@ def trim_overlap(df: pd.DataFrame) -> pd.DataFrame:
         result.append(_trim_overlap(df.iloc[i:j]))
         i = j
 
-    return pd.concat(result, ignore_index=True)
+    return pd.concat(result, ignore_index=True).astype(df.dtypes)
 
 
 def get_gaps(df: pd.DataFrame, longerThan) -> list[dict]:
