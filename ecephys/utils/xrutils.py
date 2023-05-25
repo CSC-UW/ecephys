@@ -62,7 +62,7 @@ def read_npy_as_da(object, dir=None):
     )
 
 
-def save_xarray(xr_obj, path, **kwargs):
+def save_xarray_to_netcdf(xr_obj, path, **kwargs):
     """Save an Xarray object to NetCDF, which preserves obj.attrs as long as they are serializable"""
     if not (isinstance(xr_obj, xr.DataArray) or isinstance(xr_obj, xr.Dataset)):
         raise ValueError(f"Expected DataArray or Dataset, got {type(xr_obj)}.")

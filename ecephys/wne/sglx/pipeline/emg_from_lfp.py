@@ -37,7 +37,7 @@ def do_experiment(
             dt0=lfp_file.expmtPrbAcqFirstDatetime,
         )
         emg = xrsig.synthetic_emg(sig)
-        utils.save_xarray(emg, emg_file)
+        utils.save_xarray_to_netcdf(emg, emg_file)
 
     for probe in lfp_table.probe.unique():
         pipeline_utils.gather_and_save_counterpart_netcdfs(

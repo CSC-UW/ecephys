@@ -13,6 +13,7 @@ EMG_FNAME = "emg.nc"
 ARTIFACTS_FNAME = "artifacts.htsv"
 HYPNOGRAM_FNAME = "hypnogram.htsv"
 DATETIME_HYPNOGRAM_FNAME = "hypnogram_datetime.htsv"
+HIPPOCAMPAL_SUBREGIONS_FNAME = "hippocampal_subregions.json"
 
 SCORING_LFP = "scoring_lfp.zarr"
 SCORING_EMG = "scoring_emg.zarr"

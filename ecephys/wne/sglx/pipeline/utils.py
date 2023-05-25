@@ -68,7 +68,7 @@ def gather_and_save_counterpart_netcdfs(
     if to_npy:
         utils.write_da_as_npy(da, output_name, save_dir)
     else:
-        utils.save_xarray(da, save_dir / output_name)
+        utils.save_xarray_to_netcdf(da, save_dir / output_name)
     if remove_after:
         remove_counterpart_netcdfs(src_project, wne_subject, experiment, probe, da_ext)
 

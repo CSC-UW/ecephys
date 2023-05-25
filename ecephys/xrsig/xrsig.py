@@ -12,6 +12,7 @@ import xarray as xr
 import ecephys.emg_from_lfp
 import ecephys.signal as npsig
 from ecephys import utils
+from ecephys.utils import dask_utils
 
 logger = logging.getLogger(__name__)
 
@@ -355,3 +356,31 @@ def _stft(da: xr.DataArray, **kwargs) -> xr.DataArray:
         attrs=da.attrs,
     )
 
+
+def naive_rechunk(da: xr.DataArray) -> xr.DataArray:
+    validate_2d_timeseries(da)
+    chunkaxis = da.get_axis_num("time")
+    chunks = da.chunks[chunkaxis]
+    assert utils.all_equal(chunks[:-1]), "All but last chunk must be the same size"
+    chunksize = chunks[0]
+    return da.chunk(chunks={"time": chunksize})
+
+
+def get_timeseries_chunk(da: xr.DataArray, chunk_index: int) -> xr.DataArray:
+    validate_2d_timeseries(da)
+    axis = da.get_axis_num("time")
+    chunk_bounds = dask_utils.get_dask_chunk_bounds(da.data, axis=axis)
+    start_frame = chunk_bounds[chunk_index]
+    end_frame = chunk_bounds[chunk_index + 1]
+    return da.isel({"time": slice(start_frame, end_frame)})
+
+
+def iterate_timeseries_chunks(da: xr.DataArray):
+    validate_2d_timeseries(da)
+    axis = da.get_axis_num("time")
+    chunk_bounds = dask_utils.get_dask_chunk_bounds(da.data, axis=axis)
+    n_chunks = len(chunk_bounds) - 1
+    return (
+        da.isel({"time": slice(chunk_bounds[i], chunk_bounds[i + 1])})
+        for i in range(n_chunks)
+    )
