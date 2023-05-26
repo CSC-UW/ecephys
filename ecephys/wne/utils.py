@@ -14,7 +14,7 @@ def open_lfps(
     subject: str,
     experiment: str,
     probe: str,
-    hotfix_times=True,
+    hotfix_times=False,
     drop_duplicate_times=False,
     xr_kwargs=dict(chunks="auto"),
 ):
