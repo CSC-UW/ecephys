@@ -3,6 +3,7 @@ from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import matplotlib.colors
+from tqdm import tqdm
 
 
 DEPTH_STEP = 20
@@ -161,5 +162,65 @@ def add_spiketrainviewer_to_window(
         view.params[p] = v
 
     window.add_view(view, location="bottom", orientation="vertical")
+
+    return window
+
+
+def add_spatialoff_viewer_to_window(
+    window: ephyviewer.MainViewer,
+    off_df: pd.DataFrame,
+    view_name="Spatial offs",
+    t1_column="start_time",
+    t2_column="end_time",
+    d1_column="depth_min",
+    d2_column="depth_max",
+    ylim=None,
+    Tmax=None,
+    binsize=0.01,
+    add_event_list=True,
+):
+    """Add spatial off viewer (from TraceImageViewer)"""
+    assert all([c in off_df.columns for c in [t1_column, t2_column, d1_column, d2_column]])
+
+    if ylim is None:
+        ylim = (off_df[d1_column].min() , off_df[d2_column].max())
+    if Tmax is None:
+        Tmax = off_df[t2_column].max()
+
+    timestamps = np.arange(0, Tmax, binsize)
+    depthstamps = np.arange(ylim[0], ylim[1] + 10, 10)
+    off_image = np.zeros((len(depthstamps), len(timestamps)), dtype=float)
+
+    for row in tqdm(list(off_df.itertuples())):
+        t1_idx = np.searchsorted(timestamps, getattr(row, t1_column))
+        t2_idx = np.searchsorted(timestamps, getattr(row, t2_column))
+        d1_idx = np.searchsorted(depthstamps, getattr(row, d1_column))
+        d2_idx = np.searchsorted(depthstamps, getattr(row, d2_column))
+        off_image[d1_idx:d2_idx, t1_idx:t2_idx] = 1
+
+    source = ephyviewer.InMemoryAnalogSignalSource(
+        np.transpose(off_image), 1/binsize, 0, channel_names=depthstamps,
+    )
+
+    view = ephyviewer.TraceImageViewer(source=source, name=view_name)
+    window.add_view(view, location="bottom")
+
+    if add_event_list:
+        # Add event list for navigation
+        epochs = []
+        labels = (off_df[d1_column].astype(str) + '–' + off_df[d2_column].astype(str)+"um").values
+        epochs.append(
+            {
+                "name": "offs",
+                "label": labels,
+                "time": off_df[t1_column].values,
+                "duration": (off_df[t2_column] - off_df[t1_column]).values
+            }
+        )
+
+        source_epochs = ephyviewer.InMemoryEpochSource(all_epochs=epochs)
+
+        view = ephyviewer.EventList(source=source_epochs, name=f"{view_name} list")
+        window.add_view(view, orientation="horizontal", split_with=view_name)
 
     return window
