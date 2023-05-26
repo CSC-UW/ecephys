@@ -33,7 +33,7 @@ dependencies = [
     "ipywidgets",
     "kcsd @ git+https://github.com/CSC-UW/kCSD-python.git", # Until they accept PR
     "mat73",
-    "matplotlib",
+    "matplotlib >= 3.7",
     "numpy",
     "pandas",
     "pyEDFlib",
