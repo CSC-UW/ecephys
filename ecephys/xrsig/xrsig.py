@@ -187,7 +187,7 @@ def synthetic_emg(pots: xr.DataArray, emg_kwargs: dict = None):
 
 
 def kernel_current_source_density(
-    pots: xr.DataArray, drop=[], do_lcurve=False, **kcsd_kwargs
+    pots: xr.DataArray, drop=slice(None), do_lcurve=False, **kcsd_kwargs
 ) -> xr.DataArray:
     """Compute 1D kernel current source density.
     If signal units are in uV, then CSD units are in nA/mm.

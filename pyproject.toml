@@ -31,7 +31,7 @@ dependencies = [
     "ipympl",
     "ipython",
     "ipywidgets",
-    "kcsd", # @ git+https://github.com/Neuroinflab/kCSD-python.git",
+    "kcsd @ git+https://github.com/CSC-UW/kCSD-python.git", # Until they accept PR
     "mat73",
     "matplotlib",
     "numpy",
