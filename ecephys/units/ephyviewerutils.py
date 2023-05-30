@@ -113,8 +113,8 @@ def add_spiketrainviewer_to_window(
     if tgt_struct_acronym is not None:
         mask = properties["acronym"] == tgt_struct_acronym
         tgt_properties = properties[mask]
-        lo = sorting.structs.set_index("acronym").loc[tgt_struct_acronym, ["lo"]]
-        hi = sorting.structs.set_index("acronym").loc[tgt_struct_acronym, ["hi"]]
+        lo = sorting.structs.set_index("acronym").loc[tgt_struct_acronym, "lo"]
+        hi = sorting.structs.set_index("acronym").loc[tgt_struct_acronym, "hi"]
         view_name = f"Structure: {tgt_struct_acronym}, Depths: {pd.Series(lo).values}-{pd.Series(hi).values}um"
     else:
         tgt_properties = properties
