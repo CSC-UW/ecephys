@@ -63,6 +63,9 @@ class SpikeInterfaceKilosortSorting:
         # If no time mapping function is provided, just provide times according to this probe's sample clock.
         self._sample2time = sample2time
 
+        # Cache cluster's whole-recording spike train in sample_idx
+        self._strains_by_cluster_id = {}
+
     def __repr__(self):
         return f"Wrapped {repr(self.si_obj)}"
 
@@ -247,6 +250,11 @@ class SpikeInterfaceKilosortSorting:
         return self.__class__(
             new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs
         )
+    
+    def _get_cluster_strain(self, cluster_id):
+        if cluster_id not in self._strains_by_cluster_id:
+            self._strains_by_cluster_id[cluster_id] = self.si_obj.get_unit_spike_train(cluster_id)
+        return self._strains_by_cluster_id[cluster_id]
 
     def _get_aggregate_train(
         self, property_column, property_value, as_sample_indices=False
@@ -285,7 +293,7 @@ class SpikeInterfaceKilosortSorting:
             iterator = cluster_ids
 
         return {
-            id: func(self.si_obj.get_unit_spike_train(id)) for id in iterator
+            id: func(self._get_cluster_strain(id)) for id in iterator
         }  # Getting spike trains cluster-by-cluster is MUCH faster than getting them all together.
 
     def get_trains(
