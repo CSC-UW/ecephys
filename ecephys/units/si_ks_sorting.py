@@ -256,19 +256,15 @@ class SpikeInterfaceKilosortSorting:
             self._strains_by_cluster_id[cluster_id] = self.si_obj.get_unit_spike_train(cluster_id)
         return self._strains_by_cluster_id[cluster_id]
 
-    def _get_aggregate_train(
-        self, property_column, property_value, as_sample_indices=False
+    def _get_aggregate_strain(
+        self, property_column, property_value
     ) -> np.array:
         mask = self.properties[property_column] == property_value
         tgt_clusters = self.properties[mask].cluster_id.values
         return kway_sortednp_merge(
             [
-                train
-                for train in self.get_trains_by_cluster_ids(
-                    cluster_ids=tgt_clusters,
-                    as_sample_indices=as_sample_indices,
-                    verbose=False,
-                ).values()
+                self._get_cluster_strain(id)
+                for id in tgt_clusters
             ]
         )
 
@@ -315,12 +311,17 @@ class SpikeInterfaceKilosortSorting:
             tgt_values = self.properties[by].unique()
 
         if verbose:
-            iterator = tqdm(tgt_values, desc="Loading trains by `{by}`: ")
+            iterator = tqdm(tgt_values, desc=f"Loading trains by `{by}`: ")
         else:
             iterator = tgt_values
 
+        if as_sample_indices:
+            func = lambda x: x
+        else:
+            func = self.sample2time
+
         return {
-            v: self._get_aggregate_train(by, v, as_sample_indices=as_sample_indices)
+            v: func(self._get_aggregate_strain(by, v))
             for v in iterator
         }
 
