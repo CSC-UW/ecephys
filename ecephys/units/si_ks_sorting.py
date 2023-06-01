@@ -432,8 +432,6 @@ class SpikeInterfaceKilosortSorting:
         on_off_params=None,
         spatial_detection=False,
         spatial_params=None,
-        split_by_structure=False,
-        tgt_structure_acronyms=None,
         n_jobs=10,
         min_sum_fr=30,
     ):
@@ -462,18 +460,12 @@ class SpikeInterfaceKilosortSorting:
             `spatial_detection` is False.  split_by_structure: bool If True, off
             (spatial) detection is performed separately for all target
             structures. (default False)
-        tgt_structure_acronyms: list[str]
-            List of structure acronyms for which (spatial/global) OFF detection
-            is performed. If `split_by_structure` is False, a single pass of
-            (global/spatial) off detection is performed, for all structures at
-            once. By default, all structures are included.
         n_jobs: int
             Parallelize across windows. Spatial off detection only.
         min_sum_fr: float
             If the cumulative firing rate for the region/sorting of interest 
             is below this value, do nothing (default 30)
 
-        
         Return:
         =======
         pd.DataFrame:
@@ -498,20 +490,8 @@ class SpikeInterfaceKilosortSorting:
             f"Running ON/OFF detection. Cutting/concatenating the following hypnogram states: {tgt_states}"
         )
 
-        # Get trains from structures of interest
-        all_structure_acronyms = [s for s in self.structs.acronym.unique()]
-        if tgt_structure_acronyms is None:
-            tgt_structure_acronyms = all_structure_acronyms
-        assert all([s in all_structure_acronyms for s in tgt_structure_acronyms]), (
-            f"Invalid value in `tgt_structure_acronyms={tgt_structure_acronyms}`. "
-            f"Available structures: {all_structure_acronyms}"
-        )
-        properties = self.properties[
-            self.properties.acronym.isin(tgt_structure_acronyms)
-        ]
-        all_trains = self.get_trains_by_cluster_ids(
-            cluster_ids=properties.cluster_id.values, verbose=True
-        )
+        properties = self.properties
+        all_trains = self.get_trains_by_cluster_ids()
 
         # Get requested subset of epochs and check they have actual spiking activity
         # Remove "NoData"
@@ -532,12 +512,6 @@ class SpikeInterfaceKilosortSorting:
         )
         hypnogram = self.hypnogram[mask]
 
-        # Iterate on structures of interest
-        if split_by_structure:
-            structures_to_aggregate = [[s] for s in tgt_structure_acronyms]
-        else:
-            structures_to_aggregate = [tgt_structure_acronyms]
-        
         # Iterate on states of interest
         if split_by_state:
             states_to_aggregate = [[s] for s in hypnogram.state.unique()]
@@ -545,42 +519,41 @@ class SpikeInterfaceKilosortSorting:
             states_to_aggregate = [hypnogram.state.unique()]
 
         all_structures_dfs = []
-        for structures, states in itertools.product(structures_to_aggregate, states_to_aggregate):
-            tgt_properties = properties[properties.acronym.isin(structures)]
-            tgt_trains = [
-                all_trains[row.cluster_id] for row in tgt_properties.itertuples()
+        for states in states_to_aggregate:
+            trains = [
+                all_trains[row.cluster_id] for row in properties.itertuples()
             ]
-            tgt_cluster_ids = [row.cluster_id for row in tgt_properties.itertuples()]
-            tgt_depths = [row.depth for row in tgt_properties.itertuples()]
+            cluster_ids = [row.cluster_id for row in properties.itertuples()]
+            depths = [row.depth for row in properties.itertuples()]
 
-            sumFR = tgt_properties["fr"].sum()
+            sumFR = properties["fr"].sum()
             if sumFR <= min_sum_fr:
                 print(
-                    f"Too few spikes (sumFR={sumFR}Hz) in the following structures: {structures}. Passing ON/OFF detection"
+                    f"Too few spikes (sumFR={sumFR}Hz) in the following structures: {self.structures_by_depth}. Passing ON/OFF detection"
                 )
                 continue
             else:
                 print(
-                    f"Running ON/OFF detection for structures {structures}, states {states}.\n"
-                    f"N={len(tgt_trains)}units, sumFR={sumFR}Hz"
+                    f"Running ON/OFF detection for structures {self.structures_by_depth}, states {states}.\n"
+                    f"N={len(trains)}units, sumFR={sumFR}Hz"
                 )
 
             try:
                 if not spatial_detection:
                     df = on_off_detection.OnOffModel(
-                        tgt_trains,
+                        trains,
                         None,
-                        cluster_ids=tgt_cluster_ids,
+                        cluster_ids=cluster_ids,
                         method=on_off_method,
                         params=on_off_params,
                         bouts_df=hypnogram[hypnogram["state"].isin(states)],
                     ).run()
                 else:
                     df = on_off_detection.SpatialOffModel(
-                        tgt_trains,
-                        tgt_depths,
+                        trains,
+                        depths,
                         None,
-                        cluster_ids=tgt_cluster_ids,
+                        cluster_ids=cluster_ids,
                         on_off_method=on_off_method,
                         on_off_params=on_off_params,
                         spatial_params=spatial_params,
@@ -588,10 +561,9 @@ class SpikeInterfaceKilosortSorting:
                         n_jobs=n_jobs,
                     ).run()
             except on_off_detection.ALL_METHOD_EXCEPTIONS as e:
-                print(f"\n\nException for structures {structures}: {e}\n\n Passing.\n")
+                print(f"\n\nException for structures {self.structures_by_depth}: {e}\n\n Passing.\n")
                 continue
-            df["structures"] = [structures] * len(df)
-            df["states"] = [states] * len(df)
+            df["states"] = [",".join(states)] * len(df)
 
             if len(df):
                 all_structures_dfs.append(df[df["state"] == "off"])
