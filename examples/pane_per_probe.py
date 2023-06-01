@@ -29,6 +29,8 @@ parser.add_argument("alias", type=str, help="Name of alias we search sortings fo
 parser.add_argument("command_prefix", type=str, help="Command to write in the pane. `'subj,prb'` is appended for each pane.")
 args = parser.parse_args()
 
+MAX_PANES_PER_WINDOW = 20
+
 # Read the file containing the list of values
 subject_probes_list = get_completed_subject_probes(args.experiment, args.alias)
 
@@ -38,6 +40,9 @@ if not prefix.endswith(" "):
     prefix += " "
 
 for i, val in enumerate(subject_probes_list):
+
+    if not (i + 1) % MAX_PANES_PER_WINDOW:
+        subprocess.run(f"tmux new-window", shell=True)
 
     # Split the current pane into a new pane and run a command in it
     subprocess.run(f"tmux split-window", shell=True)
