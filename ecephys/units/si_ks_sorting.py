@@ -267,10 +267,25 @@ class SpikeInterfaceKilosortSorting:
                 for id in tgt_clusters
             ]
         )
+    
+    def _convert_then_subset(self, train, as_sample_indices=False, xlim=None):
+        if xlim is None:
+            fsubset = lambda x: x
+        else:
+            assert len(xlim) == 2
+            fsubset = lambda x: np.array([t for t in x if xlim[0] <= t < xlim[1]])
+
+        if as_sample_indices:
+            fconvert = lambda x: x
+        else:
+            fconvert = self.sample2time
+        
+        return fsubset(fconvert(train))
 
     def get_trains_by_cluster_ids(
         self,
         cluster_ids=None,
+        xlim=None,
         as_sample_indices=False,
         verbose=True,
     ) -> dict:
@@ -278,23 +293,23 @@ class SpikeInterfaceKilosortSorting:
         if cluster_ids is None:
             cluster_ids = self.si_obj.get_unit_ids()
 
-        if as_sample_indices:
-            func = lambda x: x
-        else:
-            func = self.sample2time
-
         if verbose:
             iterator = tqdm(cluster_ids, desc="Loading trains by clusters: ")
         else:
             iterator = cluster_ids
 
         return {
-            id: func(self._get_cluster_strain(id)) for id in iterator
+            id: self._convert_then_subset(
+                self._get_cluster_strain(id),
+                as_sample_indices=as_sample_indices,
+                xlim=xlim,
+            ) for id in iterator
         }  # Getting spike trains cluster-by-cluster is MUCH faster than getting them all together.
 
     def get_trains(
         self,
         by="cluster_id",
+        xlim=None,
         tgt_values=None,
         as_sample_indices=False,
         verbose=True,
@@ -303,6 +318,7 @@ class SpikeInterfaceKilosortSorting:
         if by == "cluster_id":
             return self.get_trains_by_cluster_ids(
                 cluster_ids=tgt_values,
+                xlim=xlim,
                 as_sample_indices=as_sample_indices,
                 verbose=verbose,
             )
@@ -315,13 +331,12 @@ class SpikeInterfaceKilosortSorting:
         else:
             iterator = tgt_values
 
-        if as_sample_indices:
-            func = lambda x: x
-        else:
-            func = self.sample2time
-
         return {
-            v: func(self._get_aggregate_strain(by, v))
+            v: self._convert_then_subset(
+                self._get_aggregate_strain(by, v),
+                as_sample_indices=as_sample_indices,
+                xlim=xlim,
+            )
             for v in iterator
         }
 
