@@ -71,8 +71,6 @@ spatial_params = None
 # 	'sort_all_window_offs_by_ascending': [False, False, True, True],
 # }  # Only if spatial_detection = True
 
-split_by_structure = True  # If True, run off detection separately per structure. One could perform spatial Off detection AND split by structure!
-
 # tgt_structure_acronyms=["Po", "VM"]
 tgt_structure_acronyms = None  # List of acronyms of structures to include. All structures if None
 # structure_acronyms_to_ignore = []
@@ -103,7 +101,6 @@ def get_off_df_fname(acronym=None):
     if acronym is not None:
         fname += f"{acronym}."
     fname += f"{'spatial' if spatial_detection else 'global'}_offs"
-    fname += f"{'_bystruct' if split_by_structure else ''}"
     fname += f"{'_bystate' if split_by_state else ''}"
     fname += f"_{on_off_params['init_state_estimate_method']}"
     fname += f"_{on_off_params['gap_threshold']}"
