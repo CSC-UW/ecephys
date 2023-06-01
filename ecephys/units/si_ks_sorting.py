@@ -93,6 +93,11 @@ class SpikeInterfaceKilosortSorting:
         return self._structs
 
     @property
+    def structures_by_depth(self) -> np.array:
+        """Array of acronyms, by descending depths."""
+        return self.structs.sort_values(by="lo", ascending=False).acronym.unique()
+
+    @property
     def properties(self) -> pd.DataFrame:
         """Return SI cluster properties as a DataFrame, with one row per cluster."""
         df = pd.DataFrame(self.si_obj._properties)
@@ -251,6 +256,24 @@ class SpikeInterfaceKilosortSorting:
             new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs
         )
     
+    def select_structures(self, tgt_structure_acronyms):
+        # Select clusters from structures of interest and remove structures from self.struct
+        all_structure_acronyms = [s for s in self.structs.acronym.unique()]
+        if tgt_structure_acronyms is None:
+            tgt_structure_acronyms = all_structure_acronyms
+        assert all([s in all_structure_acronyms for s in tgt_structure_acronyms]), (
+            f"Invalid value in `tgt_structure_acronyms={tgt_structure_acronyms}`. "
+            f"Available structures: {all_structure_acronyms}"
+        )
+        new_obj = siutils.refine_clusters(
+            self.si_obj, {"acronym": set(tgt_structure_acronyms)}, include_nans=False
+        )
+        new_structs = self.structs[self.structs["acronym"].isin(tgt_structure_acronyms)].copy()
+        return self.__class__(
+            new_obj, self.sample2time, hypnogram=self.hypnogram, structs=new_structs
+        )
+
+    
     def _get_cluster_strain(self, cluster_id):
         if cluster_id not in self._strains_by_cluster_id:
             self._strains_by_cluster_id[cluster_id] = self.si_obj.get_unit_spike_train(cluster_id)
@@ -350,28 +373,23 @@ class SpikeInterfaceKilosortSorting:
 
         if group_by_structure:
 
-            all_structures = self.structs.sort_values(
-                by="lo", ascending=False
-            ).acronym.values  # Descending depths
+            all_structures = self.structures_by_depth  # Descending depths
 
             if tgt_struct_acronyms is None:
                 tgt_struct_acronyms = all_structures
-            else:
-                assert all([s in all_structures for s in tgt_struct_acronyms])
 
             for tgt_struct_acronym in tgt_struct_acronyms:
                 window = ephyviewerutils.add_spiketrainviewer_to_window(
                     window,
-                    self,
+                    self.select_structures([tgt_struct_acronym]),
                     by=by,
-                    tgt_struct_acronym=tgt_struct_acronym,
                     probe=None,
                 )
 
         else:
             # Full probe
             window = ephyviewerutils.add_spiketrainviewer_to_window(
-                window, self, by=by, tgt_struct_acronym=None, probe=None
+                window, self, by=by, probe=None
             )
 
         return window
