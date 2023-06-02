@@ -15,6 +15,9 @@ HYPNOGRAM_FNAME = "hypnogram.htsv"
 DATETIME_HYPNOGRAM_FNAME = "hypnogram_datetime.htsv"
 HIPPOCAMPAL_SUBREGIONS_FNAME = "hippocampal_subregions.json"
 
+# Full fname is f"{prb}.{acronym}.{OFF_FNAME_SUFFIX}""
+DF_OFF_FNAME_SUFFIX = "global_offs_bystate_conservative_0.05.htsv"
+
 SCORING_LFP = "scoring_lfp.zarr"
 SCORING_EMG = "scoring_emg.zarr"
 SCORING_BDF = "scoring_signals.bdf"

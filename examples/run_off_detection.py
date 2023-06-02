@@ -95,7 +95,9 @@ structure_acronyms_to_ignore = [
 n_jobs = 10  # Only for spatial OFF detection
 
 # Output Path
-# Saves at /path/to/project/<experiment>/<subject>/<off_df_fname>
+# Saves at /path/to/project/<experiment>/<subject>/offs/<off_df_fname>
+# eg: "imec0.Po.global_offs_bystate_conservative_0.050.htsv"
+# Load with wneProject.load_offs_df()
 def get_off_df_fname(acronym=None):
     fname = f"{probe}."
     if acronym is not None:
@@ -115,7 +117,7 @@ off_dirpath = wet.get_wne_project(outputProjectName).get_experiment_subject_dire
     experiment, 
     subjectName, 
 )/"offs"
-off_dirpath.mkdir(exist_ok=True)
+off_dirpath.mkdir(exist_ok=True, parents=True)
 
 print(f"\nWill save OFFs at eg {off_dirpath/get_off_df_fname('<acronym>')}\n")
 

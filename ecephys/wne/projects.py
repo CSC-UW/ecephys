@@ -30,18 +30,14 @@ import pickle
 from pathlib import Path
 from typing import Optional, Union
 
-import ecephys.sglx
-import ecephys.utils
 import numpy as np
 import pandas as pd
-import spikeinterface.extractors as se
 import yaml
 
-from ecephys import hypnogram
-from ecephys import sharptrack
-from ecephys import sync
+import ecephys.sglx
 import ecephys.utils
-
+import spikeinterface.extractors as se
+from ecephys import hypnogram, sharptrack, sync
 from ecephys.wne import constants
 
 Pathlike = Union[Path, str]
@@ -335,6 +331,30 @@ class Project:
         if simplify:
             hg = hg.replace_states(constants.SIMPLIFIED_STATES)
         return hg
+    
+    def load_offs_df(
+        self,
+        experiment: str,
+        subject: str,
+        probe: str,
+        off_fname_suffix: str = constants.DF_OFF_FNAME_SUFFIX,
+    ):
+        """Load and aggregate off files across structures.
+        
+        Loads and aggregate all files of the form
+        `<probe>.<acronym>.<off_fname_suffix>` in the `offs` subdirectory
+        of the project's experiment_subject_directory.
+        """
+        off_dir = self.get_experiment_subject_directory(
+            experiment,
+            subject
+        )/"offs"
+
+        structure_offs = []
+        for f in off_dir.glob(f"{probe}.*{off_fname_suffix}"):
+            structure_offs.append(ecephys.utils.read_htsv(f))
+        
+        return pd.concat(structure_offs).reset_index(drop=True)
 
 
 class ProjectLibrary:
