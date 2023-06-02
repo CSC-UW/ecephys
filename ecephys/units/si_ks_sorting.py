@@ -493,6 +493,10 @@ class SpikeInterfaceKilosortSorting:
         properties = self.properties
         all_trains = self.get_trains_by_cluster_ids()
 
+        if not len(all_trains):
+            print(f"N=0 clusters in sorting (structures = {self.structures_by_depth}). Passing.")
+            return pd.DataFrame()
+
         # Get requested subset of epochs and check they have actual spiking activity
         # Remove "NoData"
         all_allowed_states = [s for s in self.hypnogram.state.unique() if s != "NoData"]
