@@ -35,7 +35,7 @@ dependencies = [
     "mat73",
     "matplotlib >= 3.7",
     "numpy",
-    "pandas",
+    "pandas == 1.5.3",
     "pyEDFlib",
     "pyfftw",
     "PyYAML",
