@@ -16,12 +16,13 @@ def open_lfps(
     probe: str,
     hotfix_times=False,
     drop_duplicate_times=False,
-    xr_kwargs=dict(chunks="auto"),
+    chunks="auto",
+    **xr_kwargs,
 ):
     lf_file = project.get_experiment_subject_file(
         experiment, subject, f"{probe}{constants.LFP_EXT}"
     )
-    lf = xr.open_dataarray(lf_file, engine="zarr", **xr_kwargs)
+    lf = xr.open_dataarray(lf_file, engine="zarr", chunks=chunks, **xr_kwargs)
     # When loaded, attempting to access lf.chunksizes (or use fns that leverage chunking) will result in the following:
     # ValueError: Object has inconsistent chunks along dimension time. This can be fixed by calling unify_chunks().
     # This is because the datetime coordinate, despite being on the time dimension, has different chunksizes.
