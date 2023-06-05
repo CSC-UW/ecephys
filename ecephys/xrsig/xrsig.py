@@ -302,7 +302,9 @@ def get_segments_with_info(da: xr.DataArray, gap_tolerance: float = 0.001):
     return segments, segment_ts, segment_tlens, segment_tgaps
 
 
-def get_segments(da: xr.DataArray, gap_tolerance: float = 0.001) -> list[xr.DataArray]:
+def get_segments(
+    da: xr.DataArray, gap_tolerance: float = 0.001
+) -> list[tuple[int, int]]:
     """Detect discontinuous segments of data that have been concatenated together.
 
     Parameters:
