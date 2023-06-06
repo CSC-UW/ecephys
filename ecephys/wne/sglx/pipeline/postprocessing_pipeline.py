@@ -337,7 +337,13 @@ class SpikeInterfacePostprocessingPipeline:
         assert waveform_recording.get_total_samples() == waveform_sorting.get_total_samples()
 
         # If we have already extracted waveforms before, re-use those.
-        load_precomputed_waveforms = not self._rerun_existing and self.is_postprocessed_by_state(state=state)
+        load_precomputed_waveforms = (
+            not self._rerun_existing
+            and (
+                (waveform_output_dir/"principal_components").exists()
+                 or (waveform_output_dir/"quality_metrics").exists()
+            )
+        )
         if load_precomputed_waveforms:
             print(
                 f"Loading precomputed waveforms. Will use this recording: {waveform_recording}"
@@ -351,6 +357,7 @@ class SpikeInterfacePostprocessingPipeline:
             # because load_from_folder(.., with_recording=True) assumes same recording file locations etc
             we._recording = waveform_recording
         else:
+            print(f"Extracting waveforms. Will use this recording: {waveform_recording}")
             with Timing(name="Extract waveforms: "):
                 we = si.extract_waveforms(
                     waveform_recording,
