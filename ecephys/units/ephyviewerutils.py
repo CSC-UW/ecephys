@@ -3,6 +3,7 @@ from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import matplotlib.colors
+from tqdm import tqdm
 
 
 DEPTH_STEP = 20
@@ -47,7 +48,8 @@ def add_epochviewer_to_window(
     window: ephyviewer.MainViewer,
     events_df: pd.DataFrame,
     view_name="Events",
-    state_colors=None,
+    name_column="state",
+    color_by_name=None,
     add_event_list=True,
 ):
     """Add epoch/event view from frame of bouts.
@@ -55,19 +57,19 @@ def add_epochviewer_to_window(
     Parameters:
     window: ephyviewer.MainViewer
     event_df: pd.DataFrame
-        Frame with "start_time", "state", "duration" columns
+        Frame with "start_time", "duration" and <name_column> columns
     """
     assert all([c in events_df.columns for c in ["start_time", "state", "duration"]])
 
-    all_states = events_df["state"].unique()
+    all_names = events_df[name_column].unique()
     all_epochs = []
 
-    for state in all_states:
-        mask = events_df["state"] == state
+    for name in all_names:
+        mask = events_df[name_column] == name
         all_epochs.append(
             {
-                "name": state,
-                "label": np.array([state for _ in range(mask.sum())]),
+                "name": name,
+                "label": np.array([name_column for _ in range(mask.sum())]),
                 "time": events_df[mask]["start_time"].values,
                 "duration": events_df[mask]["duration"].values,
             }
@@ -77,10 +79,10 @@ def add_epochviewer_to_window(
     view = ephyviewer.EpochViewer(source=source_epochs, name=view_name)
 
     # Set usual colors
-    if state_colors:
-        for i, state in enumerate(all_states):
+    if color_by_name:
+        for i, name in enumerate(all_names):
             view.by_channel_params[f"ch{i}", "color"] = matplotlib.colors.rgb2hex(
-                state_colors[state]
+                color_by_name[name]
             )
 
     window.add_view(view, location="bottom", orientation="vertical")
@@ -88,7 +90,7 @@ def add_epochviewer_to_window(
     if add_event_list:
         # Add event list for navigation
         view = ephyviewer.EventList(source=source_epochs, name=f"{view_name} list")
-        window.add_view(view, location="bottom", orientation="horizontal")
+        window.add_view(view, orientation="horizontal", split_with=view_name)
 
     return window
 
@@ -97,10 +99,10 @@ def add_spiketrainviewer_to_window(
     window: ephyviewer.MainViewer,
     sorting,
     by="cluster_id",
-    tgt_struct_acronym=None,
     probe=None,
     view_params=None,
 ):
+    """Add a single panel for all units, sorted by depth, grouped by <by>."""
 
     properties = sorting.properties
 
@@ -108,40 +110,32 @@ def add_spiketrainviewer_to_window(
         view_params = {"display_labels": False}
 
     # Structure-wide information
-    if tgt_struct_acronym is not None:
-        mask = properties["acronym"] == tgt_struct_acronym
-        tgt_properties = properties[mask]
-        lo = sorting.structs.set_index("acronym").loc[tgt_struct_acronym, "lo"]
-        hi = sorting.structs.set_index("acronym").loc[tgt_struct_acronym, "hi"]
-        view_name = f"Structure: {tgt_struct_acronym}, Depths: {lo}-{hi}um"
-    else:
-        tgt_properties = properties
-        lo = sorting.structs.lo.min()
-        hi = sorting.structs.hi.max()
-        view_name = f"Struct: full probe, {lo}-{hi}um"
-    view_name = f"{view_name}, N={len(tgt_properties)} units"
+    lo = sorting.structs.lo.values
+    hi = sorting.structs.hi.values
+    view_name = f"Structures: {sorting.structures_by_depth}, lo={lo}-{hi}um, N={len(properties)}"
     if probe is not None:
         view_name = f"Probe: {probe}, {view_name}"
 
-    # Get tgt values for grouping trains within structure
+    # Get tgt values for grouping trains (We want to represent empty depths)
     if by == "depth":
         # Descending depths between structure min/max in 20um steps
-        tgt_values = np.arange(lo, hi + DEPTH_STEP, DEPTH_STEP)[::-1]
+        min_val, max_val = lo.min(), hi.max()
+        tgt_values = np.arange(min_val, max_val + DEPTH_STEP, DEPTH_STEP)[::-1]
     else:
         # Units sorted by depth within each structure
-        sorted_tgt_properties = tgt_properties.sort_values(by="depth", ascending=False)
+        sorted_tgt_properties = properties.sort_values(by="depth", ascending=False)
         tgt_values = sorted_tgt_properties[by].unique()  # Still sorted
 
-    all_struct_spikes = []
+    all_trains = []
     for tgt_value in tqdm(tgt_values, desc=f"Loading spikes for view: `{view_name}`"):
 
         label = f"{by}: {tgt_value}"
 
         if by != "cluster_id":
-            ids = tgt_properties[tgt_properties[by] == tgt_value].cluster_id.values
+            ids = properties[properties[by] == tgt_value].cluster_id.values
             label = f"{label}, ids={ids}"
 
-        all_struct_spikes.append(
+        all_trains.append(
             {
                 "time": sorting.get_trains(
                     by=by,
@@ -152,12 +146,72 @@ def add_spiketrainviewer_to_window(
             }
         )
 
-    source = ephyviewer.InMemorySpikeSource(all_spikes=all_struct_spikes)
+    source = ephyviewer.InMemorySpikeSource(all_spikes=all_trains)
     view = ephyviewer.SpikeTrainViewer(source=source, name=view_name)
 
     for p, v in view_params.items():
         view.params[p] = v
 
     window.add_view(view, location="bottom", orientation="vertical")
+
+    return window
+
+
+def add_spatialoff_viewer_to_window(
+    window: ephyviewer.MainViewer,
+    off_df: pd.DataFrame,
+    view_name="Spatial offs",
+    t1_column="start_time",
+    t2_column="end_time",
+    d1_column="depth_min",
+    d2_column="depth_max",
+    ylim=None,
+    Tmax=None,
+    binsize=0.01,
+    add_event_list=True,
+):
+    """Add spatial off viewer (from TraceImageViewer)"""
+    assert all([c in off_df.columns for c in [t1_column, t2_column, d1_column, d2_column]])
+
+    if ylim is None:
+        ylim = (off_df[d1_column].min() , off_df[d2_column].max())
+    if Tmax is None:
+        Tmax = off_df[t2_column].max()
+
+    timestamps = np.arange(0, Tmax, binsize)
+    depthstamps = np.arange(ylim[0], ylim[1] + 10, 10)
+    off_image = np.zeros((len(depthstamps), len(timestamps)), dtype=float)
+
+    for row in tqdm(list(off_df.itertuples())):
+        t1_idx = np.searchsorted(timestamps, getattr(row, t1_column))
+        t2_idx = np.searchsorted(timestamps, getattr(row, t2_column))
+        d1_idx = np.searchsorted(depthstamps, getattr(row, d1_column))
+        d2_idx = np.searchsorted(depthstamps, getattr(row, d2_column))
+        off_image[d1_idx:d2_idx, t1_idx:t2_idx] = 1
+
+    source = ephyviewer.InMemoryAnalogSignalSource(
+        np.transpose(off_image), 1/binsize, 0, channel_names=depthstamps,
+    )
+
+    view = ephyviewer.TraceImageViewer(source=source, name=view_name)
+    window.add_view(view, location="bottom")
+
+    if add_event_list:
+        # Add event list for navigation
+        epochs = []
+        labels = (off_df[d1_column].astype(str) + '–' + off_df[d2_column].astype(str)+"um").values
+        epochs.append(
+            {
+                "name": "offs",
+                "label": labels,
+                "time": off_df[t1_column].values,
+                "duration": (off_df[t2_column] - off_df[t1_column]).values
+            }
+        )
+
+        source_epochs = ephyviewer.InMemoryEpochSource(all_epochs=epochs)
+
+        view = ephyviewer.EventList(source=source_epochs, name=f"{view_name} list")
+        window.add_view(view, orientation="horizontal", split_with=view_name)
 
     return window

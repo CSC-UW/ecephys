@@ -8,7 +8,10 @@ from scipy import interpolate as interp
 import xarray as xr
 
 from ecephys import utils
-from ecephys import wne
+from ecephys.wne import constants
+from ecephys.wne.sglx import SGLXProject
+from ecephys.wne.sglx import SGLXSubject
+import ecephys.wne.utils as wne_utils
 
 logger = logging.getLogger(__name__)
 
@@ -99,39 +102,42 @@ def write_edf_for_visbrain(
 
 
 def do_experiment(
+    params: dict,
     experiment: str,
-    subj: wne.sglx.Subject,
-    proj: wne.Project,
-    probe: str,
-    lfp_chans: list[int],
+    wne_subject: SGLXSubject,
+    project: SGLXProject,
     write_bdf: bool = True,
 ):
-    emg_file = proj.get_experiment_subject_file(experiment, subj.name, wne.EMG_FNAME)
+    emg_file = project.get_experiment_subject_file(
+        experiment, wne_subject.name, constants.EMG_FNAME
+    )
     emg = xr.open_dataarray(emg_file)
 
-    lfp_file = proj.get_experiment_subject_file(
-        experiment, subj.name, f"{probe}.lf.zarr"
-    )
-    lfp = xr.open_dataarray(lfp_file, engine="zarr")
-    lfp = lfp.sel(channel=lfp_chans)
+    probe = params["hypnogram_probe"]
+    lfp = wne_utils.open_lfps(project, wne_subject.name, experiment, probe)
+    lfp = lfp.sel(channel=params["probes"][probe]["scoringChans"])
 
-    target_fs = int(wne.VISBRAIN_FS)
+    target_fs = int(constants.VISBRAIN_FS)
 
     lfp_rs = prepare_lfp(lfp, target_fs)  # 20m for 48h
     lfp_rs.to_zarr(
-        proj.get_experiment_subject_file(experiment, subj.name, wne.SCORING_LFP),
+        project.get_experiment_subject_file(
+            experiment, wne_subject.name, constants.SCORING_LFP
+        ),
         mode="w",
     )
 
     emg_rs = prepare_emg(emg, target_fs)  # 1m for 48h
     emg_rs.to_zarr(
-        proj.get_experiment_subject_file(experiment, subj.name, wne.SCORING_EMG),
+        project.get_experiment_subject_file(
+            experiment, wne_subject.name, constants.SCORING_EMG
+        ),
         mode="w",
     )
 
     if write_bdf:
-        bdf_file = proj.get_experiment_subject_file(
-            experiment, subj.name, wne.SCORING_BDF
+        bdf_file = project.get_experiment_subject_file(
+            experiment, wne_subject.name, constants.SCORING_BDF
         )
         startdate = pd.Timestamp(lfp.datetime.min().values).to_pydatetime()
         write_edf_for_visbrain(lfp_rs, emg_rs, bdf_file, startdate=startdate)

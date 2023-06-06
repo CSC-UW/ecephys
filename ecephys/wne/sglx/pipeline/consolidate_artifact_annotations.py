@@ -4,63 +4,67 @@ from typing import Optional
 import pandas as pd
 from tqdm.auto import tqdm
 
-from ..subjects import Subject
-from ...projects import Project
-from ... import constants
-from .... import utils as ece_utils
+from ecephys import utils
+from ecephys.wne import constants
+from ecephys.wne.sglx import SGLXProject
+from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne.sglx import utils as wne_sglx_utils
 
 logger = logging.getLogger(__name__)
 
 
 def do_probe_stream(
-    srcProject: Project,
-    destProject: Project,
-    wneSubject: Subject,
+    src_project: SGLXProject,
+    dest_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
     probe: str,
     stream: str,
 ):
     artifacts = list()
-    ftab = wneSubject.get_experiment_frame(
+    ftab = wne_subject.get_experiment_frame(
         experiment, stream=stream, ftype="bin", probe=probe
     )
-    for lfpfile in tqdm(list(ftab.itertuples())):
-        [artfile] = srcProject.get_sglx_counterparts(
-            wneSubject.name,
-            [lfpfile.path],
+    for bin_file in tqdm(list(ftab.itertuples())):
+        [artifacts_file] = wne_sglx_utils.get_sglx_file_counterparts(
+            src_project,
+            wne_subject.name,
+            [bin_file.path],
             constants.ARTIFACTS_EXT,
         )
-        logger.debug(f"Looking for file {artfile.name}")
-        if not artfile.is_file():
+        logger.debug(f"Looking for file {artifacts_file.name}")
+        if not artifacts_file.is_file():
             logger.debug("File not found.")
             continue
-        df = pd.read_csv(artfile)
-        df["fname"] = lfpfile.path.name
+        df = pd.read_csv(artifacts_file)
+        df["fname"] = bin_file.path.name
         # TODO: Sync to canonical timebase BEFORE saving
-        df["expmtPrbAcqFirstTime"] = df["start_time"] + lfpfile.expmtPrbAcqFirstTime
-        df["expmtPrbAcqLastTime"] = df["end_time"] + lfpfile.expmtPrbAcqFirstTime
+        df["expmtPrbAcqFirstTime"] = df["start_time"] + bin_file.expmtPrbAcqFirstTime
+        df["expmtPrbAcqLastTime"] = df["end_time"] + bin_file.expmtPrbAcqFirstTime
         artifacts.append(df)
 
     if artifacts:
         df = pd.concat(artifacts, ignore_index=True)
-        outfile = destProject.get_experiment_subject_file(
-            experiment, wneSubject.name, f"{probe}.{stream}.{constants.ARTIFACTS_FNAME}"
+        outfile = dest_project.get_experiment_subject_file(
+            experiment,
+            wne_subject.name,
+            f"{probe}.{stream}.{constants.ARTIFACTS_FNAME}",
         )
-        ece_utils.write_htsv(df, outfile)
+        utils.write_htsv(df, outfile)
 
 
 def do_experiment(
-    srcProject: Project,
-    wneSubject: Subject,
+    src_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
     probes: Optional[list[str]] = None,
-    destProject: Optional[Project] = None,
+    dest_project: Optional[SGLXProject] = None,
 ):
-    if destProject is None:
-        destProject = srcProject
-    probes = wneSubject.get_experiment_probes(experiment) if probes is None else probes
+    if dest_project is None:
+        dest_project = src_project
+    probes = wne_subject.get_experiment_probes(experiment) if probes is None else probes
     for probe in probes:
         for stream in ["ap", "lf"]:
             do_probe_stream(
-                srcProject, destProject, wneSubject, experiment, probe, stream
+                src_project, dest_project, wne_subject, experiment, probe, stream
             )

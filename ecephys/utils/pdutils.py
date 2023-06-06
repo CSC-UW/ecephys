@@ -27,7 +27,7 @@ def store_pandas_netcdf(pd_obj: Union[pd.DataFrame, pd.Series], path: Pathlike):
     """Save a pandas object, including attrs, to a NetCDF file."""
     xr_obj = pd_obj.to_xarray()
     xr_obj.attrs = pd_obj.attrs
-    xrutils.save_xarray(xr_obj, path)
+    xrutils.save_xarray_to_netcdf(xr_obj, path)
 
 
 def read_pandas_netcdf(path: Pathlike):
@@ -174,7 +174,8 @@ def reconcile_labeled_intervals(
     It is expected that there is some other column, say `label`, that contains the label. But we do not need to know that columns name here.
     Keep in mind that interval endpoints are all considered open, so intervals (a, b) and (b, c) do NOT overlap.
 
-    This function is useful for reconciling hypnograms, anatomical structure tables, data selection tables, etc."""
+    This function is useful for reconciling hypnograms, anatomical structure tables, data selection tables, etc.
+    """
     df1 = df1.copy().sort_values(lo)
     df2 = df2.copy().sort_values(lo)
 

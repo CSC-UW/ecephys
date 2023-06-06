@@ -118,21 +118,6 @@ class Hypnogram:
             result[ep[0] : ep[1]] = self.state.iloc[i]
         return result
 
-    def covers_time(self, times: np.ndarray) -> np.ndarray:
-        """Given an array of times, return True where that time is covered by
-        the hypnogram."""
-
-        assert np.all(np.diff(times) >= 0), "The times must be increasing."
-        assert times.ndim == 1
-
-        epoch_idxs = np.searchsorted(
-            times, np.c_[self.start_time.to_numpy(), self.end_time.to_numpy()]
-        )
-        result = np.full_like(times, fill_value=False, dtype="bool")
-        for i, ep in enumerate(epoch_idxs):
-            result[ep[0] : ep[1]] = True
-        return result
-
     def fractional_occupancy(self, ignore_gaps=True):
         """Return a DataFrame with the time spent in each state, as a fraction of
         the total time covered by the hypnogram.
@@ -248,6 +233,9 @@ class Hypnogram:
                     break  # don't bother checking subperiods of good periods
         return matches
 
+    def covers_time(self) -> np.ndarray[bool]:
+        raise NotImplementedError
+
 
 class FloatHypnogram(Hypnogram):
     def write_visbrain(self, path):
@@ -262,6 +250,36 @@ class FloatHypnogram(Hypnogram):
         df["end_time"] = start_datetime + pd.to_timedelta(df["end_time"], "s")
         df["duration"] = pd.to_timedelta(df["duration"], "s")
         return DatetimeHypnogram(df)
+
+    def keep_first(self, cumulative_duration: float, trim=True) -> FloatHypnogram:
+        """Keep hypnogram bouts until a cumulative duration is reached."""
+        if trim:
+            excess = self["duration"].cumsum() - cumulative_duration
+            is_excess = excess > 0
+            if not is_excess.any():
+                return self
+            amount_to_trim = excess[is_excess].min()
+            trim_until = self.loc[is_excess]["end_time"].min() - amount_to_trim
+            new = trim_hypnogram(self._df, self["start_time"].min(), trim_until)
+        else:
+            keep = self["duration"].cumsum() <= cumulative_duration
+            new = self.loc[keep]
+        return self.__class__(new)
+
+    def keep_last(self, cumulative_duration: float, trim=True) -> FloatHypnogram:
+        """Keep only a given amount of time at the end of a hypnogram."""
+        if trim:
+            excess = self["duration"][::-1].cumsum() - cumulative_duration
+            is_excess = excess > 0
+            if not is_excess.any():
+                return self
+            amount_to_trim = excess[is_excess].min()
+            trim_until = self.loc[is_excess]["start_time"].max() + amount_to_trim
+            new = trim_hypnogram(self._df, trim_until, self["end_time"].max())
+        else:
+            keep = np.cumsum(self["duration"][::-1])[::-1] <= cumulative_duration
+            new = self.loc[keep]
+        return self.__class__(new)
 
     def keep_longer(self, duration) -> FloatHypnogram:
         """Keep bouts longer than a given duration.
@@ -287,6 +305,21 @@ class FloatHypnogram(Hypnogram):
 
         keep = (self.start_time >= start_time) & (self.end_time <= end_time)
         return self.__class__(self._df[keep])
+
+    def covers_time(self, times: np.ndarray[float]) -> np.ndarray[bool]:
+        """Given an array of times, return True where that time is covered by
+        the hypnogram."""
+
+        assert np.all(np.diff(times) >= 0), "The times must be increasing."
+        assert times.ndim == 1
+
+        epoch_idxs = np.searchsorted(
+            times, np.c_[self.start_time.to_numpy(), self.end_time.to_numpy()]
+        )
+        result = np.full_like(times, fill_value=False, dtype="bool")
+        for i, ep in enumerate(epoch_idxs):
+            result[ep[0] : ep[1]] = True
+        return result
 
     def get_consolidated(
         self,
@@ -516,6 +549,23 @@ class DatetimeHypnogram(Hypnogram):
         """
         return self.__class__(self.loc[self.duration > pd.to_timedelta(duration)])
 
+    def covers_time(self, times: np.ndarray[np.datetime64]) -> np.ndarray[bool]:
+        """Given an array of times, return True where that time is covered by
+        the hypnogram."""
+
+        assert np.all(
+            np.diff(times) >= np.timedelta64(0)
+        ), "The times must be increasing."
+        assert times.ndim == 1
+
+        epoch_idxs = np.searchsorted(
+            times, np.c_[self.start_time.to_numpy(), self.end_time.to_numpy()]
+        )
+        result = np.full_like(times, fill_value=False, dtype="bool")
+        for i, ep in enumerate(epoch_idxs):
+            result[ep[0] : ep[1]] = True
+        return result
+
     def get_consolidated(
         self,
         states,
@@ -727,6 +777,9 @@ def _trim_overlap(df: pd.DataFrame) -> pd.DataFrame:
     rest.loc[trimHead, "start_time"] = longestBout["end_time"]
     rest["duration"] = rest["end_time"] - rest["start_time"]
 
+    # longestBout is a Series with dtype object, because it mixes strings and floats.
+    # Surprisingly, longestBout.to_frame().T carries this object dtype to ALL columns.
+    # So, we must reset the dtypes. Do this later, for efficiency.
     return (
         pd.concat([longestBout.to_frame().T, _trim_overlap(rest)])
         .sort_values("start_time")
@@ -739,7 +792,8 @@ def trim_overlap(df: pd.DataFrame) -> pd.DataFrame:
 
     Works by finding sets of bouts such that each bout in a set overlaps with at least one other bout in that set.
     For example, in {(0, 2), (1, 4}, (3, 5)}, (0, 2) and (3, 5) do not directly overlap, but both share overlap with (1, 4).
-    Once a set is found, take the longest bout within that set, trim others to fit it, repeat with the next longest bout, and so on."""
+    Once a set is found, take the longest bout within that set, trim others to fit it, repeat with the next longest bout, and so on.
+    """
     if not {"state", "start_time", "end_time", "duration"}.issubset(df):
         raise AttributeError(
             "Required columns `state`, `start_time`, `end_time`, and `duration` are not present."
@@ -760,7 +814,7 @@ def trim_overlap(df: pd.DataFrame) -> pd.DataFrame:
         result.append(_trim_overlap(df.iloc[i:j]))
         i = j
 
-    return pd.concat(result, ignore_index=True)
+    return pd.concat(result, ignore_index=True).astype(df.dtypes)
 
 
 def get_gaps(df: pd.DataFrame, longerThan) -> list[dict]:

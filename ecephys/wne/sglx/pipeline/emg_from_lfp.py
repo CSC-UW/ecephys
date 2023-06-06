@@ -1,57 +1,49 @@
+# TODO: Save to zarr instead, and convert existing netCDF to zarr
+# TODO: Convert times before saving
 import logging
-from typing import Optional
 
 from tqdm.auto import tqdm
 
-from . import utils
-from ..subjects import Subject
-from ...projects import Project
-from ... import constants
-from .... import utils as ece_utils
-from .... import sglxr, xrsig
+from ecephys import sglxr
+from ecephys import utils
+from ecephys import xrsig
+from ecephys.wne import constants
+from ecephys.wne.sglx import SGLXProject
+from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne.sglx import utils as wne_sglx_utils
+from ecephys.wne.sglx.pipeline import utils as pipeline_utils
+
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_EMG_OPTIONS = dict(
-    target_sf=20,
-    window_size=25.0,
-    wp=[300, 600],
-    ws=[275, 625],
-    gpass=1,
-    gstop=60,
-    ftype="butter",
-)
 
-
-def do_alias(
+def do_experiment(
     opts: dict,
-    destProject: Project,
-    wneSubject: Subject,
+    dest_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
-    alias: Optional[str] = None,
     **kwargs
 ):
-    lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, **kwargs)
+    lfp_table = wne_subject.get_lfp_bin_table(experiment, **kwargs)
 
-    for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [emgFile] = destProject.get_sglx_counterparts(
-            wneSubject.name, [lfpFile.path], constants.EMG_EXT
+    for lfp_file in tqdm(list(lfp_table.itertuples())):
+        [emg_file] = wne_sglx_utils.get_sglx_file_counterparts(
+            dest_project, wne_subject.name, [lfp_file.path], constants.EMG_EXT
         )
         sig = sglxr.load_trigger(
-            lfpFile.path,
-            opts["probes"][lfpFile.probe]["emgFromLfpChans"],
-            t0=lfpFile.expmtPrbAcqFirstTime,  # TODO: Convert times before saving
-            dt0=lfpFile.expmtPrbAcqFirstDatetime,
+            lfp_file.path,
+            opts["probes"][lfp_file.probe]["emgFromLfpChans"],
+            t0=lfp_file.expmtPrbAcqFirstTime,
+            dt0=lfp_file.expmtPrbAcqFirstDatetime,
         )
-        emg = xrsig.LFPs(sig).synthetic_emg(**DEFAULT_EMG_OPTIONS)
-        ece_utils.save_xarray(emg, emgFile)
+        emg = xrsig.synthetic_emg(sig)
+        utils.save_xarray_to_netcdf(emg, emg_file)
 
-    for probe in lfpTable.probe.unique():
-        utils.gather_and_save_alias_dataarray(
-            destProject,
-            wneSubject,
+    for probe in lfp_table.probe.unique():
+        pipeline_utils.gather_and_save_counterpart_netcdfs(
+            dest_project,
+            wne_subject,
             experiment,
-            alias,
             probe,
             constants.EMG_EXT,
             constants.EMG_FNAME,

@@ -5,50 +5,62 @@ from typing import Callable, Optional
 import pandas as pd
 from tqdm.auto import tqdm
 
-from ..subjects import Subject
-from ...projects import Project
-from .... import utils, sync
+from ecephys import sync
+from ecephys import utils
+from ecephys.wne.sglx import SGLXProject
+from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne.sglx import utils as wne_sglx_utils
 
 logger = logging.getLogger(__name__)
 
 
-def save_sglx_imec_barcodes(wneProject: Project, wneSubject: Subject, binfile: Path):
+def save_sglx_imec_barcodes(
+    wne_project: SGLXProject, wne_subject: SGLXSubject, binfile: Path
+):
     times, values = sync.get_sglx_imec_barcodes(binfile)
     barcodes = pd.DataFrame({"time": times, "value": values})
-    [htsvFile] = wneProject.get_sglx_counterparts(
-        wneSubject.name, [binfile], ".barcodes.htsv"  # TODO: Make a WNE constant
+    [htsv_file] = wne_sglx_utils.get_sglx_file_counterparts(
+        wne_project,
+        wne_subject.name,
+        [binfile],
+        ".barcodes.htsv",  # TODO: Make a WNE constant
     )
-    utils.write_htsv(barcodes, htsvFile)
+    utils.write_htsv(barcodes, htsv_file)
 
 
-def save_sglx_imec_ttls(wneProject: Project, wneSubject: Subject, binfile: Path):
+def save_sglx_imec_ttls(
+    wne_project: SGLXProject, wne_subject: SGLXSubject, binfile: Path
+):
     rising, falling = sync.extract_ttl_edges_from_sglx_imec(binfile)
     ttls = pd.DataFrame({"rising": rising, "falling": falling})
-    [htsvFile] = wneProject.get_sglx_counterparts(
-        wneSubject.name, [binfile], ".ttls.htsv"  # TODO: Make a WNE constant
+    [htsvFile] = wne_sglx_utils.get_sglx_file_counterparts(
+        wne_project,
+        wne_subject.name,
+        [binfile],
+        ".ttls.htsv",  # TODO: Make a WNE constant
     )
     utils.write_htsv(ttls, htsvFile)
 
 
 def do_probe(
-    wneProject: Project,
-    wneSubject: Subject,
+    wne_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
     prb: str,
     fn: Callable,
     stream: str = "ap",
 ):
-    ftab = wneSubject.get_experiment_frame(
+    ftab = wne_subject.get_experiment_frame(
         experiment, stream=stream, ftype="bin", probe=prb
     )
     for file in tqdm(list(ftab.itertuples()), desc="Files"):
-        fn(wneProject, wneSubject, file.path)
+        fn(wne_project, wne_subject, file.path)
 
 
 def do_experiment(
     opts: dict,
-    destProject: Project,
-    wneSubject: Subject,
+    dest_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
     probes: Optional[list[str]] = None,
     stream: str = "ap",
@@ -61,6 +73,6 @@ def do_experiment(
         raise ValueError(f"Got unexpected value {opts['imSyncType']} for 'imSyncType'.")
 
     if probes is None:
-        probes = wneSubject.get_experiment_probes(experiment)
+        probes = wne_subject.get_experiment_probes(experiment)
     for probe in probes:
-        do_probe(destProject, wneSubject, experiment, probe, fn, stream=stream)
+        do_probe(dest_project, wne_subject, experiment, probe, fn, stream=stream)

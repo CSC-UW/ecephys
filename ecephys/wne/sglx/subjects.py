@@ -9,24 +9,24 @@ import pandas as pd
 import spikeinterface as si
 import spikeinterface.extractors as se
 
-from . import sessions, experiments
-from ecephys import hypnogram as hg
+from ecephys.wne.sglx import experiments
+from ecephys.wne.sglx import sessions
 from ecephys import utils
 from ecephys.sglx import file_mgmt
 
 logger = logging.getLogger(__name__)
 
 
-class Subject:
+class SGLXSubject:
     def __init__(
         self, subjectYamlFile: Path, subjectCache: Optional[pd.DataFrame] = None
     ):
         self.name = subjectYamlFile.stem
-        self.doc = Subject.load_yaml_doc(subjectYamlFile)
+        self.doc = SGLXSubject.load_yaml_doc(subjectYamlFile)
         self.cache = self.refresh_cache() if subjectCache is None else subjectCache
 
     def __repr__(self) -> str:
-        return f"wneSubject: {self.name}"
+        return f"SGLXSubject: {self.name}"
 
     def refresh_cache(self) -> pd.DataFrame:
         logger.debug(f"Refreshing cache for: {self.name}")
@@ -120,7 +120,7 @@ class Subject:
 
     def dt2t(self, experiment: str, probe: str, dt):
         dt0, _ = self.get_experiment_data_times(experiment, probe, as_datetimes=True)
-        return (dt - dt0) / pd.to_timedelta("1s")
+        return (dt - np.datetime64(dt0)) / pd.to_timedelta("1s")
 
     def get_alias_datetimes(self, experiment: str, alias: str) -> list[tuple]:
         subaliases = self.doc["experiments"][experiment]["aliases"][alias]
@@ -225,7 +225,7 @@ class Subject:
         return yaml_doc
 
 
-class SubjectLibrary:
+class SGLXSubjectLibrary:
     def __init__(self, libdir: Path):
         self.libdir = libdir
         self.cachefile = self.libdir / "wne_sglx_cache.pkl"
@@ -236,7 +236,7 @@ class SubjectLibrary:
     def get_subject_file(self, subjectName: str) -> Path:
         return self.libdir / f"{subjectName}.yml"
 
-    def get_subject(self, subjectName: str) -> Subject:
+    def get_subject(self, subjectName: str) -> SGLXSubject:
         subjectFrame = (
             self.cache[self.cache["subject"] == subjectName]
             .drop(columns="subject")
@@ -244,17 +244,17 @@ class SubjectLibrary:
             if self.cache is not None
             else None
         )
-        return Subject(self.get_subject_file(subjectName), subjectFrame)
+        return SGLXSubject(self.get_subject_file(subjectName), subjectFrame)
 
     def get_subject_names(self) -> list[str]:
-        return [f.stem for f in self.libdir.glob("*.yml")]
+        return sorted([f.stem for f in self.libdir.glob("*.yml")])
 
     def refresh_cache(self) -> pd.DataFrame:
         names = self.get_subject_names()
         subjectCaches = []
         for name in names:
             logger.debug(f"Refreshing cache for {name}")
-            subjectCaches.append(Subject(self.get_subject_file(name)).cache)
+            subjectCaches.append(SGLXSubject(self.get_subject_file(name)).cache)
         self.cache = pd.concat(
             subjectCaches, keys=names, names=["subject"]
         ).reset_index(level=0)
@@ -378,23 +378,3 @@ def segment_experiment_frame_for_spikeinterface(
     stab["segmentDuration"] = stab["nSegmentSamp"].div(stab["imSampRate"])
 
     return stab
-
-
-def float_hypnogram_to_datetime(
-    subj: Subject, experiment: str, hyp: hg.FloatHypnogram, hyp_prb: str
-) -> hg.DatetimeHypnogram:
-    df = hyp._df.copy()
-    df["start_time"] = subj.t2dt(experiment, hyp_prb, df["start_time"])
-    df["end_time"] = subj.t2dt(experiment, hyp_prb, df["end_time"])
-    df["duration"] = df["end_time"] - df["start_time"]
-    return hg.DatetimeHypnogram(df)
-
-
-def datetime_hypnogram_to_float(
-    subj: Subject, experiment: str, hyp: hg.DatetimeHypnogram, hyp_prb: str
-) -> hg.FloatHypnogram:
-    df = hyp._df.copy()
-    df["start_time"] = subj.dt2t(experiment, hyp_prb, df["start_time"])
-    df["end_time"] = subj.dt2t(experiment, hyp_prb, df["end_time"])
-    df["duration"] = df["end_time"] - df["start_time"]
-    return hg.FloatHypnogram(df)

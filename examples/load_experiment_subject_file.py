@@ -6,7 +6,6 @@ sharedDataProjectName = "shared_s3"
 subjectName = "ANPIX33-Arvid"
 experiment = "discoflow-day1"
 
-wneSubject = wet.get_wne_subject(subjectName)
 wneSharedProject = wet.get_wne_project(sharedDataProjectName)
 
 fpath = wneSharedProject.get_experiment_subject_file(

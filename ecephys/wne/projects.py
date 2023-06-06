@@ -28,19 +28,17 @@ import json
 import logging
 import pickle
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
-import spikeinterface.extractors as se
 import yaml
 
-from ecephys import hypnogram
 import ecephys.sglx
-from ecephys import sharptrack
-from ecephys import sync
 import ecephys.utils
-from ecephys import wne
+import spikeinterface.extractors as se
+from ecephys import hypnogram, sharptrack, sync
+from ecephys.wne import constants
 
 Pathlike = Union[Path, str]
 
@@ -134,46 +132,6 @@ class Project:
     ) -> Path:
         return self.get_alias_subject_directory(experiment, alias, subject) / fname
 
-    # TODO: This should probably be a function in ece.wne.utils, since projects should be agnostic to SGLX vs TDT etc.
-    def get_sglx_counterparts(
-        self,
-        subject: str,
-        paths: list[Pathlike],
-        extension: str,
-        remove_probe: bool = False,
-        remove_stream: bool = False,
-    ) -> list[Path]:
-        """Get counterparts to SpikeGLX raw data files.
-
-        Counterparts are mirrored at the project's subject directory, and likely
-        have different suffixes than the original raw data files.
-
-        Parameters:
-        -----------
-        project_name: str
-            From projects.yaml
-        subject_name: str
-            Subject's name within this project, i.e. subject's directory name.
-        paths: list of pathlib.Path
-            The raw data files to get the counterparts of.
-        extension:
-            The extension to replace .bin or .meta with. See `replace_ftype`.
-
-        Returns:
-        --------
-        list of pathlib.Path
-        """
-        counterparts = wne.sglx.mirror_raw_data_paths(
-            self.get_subject_directory(subject), paths
-        )  # Mirror paths at the project's subject directory
-        counterparts = [
-            ecephys.sglx.file_mgmt.replace_ftype(
-                p, extension, remove_probe, remove_stream
-            )
-            for p in counterparts
-        ]
-        return ecephys.utils.remove_duplicates(counterparts)
-
     def load_experiment_subject_json(
         self, experiment: str, subject: str, fname: str
     ) -> dict:
@@ -188,9 +146,14 @@ class Project:
         with open(path) as f:
             return yaml.load(f, Loader=yaml.SafeLoader)
 
+    def load_experiment_subject_params(self, experiment: str, subject: str) -> dict:
+        return self.load_experiment_subject_json(
+            experiment, subject, constants.EXP_PARAMS_FNAME
+        )
+
     def get_all_probes(self, subject: str, experiment: str) -> list[str]:
         opts = self.load_experiment_subject_json(
-            experiment, subject, wne.EXP_PARAMS_FNAME
+            experiment, subject, constants.EXP_PARAMS_FNAME
         )
         return list(opts["probes"].keys())
 
@@ -305,152 +268,15 @@ class Project:
     ) -> sharptrack.SHARPTrack:
         """Load SHARPTrack files.
 
-        experiment_params.json should include a probes->imec0->SHARP-Track->filename.mat field.
+        experiment_params.json should include a probes->`probe_name`->SHARP-Track->filename.mat field.
         filename.mat is then to be found in the same location as experiment_params.json (i.e.e the experiment-subject directory)
         """
         opts = self.load_experiment_subject_json(
-            experiment, subject, wne.EXP_PARAMS_FNAME
+            experiment, subject, constants.EXP_PARAMS_FNAME
         )
         fname = opts["probes"][probe]["SHARP-Track"]
         file = self.get_experiment_subject_file(experiment, subject, fname)
         return sharptrack.SHARPTrack(file)
-
-    def load_segments_table(
-        self,
-        wneSubject,
-        experiment,
-        alias,
-        probe,
-        sorting,
-        return_all_segment_types=False,
-    ):
-        """Load a sorting's segment file.
-
-        Add a couple useful columns: `nSegmentSamp`, `segmentDuration`, `segmentExpmtPrbAcqFirstTime`, `segmentExpmtPrbAcqLastTime`
-        """
-        segment_file = (
-            self.get_alias_subject_directory(experiment, alias, wneSubject.name)
-            / f"{sorting}.{probe}"
-            / "segments.htsv"
-        )
-        if not segment_file.exists():
-            raise FileNotFoundError(f"Segment table not found at {segment_file}.")
-
-        segments = ecephys.utils.read_htsv(segment_file)
-
-        segments["nSegmentSamp"] = segments["end_frame"] - segments["start_frame"]
-        segments["segmentDuration"] = segments["nSegmentSamp"].div(
-            segments["imSampRate"]
-        )
-        segments["segmentExpmtPrbAcqFirstTime"] = segments[
-            "expmtPrbAcqFirstTime"
-        ] + segments["start_frame"].div(segments["imSampRate"])
-        segments["segmentExpmtPrbAcqLastTime"] = (
-            segments["segmentExpmtPrbAcqFirstTime"] + segments["segmentDuration"]
-        )
-
-        if return_all_segment_types:
-            return segments
-
-        return segments[segments["type"] == "keep"]
-
-    def get_sample2time(
-        self,
-        wneSubject,
-        experiment: str,
-        alias: str,
-        probe: str,
-        sorting: str,
-        allow_no_sync_file=False,
-    ) -> Callable:
-
-        # TODO: Once permissions are fixed, should come from f = wneProject.get_experiment_subject_file(experiment, wneSubject.name, f"prb_sync.ap.htsv")
-        # Load probe sync table.
-        probe_sync_file = (
-            self.get_alias_subject_directory(experiment, alias, wneSubject.name)
-            / f"{sorting}.{probe}"
-            / "prb_sync.ap.htsv"
-        )
-        if not probe_sync_file.exists():
-            if allow_no_sync_file:
-                logger.info(
-                    f"Could not find sync table at {probe_sync_file}.\n"
-                    f"`allow_no_sync_file` == True : Ignoring probe sync in sample2time"
-                )
-                sync_table = None
-            else:
-                logger.info(f"Could not find sync table at {probe_sync_file}.")
-                return None
-        else:
-            sync_table = ecephys.utils.read_htsv(
-                probe_sync_file
-            )  # Used to map this probe's times to imec0.
-
-        # Load segment table
-        segments = self.load_segments_table(
-            wneSubject,
-            experiment,
-            alias,
-            probe,
-            sorting,
-            return_all_segment_types=False,
-        )  # Used to map SI sorting samples to this probe's times.
-
-        # Get all the good segments (aka the ones in the sorting), in chronological order.
-        # Compute which samples in the recording belong to each segment.
-        sorted_segments = segments[segments["type"] == "keep"].copy()
-        sorted_segments["nSegmentSamples"] = (
-            sorted_segments["end_frame"] - sorted_segments["start_frame"]
-        )  # N of sorted samples in each segment
-
-        cum_sorted_samples_by_end = sorted_segments[
-            "nSegmentSamples"
-        ].cumsum()  # N of sorted samples by the end of each segment
-        cum_sorted_samples_by_start = cum_sorted_samples_by_end.shift(
-            1, fill_value=0
-        )  # N of sorted samples by the start of each segment
-        sorted_segments[
-            "start_sample"
-        ] = cum_sorted_samples_by_start  # First sample index of concatenated recording belonging to each semgent
-        sorted_segments["end_sample"] = cum_sorted_samples_by_end
-
-        # Given a sample number in the SI recording, we can now figure out:
-        #   (1) the segment it came from
-        #   (2) the file that segment belongs to
-        #   (3) how to map that file's times into our canonical timebase.
-        # We make a function that does this for an arbitrary array of sample numbers in the SI object, so we can use it later as needed.
-        if sync_table is not None:
-            sync_table = sync_table.set_index("source")
-
-        # TODO: Rename start_sample -> si_start_sample?
-        def sample2time(s):
-            s = s.astype("float")
-            t = np.empty(s.size, dtype="float")
-            t[:] = np.nan  # Check a posteriori if we covered all input samples
-            for seg in sorted_segments.itertuples():
-                mask = (s >= seg.start_sample) & (
-                    s < seg.end_sample
-                )  # Mask samples belonging to this segment
-                t[mask] = (
-                    (s[mask] - seg.start_sample) / seg.imSampRate
-                    + seg.expmtPrbAcqFirstTime
-                    + seg.start_frame / seg.imSampRate
-                )  # Convert to number of seconds in this probe's (expmtPrbAcq) timebase
-                if sync_table is not None:
-                    sync_entry = sync_table.loc[
-                        seg.fname
-                    ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
-                    t[mask] = (
-                        sync_entry.slope * t[mask] + sync_entry.intercept
-                    )  # Sync to imec0 (expmtPrbAcq) timebase
-            assert not any(np.isnan(t)), (
-                "Some of the provided sample indices were not covered by segments \n"
-                "and therefore couldn't be converted to time"
-            )
-
-            return t
-
-        return sample2time
 
     # TODO: Likely deprecated. Remove.
     def remap_probe_times(
@@ -492,17 +318,43 @@ class Project:
         model = sync_models["prb2prb"][fromProbe][toProbe]
         return sync.remap_times(times, model)
 
-    def load_hypnogram(
+    def load_float_hypnogram(
         self,
         experiment: str,
         subject: str,
         simplify: bool = True,
-    ) -> hypnogram.Hypnogram:
-        f = self.get_experiment_subject_file(experiment, subject, wne.HYPNOGRAM_FNAME)
-        hyp = hypnogram.FloatHypnogram.from_htsv(f)
+    ) -> hypnogram.FloatHypnogram:
+        f = self.get_experiment_subject_file(
+            experiment, subject, constants.HYPNOGRAM_FNAME
+        )
+        hg = hypnogram.FloatHypnogram.from_htsv(f)
         if simplify:
-            hyp = hyp.replace_states(wne.SIMPLIFIED_STATES)
-        return hyp
+            hg = hg.replace_states(constants.SIMPLIFIED_STATES)
+        return hg
+    
+    def load_offs_df(
+        self,
+        experiment: str,
+        subject: str,
+        probe: str,
+        off_fname_suffix: str = constants.DF_OFF_FNAME_SUFFIX,
+    ):
+        """Load and aggregate off files across structures.
+        
+        Loads and aggregate all files of the form
+        `<probe>.<acronym>.<off_fname_suffix>` in the `offs` subdirectory
+        of the project's experiment_subject_directory.
+        """
+        off_dir = self.get_experiment_subject_directory(
+            experiment,
+            subject
+        )/"offs"
+
+        structure_offs = []
+        for f in off_dir.glob(f"{probe}.*{off_fname_suffix}"):
+            structure_offs.append(ecephys.utils.read_htsv(f))
+        
+        return pd.concat(structure_offs).reset_index(drop=True)
 
 
 class ProjectLibrary:

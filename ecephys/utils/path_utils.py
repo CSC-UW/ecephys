@@ -2,9 +2,11 @@
 
 All run directories are assumed to have been saved with probe folders.
 """
-
+from typing import Union
 import pathlib
 import regex as re  # TODO: Shouldn't this just be import re?
+
+Pathlike = Union[pathlib.Path, str]
 
 
 # TODO: Is this still used, or should be removed?
@@ -68,7 +70,6 @@ def get_run_specs(raw_data_dir, run_dir_prefix=None):
         for probe_dir in [
             dir.name for dir in (raw_data_dir / run_dir).iterdir() if dir.is_dir()
         ]:
-
             prb_dir_match = re.match(f"{run_dir_name}_imec([0-9]+)", probe_dir)
             if prb_dir_match is None:
                 print(f"Passing subdir `{probe_dir}`: not a probe directory")
@@ -84,7 +85,6 @@ def get_run_specs(raw_data_dir, run_dir_prefix=None):
                 for f in (raw_data_dir / run_dir / probe_dir).iterdir()
                 if f.is_file()
             ]:
-
                 bin_match = re.match(
                     f"\A{run_name}_g{gate_i}_t(.*).imec{probe_i}.ap.bin\Z",
                     binfile,

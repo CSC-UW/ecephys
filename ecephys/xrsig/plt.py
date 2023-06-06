@@ -1,43 +1,81 @@
 import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from . import core
-import ecephys
+import xarray as xr
+
+from ecephys import xrsig
 
 
-def plot_yx_channel_vectors(
-    da, dim, continuous_colors=False, add_legend=False, ax=None
+def plot_laminar_scalars_vertical(
+    da: xr.DataArray,
+    sigdim: str = "channel",
+    lamdim: str = "y",
+    ax: plt.Axes = None,
+    figsize=(10, 15),
+    show_channel_ids=True,
+    tick_params=dict(axis="y", labelsize=8),
+    **line_kwargs
 ):
+    """Plot a depth profile of values.
+    Requires 'y' coordinate on 'channel' dimension."""
+    xrsig.validate_laminar(da, sigdim, lamdim)
+    da = da.sortby(lamdim)
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
 
-    ax = ecephys.plot.check_ax(ax, figsize=(10, 15))
+    tick_labels = list(np.round(da[lamdim].values, 1))
+    if show_channel_ids:
+        tick_labels = list(zip(tick_labels, da[sigdim].values))
 
-    if continuous_colors:
-        n = len(np.unique(da[dim]))
-        cmap = plt.get_cmap("cividis")
-        cmap_idx = np.linspace(0, len(cmap.colors) - 1, n).astype("int")
-        color_lut = {k: cmap.colors[i] for k, i in zip(np.unique(da[dim]), cmap_idx)}
-    else:
-        color_lut = dict(zip(np.unique(da[dim]), sns.color_palette("colorblind")))
+    da.plot.line(y=lamdim, ax=ax, **line_kwargs)
+    ax.set_yticks(da[lamdim].values)
+    ax.set_yticklabels(tick_labels)
+    ax.tick_params(**tick_params)
 
-    for c in da[dim].values:
-        dat = core.LaminarScalars(da.sel({dim: c}))
-        dat.plot_laminar(ax=ax, color=color_lut[c])
 
-    if add_legend:
-        legend_elements = [
-            mpatches.Patch(label=key, facecolor=color)
-            for key, color in color_lut.items()
-        ]
-        lgd = ax.legend(
-            handles=legend_elements,
-            handlelength=1,
-            loc="upper center",
-            ncol=len(legend_elements),
-            shadow=True,
-            bbox_to_anchor=(0.5, 1.0),
-        )
-    else:
-        lgd = None
+def plot_laminar_scalars_horizontal(
+    da: xr.DataArray,
+    sigdim: str = "channel",
+    lamdim: str = "y",
+    ax: plt.Axes = None,
+    figsize=(32, 10),
+    show_channel_ids=True,
+    tick_params=dict(axis="x", labelsize=8, labelrotation=90),
+    **line_kwargs
+):
+    """Plot a depth profile of values.
+    Requires 'y' coordinate on 'channel' dimension."""
+    xrsig.validate_laminar(da, sigdim, lamdim)
+    da = da.sortby(lamdim)
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
 
-    return ax, lgd
+    tick_labels = list(np.round(da[lamdim].values, 1))
+    if show_channel_ids:
+        tick_labels = list(zip(tick_labels, da[sigdim].values))
+
+    da.plot.line(x=lamdim, ax=ax, **line_kwargs)
+    ax.set_xticks(da[lamdim].values)
+    ax.set_xticklabels(tick_labels)
+    ax.tick_params(**tick_params)
+
+
+def add_structure_boundaries_to_laminar_plot(
+    da: xr.DataArray,
+    ax: plt.Axes,
+    sigdim: str = "channel",
+    struct_coord: str = "structure",
+):
+    boundaries = da.isel({sigdim: get_boundary_ilocs(da, coord)})
+    ax.set_yticks(boundaries[sigdim])
+    ax.set_yticklabels(boundaries[coord].values)
+    for ch in boundaries[sigdim]:
+        ax.axhline(ch, alpha=0.5, color="dimgrey", linestyle="--")
+
+
+def get_boundary_ilocs(da: xr.DataArray, coord_name: str) -> np.ndarray:
+    df = da[coord_name].to_dataframe()  # Just so we can use pandas utils
+    df = df.loc[:, ~df.columns.duplicated()].copy()  # Drop duplicate columns
+    df = df.reset_index()  # So we can find boundaries of dimensions too
+    changed = df[coord_name].ne(df[coord_name].shift().bfill())
+    boundary_locs = df[coord_name][changed.shift(-1, fill_value=True)].index
+    return np.where(np.isin(df.index, boundary_locs))[0]

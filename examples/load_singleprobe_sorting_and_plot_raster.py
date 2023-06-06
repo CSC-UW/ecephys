@@ -1,5 +1,5 @@
 import wisc_ecephys_tools as wet
-from ecephys.wne.utils import load_singleprobe_sorting
+from ecephys.wne.sglx.utils import load_singleprobe_sorting
 
 # Data
 sortingProjectName = "shared_sortings"
@@ -23,13 +23,13 @@ tgt_struct_acronyms = None # Plot only target structures, in specific order. eg 
 
 ### END USER
 
-wneSubject = wet.get_wne_subject(subjectName)
-wneSortingProject = wet.get_wne_project(sortingProjectName)
+sglxSubject = wet.get_sglx_subject(subjectName)
+sglxSortingProject = wet.get_sglx_project(sortingProjectName)
 wneSharedProject = wet.get_wne_project(sharedDataProjectName)
 
 si_ks_sorting = load_singleprobe_sorting(
-    wneSortingProject,
-    wneSubject,
+    sglxSortingProject,
+    sglxSubject,
     experiment,
     alias,
     probe,

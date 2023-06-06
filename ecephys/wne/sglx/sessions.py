@@ -43,7 +43,7 @@ import logging
 import pandas as pd
 import re
 from pathlib import Path
-from ..sglx import file_mgmt
+from ecephys.sglx import file_mgmt
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,5 @@
 import wisc_ecephys_tools as wet
-from ecephys.wne.utils import load_multiprobe_sorting
+from ecephys.wne.sglx.utils import load_multiprobe_sorting
 
 # Data
 sortingProjectName = "shared_sortings"
@@ -11,7 +11,6 @@ probes = [
 ]
 sortings = {
     "imec1": "sorting",
-
 }
 postprocessings = {
     "imec1": "postpro",
@@ -35,13 +34,13 @@ tgt_struct_acronyms = {
 
 ### END USER
 
-wneSubject = wet.get_wne_subject(subjectName)
-wneSortingProject = wet.get_wne_project(sortingProjectName)
+sglxSubject = wet.get_sglx_subject(subjectName)
+sglxSortingProject = wet.get_sglx_project(sortingProjectName)
 wneSharedProject = wet.get_wne_project(sharedDataProjectName)
 
 multiprobe_sorting = load_multiprobe_sorting(
-    wneSortingProject,
-    wneSubject,
+    sglxSortingProject,
+    sglxSubject,
     experiment,
     alias,
     probes,

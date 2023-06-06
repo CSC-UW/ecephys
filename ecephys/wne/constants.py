@@ -1,6 +1,8 @@
 NETCDF_EXT = ".nc"
 EMG_EXT = ".emg.nc"
 EDF_EXT = ".edf"
+BDF_EXT = ".bdf"
+LFP_EXT = ".lf.zarr"
 ARTIFACTS_EXT = ".artifacts.csv"
 VISBRAIN_EXT = ".hypnogram.txt"
 VISBRAIN_FS = 100  # Visbrain will automatically resample everything to 100Hz, so just nip it in the bud.
@@ -11,6 +13,10 @@ EMG_FNAME = "emg.nc"
 ARTIFACTS_FNAME = "artifacts.htsv"
 HYPNOGRAM_FNAME = "hypnogram.htsv"
 DATETIME_HYPNOGRAM_FNAME = "hypnogram_datetime.htsv"
+HIPPOCAMPAL_SUBREGIONS_FNAME = "hippocampal_subregions.json"
+
+# Full fname is f"{prb}.{acronym}.{OFF_FNAME_SUFFIX}""
+DF_OFF_FNAME_SUFFIX = "global_offs_bystate_conservative_0.05.htsv"
 
 SCORING_LFP = "scoring_lfp.zarr"
 SCORING_EMG = "scoring_emg.zarr"

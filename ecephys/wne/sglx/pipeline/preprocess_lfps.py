@@ -2,28 +2,26 @@
 # TODO: Handle dropping of duplicate timestamps across files?
 
 import logging
-import neurodsp
-from tqdm.auto import tqdm
-from typing import Optional
-import xarray as xr
 
-from ..subjects import Subject
-from ...projects import Project
-from .... import sglxr, xrsig, utils
+from tqdm.auto import tqdm
+
+from ecephys import sglxr
+from ecephys import utils
+from ecephys import xrsig
+from ecephys.wne.sglx import SGLXProject
+from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne.sglx import utils as wne_sglx_utils
 
 logger = logging.getLogger(__name__)
 
-DOWNSAMPLE_FACTOR = 4
-CHUNK_SIZE = 2**16
-CHUNK_OVERLAP = 2**10
 
-
-def do_alias(
-    opts: dict,
-    destProject: Project,
-    wneSubject: Subject,
+def do_experiment(
+    destProject: SGLXProject,
+    wneSubject: SGLXSubject,
     experiment: str,
-    alias: Optional[str] = None,
+    probe: str,
+    bad_channels: list = None,  # Found in opts["probes"][probe]["badChannels"]
+    chunk_duration: int = 300,  # Size of zarr chunks, in seconds
     **kwargs,
 ):
     """
@@ -64,44 +62,28 @@ def do_alias(
     - I have not yet tested whether using overlapping windows is truly necessary. It may not be, since the only filter here is the FIR antialiasing filter.
     - Note that the data here are NOT de-meaned.
     """
-    lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, **kwargs)
-    for lfpFile in tqdm(list(lfpTable.itertuples())):
-        [outFile] = destProject.get_sglx_counterparts(
-            wneSubject.name, [lfpFile.path], ".nc"
-        )
-        outFile.parent.mkdir(parents=True, exist_ok=True)
-
-        logger.info(f"Loading {lfpFile.path.name}...")
+    zarr_file = destProject.get_experiment_subject_file(
+        experiment, wneSubject.name, f"{probe}.lf.zarr"
+    )
+    lf_table = wneSubject.get_lfp_bin_table(experiment, probe=probe, **kwargs)
+    for i, lfp_file in enumerate(tqdm(list(lf_table.itertuples()))):
+        logger.info(f"Loading {lfp_file.path.name}...")
         lfp = sglxr.load_trigger(
-            lfpFile.path,
-            t0=lfpFile.expmtPrbAcqFirstTime,
-            dt0=lfpFile.expmtPrbAcqFirstDatetime,
+            lfp_file.path,
+            t0=lfp_file.expmtPrbAcqFirstTime,
+            dt0=lfp_file.expmtPrbAcqFirstDatetime,
         )
-
-        logger.info("Processing chunks...")
-        wg = neurodsp.utils.WindowGenerator(
-            ns=lfp.time.size, nswin=CHUNK_SIZE, overlap=CHUNK_OVERLAP
-        )
-        segments = list()
-        for first, last in tqdm(list(wg.firstlast)):
-            seg = lfp.isel(time=slice(first, last))
-            seg = xrsig.NPX1LFPs(seg)
-            seg = seg.decimate(q=DOWNSAMPLE_FACTOR)
-            seg = seg.dephase()
-            seg = seg.interpolate(opts["probes"][lfpFile.probe]["badChannels"])
-            first_valid = 0 if first == 0 else int(wg.overlap / 2 / DOWNSAMPLE_FACTOR)
-            last_valid = (
-                seg.time.size
-                if last == lfp.time.size
-                else int(seg.time.size - wg.overlap / 2 / DOWNSAMPLE_FACTOR)
-            )
-            segments.append(seg.isel(time=slice(first_valid, last_valid)))
-
-        logger.info("Concatenating chunks...")
-        lfp = xr.concat(segments, dim="time")
+        logger.info("Preprocessing...")
+        lfp = xrsig.preprocess_neuropixels_ibl_style(lfp, bad_channels)
         lfp.name = "lfp"
+        lfp.attrs = utils.drop_unserializeable(lfp.attrs)
 
-        logger.info(f"Saving to: {outFile}")
-        utils.save_xarray(lfp, outFile, encoding={"lfp": {"dtype": "float32"}})
-
+        logger.info(f"Saving to: {zarr_file}")
+        if i == 0:
+            lfp = lfp.chunk(
+                {"channel": lfp.channel.size, "time": int(lfp.fs * chunk_duration)}
+            )  # If you choose to use the 'auto' chunksize setting, be warned: Different coords on the same dimension can be chunked differently.
+            lfp.to_zarr(zarr_file, encoding={"lfp": {"dtype": "float32"}}, mode="w")
+        else:
+            lfp.to_zarr(zarr_file, append_dim="time")
     logger.info("Done preprocessing LFPs!")
