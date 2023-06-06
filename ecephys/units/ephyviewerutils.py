@@ -1,9 +1,10 @@
 import ephyviewer
-from tqdm import tqdm
+import matplotlib.colors
 import numpy as np
 import pandas as pd
-import matplotlib.colors
 from tqdm import tqdm
+
+from ecephys.units import SpikeInterfaceKilosortSorting
 
 
 DEPTH_STEP = 20
@@ -97,7 +98,7 @@ def add_epochviewer_to_window(
 
 def add_spiketrainviewer_to_window(
     window: ephyviewer.MainViewer,
-    sorting,
+    sorting: SpikeInterfaceKilosortSorting,
     by="cluster_id",
     probe=None,
     view_params=None,
@@ -128,7 +129,6 @@ def add_spiketrainviewer_to_window(
 
     all_trains = []
     for tgt_value in tqdm(tgt_values, desc=f"Loading spikes for view: `{view_name}`"):
-
         label = f"{by}: {tgt_value}"
 
         if by != "cluster_id":
@@ -137,9 +137,9 @@ def add_spiketrainviewer_to_window(
 
         all_trains.append(
             {
-                "time": sorting.get_trains(
-                    by=by,
-                    tgt_values=[tgt_value],
+                "time": sorting.get_trains_by_property(
+                    property_name=by,
+                    values=[tgt_value],
                     verbose=False,
                 )[tgt_value],
                 "name": label,
@@ -171,10 +171,12 @@ def add_spatialoff_viewer_to_window(
     add_event_list=True,
 ):
     """Add spatial off viewer (from TraceImageViewer)"""
-    assert all([c in off_df.columns for c in [t1_column, t2_column, d1_column, d2_column]])
+    assert all(
+        [c in off_df.columns for c in [t1_column, t2_column, d1_column, d2_column]]
+    )
 
     if ylim is None:
-        ylim = (off_df[d1_column].min() , off_df[d2_column].max())
+        ylim = (off_df[d1_column].min(), off_df[d2_column].max())
     if Tmax is None:
         Tmax = off_df[t2_column].max()
 
@@ -190,7 +192,10 @@ def add_spatialoff_viewer_to_window(
         off_image[d1_idx:d2_idx, t1_idx:t2_idx] = 1
 
     source = ephyviewer.InMemoryAnalogSignalSource(
-        np.transpose(off_image), 1/binsize, 0, channel_names=depthstamps,
+        np.transpose(off_image),
+        1 / binsize,
+        0,
+        channel_names=depthstamps,
     )
 
     view = ephyviewer.TraceImageViewer(source=source, name=view_name)
@@ -199,13 +204,15 @@ def add_spatialoff_viewer_to_window(
     if add_event_list:
         # Add event list for navigation
         epochs = []
-        labels = (off_df[d1_column].astype(str) + '–' + off_df[d2_column].astype(str)+"um").values
+        labels = (
+            off_df[d1_column].astype(str) + "–" + off_df[d2_column].astype(str) + "um"
+        ).values
         epochs.append(
             {
                 "name": "offs",
                 "label": labels,
                 "time": off_df[t1_column].values,
-                "duration": (off_df[t2_column] - off_df[t1_column]).values
+                "duration": (off_df[t2_column] - off_df[t1_column]).values,
             }
         )
 

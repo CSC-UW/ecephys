@@ -5,21 +5,28 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from ecephys.units import ClusterTrains
+from ecephys.units import ClusterTrains_Secs
 
 
-def _add_cluster_properties_to_dataarray(
-    da: xr.DataArray, props: pd.DataFrame
+def _add_cluster_properties_to_peths(
+    da: xr.DataArray, props: pd.DataFrame, da_cluster_dim: str = "cluster_id"
 ) -> xr.DataArray:
+    """Take a datarray where one dimension consists of cluster IDs, and assign to that dimension coordinates representing each cluster's properties.
+
+    Parameters:
+    -----------
+    da_cluster_dim: str
+        The name of the cluster ID dimension. Usually this would be `cluster_id`, but in the case of cross-correlograms it might be `clusterA` or `clusterB`.
+    """
     props = props.set_index("cluster_id").loc[
-        da["cluster_id"].values
+        da[da_cluster_dim].values
     ]  # Order cluster_ids (i.e. rows) of properties dataframe to match datarray order
-    coords = {col: ("cluster_id", props[col].values) for col in props}
+    coords = {col: (da_cluster_dim, props[col].values) for col in props}
     return da.assign_coords(coords)
 
 
 def get_cluster_peths(
-    trains: ClusterTrains,
+    trains: ClusterTrains_Secs,
     event_times: np.ndarray,
     event_labels: Optional[np.ndarray] = None,
     pre_time: float = 0.4,
@@ -56,6 +63,6 @@ def get_cluster_peths(
         peths = peths.assign_coords({"event_type": ("event", event_labels)})
 
     if not (cluster_properties is None):
-        peths = _add_cluster_properties_to_dataarray(peths, cluster_properties)
+        peths = _add_cluster_properties_to_peths(peths, cluster_properties)
 
     return peths

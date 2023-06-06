@@ -1,20 +1,23 @@
 import logging
-from typing import Callable, Optional, Union
+from typing import Callable, Optional, Union, Any
+import warnings
 
+import ephyviewer
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import seaborn as sns
 import sklearn.metrics as skmetrics
-
-import ephyviewer
 import spikeinterface as si
 import spikeinterface.extractors as se
-from ecephys.units import ephyviewerutils, siutils
-from ecephys.utils.misc import kway_sortednp_merge
-import ecephys
 from tqdm import tqdm
-import itertools
+
+import ecephys.plot
+from ecephys.units import dtypes
+from ecephys.units import ephyviewerutils
+from ecephys.units import siutils
+import ecephys.utils
 
 try:
     import on_off_detection
@@ -33,9 +36,10 @@ class SpikeInterfaceKilosortSorting:
         sample2time: Optional[Callable] = None,
         hypnogram: Optional[pd.DataFrame] = None,
         structs: Optional[pd.DataFrame] = None,
+        cache: Optional[dtypes.ClusterTrains_Samples] = dict(),
     ):
         """
-        This class is primarily used to map spike samples from one probe to spike times on another, since the SpikeInterface objects can not do this.
+        This class is primarily used to map spike samples (and therfore times) from one probe to spike times on another, since the SpikeInterface objects can not do this.
 
         Parameters:
         ===========
@@ -53,6 +57,8 @@ class SpikeInterfaceKilosortSorting:
             Frame with `lo`, `hi`, `span`, `structure`, `acronym` fields.
             Cluster's structure/acronym assignation are added as properties, and the structure
             array is saved as `self.structs` attribute.
+        cache: ClusterTrains_Samples:
+            Optionally initialize the spike train cache. We cache each cluster's whole-recording spike train (as sample indices, not seconds). This is used to improve raster plot performance.
         """
         self.hypnogram: pd.DataFrame = hypnogram
         self.si_obj: se.KiloSortSortingExtractor = si_obj
@@ -63,14 +69,17 @@ class SpikeInterfaceKilosortSorting:
         # If no time mapping function is provided, just provide times according to this probe's sample clock.
         self._sample2time = sample2time
 
-        # Cache cluster's whole-recording spike train in sample_idx
-        self._strains_by_cluster_id = {}
+        # We cache each cluster's whole-recording spike train (as sample indices, not seconds). This is used to improve raster plot performance.
+        self._cache: cache
 
     def __repr__(self):
         return f"Wrapped {repr(self.si_obj)}"
 
     @property
-    def sample2time(self):
+    def sample2time(self) -> Callable:
+        """Takes an array of spikeinterface sample numbers and maps them to timestamps. Ideally a vectorized function.
+        If not provided, times will be according to the probe's sample clock (e.g. sample / fs).
+        """
         if self._sample2time is None:
             fs = self.si_obj.get_sampling_frequency()
             return lambda x: x / fs
@@ -105,17 +114,18 @@ class SpikeInterfaceKilosortSorting:
         return df
 
     @property
-    def has_anatomy(self):
+    def has_anatomy(self) -> bool:
         return self._structs is not None
 
     @property
-    def has_hypnogram(self):
+    def has_hypnogram(self) -> bool:
         return self.hypnogram is not None
 
     @property
-    def has_sample2time(self):
+    def has_sample2time(self) -> bool:
         return self._sample2time is not None
 
+    # TODO: Make a function, rather than a method
     def plot_property_by_quality(
         self, property: str, ax: Optional[plt.Axes] = None
     ) -> plt.Axes:
@@ -137,8 +147,8 @@ class SpikeInterfaceKilosortSorting:
             sns.histplot(data=df, x=property, ax=ax, color="k")
         # These properties are best visualized as stacked histograms, with hue shading by cluster quality
         elif property in [
-            "ContamPct",
             "Amplitude",
+            "ContamPct",
             "amp",
             "isi_violations_rate",
             "amplitude_cutoff",
@@ -191,6 +201,7 @@ class SpikeInterfaceKilosortSorting:
 
         return ax
 
+    # TODO: Make a function, rather than a method
     def plot_property_by_depth(
         self, property: str, ax: Optional[plt.Axes] = None
     ) -> plt.Axes:
@@ -229,6 +240,7 @@ class SpikeInterfaceKilosortSorting:
 
         return ax
 
+    # TODO: Make a function, rather than a method
     def plot_confusion(self, ax: Optional[plt.Axes] = None) -> plt.Axes:
         """Plot a confusion matrix to compare manual curation labels with automatically assigned KS labels."""
         if ax is None:
@@ -246,18 +258,27 @@ class SpikeInterfaceKilosortSorting:
             self.si_obj, filters, include_nans=include_nans
         )
         return self.__class__(
-            new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs
+            new_obj,
+            self.sample2time,
+            hypnogram=self.hypnogram,
+            structs=self.structs,
+            cache=self._cache,
         )
 
-    def select_clusters(self, clusterIDs):
+    def select_clusters(self, clusterIDs: dtypes.ClusterIDs):
         """Select clusters, and conveniently wrap the result, so that the user doesn't have to."""
         new_obj = self.si_obj.select_units(clusterIDs)
         return self.__class__(
-            new_obj, self.sample2time, hypnogram=self.hypnogram, structs=self.structs
+            new_obj,
+            self.sample2time,
+            hypnogram=self.hypnogram,
+            structs=self.structs,
+            cache=self._cache,
         )
-    
+
+    # TODO: Move to WNE, since this is not a wrapper around SI core functionality, but more related to our specific datastructures, conventions, and purposes?
     def select_structures(self, tgt_structure_acronyms):
-        # Select clusters from structures of interest and remove structures from self.struct
+        """Select clusters belonging to desired structures, and update `self.struct` accordingly."""
         all_structure_acronyms = [s for s in self.structs.acronym.unique()]
         if tgt_structure_acronyms is None:
             tgt_structure_acronyms = all_structure_acronyms
@@ -268,101 +289,136 @@ class SpikeInterfaceKilosortSorting:
         new_obj = siutils.refine_clusters(
             self.si_obj, {"acronym": set(tgt_structure_acronyms)}, include_nans=False
         )
-        new_structs = self.structs[self.structs["acronym"].isin(tgt_structure_acronyms)].copy()
+        new_structs = self.structs[
+            self.structs["acronym"].isin(tgt_structure_acronyms)
+        ].copy()
         return self.__class__(
-            new_obj, self.sample2time, hypnogram=self.hypnogram, structs=new_structs
+            new_obj,
+            self.sample2time,
+            hypnogram=self.hypnogram,
+            structs=new_structs,
+            cache=self._cache,
         )
 
-    
-    def _get_cluster_strain(self, cluster_id):
-        if cluster_id not in self._strains_by_cluster_id:
-            self._strains_by_cluster_id[cluster_id] = self.si_obj.get_unit_spike_train(cluster_id)
-        return self._strains_by_cluster_id[cluster_id]
-
-    def _get_aggregate_strain(
-        self, property_column, property_value
-    ) -> np.array:
-        mask = self.properties[property_column] == property_value
-        tgt_clusters = self.properties[mask].cluster_id.values
-        return kway_sortednp_merge(
-            [
-                self._get_cluster_strain(id)
-                for id in tgt_clusters
-            ]
-        )
-    
-    def _convert_then_subset(self, train, as_sample_indices=False, xlim=None):
-        if xlim is None:
-            fsubset = lambda x: x
-        else:
-            assert len(xlim) == 2
-            fsubset = lambda x: np.array([t for t in x if xlim[0] <= t < xlim[1]])
-
-        if as_sample_indices:
-            fconvert = lambda x: x
-        else:
-            fconvert = self.sample2time
-        
-        return fsubset(fconvert(train))
-
-    def get_trains_by_cluster_ids(
+    def get_unit_spike_train(
         self,
-        cluster_ids=None,
-        xlim=None,
-        as_sample_indices=False,
-        verbose=True,
-    ) -> dict:
-        """Get spike trains for a list of clusters (default all)."""
+        cluster_id: int,
+        start_frame: Union[int, None] = None,
+        end_frame: Union[int, None] = None,
+        return_times: bool = False,
+        # Whereas the arguments above shadow the SpikeInterface API, the following are added functionality
+        # The reason we do not have one "start" kwarg and one "end" kwarg that accepts either samples or seconds, is so that
+        # the SI behavior of get_unit_spike_train(id, start_frame, end_frame, return_times=True) can be preserved, which would be ambiguous otherwise.
+        fix_times: bool = True,  # If true, ensure times are unique and monotonically increasing
+        start_time: Union[float, None] = None,
+        end_time: Union[float, None] = None,
+    ) -> dtypes.SpikeTrain:
+        """Thin wrapper around SpikeInterface's get_unit_spike_train(), to add caching behavior.
+        Beware: Even if only a small time range of data are requested, the whole-recording spike train will be loaded and cached, before returning the data of interest.
+        """
+        # First, check the cache, and update it if needed.
+        if not (cluster_id in self._cache):
+            self._cache[cluster_id] = self.si_obj.get_unit_spike_train(
+                cluster_id, return_times=False
+            )  # Always cache samples, never times.
+
+        # Now, fetch the data from the cache
+        l = (
+            None
+            if start_frame is None
+            else np.searchsorted(train, start_frame, side="left")
+        )
+        r = (
+            None
+            if end_frame is None
+            else np.searchsorted(train, end_frame, side="right")
+        )
+        train = self._cache[l:r]
+
+        # Convert to seconds, if requested
+        if return_times:
+            train = self.sample2time(train)
+
+            # Fix times, if requested
+            if fix_times:
+                train = ecephys.utils.hotfix_times(train)  # Ensure monotonicity, fast
+                train = np.unique(train)  # Drop duplicates, slower
+
+            # Get requested data
+            if ((start_time is not None) or (end_time is not None)) and (
+                (start_frame is not None) or (end_frame is not None)
+            ):
+                warnings.warn(
+                    "You are trying to select spikes based on both seconds and sample indices. Are you sure you want to do this?"
+                )
+            l = (
+                None
+                if start_time is None
+                else np.searchsorted(train, start_time, side="left")
+            )
+            r = (
+                None
+                if end_time is None
+                else np.searchsorted(train, end_time, side="right")
+            )
+            train = train[l:r]
+
+        return train
+
+    def get_property_spike_train(
+        self, property_name: str, property_value: Any, **kwargs
+    ) -> dtypes.SpikeTrain:
+        mask = self.properties[property_name] == property_value
+        clusters = self.properties[mask]["cluster_id"].values
+        return ecephys.utils.kway_sortednp_merge(
+            [self.get_unit_spike_train(id, **kwargs) for id in clusters]
+        )
+
+    def get_cluster_trains(
+        self,
+        cluster_ids: Optional[dtypes.ClusterIDs] = None,
+        display_progress: bool = True,
+        **kwargs,
+    ) -> dtypes.ClusterTrains:
+        """Get spike trains for a list of clusters (default all).
+
+        Performance note: Getting several spike trains this way (i.e. cluster-by-cluster) is MUCH faster than getting them all together using si_obj.get_all_unit_spike_trains()
+        """
         if cluster_ids is None:
             cluster_ids = self.si_obj.get_unit_ids()
 
-        if verbose:
-            iterator = tqdm(cluster_ids, desc="Loading trains by clusters: ")
-        else:
-            iterator = cluster_ids
+        if display_progress:
+            cluster_ids = tqdm(cluster_ids, desc="Loading trains by cluster_id: ")
 
-        return {
-            id: self._convert_then_subset(
-                self._get_cluster_strain(id),
-                as_sample_indices=as_sample_indices,
-                xlim=xlim,
-            ) for id in iterator
-        }  # Getting spike trains cluster-by-cluster is MUCH faster than getting them all together.
+        return {id: self.get_unit_spike_train(id, **kwargs) for id in cluster_ids}
 
-    def get_trains(
+    def get_trains_by_property(
         self,
-        by="cluster_id",
-        xlim=None,
-        tgt_values=None,
-        as_sample_indices=False,
-        verbose=True,
-    ) -> dict:
-
-        if by == "cluster_id":
-            return self.get_trains_by_cluster_ids(
-                cluster_ids=tgt_values,
-                xlim=xlim,
-                as_sample_indices=as_sample_indices,
-                verbose=verbose,
+        property_name: str = "depth",
+        values: Optional[
+            npt.ArrayLike
+        ] = None,  # Filter trains, keeping only those with the indicated property values.
+        display_progress=True,
+        **kwargs,
+    ) -> dtypes.SpikeTrainDict:
+        """Get all spike trains, merged and keyed by the desired property (e.g. depth, or structure)."""
+        if property_name == "cluster_id":
+            return self.get_cluster_trains(
+                cluster_ids=values, display_progress=display_progress, **kwargs
             )
 
-        if tgt_values is None:
-            tgt_values = self.properties[by].unique()
+        if values is None:
+            values = self.properties[property_name].unique()
 
-        if verbose:
-            iterator = tqdm(tgt_values, desc=f"Loading trains by `{by}`: ")
-        else:
-            iterator = tgt_values
+        if display_progress:
+            vals_iterator = tqdm(values, desc=f"Loading trains by `{property_name}`: ")
 
         return {
-            v: self._convert_then_subset(
-                self._get_aggregate_strain(by, v),
-                as_sample_indices=as_sample_indices,
-                xlim=xlim,
-            )
-            for v in iterator
+            val: self.get_property_spike_train(property_name, val, **kwargs)
+            for val in vals_iterator
         }
 
+    # TODO: Move to ephyviewerutils
     def add_ephyviewer_spiketrain_views(
         self,
         window,
@@ -370,9 +426,7 @@ class SpikeInterfaceKilosortSorting:
         tgt_struct_acronyms: list[str] = None,
         group_by_structure: bool = True,
     ):
-
         if group_by_structure:
-
             all_structures = self.structures_by_depth  # Descending depths
 
             if tgt_struct_acronyms is None:
@@ -394,6 +448,7 @@ class SpikeInterfaceKilosortSorting:
 
         return window
 
+    # TODO: Move to ephyviewerutils
     def add_ephyviewer_hypnogram_view(self, window):
         if self.hypnogram is not None:
             window = ephyviewerutils.add_epochviewer_to_window(
@@ -405,12 +460,12 @@ class SpikeInterfaceKilosortSorting:
             )
         return window
 
+    # TODO: Move to ephyviewerutils
     def plot_interactive_ephyviewer_raster(
         self,
         by: str = "depth",
         tgt_struct_acronyms: list[str] = None,
     ):
-
         app = ephyviewer.mkQApp()
         window = ephyviewer.MainViewer(
             debug=True, show_auto_scale=True, global_xsize_zoom=True
@@ -424,6 +479,7 @@ class SpikeInterfaceKilosortSorting:
         window.show()
         app.exec()
 
+    # TODO: Move elsewhere, since this is not a wrapper around SI core functionality
     def run_off_detection(
         self,
         tgt_states=None,
@@ -463,7 +519,7 @@ class SpikeInterfaceKilosortSorting:
         n_jobs: int
             Parallelize across windows. Spatial off detection only.
         min_sum_fr: float
-            If the cumulative firing rate for the region/sorting of interest 
+            If the cumulative firing rate for the region/sorting of interest
             is below this value, do nothing (default 30)
 
         Return:
@@ -491,10 +547,12 @@ class SpikeInterfaceKilosortSorting:
         )
 
         properties = self.properties
-        all_trains = self.get_trains_by_cluster_ids()
+        all_trains = self.get_cluster_trains()
 
         if not len(all_trains):
-            print(f"N=0 clusters in sorting (structures = {self.structures_by_depth}). Passing.")
+            print(
+                f"N=0 clusters in sorting (structures = {self.structures_by_depth}). Passing."
+            )
             return pd.DataFrame()
 
         # Get requested subset of epochs and check they have actual spiking activity
@@ -524,9 +582,7 @@ class SpikeInterfaceKilosortSorting:
 
         all_structures_dfs = []
         for states in states_to_aggregate:
-            trains = [
-                all_trains[row.cluster_id] for row in properties.itertuples()
-            ]
+            trains = [all_trains[row.cluster_id] for row in properties.itertuples()]
             cluster_ids = [row.cluster_id for row in properties.itertuples()]
             depths = [row.depth for row in properties.itertuples()]
 
@@ -565,7 +621,9 @@ class SpikeInterfaceKilosortSorting:
                         n_jobs=n_jobs,
                     ).run()
             except on_off_detection.ALL_METHOD_EXCEPTIONS as e:
-                print(f"\n\nException for structures {self.structures_by_depth}: {e}\n\n Passing.\n")
+                print(
+                    f"\n\nException for structures {self.structures_by_depth}: {e}\n\n Passing.\n"
+                )
                 continue
             df["states"] = [",".join(states)] * len(df)
 
@@ -598,43 +656,7 @@ def fix_isi_violations_ratio(
     return extractor
 
 
-# DEPRECATED: Because we should never be using KSLabel.
-def fix_noise_cluster_labels(
-    extractor: se.KiloSortSortingExtractor,
-) -> se.KiloSortSortingExtractor:
-    """Although cluster_KSLabel.tsv never contains nan, when loaded by SpikeInterface, KSLabel can be nan. These are noise clusters, so we relabel as `noise` to match SI behavior."""
-    property_keys = extractor.get_property_keys()
-    if "KSLabel" in property_keys:
-        logger.info(
-            "KiloSort labels noise clusters at nan. Replacing with `noise` to match SI behavior."
-        )
-        kslabel = extractor.get_property("KSLabel")
-        kslabel[pd.isna(kslabel)] = "noise"
-        extractor.set_property("KSLabel", kslabel)
-    return extractor
-
-
-# DEPRECATED: Because we should never be using KSLabel.
-def fix_uncurated_cluster_labels(
-    extractor: se.KiloSortSortingExtractor,
-) -> se.KiloSortSortingExtractor:
-    """If clusters are uncurated, fall back on the label that Kilosort assigned to the cluster."""
-    property_keys = extractor.get_property_keys()
-    if all(np.isin(["quality", "KSLabel"], property_keys)):
-        quality = extractor.get_property("quality")
-        # If no clusters are curated, quality will be all NaN with type float, instead of type object
-        # Attempts to assign strings (e.g. "good") to this Series will result in a Type Error
-        # Cast to object to avoid this, and so that the type of the property on the extractor is consistent
-        quality = quality.astype("object")
-        uncurated = pd.isna(quality)
-        if any(uncurated):
-            print(f"{uncurated.sum()} clusters are uncurated. Applying KSLabel.")
-            kslabel = extractor.get_property("KSLabel")
-            quality[uncurated] = kslabel[uncurated]
-            extractor.set_property("quality", quality)
-    return extractor
-
-
+# TODO: move to siutils?
 def add_cluster_structures(
     extractor: se.KiloSortSortingExtractor, structs: pd.DataFrame
 ) -> se.KiloSortSortingExtractor:
