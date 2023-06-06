@@ -91,7 +91,6 @@ def load_singleprobe_sorting(
     sorting: str = "sorting",
     postprocessing: str = "postpro",
     wneAnatomyProject: Optional[Project] = None,
-    wneHypnogramProject: Optional[Project] = None,
     allow_no_sync_file=True,
 ) -> units.SpikeInterfaceKilosortSorting:
     if sorting is None:
@@ -125,13 +124,6 @@ def load_singleprobe_sorting(
         postprocessing=postprocessing,
     )
 
-    if wneHypnogramProject is not None:
-        hypnogram = wneHypnogramProject.load_float_hypnogram(
-            experiment, sglxSubject.name, simplify=True
-        )._df
-    else:
-        hypnogram = None
-
     # TODO: Why was this removed, and should it be restored?
     # extractor = units.si_ks_sorting.fix_isi_violations_ratio(extractor)
 
@@ -149,9 +141,7 @@ def load_singleprobe_sorting(
         structs = units.siutils.get_dummy_structure_table()
     extractor = units.siutils.add_anatomy_properties_to_extractor(extractor, structs)
 
-    return units.SpikeInterfaceKilosortSorting(
-        extractor, sample2time, hypnogram=hypnogram
-    )
+    return units.SpikeInterfaceKilosortSorting(extractor, sample2time)
 
 
 def load_multiprobe_sorting(
@@ -163,7 +153,6 @@ def load_multiprobe_sorting(
     sortings: dict[str, str] = None,
     postprocessings: dict[str, str] = None,
     wneAnatomyProject: Optional[Project] = None,
-    wneHypnogramProject: Optional[Project] = None,
     allow_no_sync_file=True,
 ) -> units.MultiprobeSorting:
     if sortings is None:
@@ -182,7 +171,6 @@ def load_multiprobe_sorting(
                 sorting=sortings[probe],
                 postprocessing=postprocessings[probe],
                 wneAnatomyProject=wneAnatomyProject,
-                wneHypnogramProject=wneHypnogramProject,
                 allow_no_sync_file=allow_no_sync_file,
             )
             for probe in probes
