@@ -128,9 +128,13 @@ def add_spiketrainviewer_to_window(
         view_params = {"display_labels": False}
 
     # Structure-wide information
-    structs = sorting.si_obj.get_annotation('structure_table')
-    structs = structs.loc[structs['acronym'].isin(sorting.properties['acronym'])] # Keep only structs present in the current sorting
-    structs = structs.sort_values(by="lo", ascending=False) # Sort by depth. They should already be sorted this way...
+    structs = sorting.si_obj.get_annotation("structure_table")
+    structs = structs.loc[
+        structs["acronym"].isin(sorting.properties["acronym"])
+    ]  # Keep only structs present in the current sorting
+    structs = structs.sort_values(
+        by="lo", ascending=False
+    )  # Sort by depth. They should already be sorted this way...
     lo = structs["lo"].values
     hi = structs["hi"].values
     view_name = f"Structures: {structs['acronym'].unique()}, lo={lo}-{hi}um, N={len(properties)}"
@@ -313,11 +317,10 @@ def add_spiketrain_views_from_multiprobe_sorting(
         tgt_struct_acronyms = {prb: None for prb in mps.probes}
 
     for prb in mps.probes:
-        structs = mps._sortings[prb].si_obj.get_annotation('structure_table')
-        all_prb_structures = (
-            structs.sort_values(by="lo", ascending=False)
-            ["acronym"].values
-        )  # Descending depths
+        structs = mps._sortings[prb].si_obj.get_annotation("structure_table")
+        all_prb_structures = structs.sort_values(by="lo", ascending=False)[
+            "acronym"
+        ].values  # Descending depths
 
         prb_tgt_struct_acronyms = tgt_struct_acronyms.get(prb, None)
         if prb_tgt_struct_acronyms is None:
@@ -341,7 +344,7 @@ def launch_interactive_raster_from_multiprobe_sorting(
     mps: MultiprobeSorting,
     by: str = "depth",
     tgt_struct_acronyms: dict[str, list] = None,
-    hg = hypnogram.FloatHypnogram = None
+    hg: hypnogram.FloatHypnogram = None,
 ):
     app = ephyviewer.mkQApp()
     window = ephyviewer.MainViewer(
