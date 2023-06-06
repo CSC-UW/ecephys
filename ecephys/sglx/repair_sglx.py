@@ -23,7 +23,7 @@ __license__ = 'Public Domain, 2021'
 
 
 def repair_meta(binpath, dry_run=True, backup_original_meta=True,
-                check_SHA1_integrity=False, preview_metadata=True):
+                ignore_SHA1=False, preview_metadata=True):
     """Add missing fields to SGLX metadata 3B2 files following SGLX crash.
 
     The following fields may be missing from file following SGLX crash:
@@ -43,8 +43,9 @@ def repair_meta(binpath, dry_run=True, backup_original_meta=True,
         dry_run (bool): Set to False for writing to file (default True)
         backup_original_meta (bool): If true and `dry_run == False`, original
             metadata file is backed up. (default True)
-        check_SHA1_integrity (bool): If true and `fileSHA1` exists in metadata,
-            we recompute it and compare values (default False)
+        ignore_SHA1 (bool): If False and `fileSHA1` exists in metadata,
+            we recompute it and compare values. If False and `fileSHA1` is absent
+            from the metadata, it is computed and added. (default False)
         preview_metadata (bool): If True, print repaired metadata string to
             stdout.
     """
@@ -99,19 +100,19 @@ def repair_meta(binpath, dry_run=True, backup_original_meta=True,
             or int(meta['firstSample']) == derived_firstSample)
 
     # SHA1 hash
-    print("Check `fileSHA1` field.", end=" ", flush=True)
-    if 'fileSHA1' not in meta:
-        print("Missing `fileSHA1` field. Computing... ", end="", flush=True)
-        fileSHA1 = get_sha1_hexdigest(binpath).upper()
-        print(f"SHA1 hash = {fileSHA1}")
-        meta['fileSHA1'] = fileSHA1
-    else:
-        if check_SHA1_integrity:
+    if not ignore_SHA1:
+        print("Check `fileSHA1` field.", end=" ", flush=True)
+        if 'fileSHA1' not in meta:
+            print("Missing `fileSHA1` field. Computing... ", end="", flush=True)
+            fileSHA1 = get_sha1_hexdigest(binpath).upper()
+            print(f"SHA1 hash = {fileSHA1}")
+            meta['fileSHA1'] = fileSHA1
+        else:
             print(f"Checking SHA1 hash integrity...", end=" ", flush=True)
             assert get_sha1_hexdigest(binpath).upper() == meta['fileSHA1']
             print(f"Ok!")
-        else:
-            print("Not checking SHA1 hash integrity.")
+    else:
+        print("Ignoring SHA1 hash integrity.")
 
     metadata_string = ""
     for key in sorted(meta.keys()):
