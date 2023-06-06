@@ -5,7 +5,7 @@ from ecephys.units.dtypes import ClusterIDs, ClusterTrains_Secs, SpikeTrain_Secs
 
 def convert_cluster_trains_to_spike_vector(
     trains: ClusterTrains_Secs,
-) -> tuple[SpikeTrain_Secs, ClusterIDs, npt.NDArray[npt.int64]]:
+) -> tuple[SpikeTrain_Secs, ClusterIDs, npt.NDArray[np.int64]]:
     """Similar to SpikeInterface's BaseSorter.to_spike_vector function.
     The spike vector concatenates all spikes of all clusters together, with the result
     being temporally sorted. This format is useful for computing cluster CCGs."""

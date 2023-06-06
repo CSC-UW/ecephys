@@ -1,26 +1,13 @@
 import numpy as np
 import pandas as pd
-from pandas.testing import assert_frame_equal
 
-import ecephys
-import ephyviewer
-from ecephys.units import (
-    ClusterTrains_Secs,
-    SpikeInterfaceKilosortSorting,
-    ephyviewerutils,
-)
+from ecephys.units import dtypes
+from ecephys.units import SpikeInterfaceKilosortSorting
 
 
 class MultiprobeSorting:
     def __init__(self, sortings: dict[str, SpikeInterfaceKilosortSorting]):
         self._sortings = sortings
-        self.hypnogram = self.sortings[self.probes[0]].hypnogram
-        # All singleprobe sorting's hypnogram should be equal
-        for prb in self.probes:
-            if self.hypnogram is None:
-                assert self._sortings[prb].hypnogram is None
-            else:
-                assert_frame_equal(self.hypnogram, self._sortings[prb].hypnogram)
 
     @property
     def sortings(self) -> dict[str, SpikeInterfaceKilosortSorting]:
@@ -76,7 +63,7 @@ class MultiprobeSorting:
             }
         )
 
-    def get_trains(self) -> ClusterTrains_Secs:
+    def get_trains(self) -> dtypes.ClusterTrains_Secs:
         """Return ClusterTrains, keyed by multiprobe cluster IDs."""
         trains = {}
         for prb, s in self.sortings.items():
@@ -87,65 +74,3 @@ class MultiprobeSorting:
                 prb_trains[new_id] = prb_trains.pop(old_id)
             trains.update(prb_trains)
         return trains
-
-    def add_ephyviewer_hypnogram_view(self, window):
-        if self.hypnogram is not None:
-            window = ephyviewerutils.add_epochviewer_to_window(
-                window,
-                self.hypnogram,
-                view_name="Hypnogram",
-                name_column="state",
-                color_by_name=ecephys.plot.state_colors,
-            )
-        return window
-
-    def add_ephyviewer_spiketrain_views(
-        self,
-        window,
-        by: str = "depth",
-        tgt_struct_acronyms: dict[str, list] = None,
-    ):
-        if tgt_struct_acronyms is None:
-            tgt_struct_acronyms = {prb: None for prb in self.probes}
-
-        for prb in self.probes:
-            all_prb_structures = (
-                self._sortings[prb]
-                .structs.sort_values(by="lo", ascending=False)
-                .acronym.values
-            )  # Descending depths
-
-            prb_tgt_struct_acronyms = tgt_struct_acronyms.get(prb, None)
-            if prb_tgt_struct_acronyms is None:
-                prb_tgt_struct_acronyms = all_prb_structures
-            else:
-                assert all([s in all_prb_structures for s in tgt_struct_acronyms])
-
-            for tgt_struct_acronym in prb_tgt_struct_acronyms:
-                window = ephyviewerutils.add_spiketrainviewer_to_window(
-                    window,
-                    self._sortings[prb],
-                    by=by,
-                    tgt_struct_acronym=tgt_struct_acronym,
-                    probe=prb,
-                )
-
-        return window
-
-    def plot_interactive_ephyviewer_raster(
-        self,
-        by: str = "depth",
-        tgt_struct_acronyms: dict[str, list] = None,
-    ):
-        app = ephyviewer.mkQApp()
-        window = ephyviewer.MainViewer(
-            debug=True, show_auto_scale=True, global_xsize_zoom=True
-        )
-
-        window = self.add_ephyviewer_hypnogram_view(window)
-        window = self.add_ephyviewer_spiketrain_views(
-            window, by=by, tgt_struct_acronyms=tgt_struct_acronyms
-        )
-
-        window.show()
-        app.exec()

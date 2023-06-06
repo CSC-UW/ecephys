@@ -108,9 +108,17 @@ def add_anatomy_properties_to_extractor(
         acronyms[np.where(mask)] = structure.acronym
     extractor.set_property("structure", structures)
     extractor.set_property("acronym", acronyms)
+    extractor.set_annotation("structures_table", structs)
     return extractor
 
 
+def get_dummy_structure_table():
+    return pd.DataFrame(
+        [{"structure": "Full probe", "acronym": "All", "lo": -np.Inf, "hi": np.Inf}]
+    )
+
+
+# TODO: Is this not used anymore? If not, why not?
 def fix_isi_violations_ratio(
     extractor: se.KiloSortSortingExtractor,
 ) -> se.KiloSortSortingExtractor:

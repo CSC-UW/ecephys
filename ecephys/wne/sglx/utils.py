@@ -132,11 +132,8 @@ def load_singleprobe_sorting(
     else:
         hypnogram = None
 
-    # TODO Keep???
-    # Fix extractor
+    # TODO: Why was this removed, and should it be restored?
     # extractor = units.si_ks_sorting.fix_isi_violations_ratio(extractor)
-    # extractor = units.si_ks_sorting.fix_noise_cluster_labels(extractor)
-    # extractor = units.si_ks_sorting.fix_uncurated_cluster_labels(extractor)
 
     # Add anatomy to the extractor, if available.
     if wneAnatomyProject is not None:
@@ -149,10 +146,11 @@ def load_singleprobe_sorting(
         )
         structs = utils.read_htsv(anatomy_file)
     else:
-        structs = None
+        structs = units.siutils.get_dummy_structure_table()
+    extractor = units.siutils.add_anatomy_properties_to_extractor(extractor, structs)
 
     return units.SpikeInterfaceKilosortSorting(
-        extractor, sample2time, hypnogram=hypnogram, structs=structs
+        extractor, sample2time, hypnogram=hypnogram
     )
 
 

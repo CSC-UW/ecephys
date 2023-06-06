@@ -1,5 +1,6 @@
-import ecephys
 import logging
+
+import ecephys.utils
 
 logger = logging.getLogger(__name__)
 

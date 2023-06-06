@@ -4,12 +4,16 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from ecephys import hypnogram
+import ecephys.plot
 from ecephys.units import SpikeInterfaceKilosortSorting
+from ecephys.units import MultiprobeSorting
 
 
 DEPTH_STEP = 20
 
 
+# TODO: Probably doesn't belong in the units subpackage, since it has nothing to do with units? Maybe our custom ephyviewer app deserves to be its own subpackage, either in ecephys or in wisc_ecephys_tools?
 def add_traceviewer_to_window(
     window: ephyviewer.MainViewer,
     sigs: np.array,
@@ -45,6 +49,7 @@ def add_traceviewer_to_window(
     return window
 
 
+# TODO: Probably doesn't belong in the units subpackage, since it has nothing to do with units? Maybe our custom ephyviewer app deserves to be its own subpackage, either in ecephys or in wisc_ecephys_tools?
 def add_epochviewer_to_window(
     window: ephyviewer.MainViewer,
     events_df: pd.DataFrame,
@@ -96,6 +101,18 @@ def add_epochviewer_to_window(
     return window
 
 
+def add_hypnogram_view_to_window(
+    window: ephyviewer.MainViewer, hg: hypnogram.FloatHypnogram
+):
+    return add_epochviewer_to_window(
+        window,
+        hg,
+        view_name="Hypnogram",
+        name_column="state",
+        color_by_name=ecephys.plot.state_colors,
+    )
+
+
 def add_spiketrainviewer_to_window(
     window: ephyviewer.MainViewer,
     sorting: SpikeInterfaceKilosortSorting,
@@ -111,9 +128,12 @@ def add_spiketrainviewer_to_window(
         view_params = {"display_labels": False}
 
     # Structure-wide information
-    lo = sorting.structs.lo.values
-    hi = sorting.structs.hi.values
-    view_name = f"Structures: {sorting.structures_by_depth}, lo={lo}-{hi}um, N={len(properties)}"
+    structs = sorting.si_obj.get_annotation('structure_table')
+    structs = structs.loc[structs['acronym'].isin(sorting.properties['acronym'])] # Keep only structs present in the current sorting
+    structs = structs.sort_values(by="lo", ascending=False) # Sort by depth. They should already be sorted this way...
+    lo = structs["lo"].values
+    hi = structs["hi"].values
+    view_name = f"Structures: {structs['acronym'].unique()}, lo={lo}-{hi}um, N={len(properties)}"
     if probe is not None:
         view_name = f"Probe: {probe}, {view_name}"
 
@@ -222,3 +242,117 @@ def add_spatialoff_viewer_to_window(
         window.add_view(view, orientation="horizontal", split_with=view_name)
 
     return window
+
+
+#####
+# These functions build an raster from a SpikeInterfaceKilosortSorting object
+#####
+
+
+def add_spiketrain_views_from_sorting(
+    window: ephyviewer.MainViewer,
+    sorting: SpikeInterfaceKilosortSorting,
+    by: str = "depth",
+    tgt_struct_acronyms: list[str] = None,
+    group_by_structure: bool = True,
+):
+    if group_by_structure:
+        all_structures = sorting.structures_by_depth  # Descending depths
+
+        if tgt_struct_acronyms is None:
+            tgt_struct_acronyms = all_structures
+
+        for tgt_struct_acronym in tgt_struct_acronyms:
+            window = add_spiketrainviewer_to_window(
+                window,
+                sorting.select_structures([tgt_struct_acronym]),
+                by=by,
+                probe=None,
+            )
+
+    else:
+        # Full probe
+        window = add_spiketrainviewer_to_window(window, sorting, by=by, probe=None)
+
+    return window
+
+
+def launch_interactive_raster_from_sorting(
+    sorting: SpikeInterfaceKilosortSorting,
+    by: str = "depth",
+    tgt_struct_acronyms: list[str] = None,
+    hg: hypnogram.FloatHypnogram = None,
+):
+    app = ephyviewer.mkQApp()
+    window = ephyviewer.MainViewer(
+        debug=True, show_auto_scale=True, global_xsize_zoom=True
+    )
+
+    if hg is not None:
+        window = add_hypnogram_view_to_window(window, hg)
+    window = add_spiketrain_views_from_sorting(
+        window, sorting, by=by, tgt_struct_acronyms=tgt_struct_acronyms
+    )
+
+    window.show()
+    app.exec()
+
+
+#####
+# These functions build an raster from a MultiprobeSorting object
+#####
+
+
+def add_spiketrain_views_from_multiprobe_sorting(
+    window: ephyviewer.MainViewer,
+    mps: MultiprobeSorting,
+    by: str = "depth",
+    tgt_struct_acronyms: dict[str, list] = None,
+):
+    if tgt_struct_acronyms is None:
+        tgt_struct_acronyms = {prb: None for prb in mps.probes}
+
+    for prb in mps.probes:
+        structs = mps._sortings[prb].si_obj.get_annotation('structure_table')
+        all_prb_structures = (
+            structs.sort_values(by="lo", ascending=False)
+            ["acronym"].values
+        )  # Descending depths
+
+        prb_tgt_struct_acronyms = tgt_struct_acronyms.get(prb, None)
+        if prb_tgt_struct_acronyms is None:
+            prb_tgt_struct_acronyms = all_prb_structures
+        else:
+            assert all([s in all_prb_structures for s in tgt_struct_acronyms])
+
+        for tgt_struct_acronym in prb_tgt_struct_acronyms:
+            window = add_spiketrainviewer_to_window(
+                window,
+                mps._sortings[prb],
+                by=by,
+                tgt_struct_acronym=tgt_struct_acronym,
+                probe=prb,
+            )
+
+    return window
+
+
+def launch_interactive_raster_from_multiprobe_sorting(
+    mps: MultiprobeSorting,
+    by: str = "depth",
+    tgt_struct_acronyms: dict[str, list] = None,
+    hg = hypnogram.FloatHypnogram = None
+):
+    app = ephyviewer.mkQApp()
+    window = ephyviewer.MainViewer(
+        debug=True, show_auto_scale=True, global_xsize_zoom=True
+    )
+
+    if hg is not None:
+        window = add_hypnogram_view_to_window(window, hg)
+    window = add_spiketrain_views_from_multiprobe_sorting(
+        window, mps, by=by, tgt_struct_acronyms=tgt_struct_acronyms
+    )
+
+    window.show()
+    app.exec()

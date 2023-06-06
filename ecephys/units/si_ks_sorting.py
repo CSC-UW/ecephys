@@ -2,7 +2,6 @@ import logging
 from typing import Callable, Optional, Union, Any
 import warnings
 
-import ephyviewer
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
@@ -13,9 +12,9 @@ import spikeinterface as si
 import spikeinterface.extractors as se
 from tqdm import tqdm
 
+from ecephys import hypnogram
 import ecephys.plot
 from ecephys.units import dtypes
-from ecephys.units import ephyviewerutils
 from ecephys.units import siutils
 import ecephys.utils
 
@@ -34,8 +33,6 @@ class SpikeInterfaceKilosortSorting:
         self,
         si_obj: Union[se.KiloSortSortingExtractor, si.UnitsSelectionSorting],
         sample2time: Optional[Callable] = None,
-        hypnogram: Optional[pd.DataFrame] = None,
-        structs: Optional[pd.DataFrame] = None,
         cache: Optional[dtypes.ClusterTrains_Samples] = dict(),
     ):
         """
@@ -48,31 +45,16 @@ class SpikeInterfaceKilosortSorting:
         sample2time:
             Takes an array of spikeinterface sample numbers and maps them to timestamps. Ideally a vectorized function.
             If not provided, times will be according to the probe's sample clock (e.g. sample / fs)
-        hypnogram:
-            Hypnogram with 'start_time', 'end_time', 'duration' columns
-            in the same timebase as the sample2time function, and
-            `start_frame`, `end_frame` columns for each bout matching
-            the spikeinterface sorting/recording frame ids.
-        structs: pd.DataFrame
-            Frame with `lo`, `hi`, `span`, `structure`, `acronym` fields.
-            Cluster's structure/acronym assignation are added as properties, and the structure
-            array is saved as `self.structs` attribute.
         cache: ClusterTrains_Samples:
             Optionally initialize the spike train cache. We cache each cluster's whole-recording spike train (as sample indices, not seconds). This is used to improve raster plot performance.
         """
-        self.hypnogram: pd.DataFrame = hypnogram
         self.si_obj: se.KiloSortSortingExtractor = si_obj
-
-        self._structs = structs
-        self.si_obj = siutils.add_anatomy_properties_to_extractor(
-            self.si_obj, self.structs
-        )
 
         # If no time mapping function is provided, just provide times according to this probe's sample clock.
         self._sample2time = sample2time
 
         # We cache each cluster's whole-recording spike train (as sample indices, not seconds). This is used to improve raster plot performance.
-        self._cache: cache
+        self._cache = cache
 
     def __repr__(self):
         return f"Wrapped {repr(self.si_obj)}"
@@ -89,26 +71,6 @@ class SpikeInterfaceKilosortSorting:
             return self._sample2time
 
     @property
-    def structs(self) -> pd.DataFrame:
-        if self._structs is None:
-            return pd.DataFrame(
-                [
-                    {
-                        "structure": "Full probe",
-                        "acronym": "All",
-                        "lo": self.properties.depth.min(),
-                        "hi": self.properties.depth.max(),
-                    }
-                ]
-            )
-        return self._structs
-
-    @property
-    def structures_by_depth(self) -> np.array:
-        """Array of acronyms, by descending depths."""
-        return self.structs.sort_values(by="lo", ascending=False).acronym.unique()
-
-    @property
     def properties(self) -> pd.DataFrame:
         """Return SI cluster properties as a DataFrame, with one row per cluster."""
         df = pd.DataFrame(self.si_obj._properties)
@@ -116,12 +78,11 @@ class SpikeInterfaceKilosortSorting:
         return df
 
     @property
-    def has_anatomy(self) -> bool:
-        return self._structs is not None
-
-    @property
-    def has_hypnogram(self) -> bool:
-        return self.hypnogram is not None
+    def structures_by_depth(self, ascending=False) -> list[str]:
+        """Array of structure acronyms, by descending depth.
+        Only structures with at least 1 cluster will be returned."""
+        structure_depths = self.properties.groupby("acronym")["depth"].min()
+        return structure_depths.sort_values(ascending=ascending).index.values
 
     @property
     def has_sample2time(self) -> bool:
@@ -135,8 +96,6 @@ class SpikeInterfaceKilosortSorting:
         return self.__class__(
             new_obj,
             self.sample2time,
-            hypnogram=self.hypnogram,
-            structs=self.structs,
             cache=self._cache,
         )
 
@@ -146,15 +105,12 @@ class SpikeInterfaceKilosortSorting:
         return self.__class__(
             new_obj,
             self.sample2time,
-            hypnogram=self.hypnogram,
-            structs=self.structs,
             cache=self._cache,
         )
 
-    # TODO: Move to WNE, since this is not a wrapper around SI core functionality, but more related to our specific datastructures, conventions, and purposes?
-    def select_structures(self, tgt_structure_acronyms):
+    def select_structures(self, tgt_structure_acronyms: list[str]):
         """Select clusters belonging to desired structures, and update `self.struct` accordingly."""
-        all_structure_acronyms = [s for s in self.structs.acronym.unique()]
+        all_structure_acronyms = [s for s in self.properties["acronym"].unique()]
         if tgt_structure_acronyms is None:
             tgt_structure_acronyms = all_structure_acronyms
         assert all([s in all_structure_acronyms for s in tgt_structure_acronyms]), (
@@ -164,14 +120,9 @@ class SpikeInterfaceKilosortSorting:
         new_obj = siutils.refine_clusters(
             self.si_obj, {"acronym": set(tgt_structure_acronyms)}, include_nans=False
         )
-        new_structs = self.structs[
-            self.structs["acronym"].isin(tgt_structure_acronyms)
-        ].copy()
         return self.__class__(
             new_obj,
             self.sample2time,
-            hypnogram=self.hypnogram,
-            structs=new_structs,
             cache=self._cache,
         )
 
@@ -293,70 +244,10 @@ class SpikeInterfaceKilosortSorting:
             for val in vals_iterator
         }
 
-    # TODO: Move to ephyviewerutils
-    def add_ephyviewer_spiketrain_views(
-        self,
-        window,
-        by: str = "depth",
-        tgt_struct_acronyms: list[str] = None,
-        group_by_structure: bool = True,
-    ):
-        if group_by_structure:
-            all_structures = self.structures_by_depth  # Descending depths
-
-            if tgt_struct_acronyms is None:
-                tgt_struct_acronyms = all_structures
-
-            for tgt_struct_acronym in tgt_struct_acronyms:
-                window = ephyviewerutils.add_spiketrainviewer_to_window(
-                    window,
-                    self.select_structures([tgt_struct_acronym]),
-                    by=by,
-                    probe=None,
-                )
-
-        else:
-            # Full probe
-            window = ephyviewerutils.add_spiketrainviewer_to_window(
-                window, self, by=by, probe=None
-            )
-
-        return window
-
-    # TODO: Move to ephyviewerutils
-    def add_ephyviewer_hypnogram_view(self, window):
-        if self.hypnogram is not None:
-            window = ephyviewerutils.add_epochviewer_to_window(
-                window,
-                self.hypnogram,
-                view_name="Hypnogram",
-                name_column="state",
-                color_by_name=ecephys.plot.state_colors,
-            )
-        return window
-
-    # TODO: Move to ephyviewerutils
-    def plot_interactive_ephyviewer_raster(
-        self,
-        by: str = "depth",
-        tgt_struct_acronyms: list[str] = None,
-    ):
-        app = ephyviewer.mkQApp()
-        window = ephyviewer.MainViewer(
-            debug=True, show_auto_scale=True, global_xsize_zoom=True
-        )
-
-        window = self.add_ephyviewer_hypnogram_view(window)
-        window = self.add_ephyviewer_spiketrain_views(
-            window, by=by, tgt_struct_acronyms=tgt_struct_acronyms
-        )
-
-        window.show()
-        app.exec()
-
     # TODO: Move elsewhere, since this is not a wrapper around SI core functionality
     def run_off_detection(
         self,
+        hg: hypnogram.FloatHypnogram,
         tgt_states=None,
         split_by_state=True,
         on_off_method="hmmem",
@@ -408,10 +299,6 @@ class SpikeInterfaceKilosortSorting:
             raise ImportError(
                 "Please install `on_off_detection` package from https://github.com/csc-uw/on_off_detection"
             )
-        if not self.has_hypnogram:
-            raise ValueError(
-                "A hypnogram is required for off detection (to exclude 'NoData' epochs)."
-            )
         if not spatial_detection:
             assert (
                 spatial_params is None
@@ -432,28 +319,28 @@ class SpikeInterfaceKilosortSorting:
 
         # Get requested subset of epochs and check they have actual spiking activity
         # Remove "NoData"
-        all_allowed_states = [s for s in self.hypnogram.state.unique() if s != "NoData"]
+        all_allowed_states = [s for s in hg.state.unique() if s != "NoData"]
         if tgt_states is None:
             tgt_states = all_allowed_states
         assert all(
             [s in all_allowed_states for s in tgt_states]
         ), f"Invalid value in `tgt_states={tgt_states}`. Available states: {all_allowed_states}"
-        mask = self.hypnogram.state.isin(tgt_states)
+        mask = hg.state.isin(tgt_states)
         # Remove epochs starting/ending before/after start/end of recording (avoid spurious OFF)
         first_spike_t = min([min(t) for t in all_trains.values()])
         last_spike_t = max([max(t) for t in all_trains.values()])
         mask = (
             mask
-            & (self.hypnogram["start_time"] >= first_spike_t)
-            & (self.hypnogram["end_time"] <= last_spike_t)
+            & (hg["start_time"] >= first_spike_t)
+            & (hg["end_time"] <= last_spike_t)
         )
-        hypnogram = self.hypnogram[mask]
+        hg = hg[mask]
 
         # Iterate on states of interest
         if split_by_state:
-            states_to_aggregate = [[s] for s in hypnogram.state.unique()]
+            states_to_aggregate = [[s] for s in hg.state.unique()]
         else:
-            states_to_aggregate = [hypnogram.state.unique()]
+            states_to_aggregate = [hg.state.unique()]
 
         all_structures_dfs = []
         for states in states_to_aggregate:
@@ -481,7 +368,7 @@ class SpikeInterfaceKilosortSorting:
                         cluster_ids=cluster_ids,
                         method=on_off_method,
                         params=on_off_params,
-                        bouts_df=hypnogram[hypnogram["state"].isin(states)],
+                        bouts_df=hg[hg["state"].isin(states)],
                     ).run()
                 else:
                     df = on_off_detection.SpatialOffModel(
@@ -492,7 +379,7 @@ class SpikeInterfaceKilosortSorting:
                         on_off_method=on_off_method,
                         on_off_params=on_off_params,
                         spatial_params=spatial_params,
-                        bouts_df=hypnogram[hypnogram["state"].isin(states)],
+                        bouts_df=hg[hg["state"].isin(states)],
                         n_jobs=n_jobs,
                     ).run()
             except on_off_detection.ALL_METHOD_EXCEPTIONS as e:
