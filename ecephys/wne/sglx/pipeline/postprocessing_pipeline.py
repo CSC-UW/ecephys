@@ -35,13 +35,10 @@ Pathlike = Union[Path, str]
 POSTPRO_OPTS_FNAME = "postpro_opts.yaml"
 OUTPUT_HYPNO_FNAME = "hypnogram.htsv"
 
-HYPNOGRAM_IGNORED_STATES = [
-    "Other",
-    "IS",
-    "Artifact",
-    "MA",
-    None,
-    "None",
+HYPNOGRAM_INCLUDED_STATES = [
+    "NREM",
+    "Wake",
+    "REM"
 ]
 
 METRICS_COLUMNS_TO_PLOT = [
@@ -191,7 +188,7 @@ class SpikeInterfacePostprocessingPipeline:
                         allow_no_sync_file=True,
                         simplify=True,
                     )
-                    .drop_states(HYPNOGRAM_IGNORED_STATES)
+                    .keep_states(HYPNOGRAM_INCLUDED_STATES)
                     ._df.reset_index(drop=True)
                 )
             elif isinstance(hypnogram_source, (str, Path)):
@@ -374,7 +371,11 @@ class SpikeInterfacePostprocessingPipeline:
 
         # If we have already extracted waveforms before, re-use those.
         load_precomputed_waveforms = (
-            not self._rerun_existing and self.is_postprocessed_by_state(state=state)
+            not self._rerun_existing
+            and (
+                (waveform_output_dir/"principal_components").exists()
+                 or (waveform_output_dir/"quality_metrics").exists()
+            )
         )
         if load_precomputed_waveforms:
             print(
@@ -389,6 +390,7 @@ class SpikeInterfacePostprocessingPipeline:
             # because load_from_folder(.., with_recording=True) assumes same recording file locations etc
             we._recording = waveform_recording
         else:
+            print(f"Extracting waveforms. Will use this recording: {waveform_recording}")
             with Timing(name="Extract waveforms: "):
                 we = si.extract_waveforms(
                     waveform_recording,
@@ -728,7 +730,7 @@ def load_hypnogram_for_si_slicing(
     )
 
     segments = sglxSortingProject.load_segments_table(
-        sglxSubject,
+        sglxSubject.name,
         experiment,
         alias,
         probe,
@@ -736,7 +738,7 @@ def load_hypnogram_for_si_slicing(
         return_all_segment_types=False,
     )
     sample2time = sglxSortingProject.get_sample2time(
-        sglxSubject,
+        sglxSubject.name,
         experiment,
         alias,
         probe,

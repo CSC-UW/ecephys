@@ -1,6 +1,6 @@
 [project]
 name = "ecephys"
-version = "0.0.1"
+version = "0.0.5"
 authors = [
   { name="Graham Findlay", email="gfindlay@wisc.edu" }
 ]
