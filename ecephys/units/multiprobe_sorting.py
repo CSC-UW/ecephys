@@ -80,7 +80,7 @@ class MultiprobeSorting:
         """Return ClusterTrains, keyed by multiprobe cluster IDs."""
         trains = {}
         for prb, s in self.sortings.items():
-            prb_trains = s.get_trains()
+            prb_trains = s.get_cluster_trains()
             old_ids = np.asarray(list(prb_trains.keys()))
             new_ids = self.si_cluster_ids_to_multiprobe_cluster_ids(prb, old_ids)
             for old_id, new_id in zip(old_ids, new_ids):
