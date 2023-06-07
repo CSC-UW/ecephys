@@ -309,7 +309,7 @@ class SpikeInterfaceKilosortSorting:
         )
 
         properties = self.properties
-        all_trains = self.get_cluster_trains()
+        all_trains = self.get_cluster_trains(return_times=True)
 
         if not len(all_trains):
             print(
