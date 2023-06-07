@@ -135,7 +135,6 @@ class SpikeInterfaceKilosortSorting:
         # Whereas the arguments above shadow the SpikeInterface API, the following are added functionality
         # The reason we do not have one "start" kwarg and one "end" kwarg that accepts either samples or seconds, is so that
         # the SI behavior of get_unit_spike_train(id, start_frame, end_frame, return_times=True) can be preserved, which would be ambiguous otherwise.
-        fix_times: bool = True,  # If true, ensure times are unique and monotonically increasing
         start_time: Union[float, None] = None,
         end_time: Union[float, None] = None,
     ) -> dtypes.SpikeTrain:
@@ -165,10 +164,10 @@ class SpikeInterfaceKilosortSorting:
         if return_times:
             train = self.sample2time(train)
 
-            # Fix times, if requested
-            if fix_times:
-                ecephys.utils.hotfix_times(train)  # Ensure monotonicity, fast, inplace
-                train = np.unique(train)  # Drop duplicates, slower
+            # Fix times, so that they are monotonically increasing without duplicates
+            # TODO: Fix these upstream, before the extractor is created and saved.
+            ecephys.utils.hotfix_times(train)  # Ensure monotonicity, fast, inplace
+            train = np.unique(train)  # Drop duplicates, slow but not prohibitively so.
 
             # Get requested data
             if ((start_time is not None) or (end_time is not None)) and (
