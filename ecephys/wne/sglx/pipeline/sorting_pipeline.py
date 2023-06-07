@@ -230,15 +230,17 @@ class SpikeInterfaceSortingPipeline:
             )
 
     def get_raw_si_recording(self) -> tuple[si.BaseRecording, pd.DataFrame]:
-        self._raw_si_recording, self._segments = self._wneSubject.get_si_recording(
-            self._experiment,
-            self._alias,
-            "ap",
-            self._probe,
-            combine="concatenate",
-            exclusions=self._exclusions.copy(),  # Avoid in-place modification so we check consistency
-            sampling_frequency_max_diff=1e-06,
-        )
+        use_cached = isinstance(self._raw_si_recording, si.BaseRecording) and self._segments is not None
+        if not use_cached:
+            self._raw_si_recording, self._segments = self._wneSubject.get_si_recording(
+                self._experiment,
+                self._alias,
+                "ap",
+                self._probe,
+                combine="concatenate",
+                exclusions=self._exclusions.copy(),  # Avoid in-place modification so we check consistency
+                sampling_frequency_max_diff=1e-06,
+            )
         # Ensure we used the same segments as previously
         prior_segments_path = self.main_output_dir / SEGMENTS_FNAME
         if prior_segments_path.exists():
