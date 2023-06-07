@@ -164,7 +164,8 @@ def add_spiketrainviewer_to_window(
                 "time": sorting.get_trains_by_property(
                     property_name=by,
                     values=[tgt_value],
-                    verbose=False,
+                    display_progress=False,
+                    return_times=True,
                 )[tgt_value],
                 "name": label,
             }

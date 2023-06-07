@@ -159,7 +159,7 @@ class SpikeInterfaceKilosortSorting:
             if end_frame is None
             else np.searchsorted(train, end_frame, side="right")
         )
-        train = self._cache[l:r]
+        train = self._cache[cluster_id][l:r]
 
         # Convert to seconds, if requested
         if return_times:
@@ -167,7 +167,7 @@ class SpikeInterfaceKilosortSorting:
 
             # Fix times, if requested
             if fix_times:
-                train = ecephys.utils.hotfix_times(train)  # Ensure monotonicity, fast
+                ecephys.utils.hotfix_times(train)  # Ensure monotonicity, fast, inplace
                 train = np.unique(train)  # Drop duplicates, slower
 
             # Get requested data
@@ -237,11 +237,11 @@ class SpikeInterfaceKilosortSorting:
             values = self.properties[property_name].unique()
 
         if display_progress:
-            vals_iterator = tqdm(values, desc=f"Loading trains by `{property_name}`: ")
+            values = tqdm(values, desc=f"Loading trains by `{property_name}`: ")
 
         return {
             val: self.get_property_spike_train(property_name, val, **kwargs)
-            for val in vals_iterator
+            for val in values
         }
 
     # TODO: Move elsewhere, since this is not a wrapper around SI core functionality
