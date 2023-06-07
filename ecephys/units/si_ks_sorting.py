@@ -345,6 +345,7 @@ class SpikeInterfaceKilosortSorting:
         for states in states_to_aggregate:
             trains = [all_trains[row.cluster_id] for row in properties.itertuples()]
             cluster_ids = [row.cluster_id for row in properties.itertuples()]
+            cluster_firing_rates = [row.fr for row in properties.itertuples()]
             depths = [row.depth for row in properties.itertuples()]
 
             sumFR = properties["fr"].sum()
@@ -375,6 +376,7 @@ class SpikeInterfaceKilosortSorting:
                         depths,
                         None,
                         cluster_ids=cluster_ids,
+                        cluster_firing_rates=cluster_firing_rates,
                         on_off_method=on_off_method,
                         on_off_params=on_off_params,
                         spatial_params=spatial_params,

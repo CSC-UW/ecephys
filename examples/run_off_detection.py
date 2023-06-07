@@ -58,17 +58,19 @@ on_off_params = {
 }
 
 spatial_detection = False
+# spatial_detection = True
 spatial_params = None
 # spatial_params = {
-# 	# Windowing/pooling
-# 	'window_size_min': 200,  # (um) Smallest spatial "grain" for pooling
-# 	'window_overlap': 0.5,  # (no unit) Overlap between windows within each spatial grain
-# 	'window_size_step': 200,  # (um) Increase in size of windows across successive spatial "grains"
-# 	# Merging of OFF state between and across grain
-# 	'merge_max_time_diff': 0.050, # (s). To be merged, off states need their start & end times to differ by less than this
-# 	'nearby_off_max_time_diff': 3, # (sec). #TODO
-# 	'sort_all_window_offs_by': ['off_area', 'duration', 'start_time', 'end_time'],  # How to sort all OFFs before iteratively merging
-# 	'sort_all_window_offs_by_ascending': [False, False, True, True],
+#     # Windowing/pooling
+#     'window_size_min': 200,  # (um) Smallest spatial "grain" for pooling
+#     'window_overlap': 0.5,  # (no unit) Overlap between windows within each spatial grain
+#     'window_size_step': 200,  # (um) Increase in size of windows across successive spatial "grains"
+#     'window_min_fr': 10, # (Hz) Minimum aggregate FR within window to include it
+#     # Merging of OFF state between and across grain
+#     'merge_max_time_diff': 0.050, # (s). To be merged, off states need their start & end times to differ by less than this
+#     'nearby_off_max_time_diff': 3, # (sec). #TODO
+#     'sort_all_window_offs_by': ['off_area', 'duration', 'start_time', 'end_time'],  # How to sort all OFFs before iteratively merging
+#     'sort_all_window_offs_by_ascending': [False, False, True, True],
 # }  # Only if spatial_detection = True
 
 # tgt_structure_acronyms=["Po", "VM"]
@@ -135,11 +137,16 @@ sorting = load_singleprobe_sorting(
     sorting,
     postprocessing,
     wneAnatomyProject=anatomyProject,
-    wneHypnogramProject=hypnogramProject,
 )
 sorting = sorting.refine_clusters(
     filters=filters, # Exclude noise
     include_nans=True,
+)
+
+hg = hypnogramProject.load_float_hypnogram(
+    experiment,
+    sglxSubject.name,
+    simplify=True
 )
 
 # Remove structures to ignore
@@ -156,6 +163,7 @@ for acronym in sorting.structures_by_depth:
     )
 
     off_df = structure_sorting.run_off_detection(
+        hg,
         tgt_states=tgt_states,
         split_by_state=split_by_state,
         on_off_method=on_off_method,
