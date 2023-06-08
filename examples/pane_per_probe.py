@@ -1,6 +1,6 @@
 import argparse
 import subprocess
-from wisc_ecephys_tools.sortings import get_completed_subject_probes
+from wisc_ecephys_tools.sortings import get_subject_probe_list
 
 
 # Create a command line argument parser
@@ -32,7 +32,7 @@ args = parser.parse_args()
 MAX_PANES_PER_WINDOW = 20
 
 # Read the file containing the list of values
-subject_probes_list = get_completed_subject_probes(args.experiment, args.alias)
+subject_probes_list = get_subject_probe_list(args.experiment, args.alias)
 
 # Add space to prefix string if there isn't any
 prefix = args.command_prefix

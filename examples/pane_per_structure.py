@@ -1,6 +1,6 @@
 import argparse
 import subprocess
-from wisc_ecephys_tools.sortings import get_completed_subject_probe_structures
+from wisc_ecephys_tools.sortings import get_subject_probe_structure_list
 
 
 # Create a command line argument parser
@@ -31,33 +31,11 @@ args = parser.parse_args()
 
 MAX_PANES_PER_WINDOW = 20
 
-ACRONYMS_TO_IGNORE=[
-    'CLA',
-    'HY',
-    'NAc',
-    'NAc-c',
-    'NAc-sh',
-    'SN',
-    'V',
-    'ZI',
-    'ZI-cBRF',
-    'cc-ec-cing-dwn',
-    'cfp',
-    'eml',
-    'ic-cp-lfp-py',
-    'ml',
-    'wmt',
-]
-
-ACRONYMS_TO_INCLUDE = None
-
 
 # Read the file containing the list of values
-subject_probes_structures = get_completed_subject_probe_structures(
+subject_probes_structures = get_subject_probe_structure_list(
     args.experiment,
     args.alias,
-    acronyms_to_ignore=ACRONYMS_TO_IGNORE,
-    acronyms_to_include=ACRONYMS_TO_INCLUDE,
 )
 
 # Add space to prefix string if there isn't any
