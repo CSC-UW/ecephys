@@ -64,6 +64,9 @@ class Project:
     # Methods for getting directories
     #####
 
+    def get_project_directory(self) -> Path:
+        return self.dir
+
     def get_subject_directory(self, subject: str) -> Path:
         """Get a subject's directory for this project."""
         return self.dir / subject
