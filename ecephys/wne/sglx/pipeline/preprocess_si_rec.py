@@ -30,7 +30,7 @@ def get_raw_peak_fig(
     fig, ax = plt.subplots(figsize=(20, 60))
 
     # Peak motion
-    x = peaks[::DECIMATE_RATIO]["sample_ind"] / si_rec.get_sampling_frequency()
+    x = peaks[::DECIMATE_RATIO]["sample_index"] / si_rec.get_sampling_frequency()
     y = peak_locations[::DECIMATE_RATIO]["y"]
 
     ax.scatter(x, y, s=1, color="k", alpha=ALPHA)
@@ -68,7 +68,7 @@ def get_peak_displacement_fig(
     spec = fig.add_gridspec(2, 3)
 
     # Peak motion
-    x = peaks[::DECIMATE_RATIO]["sample_ind"] / si_rec.get_sampling_frequency()
+    x = peaks[::DECIMATE_RATIO]["sample_index"] / si_rec.get_sampling_frequency()
     y = peak_locations[::DECIMATE_RATIO]["y"]
     y_corrected = peak_locations_corrected[::DECIMATE_RATIO]["y"]
 
@@ -242,6 +242,10 @@ def _prepro_drift_correction(
         print(peaks_path)
         print(peak_locations_path)
         peaks = np.load(peaks_path)
+        # Allow loading peaks computed before CSC-UW/spikeinterface 71ae7a8e
+        # (Effectively unused: we do NOT actually compute preprocessing and sorting with different versions of SI)
+        if peaks.dtype.names == ('sample_ind', 'channel_ind', 'amplitude', 'segment_ind'):
+            peaks.dtype = [('sample_index', '<i8'), ('channel_index', '<i8'), ('amplitude', '<f8'), ('segment_index', '<i8')]
         peak_locations = np.load(peak_locations_path)
 
     compute_motion = rerun_existing or compute_peaks or not motion_path.exists()
