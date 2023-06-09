@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 from ecephys import hypnogram
 import ecephys.plot
+from ecephys.units import cluster_trains
 from ecephys.units import dtypes
 from ecephys.units import siutils
 import ecephys.utils
@@ -243,22 +244,16 @@ class SpikeInterfaceKilosortSorting:
             for val in values
         }
 
-    def get_all_spike_trains(self, outputs="unit_id", return_times=False):
-        spikes = self.si_obj.get_all_spike_trains(outputs)
-        for segment_index in range(len(spikes)):
-            if return_times:
-                warnings.warn(
-                    "If you want a spike vector in seconds rather than frames, "
-                    "it is preferable to get cluster trains, and convert those to a spike vector, "
-                    "so that duplicate spikes can be dropped properly."
-                )
-                spikes[segment_index][0] = self.sample2time(spikes[segment_index[0]])
-                ecephys.utils.hotfix_times(
-                    spikes[segment_index][0]
-                )  # Ensure monotonicity, fast, inplace
-                # It is NOT SAFE to drop duplicate times here, since they might actually be simultaneous spikes
-                # You need to drop duplicates at the unit level
-        return spikes
+    def get_spike_vector(
+        self, return_times=False
+    ) -> tuple[dtypes.SpikeTrain, dtypes.ClusterIXs, dtypes.ClusterIDs]:
+        """This is a replacement for si_obj.get_all_spike_trains()! Never use si_obj.get_all_spike_trains()!
+        Not only is this faster (Faster even with an empty cache! MUCH faster with any caching!),
+        but it is also more correct, since you need to be very careful about using sample2time on
+        the spike times returned by get_all_spike_trains(). Plus, segment-handling logic is easier.
+        """
+        trains = self.get_cluster_trains(return_times=return_times)
+        return cluster_trains.convert_cluster_trains_to_spike_vector(trains)
 
     # TODO: Move elsewhere, since this is not a wrapper around SI core functionality
     def run_off_detection(

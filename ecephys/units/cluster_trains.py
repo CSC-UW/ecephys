@@ -1,10 +1,12 @@
 import numpy as np
+
+from ecephys import utils
 from ecephys.units import dtypes
 
 
 def convert_cluster_trains_to_spike_vector(
-    trains: dtypes.ClusterTrains_Secs,
-) -> tuple[dtypes.SpikeTrain_Secs, dtypes.ClusterIXs, dtypes.ClusterIDs]:
+    trains: dtypes.ClusterTrains,
+) -> tuple[dtypes.SpikeTrain, dtypes.ClusterIXs, dtypes.ClusterIDs]:
     """Similar to SpikeInterface's BaseSorter.to_spike_vector function.
     The spike vector concatenates all spikes of all clusters together, with the result
     being temporally sorted. This format is useful for computing cluster CCGs."""
@@ -14,8 +16,12 @@ def convert_cluster_trains_to_spike_vector(
     #   - Using heapq/utils.kway_sortednp_merge() = 1m17.8s
 
     # Allocate output arrays
+    cluster_ids = np.asarray(list(trains.keys()))
+    dtypes = [trains[id].dtype for id in cluster_ids]
+    assert utils.all_equal(dtypes), "All input arrays must have the same dtype"
+    dtype = dtypes[0]
     n = np.sum([cluster_spikes.size for cluster_spikes in trains.values()])
-    spike_times = np.zeros(n, dtype="float64")  # Holds time of each spike
+    spike_times = np.zeros(n, dtype=dtype)  # Holds time of each spike
     spike_cluster_ixs = np.zeros(n, dtype="int64")  # Holds cluster index of each spike
 
     # Fill output arrays with unsorted data
@@ -35,6 +41,5 @@ def convert_cluster_trains_to_spike_vector(
     spike_times = spike_times[order]
     spike_cluster_ixs = spike_cluster_ixs[order]
 
-    cluster_ids = np.asarray(list(trains.keys()))
     # To get cluster_ids of each spike, simply cluster_ids[spike_cluster_ix]
     return spike_times, spike_cluster_ixs, cluster_ids
