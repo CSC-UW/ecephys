@@ -48,16 +48,13 @@ class SpikeInterfaceKilosortSorting:
         cache: ClusterTrains_Samples:
             Optionally initialize the spike train cache. We cache each cluster's whole-recording spike train (as sample indices, not seconds). This is used to improve raster plot performance.
         """
-        if cache is None:
-            cache = {}
-
         self.si_obj: se.KiloSortSortingExtractor = si_obj
 
         # If no time mapping function is provided, just provide times according to this probe's sample clock.
         self._sample2time = sample2time
 
         # We cache each cluster's whole-recording spike train (as sample indices, not seconds). This is used to improve raster plot performance.
-        self._cache = cache
+        self._cache = {} if cache is None else cache
 
     def __repr__(self):
         return f"Wrapped {repr(self.si_obj)}"
