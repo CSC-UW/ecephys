@@ -1,13 +1,14 @@
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
 from ecephys.units import cluster_trains
 from ecephys.units import dtypes
 from ecephys.units import SpikeInterfaceKilosortSorting
 
 
-class MultiprobeSorting:
+class MultiSIKS:
+    """Handles SpikeInterfaceKilosortSortings from multiple probes."""
+
     def __init__(self, sortings: dict[str, SpikeInterfaceKilosortSorting]):
         self._sortings = sortings
 

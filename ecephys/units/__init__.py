@@ -4,6 +4,6 @@ from ecephys.units import siutils
 from ecephys.units.cluster_trains import *
 from ecephys.units.correlograms import *
 from ecephys.units.peth import get_cluster_peths
-from ecephys.units.si_ks_sorting import SpikeInterfaceKilosortSorting
-from ecephys.units.multiprobe_sorting import MultiprobeSorting
+from ecephys.units.siks_sorting import SpikeInterfaceKilosortSorting
+from ecephys.units.multi_siks import MultiSIKS
 from ecephys.units import ephyviewerutils

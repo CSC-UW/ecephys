@@ -154,13 +154,13 @@ def load_multiprobe_sorting(
     postprocessings: dict[str, str] = None,
     wneAnatomyProject: Optional[Project] = None,
     allow_no_sync_file=True,
-) -> units.MultiprobeSorting:
+) -> units.MultiSIKS:
     if sortings is None:
         sortings = {prb: None for prb in probes}
     if postprocessings is None:
         postprocessings = {prb: None for prb in probes}
 
-    return units.MultiprobeSorting(
+    return units.MultiSIKS(
         {
             probe: load_singleprobe_sorting(
                 sglxSortingProject,

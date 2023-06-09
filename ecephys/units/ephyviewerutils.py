@@ -7,7 +7,7 @@ from tqdm import tqdm
 from ecephys import hypnogram
 import ecephys.plot
 from ecephys.units import SpikeInterfaceKilosortSorting
-from ecephys.units import MultiprobeSorting
+from ecephys.units import MultiSIKS
 
 
 DEPTH_STEP = 20
@@ -310,7 +310,7 @@ def launch_interactive_raster_from_sorting(
 
 def add_spiketrain_views_from_multiprobe_sorting(
     window: ephyviewer.MainViewer,
-    mps: MultiprobeSorting,
+    mps: MultiSIKS,
     by: str = "depth",
     tgt_struct_acronyms: dict[str, list] = None,
 ):
@@ -342,7 +342,7 @@ def add_spiketrain_views_from_multiprobe_sorting(
 
 
 def launch_interactive_raster_from_multiprobe_sorting(
-    mps: MultiprobeSorting,
+    mps: MultiSIKS,
     by: str = "depth",
     tgt_struct_acronyms: dict[str, list] = None,
     hg: hypnogram.FloatHypnogram = None,
