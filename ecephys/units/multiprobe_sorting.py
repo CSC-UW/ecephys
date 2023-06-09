@@ -127,9 +127,9 @@ class MultiprobeSorting:
 
         spikes = []
         for segment_index in range(self.get_num_segments()):
+            raise NotImplementedError("How to handle merging of spike labels?")
             spikes[segment_index][0] = utils.kway_sortednp_merge(
                 [prb_spikes[segment_index][0] for prb_spikes in spikes_by_probe]
             )
-            raise NotImplementedError("How to handle merging of spike labels?")
 
         return spikes

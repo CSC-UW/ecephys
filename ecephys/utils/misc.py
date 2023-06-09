@@ -5,11 +5,9 @@ import json
 import logging
 import pathlib
 
-import heapq
 import numpy as np
 from rich.console import Console
 from scipy.stats import median_abs_deviation
-import sortednp
 
 logger = logging.getLogger(__name__)
 _console = Console()
@@ -156,28 +154,44 @@ def ncols(x):
     return x.shape[1]
 
 
-# https://medium.com/@amitrajit_bose/merge-k-sorted-arrays-6f9427661e67
-def kway_sortednp_merge(arrays):
-    if len(arrays) == 0:
-        return np.array([])
-    elif len(arrays) == 1:
-        return arrays[0]
-    elif len(arrays) == 2:
-        return sortednp.merge(arrays[0], arrays[1])
-    # return sortednp.kway_merge(arrays)
+def kway_mergesort(arrays: list[np.ndarray], indices=False):
+    """Merge and sort input arrays.
 
-    lists = [a.tolist() for a in arrays]
-    final_list = []
-    heap = [(mylst[0], i, 0) for i, mylst in enumerate(lists) if mylst]
-    heapq.heapify(heap)
+    If indices = True, the returned indices have the length of the inputs, and the indices
+    show the position in the output to which an input value was copied.
 
-    while heap:
-        val, list_ind, element_ind = heapq.heappop(heap)
-        final_list.append(val)
-        if element_ind + 1 < len(lists[list_ind]):
-            next_tuple = (lists[list_ind][element_ind + 1], list_ind, element_ind + 1)
-            heapq.heappush(heap, next_tuple)
-    return np.array(final_list)
+    When your input arrays are already in sorted order, performance is very good:
+    much faster than using sortednp.merge iteratively, or using heapq to kway merge.
+    Plus, mapping input-to-output locations is easier.
+    """
+    # Allocate output array
+    dtypes = [a.dtype for a in arrays]
+    assert all_equal(dtypes), "All input arrays must have the same dtype"
+    dtype = dtypes[0]
+    array_sizes = np.asarray([a.size for a in arrays])
+    N = np.sum(array_sizes)
+    merged = np.zeros(N, dtype=dtype)
+
+    # Fill output arrays with unsorted data
+    pos = 0
+    for a in arrays:
+        n = a.size
+        merged[pos : pos + n] = a
+        pos += n
+
+    # Sort. Setting kind='mergesort' will use usually Timsort under the hood, for floats, and radixx sort for ints
+    order = np.argsort(merged, kind="mergesort")
+    merged = merged[order]
+
+    # Get location of input elements in sorted, merged output
+    if indices:
+        indices = np.empty(N, dtype=np.int64)
+        indices[order] = np.arange(N)
+        bounds = np.append(0, np.cumsum(array_sizes))
+        indices = tuple(indices[i:j] for i, j in it.pairwise(bounds))
+        return merged, indices
+    else:
+        return merged
 
 
 def find_nearest(array, value, tie_select="first"):
