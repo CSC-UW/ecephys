@@ -33,7 +33,7 @@ class SpikeInterfaceKilosortSorting:
         self,
         si_obj: Union[se.KiloSortSortingExtractor, si.UnitsSelectionSorting],
         sample2time: Optional[Callable] = None,
-        cache: Optional[dtypes.ClusterTrains_Samples] = dict(),
+        cache: Optional[dtypes.ClusterTrains_Samples] = None,
     ):
         """
         This class is primarily used to map spike samples (and therfore times) from one probe to spike times on another, since the SpikeInterface objects can not do this.
@@ -48,6 +48,9 @@ class SpikeInterfaceKilosortSorting:
         cache: ClusterTrains_Samples:
             Optionally initialize the spike train cache. We cache each cluster's whole-recording spike train (as sample indices, not seconds). This is used to improve raster plot performance.
         """
+        if cache is None:
+            cache = {}
+
         self.si_obj: se.KiloSortSortingExtractor = si_obj
 
         # If no time mapping function is provided, just provide times according to this probe's sample clock.
