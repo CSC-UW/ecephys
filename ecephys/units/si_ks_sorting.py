@@ -243,6 +243,22 @@ class SpikeInterfaceKilosortSorting:
             for val in values
         }
 
+    def get_all_spike_trains(self, outputs="unit_id", return_times=False):
+        spikes = self.si_obj.get_all_spike_trains(outputs)
+        for segment_index in range(len(spikes)):
+            if return_times:
+                warnings.warn(
+                    "If you want a spike vector in seconds rather than frames, "
+                    "it is preferable to get cluster trains, and convert those to a spike vector, "
+                    "so that duplicate spikes can be dropped properly."
+                )
+                spikes[segment_index][0] = self.sample2time(spikes[segment_index[0]])
+                ecephys.utils.hotfix_times(
+                    spikes[segment_index][0]
+                )  # Ensure monotonicity, fast, inplace
+                # It is NOT SAFE to drop duplicate times here, since they might actually be simultaneous spikes
+                # You need to drop duplicates at the unit level
+        return spikes
 
     # TODO: Move elsewhere, since this is not a wrapper around SI core functionality
     def run_off_detection(
