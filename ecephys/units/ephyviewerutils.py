@@ -318,7 +318,7 @@ def add_spiketrain_views_from_multiprobe_sorting(
         tgt_struct_acronyms = {prb: None for prb in mps.probes}
 
     for prb in mps.probes:
-        structs = mps._sortings[prb].si_obj.get_annotation("structure_table")
+        structs = mps.sortings[prb].si_obj.get_annotation("structure_table")
         all_prb_structures = structs.sort_values(by="lo", ascending=False)[
             "acronym"
         ].values  # Descending depths
@@ -330,12 +330,8 @@ def add_spiketrain_views_from_multiprobe_sorting(
             assert all([s in all_prb_structures for s in tgt_struct_acronyms])
 
         for tgt_struct_acronym in prb_tgt_struct_acronyms:
-            window = add_spiketrainviewer_to_window(
-                window,
-                mps._sortings[prb],
-                by=by,
-                tgt_struct_acronym=tgt_struct_acronym,
-                probe=prb,
+            window = add_spiketrain_views_from_sorting(
+                window, mps.sortings[prb], by=by, tgt_struct_acronym=tgt_struct_acronym
             )
 
     return window
