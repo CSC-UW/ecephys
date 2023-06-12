@@ -463,7 +463,7 @@ def hotfix_times(times: np.ndarray) -> bool:
         n_iters += 1
 
     if cum_n_lzd > 0:
-        logger.warning(
+        logger.debug(
             f"Hotfixed {cum_n_lzd} less-than-zero diffs in timestamps over {n_iters + 1} passes."
         )
     return cum_n_lzd

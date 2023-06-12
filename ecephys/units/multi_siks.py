@@ -1,3 +1,5 @@
+from typing import Optional, Callable
+
 import numpy as np
 import pandas as pd
 
@@ -69,12 +71,21 @@ class MultiSIKS:
         return props.reset_index(drop=True)
 
     def refine_clusters(
-        self, filters_by_probe: dict[str, dict], include_nans: bool = True
+        self,
+        simple_filters_by_probe: Optional[dict[str, dict]] = None,
+        callable_filters_by_probe: Optional[dict[str, list[Callable]]] = None,
+        include_nans: bool = True,
     ):
+        if simple_filters_by_probe is None:
+            simple_filters_by_probe = {prb: None for prb in self.probes}
+        if callable_filters_by_probe is None:
+            callable_filters_by_probe = {prb: None for prb in self.probes}
         return self.__class__(
             {
                 prb: sorting.refine_clusters(
-                    filters_by_probe[prb], include_nans=include_nans
+                    simple_filters_by_probe[prb],
+                    callable_filters_by_probe[prb],
+                    include_nans,
                 )
                 for prb, sorting in self._sortings.items()
             }
@@ -83,6 +94,11 @@ class MultiSIKS:
     def get_cluster_trains(self, **kwargs) -> dtypes.ClusterTrains_Secs:
         """Return ClusterTrains, keyed by multiprobe cluster IDs."""
         trains = {}
+        if "cluster_ids" in kwargs:
+            # TODO
+            raise NotImplementedError(
+                "Need to convert multiprobe cluster_ids to si cluster_ids first"
+            )
         for prb in self.probes:
             prb_trains = self.sortings[prb].get_cluster_trains(
                 return_times=True, **kwargs

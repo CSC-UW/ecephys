@@ -1,4 +1,5 @@
 import logging
+from typing import Optional, Callable
 
 import numpy as np
 import pandas as pd
@@ -139,7 +140,12 @@ def fix_isi_violations_ratio(
     return extractor
 
 
-def refine_clusters(si_obj, filters=None, include_nans=True):
+def refine_clusters(
+    si_obj: se.BaseSorting,
+    simple_filters: Optional[dict] = None,
+    callable_filters: Optional[list[Callable]] = None,
+    include_nans: bool = True,
+):
     """Subselect clusters based on filters.
 
     Parameters:
@@ -166,39 +172,45 @@ def refine_clusters(si_obj, filters=None, include_nans=True):
     ======
     SpikeInterface renames the 'group' columns in cluster_info.tsv to 'quality'.
     """
-    if filters is None:
-        filters = {}
-
     keep = np.ones_like(si_obj.get_unit_ids())
-    for property, filter in filters.items():
-        values = si_obj.get_property(property)
-        if not property in si_obj.get_property_keys():
-            logger.warning(
-                f"Cluster property {property} not found. Unable to filter clusters based on {property}."
+    if simple_filters is not None:
+        for property, filter in simple_filters.items():
+            values = si_obj.get_property(property)
+            if not property in si_obj.get_property_keys():
+                logger.warning(
+                    f"Cluster property {property} not found. Unable to filter clusters based on {property}."
+                )
+                continue
+            if isinstance(filter, tuple):
+                lo, hi = filter
+                assert types.is_numeric_dtype(
+                    np.array(filter)
+                ), f"Expected a numeric dtype for values in tuple: `{filter}`. Specify values of interest as a set (rather than tuple) for non-numerical properties."
+                assert types.is_numeric_dtype(
+                    values.dtype
+                ), f"Cannot select a range of values for cluster property {property} with dtype {values.dtype}. Expected a numeric dtype."
+                mask = np.logical_and(values >= lo, values <= hi)
+            elif isinstance(filter, set):
+                mask = np.isin(values, list(filter))
+            else:
+                raise ValueError(
+                    f"Cluster property {property} was provided as type {type(filter)}. Expected a tuple for selecting a range of numerical values, or a set for selecting categorical variables."
+                )
+            if include_nans:
+                mask = pd.isna(values) | mask
+            keep = keep & mask
+            print(f"{property}: {filter} excludes {mask.size - mask.sum()} clusters.")
+
+    if callable_filters is not None:
+        for filter_func in callable_filters:
+            mask = filter_func(si_obj)
+            keep = keep & mask
+            print(
+                f"Callable filter {filter_func.__name__} excludes {mask.size - mask.sum()} clusters."
             )
-            continue
-        if isinstance(filter, tuple):
-            lo, hi = filter
-            assert types.is_numeric_dtype(
-                np.array(filter)
-            ), f"Expected a numeric dtype for values in tuple: `{filter}`. Specify values of interest as a set (rather than tuple) for non-numerical properties."
-            assert types.is_numeric_dtype(
-                values.dtype
-            ), f"Cannot select a range of values for cluster property {property} with dtype {values.dtype}. Expected a numeric dtype."
-            mask = np.logical_and(values >= lo, values <= hi)
-        elif isinstance(filter, set):
-            mask = np.isin(values, list(filter))
-        else:
-            raise ValueError(
-                f"Cluster property {property} was provided as type {type(filter)}. Expected a tuple for selecting a range of numerical values, or a set for selecting categorical variables."
-            )
-        if include_nans:
-            mask = pd.isna(values) | mask
-        keep = keep & mask
-        print(f"{property}: {filter} excludes {mask.size - mask.sum()} clusters.")
 
     print(
-        f"{keep.size - keep.sum()}/{keep.size} clusters excluded by jointly applying filters."
+        f"{keep.size - keep.sum()}/{keep.size} clusters excluded by jointly applying filters. {keep.sum()} remain."
     )
     clusterIDs = si_obj.get_unit_ids()[np.where(keep)]
     return si_obj.select_units(clusterIDs)

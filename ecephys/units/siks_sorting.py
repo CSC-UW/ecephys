@@ -89,10 +89,15 @@ class SpikeInterfaceKilosortSorting:
     def has_sample2time(self) -> bool:
         return self._sample2time is not None
 
-    def refine_clusters(self, filters: dict, include_nans: bool = True):
+    def refine_clusters(
+        self,
+        simple_filters: Optional[dict] = None,
+        callable_filters: Optional[list[Callable]] = None,
+        include_nans: bool = True,
+    ):
         """Refine clusters, and conveniently wrap the result, so that the user doesn't have to."""
         new_obj = siutils.refine_clusters(
-            self.si_obj, filters, include_nans=include_nans
+            self.si_obj, simple_filters, callable_filters, include_nans
         )
         return self.__class__(
             new_obj,
