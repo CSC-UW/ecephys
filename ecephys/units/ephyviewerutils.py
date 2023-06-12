@@ -331,7 +331,7 @@ def add_spiketrain_views_from_multiprobe_sorting(
 
         for tgt_struct_acronym in prb_tgt_struct_acronyms:
             window = add_spiketrain_views_from_sorting(
-                window, mps.sortings[prb], by=by, tgt_struct_acronym=tgt_struct_acronym
+                window, mps.sortings[prb], by=by, tgt_struct_acronyms=tgt_struct_acronym
             )
 
     return window
