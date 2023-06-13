@@ -113,9 +113,9 @@ def add_anatomy_properties_to_extractor(
     return extractor
 
 
-def get_dummy_structure_table():
+def get_dummy_structure_table(lo, hi):
     return pd.DataFrame(
-        [{"structure": "Full probe", "acronym": "All", "lo": -np.Inf, "hi": np.Inf}]
+        [{"structure": "Full probe", "acronym": "All", "lo": lo, "hi": hi}]
     )
 
 

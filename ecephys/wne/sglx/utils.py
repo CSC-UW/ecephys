@@ -1,6 +1,8 @@
 import pathlib
 from typing import Optional
 
+import numpy as np
+
 from ecephys import hypnogram
 from ecephys import units
 from ecephys import utils
@@ -138,7 +140,8 @@ def load_singleprobe_sorting(
         )
         structs = utils.read_htsv(anatomy_file)
     else:
-        structs = units.siutils.get_dummy_structure_table()
+        # TODO: Passing np.Inf will break ephyviewer, when it attempts to plot all depths.
+        structs = units.siutils.get_dummy_structure_table(lo=-np.Inf, hi=np.Inf)
     extractor = units.siutils.add_anatomy_properties_to_extractor(extractor, structs)
 
     return units.SpikeInterfaceKilosortSorting(extractor, sample2time)

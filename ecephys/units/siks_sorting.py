@@ -201,6 +201,11 @@ class SpikeInterfaceKilosortSorting:
     ) -> dtypes.SpikeTrain:
         mask = self.properties[property_name] == property_value
         clusters = self.properties[mask]["cluster_id"].values
+        if len(clusters) == 0:
+            if ("return_times" in kwargs) and kwargs["return_times"]:
+                return np.asarray([], dtype=np.float64)
+            else:
+                return np.asarray([], dtype=np.int64)
         return ecephys.utils.kway_mergesort(
             [self.get_unit_spike_train(id, **kwargs) for id in clusters]
         )

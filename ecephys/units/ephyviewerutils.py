@@ -330,8 +330,11 @@ def add_spiketrain_views_from_multiprobe_sorting(
             assert all([s in all_prb_structures for s in tgt_struct_acronyms])
 
         for tgt_struct_acronym in prb_tgt_struct_acronyms:
-            window = add_spiketrain_views_from_sorting(
-                window, mps.sortings[prb], by=by, tgt_struct_acronyms=tgt_struct_acronym
+            window = add_spiketrainviewer_to_window(
+                window,
+                mps.sortings[prb].select_structures([tgt_struct_acronym]),
+                by=by,
+                probe=prb,
             )
 
     return window
