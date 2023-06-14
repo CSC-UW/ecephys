@@ -139,7 +139,8 @@ sorting = load_singleprobe_sorting(
     wneAnatomyProject=anatomyProject,
 )
 sorting = sorting.refine_clusters(
-    filters=filters, # Exclude noise
+    simple_filters=filters, # Exclude noise
+    callable_filters = None,
     include_nans=True,
 )
 
