@@ -107,6 +107,9 @@ def add_anatomy_properties_to_extractor(
         mask = (depths >= lo) & (depths <= hi)
         structures[np.where(mask)] = structure.structure
         acronyms[np.where(mask)] = structure.acronym
+
+    structures[pd.isnull(structures)] = "???"
+    acronyms[pd.isnull(acronyms)] = "???"
     extractor.set_property("structure", structures)
     extractor.set_property("acronym", acronyms)
     extractor.set_annotation("structure_table", structs)
