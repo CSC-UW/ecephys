@@ -419,11 +419,16 @@ def get_interval_complements(intervals, start_time, end_time):
     """
 
     intervals = np.asarray(intervals)
-    complement = list()
+    drop = (intervals <= start_time).any(axis=1) | (intervals >= end_time).any(axis=1)
+    intervals = intervals[~drop, :]
+
+    if intervals.size == 0:
+        return []
 
     assert start_time < intervals.flatten()[0]
     assert end_time > intervals.flatten()[-1]
 
+    complement = list()
     edges = np.concatenate([[start_time], intervals.flatten(), [end_time]])
     it = iter(edges)
     for l in it:
