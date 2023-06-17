@@ -120,7 +120,7 @@ class SpikeInterfaceKilosortSorting:
 
     def select_structures(self, tgt_structure_acronyms: list[str]):
         """Select clusters belonging to desired structures, and update `self.struct` accordingly."""
-        all_structure_acronyms = [s for s in self.properties["acronym"].unique()]
+        all_structure_acronyms = [s for s in self.si_obj.get_annotation("structure_table")["acronym"].unique()]
         if tgt_structure_acronyms is None:
             tgt_structure_acronyms = all_structure_acronyms
         new_obj = siutils.refine_clusters(
