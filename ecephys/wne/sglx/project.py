@@ -81,10 +81,9 @@ class SGLXProject(Project):
                     f"Could not find sync table at {probe_sync_file}.\n"
                     f"`allow_no_sync_file` == True : Ignoring probe sync in sample2time"
                 )
-                sync_table = None
-            else:
-                logger.info(f"Could not find sync table at {probe_sync_file}.")
                 return None
+            else:
+                raise FileNotFoundError(f"No sync file at {probe_sync_file}")
         else:
             sync_table = utils.read_htsv(
                 probe_sync_file

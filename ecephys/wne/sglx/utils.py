@@ -93,7 +93,7 @@ def load_singleprobe_sorting(
     sorting: str = "sorting",
     postprocessing: str = "postpro",
     wneAnatomyProject: Optional[Project] = None,
-    allow_no_sync_file=True,
+    allow_no_sync_file=False,
 ) -> units.SpikeInterfaceKilosortSorting:
     if sorting is None:
         sorting = "sorting"
@@ -101,12 +101,6 @@ def load_singleprobe_sorting(
         postprocessing = "postpro"
 
     # Get function for converting SI samples to imec0 timebase
-    if allow_no_sync_file:
-        import warnings
-
-        warnings.warn(
-            "Maybe loading sample2time without probe-to-probe synchronization, watch out"
-        )
     sample2time = sglxSortingProject.get_sample2time(
         sglxSubject.name,
         experiment,
@@ -156,7 +150,7 @@ def load_multiprobe_sorting(
     sortings: dict[str, str] = None,
     postprocessings: dict[str, str] = None,
     wneAnatomyProject: Optional[Project] = None,
-    allow_no_sync_file=True,
+    allow_no_sync_file=False,
 ) -> units.MultiSIKS:
     if sortings is None:
         sortings = {prb: None for prb in probes}
