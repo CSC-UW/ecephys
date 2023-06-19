@@ -40,12 +40,21 @@ def get_barcode_sync_table(
     nFiles = len(ftabs["imec0"])
 
     fits = list()
-    for probe in set(probes) - {"imec0"}:
-        for i in range(nFiles):
+    for i in range(nFiles):
+        imec0BinPath = ftabs["imec0"].iloc[i]["path"]
+        fits.append(
+            pd.DataFrame(
+                {
+                    "source": [imec0BinPath.name],
+                    "target": [imec0BinPath.name],
+                    "slope": [1.0],
+                    "intercept": [0.0],
+                }
+            )
+        )
+        for probe in set(probes) - {"imec0"}:
             thisBinPath = ftabs[probe].iloc[i]["path"]
             thisSyncData = load_barcodes(thisBinPath)
-
-            imec0BinPath = ftabs["imec0"].iloc[i]["path"]
             imec0SyncData = load_barcodes(imec0BinPath)
 
             fit = sync.fit_barcode_times(
@@ -63,16 +72,6 @@ def get_barcode_sync_table(
                         "target": [imec0BinPath.name],
                         "slope": [fit.coef_[0]],
                         "intercept": [fit.intercept_],
-                    }
-                )
-            )
-            fits.append(
-                pd.DataFrame(
-                    {
-                        "source": [imec0BinPath.name],
-                        "target": [imec0BinPath.name],
-                        "slope": [1.0],
-                        "intercept": [0.0],
                     }
                 )
             )
