@@ -7,6 +7,8 @@ import pandas as pd
 import spikeinterface.postprocessing.correlograms
 import xarray as xr
 
+from ecephys import hypnogram
+from ecephys.units import cluster_trains
 from ecephys.units import dtypes
 
 
@@ -18,10 +20,46 @@ def validate_cluster_correlograms(da: dtypes.XArray):
         )
 
 
-def compute_simple_correlograms(
+def compute_intrapopulation_correlograms(
     spike_times: dtypes.SpikeTrain_Secs,
     spike_cluster_ixs: dtypes.ClusterIXs,
     cluster_ids: dtypes.ClusterIDs,
+    window_ms: float = 50.0,
+    bin_ms: float = 1.0,
+    do_autocorr: bool = True,
+) -> xr.DataArray:
+    bins, half_window_size, bin_size = make_bins(window_ms, bin_ms)
+    num_bins = 2 * int(half_window_size / bin_size)
+    num_units = len(cluster_ids)
+    correlograms = np.zeros((num_units, num_units, num_bins), dtype=np.int64)
+    _compute_intrapopulation_time_correlograms_numba(
+        correlograms,
+        spike_times,
+        spike_cluster_ixs.astype(np.int32),
+        half_window_size,
+        bin_size,
+        do_autocorr,
+    )
+    return xr.DataArray(
+        correlograms.transpose(
+            1, 0, 2
+        ),  # Transpose, so that [A, B, :] is the histogram of (spiketimes(B) - spiketimes(A))
+        dims=("clusterA", "clusterB", "time"),
+        coords={
+            "clusterA": cluster_ids,
+            "clusterB": cluster_ids,
+            "time": bins[:-1],
+        },
+        attrs={"window_ms": window_ms, "bin_ms": bin_ms},
+    )
+
+
+def compute_interpopulation_correlograms(
+    spike_times: dtypes.SpikeTrain_Secs,
+    spike_cluster_ixs: dtypes.ClusterIXs,
+    cluster_ids: dtypes.ClusterIDs,
+    pop_a_ids: dtypes.ClusterIDs,
+    pop_b_ids: dtypes.ClusterIDs,
     window_ms: float = 50.0,
     bin_ms: float = 1.0,
 ) -> xr.DataArray:
@@ -29,10 +67,14 @@ def compute_simple_correlograms(
     num_bins = 2 * int(half_window_size / bin_size)
     num_units = len(cluster_ids)
     correlograms = np.zeros((num_units, num_units, num_bins), dtype=np.int64)
-    _compute_time_correlograms_numba(
+    pop_a_ixs = np.where(np.isin(cluster_ids, pop_a_ids))[0]
+    pop_b_ixs = np.where(np.isin(cluster_ids, pop_b_ids))[0]
+    _compute_interpopulation_time_correlograms_numba(
         correlograms,
         spike_times,
         spike_cluster_ixs.astype(np.int32),
+        pop_a_ixs.astype(np.int32),
+        pop_b_ixs.astype(np.int32),
         half_window_size,
         bin_size,
     )
@@ -50,21 +92,94 @@ def compute_simple_correlograms(
     )
 
 
-def compute_correlograms_by_spike_type(
+def compute_intrapopulation_correlograms_by_spike_type(
     spike_times: dtypes.SpikeTrain_Secs,
     spike_cluster_ixs: dtypes.ClusterIXs,
     spike_types: np.ndarray,
     cluster_ids: dtypes.ClusterIDs,
     window_ms: float = 50,
     bin_ms: float = 1,
+    do_autocorr: bool = True,
 ) -> xr.Dataset:
     correlograms = {}
     for type_ in np.unique(spike_types):
         is_type_ = spike_types == type_
-        correlograms[type_] = compute_simple_correlograms(
+        correlograms[type_] = compute_intrapopulation_correlograms(
             spike_times[is_type_],
             spike_cluster_ixs[is_type_],
             cluster_ids,
+            window_ms,
+            bin_ms,
+            do_autocorr,
+        )
+
+    return xr.Dataset(correlograms)
+
+
+def compute_interpopulation_correlograms_by_spike_type(
+    spike_times: dtypes.SpikeTrain_Secs,
+    spike_cluster_ixs: dtypes.ClusterIXs,
+    spike_types: np.ndarray,
+    cluster_ids: dtypes.ClusterIDs,
+    pop_a_ids: dtypes.ClusterIDs,
+    pop_b_ids: dtypes.ClusterIDs,
+    window_ms: float = 50,
+    bin_ms: float = 1,
+) -> xr.Dataset:
+    """
+    If you have a hypnogram, use compute_interpopulation_correlograms_by_hypnogram_state!
+    It is much faster than compute_interpopulation_correlograms_by_spike_type! 30s vs 3min!
+    """
+    correlograms = {}
+    for type_ in np.unique(spike_types):
+        is_type_ = spike_types == type_
+        correlograms[type_] = compute_interpopulation_correlograms(
+            spike_times[is_type_],
+            spike_cluster_ixs[is_type_],
+            cluster_ids,
+            pop_a_ids,
+            pop_b_ids,
+            window_ms,
+            bin_ms,
+        )
+
+    return xr.Dataset(correlograms)
+
+
+def compute_interpopulation_correlograms_by_hypnogram_state(
+    trains: dtypes.ClusterTrains_Secs,
+    hg: hypnogram.FloatHypnogram,
+    pop_a_ids: dtypes.ClusterIDs,
+    pop_b_ids: dtypes.ClusterIDs,
+    states: list[str] = None,
+    window_ms: float = 50,
+    bin_ms: float = 1,
+) -> xr.Dataset:
+    """
+    If you have a hypnogram, use compute_interpopulation_correlograms_by_hypnogram_state!
+    It is much faster than compute_interpopulation_correlograms_by_spike_type! 30s vs 3min!
+    """
+    trains_by_state = {}
+    states = hg["state"].unique() if states is None else states
+    for state in states:
+        state_hg = hg.keep_states([state])
+        trains_by_state[state] = {
+            id: tr[state_hg.covers_time(tr)] for id, tr in trains.items()
+        }
+
+    correlograms = {}
+    for state, state_trains in trains_by_state.items():
+        (
+            spike_times,
+            spike_cluster_ixs,
+            cluster_ids,
+        ) = cluster_trains.convert_cluster_trains_to_spike_vector(state_trains)
+        correlograms[state] = compute_interpopulation_correlograms(
+            spike_times,
+            spike_cluster_ixs,
+            cluster_ids,
+            pop_a_ids,
+            pop_b_ids,
             window_ms,
             bin_ms,
         )
@@ -153,14 +268,15 @@ def _compute_time_crosscorr_numba(
         numba.int32[::1],
         numba.float32,
         numba.float32,
+        numba.boolean,
     ),
     nopython=True,
     nogil=True,
     cache=True,
     parallel=True,
 )
-def _compute_time_correlograms_numba(
-    correlograms, spike_times, spike_labels, half_window_size, bin_size
+def _compute_intrapopulation_time_correlograms_numba(
+    correlograms, spike_times, spike_labels, half_window_size, bin_size, do_autocorr
 ):
     n_units = correlograms.shape[0]
 
@@ -171,7 +287,7 @@ def _compute_time_correlograms_numba(
         for j in range(i, n_units):
             spike_times2 = spike_times[spike_labels == j]
 
-            if i == j:
+            if do_autocorr and (i == j):
                 correlograms[i, j, :] += _compute_time_autocorr_numba(
                     spike_times1, half_window_size, bin_size
                 )
@@ -181,6 +297,45 @@ def _compute_time_correlograms_numba(
                 )
                 correlograms[i, j, :] += cc
                 correlograms[j, i, :] += cc[::-1]
+
+
+@numba.jit(
+    (
+        numba.int64[:, :, ::1],
+        numba.float64[::1],
+        numba.int32[::1],
+        numba.int32[::1],
+        numba.int32[::1],
+        numba.float32,
+        numba.float32,
+    ),
+    nopython=True,
+    nogil=True,
+    cache=True,
+    parallel=True,
+)
+def _compute_interpopulation_time_correlograms_numba(
+    correlograms,
+    spike_times,
+    spike_cluster_ixs,
+    pop_a_cluster_ixs,
+    pop_b_cluster_ixs,
+    half_window_size,
+    bin_size,
+):
+    for a in numba.prange(pop_a_cluster_ixs.size):
+        ix_a = pop_a_cluster_ixs[a]
+        spike_times_a = spike_times[spike_cluster_ixs == ix_a]
+
+        for b in range(pop_a_cluster_ixs.size):
+            ix_b = pop_b_cluster_ixs[b]
+            spike_times_b = spike_times[spike_cluster_ixs == ix_b]
+
+            cc = _compute_time_crosscorr_numba(
+                spike_times_a, spike_times_b, half_window_size, bin_size
+            )
+            correlograms[ix_a, ix_b, :] += cc
+            correlograms[ix_b, ix_a, :] += cc[::-1]
 
 
 def add_cluster_properties_to_correlograms(
