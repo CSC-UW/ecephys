@@ -116,6 +116,40 @@ def compute_intrapopulation_correlograms_by_spike_type(
     return xr.Dataset(correlograms)
 
 
+def compute_intrapopulation_correlograms_by_hypnogram_state(
+    trains: dtypes.ClusterTrains_Secs,
+    hg: hypnogram.FloatHypnogram,
+    states: list[str] = None,
+    window_ms: float = 50,
+    bin_ms: float = 1,
+    do_autocorr: bool = True,
+) -> xr.Dataset:
+    """
+    If you have a hypnogram, use compute_intrapopulation_correlograms_by_hypnogram_state!
+    It is much faster than compute_intrapopulation_correlograms_by_spike_type! 30s vs 3min!
+    """
+    trains_by_state = {}
+    states = hg["state"].unique() if states is None else states
+    for state in states:
+        state_hg = hg.keep_states([state])
+        trains_by_state[state] = {
+            id: tr[state_hg.covers_time(tr)] for id, tr in trains.items()
+        }
+
+    correlograms = {}
+    for state, state_trains in trains_by_state.items():
+        (
+            spike_times,
+            spike_cluster_ixs,
+            cluster_ids,
+        ) = cluster_trains.convert_cluster_trains_to_spike_vector(state_trains)
+        correlograms[state] = compute_intrapopulation_correlograms(
+            spike_times, spike_cluster_ixs, cluster_ids, window_ms, bin_ms, do_autocorr
+        )
+
+    return xr.Dataset(correlograms)
+
+
 def compute_interpopulation_correlograms_by_spike_type(
     spike_times: dtypes.SpikeTrain_Secs,
     spike_cluster_ixs: dtypes.ClusterIXs,
