@@ -20,7 +20,7 @@ def get_barcode_sync_table(
 ) -> pd.DataFrame:
     def load_barcodes(binpath: pathlib.Path) -> pd.DataFrame:
         [syncfile] = wne_sglx_utils.get_sglx_file_counterparts(
-            wneProject, wneSubject.name, [binpath], ".barcodes.htsv"
+            wneProject, wneSubject.name, [binpath], constants.BARCODE_EXT
         )
         return utils.read_htsv(syncfile)
 

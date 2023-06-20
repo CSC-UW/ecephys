@@ -1,3 +1,5 @@
+BARCODE_EXT = ".barcodes.htsv"
+TTL_EXT = ".ttls.htsv"
 NETCDF_EXT = ".nc"
 EMG_EXT = ".emg.nc"
 EDF_EXT = ".edf"
