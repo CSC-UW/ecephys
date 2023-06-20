@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Callable, Optional
 
 import pandas as pd
 from tqdm.auto import tqdm
@@ -42,37 +41,24 @@ def save_sglx_imec_ttls(
     utils.write_htsv(ttls, htsvFile)
 
 
-def do_probe(
-    wne_project: SGLXProject,
-    wne_subject: SGLXSubject,
-    experiment: str,
-    prb: str,
-    fn: Callable,
-    stream: str = "ap",
-):
-    ftab = wne_subject.get_experiment_frame(
-        experiment, stream=stream, ftype="bin", probe=prb
-    )
-    for file in tqdm(list(ftab.itertuples()), desc="Files"):
-        fn(wne_project, wne_subject, file.path)
-
-
 def do_experiment(
-    opts: dict,
-    dest_project: SGLXProject,
-    wne_subject: SGLXSubject,
-    experiment: str,
-    probes: Optional[list[str]] = None,
-    stream: str = "ap",
+    dest_project: SGLXProject, wne_subject: SGLXSubject, experiment: str, **kwargs
 ):
-    if opts["imSyncType"] == "square_pulse":
-        fn = save_sglx_imec_ttls
-    elif opts["imSyncType"] == "barcode":
-        fn = save_sglx_imec_barcodes
-    else:
-        raise ValueError(f"Got unexpected value {opts['imSyncType']} for 'imSyncType'.")
+    sessionIDs = wne_subject.get_experiment_session_ids(experiment)
+    for id in sessionIDs:
+        do_session(dest_project, wne_subject, id, **kwargs)
 
-    if probes is None:
-        probes = wne_subject.get_experiment_probes(experiment)
-    for probe in probes:
-        do_probe(dest_project, wne_subject, experiment, probe, fn, stream=stream)
+
+def do_session(
+    dest_project: SGLXProject, wne_subject: SGLXSubject, session_id: str, **kwargs
+):
+    ftab = wne_subject.get_session_frame(session_id, ftype="bin", **kwargs)
+    for binfile in tqdm(list(ftab.itertuples()), desc="Files"):
+        if binfile.imSyncType in ["square_pulse", "random"]:
+            save_sglx_imec_ttls(dest_project, wne_subject, binfile.path)
+        elif binfile.imSyncType == "barcode":
+            save_sglx_imec_barcodes(dest_project, wne_subject, binfile.path)
+        else:
+            raise ValueError(
+                f"Got unexpected value {binfile.imSyncType} for 'imSyncType'."
+            )

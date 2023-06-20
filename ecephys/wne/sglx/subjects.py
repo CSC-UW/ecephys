@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class SGLXSubject:
+    """The cache contains the sessions frame."""
+
     def __init__(
         self, subjectYamlFile: Path, subjectCache: Optional[pd.DataFrame] = None
     ):
@@ -30,24 +32,31 @@ class SGLXSubject:
 
     def refresh_cache(self) -> pd.DataFrame:
         logger.debug(f"Refreshing cache for: {self.name}")
-        sessionFrames = [
-            file_mgmt.filelist_to_frame(
+        sessionFrames = {
+            sessionDict["id"]: file_mgmt.filelist_to_frame(
                 sessions.get_session_files_from_multiple_locations(sessionDict)
-            )
+            ).assign(imSyncType=sessionDict.get("imSyncType", None))
             for sessionDict in self.doc["recording_sessions"]
-        ]
-        self.cache = pd.concat(
-            sessionFrames,
-            keys=[session["id"] for session in self.doc["recording_sessions"]],
-            names=["session"],
-        ).reset_index(level=0)
+        }
+        self.cache = (
+            pd.concat(sessionFrames, names=["session"])
+            .reset_index(level=0)
+            .reset_index(drop=True)
+        )
         return self.cache
+
+    def get_session_frame(self, session_id: str, **kwargs) -> pd.DataFrame:
+        frame = self.cache.loc[self.cache["session"] == session_id]
+        return file_mgmt.loc(frame, **kwargs).reset_index(drop=True)
 
     def get_experiment_names(self) -> list[str]:
         return list(self.doc["experiments"].keys())
 
     def get_experiment_probes(self, experimentName) -> list[str]:
         return list(self.get_experiment_frame(experimentName)["probe"].unique())
+
+    def get_experiment_session_ids(self, experimentName) -> list[str]:
+        return self.doc["experiments"][experimentName]["recording_session_ids"]
 
     def get_experiment_frame(
         self,
@@ -56,7 +65,7 @@ class SGLXSubject:
         **kwargs,
     ) -> pd.DataFrame:
         """Get all SpikeGLX files matching selection criteria."""
-        sessionIDs = self.doc["experiments"][experiment]["recording_session_ids"]
+        sessionIDs = self.get_experiment_session_ids(experiment)
         frame = self.cache[
             self.cache["session"].isin(sessionIDs)
         ]  # Get the cache slice containing this experiment.
