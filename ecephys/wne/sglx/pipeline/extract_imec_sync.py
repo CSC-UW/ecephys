@@ -14,15 +14,21 @@ from ecephys.wne.sglx import utils as wne_sglx_utils
 logger = logging.getLogger(__name__)
 
 
-def save_sglx_imec_barcodes(
+def extract_barcodes_from_saved_ttls(
     wne_project: SGLXProject, wne_subject: SGLXSubject, binfile: Path
 ):
-    times, values = sync.get_sglx_imec_barcodes(binfile)
+    [ttl_file] = wne_sglx_utils.get_sglx_file_counterparts(
+        wne_project, wne_subject.name, [binfile], constants.TTL_EXT
+    )
+    ttls = utils.read_htsv(ttl_file)
+    times, values = sync.extract_barcodes_from_times(
+        ttls["rising"].values, ttls["falling"].values, bar_duration=0.029
+    )
     barcodes = pd.DataFrame({"time": times, "value": values})
-    [htsv_file] = wne_sglx_utils.get_sglx_file_counterparts(
+    [barcode_file] = wne_sglx_utils.get_sglx_file_counterparts(
         wne_project, wne_subject.name, [binfile], constants.BARCODE_EXT
     )
-    utils.write_htsv(barcodes, htsv_file)
+    utils.write_htsv(barcodes, barcode_file)
 
 
 def save_sglx_imec_ttls(
@@ -49,11 +55,7 @@ def do_session(
 ):
     ftab = wne_subject.get_session_frame(session_id, ftype="bin", **kwargs)
     for binfile in tqdm(list(ftab.itertuples()), desc="Files"):
-        if binfile.imSyncType in ["square_pulse", "random"]:
-            save_sglx_imec_ttls(dest_project, wne_subject, binfile.path)
-        elif binfile.imSyncType == "barcode":
-            save_sglx_imec_barcodes(dest_project, wne_subject, binfile.path)
-        else:
-            raise ValueError(
-                f"Got unexpected value {binfile.imSyncType} for 'imSyncType'."
-            )
+        save_sglx_imec_ttls(dest_project, wne_subject, binfile.path)
+    for binfile in tqdm(list(ftab.itertuples()), desc="Files"):
+        if binfile.imSyncType == "barcode":
+            extract_barcodes_from_saved_ttls(dest_project, wne_subject, binfile.path)

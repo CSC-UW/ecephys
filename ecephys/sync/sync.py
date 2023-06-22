@@ -316,7 +316,8 @@ def get_tdt_barcodes(block_path, store_name, bar_duration=0.029):
 
 def load_sync_channel_from_sglx_imec(bin_path):
     """Load the sync channel from the specified binary file.
-    The SpikeGLX metadata file must be present in the same directory as the binary file."""
+    The SpikeGLX metadata file must be present in the same directory as the binary file.
+    """
     meta = readMeta(bin_path)
     rawData = makeMemMapRaw(bin_path, meta)
     fs = SampRate(meta)
@@ -353,13 +354,8 @@ def extract_ttl_edges_from_sglx_imec(bin_path):
     return check_edges(rising, falling)
 
 
-def get_sglx_imec_barcodes(bin_path, bar_duration=0.029):
-    """Get SpikeGLX barcodes and times
-
-    Returns
-    --------
-    (barcode_start_times, barcode_values)
-    """
+def _get_sglx_imec_barcodes(bin_path, bar_duration=0.029):
+    """Since extracting the TTL edges is so costly, it is better to do that and save to disk first, then extract the barcodes from those saved TTLs, in case any barcodes are malformed."""
     rising, falling = extract_ttl_edges_from_sglx_imec(bin_path)
     return extract_barcodes_from_times(rising, falling, bar_duration=bar_duration)
 
