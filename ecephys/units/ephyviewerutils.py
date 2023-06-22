@@ -145,6 +145,8 @@ def add_spiketrainviewer_to_window(
     if by == "depth":
         # Descending depths between structure min/max in 20um steps
         min_val, max_val = lo.min(), hi.max()
+        if min_val == -float("Inf") or max_val == float("Inf"):
+            min_val, max_val = properties.depth.min(), properties.depth.max()
         tgt_values = np.arange(min_val, max_val + DEPTH_STEP, DEPTH_STEP)[::-1]
     else:
         # Units sorted by depth within each structure
