@@ -1,5 +1,7 @@
 BARCODE_EXT = ".barcodes.htsv"
 TTL_EXT = ".ttls.htsv"
+LF_SYNC_FNAME = "prb_sync.lf.htsv"
+AP_SYNC_FNAME = "prb_sync.ap.htsv"
 NETCDF_EXT = ".nc"
 EMG_EXT = ".emg.nc"
 EDF_EXT = ".edf"
