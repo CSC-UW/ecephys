@@ -301,6 +301,7 @@ def open_trigger(
             "y": ("channel", np.atleast_2d(im.chans2coords(channels))[:, 1]),
         },
         attrs={"units": sig_units, "fs": fs, "im": im},
+        name="traces",
     )
 
     return data
