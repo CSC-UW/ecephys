@@ -232,7 +232,7 @@ def get_time2time_lf(
         t2 = np.full_like(t1, fill_value=np.nan)
         for file in experiment_probe_ftable.itertuples():
             mask = (t1 >= file.expmtPrbAcqFirstTime) & (
-                t1 <= file.expmtPrbAcqLastTime
+                t1 <= file.expmtPrbAcqLastTime + (1 / file.imSampRate)
             )  # Mask samples belonging to this segment
             sync_entry = experiment_sync_table.loc[
                 file.path.name
