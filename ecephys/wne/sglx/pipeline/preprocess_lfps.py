@@ -1,4 +1,3 @@
-# TODO: Convert times to canonical timebase BEFORE saving
 # TODO: Handle dropping of duplicate timestamps across files?
 
 import logging
@@ -10,12 +9,13 @@ from ecephys import utils
 from ecephys import xrsig
 from ecephys.wne.sglx import SGLXProject
 from ecephys.wne.sglx import SGLXSubject
-from ecephys.wne.sglx import utils as wne_sglx_utils
+import ecephys.wne.sglx.utils
 
 logger = logging.getLogger(__name__)
 
 
 def do_experiment(
+    syncProject: SGLXProject,
     destProject: SGLXProject,
     wneSubject: SGLXSubject,
     experiment: str,
@@ -62,6 +62,9 @@ def do_experiment(
     - I have not yet tested whether using overlapping windows is truly necessary. It may not be, since the only filter here is the FIR antialiasing filter.
     - Note that the data here are NOT de-meaned.
     """
+    t2t = ecephys.wne.sglx.utils.get_lf_time_synchronizer(
+        syncProject, wneSubject, experiment, probe
+    )
     zarr_file = destProject.get_experiment_subject_file(
         experiment, wneSubject.name, f"{probe}.lf.zarr"
     )
@@ -71,8 +74,9 @@ def do_experiment(
         lfp = sglxr.load_trigger(
             lfp_file.path,
             t0=lfp_file.expmtPrbAcqFirstTime,
-            dt0=lfp_file.expmtPrbAcqFirstDatetime,
         )
+        logger.info(f"Converting to canonical timebase...")
+        lfp = lfp.assign_coords({"time": t2t(lfp["time"].values)})
         logger.info("Preprocessing...")
         lfp = xrsig.preprocess_neuropixels_ibl_style(lfp, bad_channels)
         lfp.name = "lfp"
