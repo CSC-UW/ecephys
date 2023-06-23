@@ -435,7 +435,7 @@ class SpikeInterfaceSortingPipeline:
         alias: str,
         probe: str,
         basename: str,
-        rerun_existing: bool = True,
+        rerun_existing: bool = False,
         n_jobs: int = 1,
     ):
         """Instantiate a pipeline object from previous run."""
