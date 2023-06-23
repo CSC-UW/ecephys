@@ -1,13 +1,17 @@
-import tdt
 import logging
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
+import warnings
+
 from difflib import SequenceMatcher
-from ..sglx.external.readSGLX import readMeta, SampRate, makeMemMapRaw, ExtractDigital
-from ..sglx import load_nidq_analog
-from .external.barcodes import extract_barcodes_from_times
-from ..utils import warn
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from scipy import stats
+from sklearn.linear_model import LinearRegression
+import tdt
+
+from ecephys import utils
+import ecephys.sglx
+from ecephys.sglx.external import readSGLX
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +160,6 @@ def get_shared_sequence(a, b):
 # #####
 
 
-# TODO: make it clear that this is barcode-specific.
 def fit_barcode_times(
     sysX_times, sysX_values, sysY_times, sysY_values, sysX_name="X", sysY_name="Y"
 ):
@@ -174,6 +177,177 @@ def fit_barcode_times(
         xname=sysX_name,
         yname=sysY_name,
     )
+
+
+def fit_random_pulse_times(
+    sysX_times, sysY_times, sysX_name="X", sysY_name="Y", max_shift=None, plot=True
+):
+    """Use random pulses to align streams.
+    Apply _find_mapping twice, sliding the signals past each other in both forward and reverse directions to find the best fit.
+    """
+    sysX_times, sysY_times = _equalize_lengths(
+        sysX_times, sysY_times
+    )  # Is this necessary?
+
+    model_f, r_sq_f = _find_mapping(
+        sysX_times, sysY_times, "forward", max_shift=max_shift, plot=plot
+    )
+    model_b, r_sq_b = _find_mapping(
+        sysX_times, sysY_times, "backward", max_shift=max_shift, plot=plot
+    )
+
+    if r_sq_f > r_sq_b:
+        print(f"{sysY_name} times lead {sysX_name} times -- Forward shift selected")
+        return model_f
+    elif r_sq_b > r_sq_f:
+        print(f"{sysY_name} times lag {sysX_name} times -- Backward shift selected")
+        return model_b
+    else:
+        utils.warn(
+            "Unexpected: Backward and forward fits are equivalent. Are signals already very close to aligned?"
+        )
+        assert (
+            model_f.intercept_ == model_b.intercept_
+        ), "Forward and backward fits have different intercepts."
+        assert (
+            model_f.coef_[0] == model_b.coef_[0]
+        ), "Forward and backward fits have different slopes."
+        return model_f
+
+
+def _equalize_lengths(x, y):
+    """Keep only the first N items in vectors x and y, where N is the size of the smallest vector.
+    Makes subsequent computations simpler."""
+    n = np.min([np.size(x), np.size(y)])
+    return (x[:n], y[:n])
+
+
+def _find_mapping(sysX_times, sysY_times, direction, max_shift=None, plot=True):
+    """Iteratively fit signals to each other with different shifts to find the one that maximizes fit.
+    max_shift can be used to avoid exhaustively searching all signal offsets. Defaults to 10% of total pulses.
+    If your two systems start recording at very different times, you may need to play with this parameter.
+    Reducing it will speed up computation, but also increase change of an error."""
+    if max_shift is None:
+        max_shift = np.int64(
+            np.ceil(np.min([sysX_times.size, sysY_times.size]) * 0.1)
+        )  # Always leaves at least 90% of pulses worth of overlap between the two signals
+
+    shifts = np.arange(
+        max_shift
+    )  # Generate a list of all the shifts that we are going to try
+
+    fits = np.array(
+        [_eval_shift(sysX_times, sysY_times, n, direction) for n in shifts]
+    )  # Evaluate each shift
+
+    if plot:
+        plt.figure(num=None, figsize=(30, 6), dpi=80, facecolor="w", edgecolor="k")
+        plt.plot(shifts, fits)
+
+    best_shift = shifts[np.argmax(fits)]
+    model, r_sq = _shift(sysX_times, sysY_times, best_shift, direction)
+
+    print(direction)
+    print("number of pulses shifted:", best_shift)
+    print("coefficient of determination:", r_sq)
+    print("intercept:", model.intercept_)
+    print("drift rate in msec/hr:", (model.coef_[0] - 1) * 60 * 60 * 1000)
+    print(" ")
+
+    return model, r_sq
+
+
+def _eval_shift(sysX_times, sysY_times, n_pulses, direction):
+    model, r_sq = _shift(sysX_times, sysY_times, n_pulses, direction)
+    return r_sq
+
+
+def _shift(sysX_times, sysY_times, n_pulses, direction):
+    """Remove n_pulses from the start of one signal and the end of the other, then fit the remaining Y pulses to the remaining X pulses."""
+
+    if direction == "forward":
+        # Remove pulses from the start of the X signal and the end of the Y signal.
+        y = sysX_times[n_pulses:]
+        x = sysY_times[: np.size(y)].reshape((-1, 1))
+    elif direction == "backward":
+        # Remove pulses from the start of the Y signal and the end of the X signal.
+        x = sysY_times[n_pulses:].reshape((-1, 1))
+        y = sysX_times[: np.size(x)]
+    else:
+        raise ("Shift direction must be specified")
+
+    model = LinearRegression().fit(x, y)
+    r_sq = model.score(x, y)
+
+    return model, r_sq
+
+
+def fit_square_pulse_times(
+    sysX_rising_times,
+    sysX_falling_times,
+    sysY_rising_times,
+    sysY_falling_times,
+    sysX_name="X",
+    sysY_name="Y",
+    visualize=True,
+    expected_pulse_width=0.5,
+):
+    xdf = pd.DataFrame({"rising": sysX_rising_times, "falling": sysX_falling_times})
+    ydf = pd.DataFrame({"rising": sysY_rising_times, "falling": sysY_falling_times})
+
+    xdf = _check_pulse_widths(xdf, expected_pulse_width, sys_name=sysX_name)
+    ydf = _check_pulse_widths(ydf, expected_pulse_width, sys_name=sysY_name)
+
+    # After discarding abberant pulses, the number and sequence identity of pules may not match,
+    # because for e.g. a good pulse may have been split in to by a bouncy edge on one probe and not another.
+    # So we need to find the best mapping between the two sets of pulses.
+    xt = xdf[["rising", "falling"]].values.flatten()
+    assert np.all(np.diff(xt) > 0), f"{sysX_name} times must be increasing"
+    yt = ydf[["rising", "falling"]].values.flatten()
+    assert np.all(np.diff(yt) > 0), f"{sysY_name} times must be increasing"
+
+    if len(xt) == len(yt):
+        pass
+    elif len(xt) < len(yt):
+        xt, yt = _match_edges(xt, yt)
+    elif len(xt) > len(yt):
+        yt, xt = _match_edges(yt, xt)
+
+    return fit_times(xt, yt, xname=sysX_name, yname=sysY_name, visualize=visualize)
+
+
+def _check_pulse_widths(
+    pulses: pd.DataFrame,
+    expected_pulse_width: float,
+    atol: float = 0.001,
+    sys_name: str = "system",
+) -> pd.DataFrame:
+    pulses["width"] = pulses["falling"] - pulses["rising"]
+    pulses["width_discrepancy"] = pulses["width"] - expected_pulse_width
+    is_discrepant = pulses["width_discrepancy"].abs() > atol
+    n_discrepant = is_discrepant.sum()
+    if n_discrepant:
+        logger.warning(
+            f"Discarding {n_discrepant} {sys_name} pulses with a width discrepancy greater than {atol} seconds."
+        )
+        logger.warning(pulses[is_discrepant])
+        pulses = pulses[~is_discrepant]
+    return pulses
+
+
+def _match_edges(less_edges, more_edges, atol=0.01):
+    """Find the edges in `more_edges` that are closest to the edges in `less_edges`."""
+    assert len(more_edges) > len(
+        less_edges
+    ), "First argument must have more edges than second argument"
+    matched_less_edges = []
+    matched_more_edges = []
+    for less_edge in less_edges:
+        ix = utils.find_nearest(more_edges, less_edge)
+        if np.isclose(more_edges[ix], less_edge, atol=atol):
+            matched_less_edges.append(less_edge)
+            matched_more_edges.append(more_edges[ix])
+    return np.asarray(matched_less_edges), np.asarray(matched_more_edges)
 
 
 #####
@@ -292,7 +466,7 @@ def extract_ttl_edges_from_tdt(block_path, store_name):
     # Sometimes TDT calls the last offset Inf even when it was not the last sample.
     # Breaking their own convention... maddening
     if (store.onset.size == store.offset.size) and (store.offset[-1] == np.inf):
-        warn(
+        utils.warn(
             "TDT strongly suspected of messing up the last falling edge. Dropping final pulse."
         )
         store.onset = store.onset[:-1]
@@ -318,9 +492,9 @@ def load_sync_channel_from_sglx_imec(bin_path):
     """Load the sync channel from the specified binary file.
     The SpikeGLX metadata file must be present in the same directory as the binary file.
     """
-    meta = readMeta(bin_path)
-    rawData = makeMemMapRaw(bin_path, meta)
-    fs = SampRate(meta)
+    meta = readSGLX.readMeta(bin_path)
+    rawData = readSGLX.makeMemMapRaw(bin_path, meta)
+    fs = readSGLX.SampRate(meta)
 
     # Read the entire file
     firstSamp = 0
@@ -337,7 +511,9 @@ def load_sync_channel_from_sglx_imec(bin_path):
     # Which lines within the digital word, zero-based
     # Note that the SYNC line for PXI 3B is stored in line 6.
     dLineList = [6]
-    sync = np.squeeze(ExtractDigital(rawData, firstSamp, lastSamp, dw, dLineList, meta))
+    sync = np.squeeze(
+        readSGLX.ExtractDigital(rawData, firstSamp, lastSamp, dw, dLineList, meta)
+    )
 
     return sync, time
 
@@ -361,7 +537,7 @@ def _get_sglx_imec_barcodes(bin_path, bar_duration=0.029):
 
 
 def get_sglx_nidq_barcodes(bin_path, sync_channel, bar_duration=0.029, threshold=4000):
-    sig = load_nidq_analog(bin_path, channels=[sync_channel])
+    sig = ecephys.sglx.load_nidq_analog(bin_path, channels=[sync_channel])
     sig = sig.sel(channel=sync_channel)
     nidq_barcode_in = binarize(sig.values, threshold=threshold)
 
@@ -372,3 +548,116 @@ def get_sglx_nidq_barcodes(bin_path, sync_channel, bar_duration=0.029, threshold
     falling = sig.time.values[nidq_falling_edge_samples]
     rising, falling = check_edges(rising, falling)
     return extract_barcodes_from_times(rising, falling, bar_duration=bar_duration)
+
+
+#####
+# Barcode parsing
+#####
+
+
+def extract_barcodes_from_times(
+    on_times,
+    off_times,
+    inter_barcode_interval=10,
+    bar_duration=0.03,
+    barcode_duration_ceiling=2,
+    nbits=32,
+):
+    """Read barcodes from timestamped rising and falling edges.
+
+    Parameters
+    ----------
+    on_times : numpy.ndarray
+        Timestamps of rising edges on the barcode line
+    off_times : numpy.ndarray
+        Timestamps of falling edges on the barcode line
+    inter_barcode_interval : numeric, optional
+        Minimun duration of time between barcodes.
+    bar_duration : numeric, optional
+        A value slightly shorter than the expected duration of each bar
+    barcode_duration_ceiling : numeric, optional
+        The maximum duration of a single barcode
+    nbits : int, optional
+        The bit-depth of each barcode
+
+    Returns
+    -------
+    barcode_start_times : list of numeric
+        For each detected barcode, the time at which that barcode started
+    barcodes : list of int
+        For each detected barcode, the value of that barcode as an integer.
+
+    Notes
+    -----
+    ignores first code in prod (ok, but not intended)
+    ignores first on pulse (intended - this is needed to identify that a barcode is starting)
+
+    Original taken from Open Ephys code, modified 6/22/2023 by Graham Findlay, to handle cases where malfunctioning hardware produces occasional malformed barcodes.
+    """
+
+    def _extract_barcode(barcode_start_time):
+        oncode = on_times[
+            np.where(
+                np.logical_and(
+                    on_times > barcode_start_time,
+                    on_times < barcode_start_time + barcode_duration_ceiling,
+                )
+            )[0]
+        ]
+        offcode = off_times[
+            np.where(
+                np.logical_and(
+                    off_times > barcode_start_time,
+                    off_times < barcode_start_time + barcode_duration_ceiling,
+                )
+            )[0]
+        ]
+
+        currTime = offcode[0]
+
+        bits = np.zeros((nbits,))
+
+        for bit in range(0, nbits):
+            nextOn = np.where(oncode > currTime)[0]
+            nextOff = np.where(offcode > currTime)[0]
+
+            if nextOn.size > 0:
+                nextOn = oncode[nextOn[0]]
+            else:
+                nextOn = barcode_start_time + inter_barcode_interval
+
+            if nextOff.size > 0:
+                nextOff = offcode[nextOff[0]]
+            else:
+                nextOff = barcode_start_time + inter_barcode_interval
+
+            if nextOn < nextOff:
+                bits[bit] = 1
+
+            currTime += bar_duration
+
+        barcode = 0
+
+        # least sig left
+        for bit in range(0, nbits):
+            barcode += bits[bit] * pow(2, bit)
+
+        return barcode
+
+    start_indices = np.diff(on_times)
+    a = np.where(start_indices > inter_barcode_interval)[0]
+    barcode_start_times = on_times[a + 1]
+
+    barcodes = []
+    for i, t in enumerate(barcode_start_times):
+        try:
+            barcode = _extract_barcode(t)
+        except:
+            warnings.warn(
+                f"Problem extracting barcode {i}, t={t}. It is likely that previous & subsequent barcodes in this file are malformed, indicating a hardware issue."
+            )
+            barcodes.append(np.NaN)
+        else:
+            barcodes.append(barcode)
+
+    return barcode_start_times, barcodes
