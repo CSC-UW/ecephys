@@ -181,12 +181,13 @@ def load_multiprobe_sorting(
 
 
 def get_sample2time_lf(
-    experiment_sync_table: pd.DataFrame, experiment_ftab: pd.DataFrame
+    experiment_sync_table: pd.DataFrame, experiment_probe_ftable: pd.DataFrame
 ) -> Callable[[np.ndarray], np.ndarray]:
-    cum_samples_by_end = experiment_ftab["nFileSamp"].cumsum()
+    assert len(experiment_probe_ftable["probe"].unique()) == 1, "Only one probe allowed"
+    cum_samples_by_end = experiment_probe_ftable["nFileSamp"].cumsum()
     cum_samples_by_start = cum_samples_by_end.shift(1, fill_value=0)
-    experiment_ftab["start_sample"] = cum_samples_by_start
-    experiment_ftab["end_sample"] = cum_samples_by_end
+    experiment_probe_ftable["start_sample"] = cum_samples_by_start
+    experiment_probe_ftable["end_sample"] = cum_samples_by_end
 
     # Given a sample number in the original recording, we can now figure out:
     #   (1) the file it came from
@@ -198,7 +199,7 @@ def get_sample2time_lf(
         s = s.astype("float")
         t = np.empty(s.size, dtype="float")
         t[:] = np.nan  # Check a posteriori if we covered all input samples
-        for file in experiment_ftab.itertuples():
+        for file in experiment_probe_ftable.itertuples():
             mask = (s >= file.start_sample) & (
                 s < file.end_sample
             )  # Mask samples belonging to this segment
@@ -222,15 +223,16 @@ def get_sample2time_lf(
 
 
 def get_time2time_lf(
-    experiment_sync_table: pd.DataFrame, experiment_ftab: pd.DataFrame
+    experiment_sync_table: pd.DataFrame, experiment_probe_ftable: pd.DataFrame
 ) -> Callable[[np.ndarray], np.ndarray]:
+    assert len(experiment_probe_ftable["probe"].unique()) == 1, "Only one probe allowed"
     experiment_sync_table = experiment_sync_table.set_index("source")
 
     def time2time(t1):
         t2 = np.full_like(t1, fill_value=np.nan)
-        for file in experiment_ftab.itertuples():
+        for file in experiment_probe_ftable.itertuples():
             mask = (t1 >= file.expmtPrbAcqFirstTime) & (
-                t1 < file.expmtPrbAcqLastTime
+                t1 <= file.expmtPrbAcqLastTime
             )  # Mask samples belonging to this segment
             sync_entry = experiment_sync_table.loc[
                 file.path.name
@@ -249,11 +251,13 @@ def get_time2time_lf(
 
 
 def get_lf_time_synchronizer(
-    sync_project: SGLXProject, sglx_subject: SGLXSubject, experiment: str
+    sync_project: SGLXProject, sglx_subject: SGLXSubject, experiment: str, probe: str
 ) -> Callable[[np.ndarray], np.ndarray]:
     sync_file = sync_project.get_experiment_subject_file(
         experiment, sglx_subject.name, constants.LF_SYNC_FNAME
     )
     experiment_sync_table = utils.read_htsv(sync_file)
-    ftab = sglx_subject.get_experiment_frame(experiment, ftype="bin", stream="lf")
-    return get_time2time_lf(experiment_sync_table, ftab)
+    experiment_probe_ftable = sglx_subject.get_experiment_frame(
+        experiment, ftype="bin", stream="lf", probe=probe
+    )
+    return get_time2time_lf(experiment_sync_table, experiment_probe_ftable)
