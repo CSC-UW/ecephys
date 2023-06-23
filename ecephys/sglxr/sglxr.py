@@ -197,7 +197,7 @@ def open_trigger(
     start_time: float = 0,
     end_time: float = np.Inf,
     t0: float = 0.0,
-    dt0="fileCreateTime",
+    dt0=None,
     blocksize: int = 250000,
 ) -> xr.DataArray:
     """Open SpikeGLX timeseries data as an xarray DataArray, backed by a lazy dask array.
@@ -232,7 +232,7 @@ def open_trigger(
         Default: 0.0
     dt0: datetime (optional) or 'fileCreateTime'
         Force the first datetime stamp in the file (not necessarily the loaded data) to this value. If 'fileCreateTime', use metadata.
-        Default: 'fileCreateTime'
+        If None (default), do not add a datetime coordinate.
     blocksize: int
         The desired chunk size, in samples, of the data.
         If -1, load the entire file as a single chunk.
@@ -267,14 +267,15 @@ def open_trigger(
 
     # Get the requested start and end samples
     fs = readSGLX.SampRate(meta)
-    firstSamp = _to_seconds_from_file_start(start_time, meta, t0=t0, dt0=dt0) * fs
-    lastSamp = _to_seconds_from_file_start(end_time, meta, t0=t0, dt0=dt0) * fs
+    dt0_ = "fileCreateTime" if dt0 is None else dt0
+    firstSamp = _to_seconds_from_file_start(start_time, meta, t0=t0, dt0=dt0_) * fs
+    lastSamp = _to_seconds_from_file_start(end_time, meta, t0=t0, dt0=dt0_) * fs
 
     # Get the start and end samples
     firstSamp, lastSamp = _get_first_and_last_samples(meta, firstSamp, lastSamp)
 
     # Get timestamps of each sample
-    time, datetime, _ = _get_timestamps(meta, firstSamp, lastSamp, t0=t0, dt0=dt0)
+    time, datetime, _ = _get_timestamps(meta, firstSamp, lastSamp, t0=t0, dt0=dt0_)
 
     # Make memory map to selected data.
     im = ImecMap.from_meta(meta)
@@ -296,13 +297,14 @@ def open_trigger(
         coords={
             "time": time,
             "channel": channels,
-            "datetime": ("time", datetime),
             "x": ("channel", np.atleast_2d(im.chans2coords(channels))[:, 0]),
             "y": ("channel", np.atleast_2d(im.chans2coords(channels))[:, 1]),
         },
         attrs={"units": sig_units, "fs": fs, "im": im},
         name="traces",
     )
+    if dt0 is not None:
+        data = data.assign_coords({"datetime": ("time", datetime)})
 
     return data
 
