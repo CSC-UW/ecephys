@@ -1,11 +1,13 @@
+import io
+import pathlib
+
 import numpy as np
 import pandas as pd
-from io import StringIO
-from .external.SGLXMetaToCoords import XYCoord10
-from .external.readSGLX import readMeta, ChannelCountsIM
-from pathlib import PurePath, Path
 
-SUBPACKAGE_DIRECTORY = Path(__file__).resolve().parent
+from ecephys.sglxr.external import readSGLX
+from ecephys.sglxr.external import SGLXMetaToCoords
+
+SUBPACKAGE_DIRECTORY = pathlib.Path(__file__).resolve().parent
 
 
 def _all_equal(iterator):
@@ -50,12 +52,12 @@ def parse_imroTbl(imroTbl_string):
     probe_type, n_chans = (int(s) for s in header_entry.split(","))
     assert probe_type == 0, "Only Neuropixel 1.0 probes are supported."
     imro = pd.read_csv(
-        StringIO("\n".join(channel_entries)),
+        io.StringIO("\n".join(channel_entries)),
         delim_whitespace=True,
         names=["chan_id", "bank", "ref_id", "ap_gain", "lf_gain", "ap_highpass"],
     )
     imro["site"] = imro.bank.values * n_chans + imro.chan_id.values
-    imro["x"], imro["y"] = XYCoord10({}, imro.site.values, False)
+    imro["x"], imro["y"] = SGLXMetaToCoords.XYCoord10({}, imro.site.values, False)
     return imro
 
 
@@ -77,7 +79,7 @@ def parse_snsChanMap(snsChanMap_string, assert_stream_type=False):
     nAP, nLFP, nSY = (int(s) for s in header_entry.split(","))
 
     cmp = pd.read_csv(
-        StringIO("\n".join(channel_entries)),
+        io.StringIO("\n".join(channel_entries)),
         sep=";|:",
         names=["label", "acq_order", "usr_order"],
         engine="python",
@@ -132,6 +134,7 @@ def read_cmp_file(file):
     assert len(cmp) == (nAP + nLFP + nSY), "File header does not match content."
     return cmp
 
+
 def write_cmp(cmp, file):
     """Write a channel map object to a file in SGLX `.cmp` format.
 
@@ -142,10 +145,13 @@ def write_cmp(cmp, file):
     file: string or Path
         The file to write.
     """
-    nAP, nLF, nSY = cmp.groupby('stream').count()['acq_order'][['AP', 'LF', 'SY']]
-    lines = [f"{nAP},{nLF},{nSY}"] + [f"{row.label};{row.acq_order} {row.usr_order}" for row in cmp.itertuples()]
-    with open(file, 'w') as f:
+    nAP, nLF, nSY = cmp.groupby("stream").count()["acq_order"][["AP", "LF", "SY"]]
+    lines = [f"{nAP},{nLF},{nSY}"] + [
+        f"{row.label};{row.acq_order} {row.usr_order}" for row in cmp.itertuples()
+    ]
+    with open(file, "w") as f:
         f.write("\n".join(lines))
+
 
 def imro_to_depth_ordered_cmp(imro, base_to_tip=True):
     """Given an imro object, create a channel map, setting usr_order so that channels are displayed in order of depth (y).
@@ -305,7 +311,7 @@ class ImecMap:
 
     def plot_electrodes(self):
         """Plot the locations of all channels and electrodes."""
-        XYCoord10({}, self.imro.site.values, True)
+        SGLXMetaToCoords.XYCoord10({}, self.imro.site.values, True)
 
     def chans2coords(self, chans):
         """Convert channel IDs to their coordinates"""
@@ -335,8 +341,8 @@ class ImecMap:
         validate_probe_type(meta)
         imro = parse_imroTbl(meta["imroTbl"])
         cmp = parse_snsChanMap(meta["snsChanMap"])
-        map_name = PurePath(meta["imRoFile"]).stem
-        nAP, nLF, nSY = ChannelCountsIM(meta)
+        map_name = pathlib.PurePath(meta["imRoFile"]).stem
+        nAP, nLF, nSY = readSGLX.ChannelCountsIM(meta)
         assert bool(nAP) != bool(nLF), "AP and LF channels should not both be present."
         stream_type = "LF" if bool(nLF) else "AP"
         return cls(imro, cmp, map_name, stream_type)
@@ -347,7 +353,7 @@ class ImecMap:
         file = '/path/to/my-run_g0_t0.imec0.lf.bin'
         Example: `m = ImecMap.from_meta(file)`
         """
-        return cls.from_meta(readMeta(bin_file))
+        return cls.from_meta(readSGLX.readMeta(bin_file))
 
     @classmethod
     def LongCol(cls):
