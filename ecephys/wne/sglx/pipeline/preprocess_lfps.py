@@ -62,9 +62,6 @@ def do_experiment(
     - I have not yet tested whether using overlapping windows is truly necessary. It may not be, since the only filter here is the FIR antialiasing filter.
     - Note that the data here are NOT de-meaned.
     """
-    t2t = ecephys.wne.sglx.utils.get_lf_time_synchronizer(
-        syncProject, wneSubject, experiment, probe
-    )
     zarr_file = destProject.get_experiment_subject_file(
         experiment, wneSubject.name, f"{probe}.lf.zarr"
     )
@@ -76,6 +73,9 @@ def do_experiment(
             t0=lfp_file.expmtPrbAcqFirstTime,
         )
         logger.info(f"Converting to canonical timebase...")
+        t2t = ecephys.wne.sglx.utils.get_lf_time_synchronizer(
+            syncProject, wneSubject, experiment, probe, lfp_file.path
+        )
         lfp = lfp.assign_coords({"time": t2t(lfp["time"].values)})
         logger.info("Preprocessing...")
         lfp = xrsig.preprocess_neuropixels_ibl_style(lfp, bad_channels)

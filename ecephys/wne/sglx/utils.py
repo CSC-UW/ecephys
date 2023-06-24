@@ -180,7 +180,7 @@ def load_multiprobe_sorting(
     )
 
 
-def get_sample2time_lf(
+def get_experiment_sample2time_lf(
     experiment_sync_table: pd.DataFrame, experiment_probe_ftable: pd.DataFrame
 ) -> Callable[[np.ndarray], np.ndarray]:
     assert len(experiment_probe_ftable["probe"].unique()) == 1, "Only one probe allowed"
@@ -222,7 +222,7 @@ def get_sample2time_lf(
     return sample2time
 
 
-def get_time2time_lf(
+def get_experiment_time2time_lf(
     experiment_sync_table: pd.DataFrame, experiment_probe_ftable: pd.DataFrame
 ) -> Callable[[np.ndarray], np.ndarray]:
     assert len(experiment_probe_ftable["probe"].unique()) == 1, "Only one probe allowed"
@@ -233,7 +233,8 @@ def get_time2time_lf(
         for file in experiment_probe_ftable.itertuples():
             mask = (t1 >= file.expmtPrbAcqFirstTime) & (
                 t1 <= file.expmtPrbAcqLastTime + (1 / file.imSampRate)
-            )  # Mask samples belonging to this segment
+            )  # Mask samples belonging to this file
+            # WARNING: Because of file overlap, this method of assigning times to files is imperfect! Use per-file sync for maximum precision!
             sync_entry = experiment_sync_table.loc[
                 file.path.name
             ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
@@ -250,8 +251,27 @@ def get_time2time_lf(
     return time2time
 
 
+def get_file_time2time_lf(
+    binfile: pathlib.Path,
+    experiment_sync_table: pd.DataFrame,
+    experiment_probe_ftable: pd.DataFrame,
+) -> Callable[[np.ndarray], np.ndarray]:
+    assert len(experiment_probe_ftable["probe"].unique()) == 1, "Only one probe allowed"
+    experiment_sync_table = experiment_sync_table.set_index("source")
+
+    def time2time(t1):
+        sync_entry = experiment_sync_table.loc[binfile.path.name]
+        return sync_entry.slope * t1 + sync_entry.intercept
+
+    return time2time
+
+
 def get_lf_time_synchronizer(
-    sync_project: SGLXProject, sglx_subject: SGLXSubject, experiment: str, probe: str
+    sync_project: SGLXProject,
+    sglx_subject: SGLXSubject,
+    experiment: str,
+    probe: str,
+    binfile: Optional[pathlib.Path] = None,
 ) -> Callable[[np.ndarray], np.ndarray]:
     sync_file = sync_project.get_experiment_subject_file(
         experiment, sglx_subject.name, constants.LF_SYNC_FNAME
@@ -260,4 +280,12 @@ def get_lf_time_synchronizer(
     experiment_probe_ftable = sglx_subject.get_experiment_frame(
         experiment, ftype="bin", stream="lf", probe=probe
     )
-    return get_time2time_lf(experiment_sync_table, experiment_probe_ftable)
+    # WARNING: Because of file overlap, the following two methods may not be perfectly equivalent! Use per-file sync whenever possible for maximum precision!
+    if binfile is not None:
+        return get_file_time2time_lf(
+            binfile, experiment_sync_table, experiment_probe_ftable
+        )
+    else:
+        return get_experiment_time2time_lf(
+            experiment_sync_table, experiment_probe_ftable
+        )
