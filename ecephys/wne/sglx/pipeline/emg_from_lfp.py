@@ -1,6 +1,6 @@
 # TODO: Save to zarr instead, and convert existing netCDF to zarr
-# TODO: Convert times before saving
 import logging
+from typing import Optional
 
 from tqdm.auto import tqdm
 
@@ -17,34 +17,38 @@ from ecephys.wne.sglx.pipeline import utils as pipeline_utils
 logger = logging.getLogger(__name__)
 
 
-def do_experiment(
-    opts: dict,
-    dest_project: SGLXProject,
-    wne_subject: SGLXSubject,
+def do_experiment_probe(
     experiment: str,
-    **kwargs
+    probe: str,
+    sglx_subject: SGLXSubject,
+    opts_project: SGLXProject,
+    sync_project: SGLXProject,
+    dest_project: SGLXProject,
 ):
-    lfp_table = wne_subject.get_lfp_bin_table(experiment, **kwargs)
+    opts = opts_project.load_experiment_subject_params(experiment, sglx_subject.name)
+    lfp_table = sglx_subject.get_lfp_bin_table(experiment, probe=probe)
 
     for lfp_file in tqdm(list(lfp_table.itertuples())):
         [emg_file] = wne_sglx_utils.get_sglx_file_counterparts(
-            dest_project, wne_subject.name, [lfp_file.path], constants.EMG_EXT
+            dest_project, sglx_subject.name, [lfp_file.path], constants.EMG_EXT
         )
-        sig = sglxr.load_trigger(
+        lfp = sglxr.load_trigger(
             lfp_file.path,
             opts["probes"][lfp_file.probe]["emgFromLfpChans"],
             t0=lfp_file.expmtPrbAcqFirstTime,
-            dt0=lfp_file.expmtPrbAcqFirstDatetime,
         )
-        emg = xrsig.synthetic_emg(sig)
+        t2t = wne_sglx_utils.get_time_synchronizer(
+            sync_project, sglx_subject, experiment, binfile=lfp_file.path
+        )
+        lfp = lfp.assign_coords({"time": t2t(lfp["time"].values)})
+        emg = xrsig.synthetic_emg(lfp)
         utils.save_xarray_to_netcdf(emg, emg_file)
 
-    for probe in lfp_table.probe.unique():
-        pipeline_utils.gather_and_save_counterpart_netcdfs(
-            dest_project,
-            wne_subject,
-            experiment,
-            probe,
-            constants.EMG_EXT,
-            constants.EMG_FNAME,
-        )
+    pipeline_utils.gather_and_save_counterpart_netcdfs(
+        dest_project,
+        sglx_subject,
+        experiment,
+        probe,
+        constants.EMG_EXT,
+        constants.EMG_FNAME,
+    )

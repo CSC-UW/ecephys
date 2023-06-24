@@ -13,11 +13,11 @@ from ecephys.wne.sglx import utils as wne_sglx_utils
 
 
 def do_experiment(
-    project: SGLXProject, sglx_subject: SGLXSubject, experiment: str, stream: str = "ap"
+    experiment: str, sglx_subject: SGLXSubject, project: SGLXProject, stream: str = "ap"
 ):
     sessionIDs = sglx_subject.get_experiment_session_ids(experiment)
     for id in sessionIDs:
-        do_session(project, sglx_subject, id, stream)
+        do_session(id, sglx_subject, project, stream)
 
     experiment_sync_table = pd.concat(
         [
@@ -36,7 +36,7 @@ def do_experiment(
 
 
 def do_session(
-    project: SGLXProject, sglx_subject: SGLXSubject, session_id: str, stream: str = "ap"
+    session_id: str, sglx_subject: SGLXSubject, project: SGLXProject, stream: str = "ap"
 ) -> pd.DataFrame:
     ftab = sglx_subject.get_session_frame(session_id, ftype="bin", stream=stream)
     sync_table = get_session_sync_table(project, sglx_subject, ftab)

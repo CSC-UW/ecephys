@@ -13,17 +13,18 @@ logger = logging.getLogger(__name__)
 
 
 def do_experiment_probe(
-    wne_project: SGLXProject,
-    wne_subject: SGLXSubject,
     experiment: str,
     probe: str,
+    sglx_subject: SGLXSubject,
+    sync_project: SGLXProject,
+    data_project: SGLXProject,
 ):
     visbrain_hypnograms = list()
-    lfp_table = wne_subject.get_lfp_bin_table(experiment, probe=probe)
+    lfp_table = sglx_subject.get_lfp_bin_table(experiment, probe=probe)
     for lfp_file in tqdm(list(lfp_table.itertuples())):
         [visbrain_hypnogram_file] = wne_sglx_utils.get_sglx_file_counterparts(
-            wne_project,
-            wne_subject.name,
+            data_project,
+            sglx_subject.name,
             [lfp_file.path],
             constants.VISBRAIN_EXT,
             remove_stream=True,
@@ -33,9 +34,19 @@ def do_experiment_probe(
             visbrain_hypnogram = hypnogram.FloatHypnogram.from_visbrain(
                 visbrain_hypnogram_file
             )
-            visbrain_hypnogram[
-                ["start_time", "end_time"]
-            ] += lfp_file.expmtPrbAcqFirstTime  # TODO: Sync times BEFORE saving
+            logger.debug(f"Converting file times to canonical timebase...")
+            t2t = wne_sglx_utils.get_time_synchronizer(
+                sync_project, sglx_subject, experiment, binfile=lfp_file.path
+            )
+            visbrain_hypnogram["start_time"] = t2t(
+                visbrain_hypnogram["start_time"] + lfp_file.expmtPrbAcqFirstTime
+            )
+            visbrain_hypnogram["end_time"] = t2t(
+                visbrain_hypnogram["end_time"] + lfp_file.expmtPrbAcqFirstTime
+            )
+            visbrain_hypnogram["duration"] = (
+                visbrain_hypnogram["end_time"] - visbrain_hypnogram["start_time"]
+            )
             visbrain_hypnograms.append(visbrain_hypnogram)
         else:
             logger.warning(
@@ -49,7 +60,7 @@ def do_experiment_probe(
             .reset_index(drop=True)
         )
         hg = hypnogram.FloatHypnogram.clean(hg)
-        consolidated_hypnogram_file = wne_project.get_experiment_subject_file(
-            experiment, wne_subject.name, constants.HYPNOGRAM_FNAME
+        consolidated_hypnogram_file = data_project.get_experiment_subject_file(
+            experiment, sglx_subject.name, constants.HYPNOGRAM_FNAME
         )
         hg.write_htsv(consolidated_hypnogram_file)

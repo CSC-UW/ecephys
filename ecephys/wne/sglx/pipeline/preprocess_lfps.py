@@ -1,6 +1,7 @@
 # TODO: Handle dropping of duplicate timestamps across files?
 
 import logging
+from typing import Optional
 
 from tqdm.auto import tqdm
 
@@ -15,14 +16,35 @@ logger = logging.getLogger(__name__)
 
 
 def do_experiment(
-    syncProject: SGLXProject,
-    destProject: SGLXProject,
-    wneSubject: SGLXSubject,
+    experiment: str,
+    sglx_subject: SGLXSubject,
+    sync_project: SGLXProject,
+    dest_project: SGLXProject,
+    opts_project: SGLXProject,
+    chunk_duration: int = 300,  # Size of zarr chunks, in seconds
+):
+    lf_table = sglx_subject.get_lfp_bin_table(experiment, alias=alias)
+    probes = lf_table["probe"].unique()
+    for probe in probes:
+        do_experiment_probe(
+            experiment,
+            probe,
+            sglx_subject,
+            sync_project,
+            dest_project,
+            opts_project,
+            chunk_duration,
+        )
+
+
+def do_experiment_probe(
     experiment: str,
     probe: str,
-    bad_channels: list = None,  # Found in opts["probes"][probe]["badChannels"]
+    sglx_subject: SGLXSubject,
+    sync_project: SGLXProject,
+    dest_project: SGLXProject,
+    opts_project: SGLXProject,
     chunk_duration: int = 300,  # Size of zarr chunks, in seconds
-    **kwargs,
 ):
     """
     Parameters:
@@ -62,10 +84,12 @@ def do_experiment(
     - I have not yet tested whether using overlapping windows is truly necessary. It may not be, since the only filter here is the FIR antialiasing filter.
     - Note that the data here are NOT de-meaned.
     """
-    zarr_file = destProject.get_experiment_subject_file(
-        experiment, wneSubject.name, f"{probe}.lf.zarr"
+    opts = opts_project.load_experiment_subject_params(experiment, sglx_subject.name)
+    bad_channels = opts["probes"][probe]["badChannels"]
+    zarr_file = dest_project.get_experiment_subject_file(
+        experiment, sglx_subject.name, f"{probe}.lf.zarr"
     )
-    lf_table = wneSubject.get_lfp_bin_table(experiment, probe=probe, **kwargs)
+    lf_table = sglx_subject.get_lfp_bin_table(experiment, probe=probe)
     for i, lfp_file in enumerate(tqdm(list(lf_table.itertuples()))):
         logger.info(f"Loading {lfp_file.path.name}...")
         lfp = sglxr.load_trigger(
@@ -73,8 +97,8 @@ def do_experiment(
             t0=lfp_file.expmtPrbAcqFirstTime,
         )
         logger.info(f"Converting to canonical timebase...")
-        t2t = ecephys.wne.sglx.utils.get_lf_time_synchronizer(
-            syncProject, wneSubject, experiment, probe, lfp_file.path
+        t2t = ecephys.wne.sglx.utils.get_time_synchronizer(
+            sync_project, sglx_subject, experiment, binfile=lfp_file.path
         )
         lfp = lfp.assign_coords({"time": t2t(lfp["time"].values)})
         logger.info("Preprocessing...")

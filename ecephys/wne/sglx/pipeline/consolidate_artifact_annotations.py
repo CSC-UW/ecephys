@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 import pandas as pd
 from tqdm.auto import tqdm
@@ -13,22 +12,22 @@ from ecephys.wne.sglx import utils as wne_sglx_utils
 logger = logging.getLogger(__name__)
 
 
-def do_probe_stream(
-    src_project: SGLXProject,
-    dest_project: SGLXProject,
-    wne_subject: SGLXSubject,
+def do_experiment_probe_stream(
     experiment: str,
     probe: str,
     stream: str,
+    sglx_subject: SGLXSubject,
+    data_project: SGLXProject,
+    sync_project: SGLXProject,
 ):
     artifacts = list()
-    ftab = wne_subject.get_experiment_frame(
+    ftab = sglx_subject.get_experiment_frame(
         experiment, stream=stream, ftype="bin", probe=probe
     )
     for bin_file in tqdm(list(ftab.itertuples())):
         [artifacts_file] = wne_sglx_utils.get_sglx_file_counterparts(
-            src_project,
-            wne_subject.name,
+            data_project,
+            sglx_subject.name,
             [bin_file.path],
             constants.ARTIFACTS_EXT,
         )
@@ -38,33 +37,39 @@ def do_probe_stream(
             continue
         df = pd.read_csv(artifacts_file)
         df["fname"] = bin_file.path.name
-        # TODO: Sync to canonical timebase BEFORE saving
+        # TODO: These two fields are currently left here purely for backwards compatibility, but should be removed, and downstream parts of the pipeline that use them should be updated load and use the artifact files directly if they need unsync'd times.
         df["expmtPrbAcqFirstTime"] = df["start_time"] + bin_file.expmtPrbAcqFirstTime
         df["expmtPrbAcqLastTime"] = df["end_time"] + bin_file.expmtPrbAcqFirstTime
+
+        logger.debug(f"Converting file times to canonical timebase...")
+        t2t = wne_sglx_utils.get_time_synchronizer(
+            sync_project, sglx_subject, experiment, binfile=bin_file.path
+        )
+        df["start_time"] = t2t(df["start_time"] + bin_file.expmtPrbAcqFirstTime)
+        df["end_time"] = t2t(df["end_time"] + bin_file.expmtPrbAcqFirstTime)
+        df["duration"] = df["end_time"] - df["start_time"]
+
         artifacts.append(df)
 
     if artifacts:
         df = pd.concat(artifacts, ignore_index=True)
-        outfile = dest_project.get_experiment_subject_file(
+        outfile = data_project.get_experiment_subject_file(
             experiment,
-            wne_subject.name,
+            sglx_subject.name,
             f"{probe}.{stream}.{constants.ARTIFACTS_FNAME}",
         )
         utils.write_htsv(df, outfile)
 
 
 def do_experiment(
-    src_project: SGLXProject,
-    wne_subject: SGLXSubject,
     experiment: str,
-    probes: Optional[list[str]] = None,
-    dest_project: Optional[SGLXProject] = None,
+    sglx_subject: SGLXSubject,
+    data_project: SGLXProject,
+    sync_project: SGLXProject,
 ):
-    if dest_project is None:
-        dest_project = src_project
-    probes = wne_subject.get_experiment_probes(experiment) if probes is None else probes
+    probes = sglx_subject.get_experiment_probes(experiment)
     for probe in probes:
         for stream in ["ap", "lf"]:
-            do_probe_stream(
-                src_project, dest_project, wne_subject, experiment, probe, stream
+            do_experiment_probe_stream(
+                experiment, probe, stream, sglx_subject, data_project, sync_project
             )

@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 def extract_barcodes_from_saved_ttls(
-    wne_project: SGLXProject, wne_subject: SGLXSubject, binfile: Path
+    sglx_project: SGLXProject, sglx_subject: SGLXSubject, binfile: Path
 ):
     [ttl_file] = wne_sglx_utils.get_sglx_file_counterparts(
-        wne_project, wne_subject.name, [binfile], constants.TTL_EXT
+        sglx_project, sglx_subject.name, [binfile], constants.TTL_EXT
     )
     ttls = utils.read_htsv(ttl_file)
     times, values = sync.extract_barcodes_from_times(
@@ -26,36 +26,36 @@ def extract_barcodes_from_saved_ttls(
     )
     barcodes = pd.DataFrame({"time": times, "value": values})
     [barcode_file] = wne_sglx_utils.get_sglx_file_counterparts(
-        wne_project, wne_subject.name, [binfile], constants.BARCODE_EXT
+        sglx_project, sglx_subject.name, [binfile], constants.BARCODE_EXT
     )
     utils.write_htsv(barcodes, barcode_file)
 
 
 def save_sglx_imec_ttls(
-    wne_project: SGLXProject, wne_subject: SGLXSubject, binfile: Path
+    wne_project: SGLXProject, sglx_subject: SGLXSubject, binfile: Path
 ):
     rising, falling = sync.extract_ttl_edges_from_sglx_imec(binfile)
     ttls = pd.DataFrame({"rising": rising, "falling": falling})
     [htsvFile] = wne_sglx_utils.get_sglx_file_counterparts(
-        wne_project, wne_subject.name, [binfile], constants.TTL_EXT
+        wne_project, sglx_subject.name, [binfile], constants.TTL_EXT
     )
     utils.write_htsv(ttls, htsvFile)
 
 
 def do_experiment(
-    dest_project: SGLXProject, wne_subject: SGLXSubject, experiment: str, **kwargs
+    experiment: str, sglx_subject: SGLXSubject, dest_project: SGLXProject, **kwargs
 ):
-    sessionIDs = wne_subject.get_experiment_session_ids(experiment)
+    sessionIDs = sglx_subject.get_experiment_session_ids(experiment)
     for id in sessionIDs:
-        do_session(dest_project, wne_subject, id, **kwargs)
+        do_session(id, sglx_subject, dest_project, **kwargs)
 
 
 def do_session(
-    dest_project: SGLXProject, wne_subject: SGLXSubject, session_id: str, **kwargs
+    session_id: str, sglx_subject: SGLXSubject, dest_project: SGLXProject, **kwargs
 ):
-    ftab = wne_subject.get_session_frame(session_id, ftype="bin", **kwargs)
+    ftab = sglx_subject.get_session_frame(session_id, ftype="bin", **kwargs)
     for binfile in tqdm(list(ftab.itertuples()), desc="Files"):
-        save_sglx_imec_ttls(dest_project, wne_subject, binfile.path)
+        save_sglx_imec_ttls(dest_project, sglx_subject, binfile.path)
     for binfile in tqdm(list(ftab.itertuples()), desc="Files"):
         if binfile.imSyncType == "barcode":
-            extract_barcodes_from_saved_ttls(dest_project, wne_subject, binfile.path)
+            extract_barcodes_from_saved_ttls(dest_project, sglx_subject, binfile.path)

@@ -180,9 +180,12 @@ def load_multiprobe_sorting(
     )
 
 
-def get_experiment_sample2time_lf(
+def get_experiment_sample2time(
     experiment_sync_table: pd.DataFrame, experiment_probe_ftable: pd.DataFrame
 ) -> Callable[[np.ndarray], np.ndarray]:
+    """Get a function that maps samples in the original recording to the canonical timebase.
+    WARNING: This is not appropriate for use with recordings where pieces have been excised and the bookkeeping has not been done to keep track of the excisions.
+    """
     assert len(experiment_probe_ftable["probe"].unique()) == 1, "Only one probe allowed"
     cum_samples_by_end = experiment_probe_ftable["nFileSamp"].cumsum()
     cum_samples_by_start = cum_samples_by_end.shift(1, fill_value=0)
@@ -222,70 +225,71 @@ def get_experiment_sample2time_lf(
     return sample2time
 
 
-def get_experiment_time2time_lf(
-    experiment_sync_table: pd.DataFrame, experiment_probe_ftable: pd.DataFrame
-) -> Callable[[np.ndarray], np.ndarray]:
-    assert len(experiment_probe_ftable["probe"].unique()) == 1, "Only one probe allowed"
-    experiment_sync_table = experiment_sync_table.set_index("source")
-
-    def time2time(t1):
-        t2 = np.full_like(t1, fill_value=np.nan)
-        for file in experiment_probe_ftable.itertuples():
-            mask = (t1 >= file.expmtPrbAcqFirstTime) & (
-                t1 <= file.expmtPrbAcqLastTime + (1 / file.imSampRate)
-            )  # Mask samples belonging to this file
-            # WARNING: Because of file overlap, this method of assigning times to files is imperfect! Use per-file sync for maximum precision!
-            sync_entry = experiment_sync_table.loc[
-                file.path.name
-            ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
-            t2[mask] = (
-                sync_entry.slope * t1[mask] + sync_entry.intercept
-            )  # Sync to imec0 (expmtPrbAcq) timebase
-        assert not any(np.isnan(t2)), (
-            "Some of the provided sample indices were not covered by segments \n"
-            "and therefore couldn't be converted to time"
-        )
-
-        return t2
-
-    return time2time
-
-
-def get_file_time2time_lf(
-    binfile: pathlib.Path,
+def get_time2time(
     experiment_sync_table: pd.DataFrame,
     experiment_probe_ftable: pd.DataFrame,
+    binfile: Optional[pathlib.Path] = None,
 ) -> Callable[[np.ndarray], np.ndarray]:
-    assert len(experiment_probe_ftable["probe"].unique()) == 1, "Only one probe allowed"
+    assert (
+        len(experiment_probe_ftable["probe"].unique()) == 1
+    ), "Cannot generate a time2time function without knowing the probe"
     experiment_sync_table = experiment_sync_table.set_index("source")
 
-    def time2time(t1):
-        sync_entry = experiment_sync_table.loc[binfile.path.name]
-        return sync_entry.slope * t1 + sync_entry.intercept
+    if binfile is not None:
+        # If we know the file a-priori, we can give a maximally precise time2time function
+        def file_time2time(t1):
+            sync_entry = experiment_sync_table.loc[binfile.path.name]
+            return sync_entry.slope * t1 + sync_entry.intercept
 
-    return time2time
+        return file_time2time
+
+    else:
+        # If we don't know the binfile a-priori, our time-to-time function has to infer it.
+        # WARNING: Because of file overlap, this method of assigning times to files is imperfect! Use per-file sync for maximum precision!
+        def experiment_time2time(t1):
+            t2 = np.full_like(t1, fill_value=np.nan)
+            for file in experiment_probe_ftable.itertuples():
+                mask = (t1 >= file.expmtPrbAcqFirstTime) & (
+                    t1 <= file.expmtPrbAcqLastTime + (1 / file.imSampRate)
+                )  # Mask samples belonging to this file
+                sync_entry = experiment_sync_table.loc[
+                    file.path.name
+                ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
+                t2[mask] = (
+                    sync_entry.slope * t1[mask] + sync_entry.intercept
+                )  # Sync to imec0 (expmtPrbAcq) timebase
+            assert not any(np.isnan(t2)), (
+                "Some of the provided sample indices were not covered by segments \n"
+                "and therefore couldn't be converted to time"
+            )
+
+            return t2
+
+        return experiment_time2time
 
 
-def get_lf_time_synchronizer(
+def get_time_synchronizer(
     sync_project: SGLXProject,
     sglx_subject: SGLXSubject,
     experiment: str,
-    probe: str,
+    stream: Optional[str] = None,
+    probe: Optional[str] = None,
     binfile: Optional[pathlib.Path] = None,
 ) -> Callable[[np.ndarray], np.ndarray]:
-    sync_file = sync_project.get_experiment_subject_file(
-        experiment, sglx_subject.name, constants.LF_SYNC_FNAME
-    )
-    experiment_sync_table = utils.read_htsv(sync_file)
-    experiment_probe_ftable = sglx_subject.get_experiment_frame(
-        experiment, ftype="bin", stream="lf", probe=probe
-    )
-    # WARNING: Because of file overlap, the following two methods may not be perfectly equivalent! Use per-file sync whenever possible for maximum precision!
     if binfile is not None:
-        return get_file_time2time_lf(
-            binfile, experiment_sync_table, experiment_probe_ftable
+        (_, _, _, probe_, stream_, _) = file_mgmt.parse_sglx_fname(binfile.name)
+        probe = probe_ if probe is None else probe
+        assert probe == probe_, "Mismatch between provided probe and binfile"
+        stream = stream_ if stream is None else stream
+        assert stream == stream_, "Mismatch between provided stream and binfile"
+    assert probe is not None, "Must provide probe"
+    assert stream is not None, "Must provide stream"
+    experiment_probe_ftable = sglx_subject.get_experiment_frame(
+        experiment, ftype="bin", stream=stream, probe=probe
+    )
+    experiment_sync_table = utils.read_htsv(
+        sync_project.get_experiment_subject_file(
+            experiment, sglx_subject.name, constants.SYNC_FNAME_MAP[stream]
         )
-    else:
-        return get_experiment_time2time_lf(
-            experiment_sync_table, experiment_probe_ftable
-        )
+    )
+    return get_time2time(experiment_sync_table, experiment_probe_ftable, binfile)
