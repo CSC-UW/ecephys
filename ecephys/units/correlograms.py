@@ -361,7 +361,7 @@ def _compute_interpopulation_time_correlograms_numba(
         ix_a = pop_a_cluster_ixs[a]
         spike_times_a = spike_times[spike_cluster_ixs == ix_a]
 
-        for b in range(pop_a_cluster_ixs.size):
+        for b in range(pop_b_cluster_ixs.size):
             ix_b = pop_b_cluster_ixs[b]
             spike_times_b = spike_times[spike_cluster_ixs == ix_b]
 
