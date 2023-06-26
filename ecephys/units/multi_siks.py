@@ -2,6 +2,7 @@ from typing import Optional, Callable
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from ecephys.units import cluster_trains
 from ecephys.units import dtypes
@@ -70,6 +71,24 @@ class MultiSIKS:
             props = pd.concat([props, prb_props])
         return props.reset_index(drop=True)
 
+    def get_unit_ids(self) -> dtypes.ClusterIDs:
+        return self.properties["cluster_id"].values
+
+    def multiprobe_cluster_ids_to_si_cluster_ids(
+        self, multiprobe_cluster_ids: dtypes.ClusterIDs
+    ) -> dtypes.ClusterIDs:
+        si_cluster_ids = (
+            self.properties.set_index("cluster_id")
+            .loc[multiprobe_cluster_ids, "si_cluster_id"]
+            .values
+        )
+        cluster_probes = (
+            self.properties.set_index("cluster_id")
+            .loc[multiprobe_cluster_ids, "probe"]
+            .values
+        )
+        return si_cluster_ids, cluster_probes
+
     def refine_clusters(
         self,
         simple_filters_by_probe: Optional[dict[str, dict]] = None,
@@ -91,23 +110,22 @@ class MultiSIKS:
             }
         )
 
-    def get_cluster_trains(self, **kwargs) -> dtypes.ClusterTrains_Secs:
+    def get_cluster_trains(
+        self, display_progress: bool = True, **kwargs
+    ) -> dtypes.ClusterTrains_Secs:
         """Return ClusterTrains, keyed by multiprobe cluster IDs."""
+        mp_cluster_ids = kwargs.pop("cluster_ids", self.get_unit_ids())
+        si_cluster_ids, cluster_probes = self.multiprobe_cluster_ids_to_si_cluster_ids(
+            mp_cluster_ids
+        )
         trains = {}
-        if "cluster_ids" in kwargs:
-            # TODO
-            raise NotImplementedError(
-                "Need to convert multiprobe cluster_ids to si cluster_ids first"
+        to_load = list(zip(mp_cluster_ids, si_cluster_ids, cluster_probes))
+        if display_progress:
+            to_load = tqdm(to_load, desc="Loading trains by cluster_id: ")
+        for mp_id, si_id, prb in to_load:
+            trains[mp_id] = self.sortings[prb].get_unit_spike_train(
+                si_id, return_times=True, **kwargs
             )
-        for prb in self.probes:
-            prb_trains = self.sortings[prb].get_cluster_trains(
-                return_times=True, **kwargs
-            )
-            old_ids = np.asarray(list(prb_trains.keys()))
-            new_ids = self.si_cluster_ids_to_multiprobe_cluster_ids(prb, old_ids)
-            for old_id, new_id in zip(old_ids, new_ids):
-                prb_trains[new_id] = prb_trains.pop(old_id)
-            trains.update(prb_trains)
         return trains
 
     def get_spike_vector(

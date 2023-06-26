@@ -89,6 +89,10 @@ class SpikeInterfaceKilosortSorting:
     def has_sample2time(self) -> bool:
         return self._sample2time is not None
 
+    def get_unit_ids(self) -> dtypes.ClusterIDs:
+        """This exists to match the MultiSIKS API, not the SpikeInterface API."""
+        return self.si_obj.get_unit_ids()
+
     def refine_clusters(
         self,
         simple_filters: Optional[dict] = None,

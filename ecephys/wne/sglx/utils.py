@@ -229,6 +229,7 @@ def get_time2time(
     experiment_sync_table: pd.DataFrame,
     experiment_probe_ftable: pd.DataFrame,
     binfile: Optional[pathlib.Path] = None,
+    extrapolate: bool = False,
 ) -> Callable[[np.ndarray], np.ndarray]:
     assert (
         len(experiment_probe_ftable["probe"].unique()) == 1
@@ -258,10 +259,24 @@ def get_time2time(
                 t2[mask] = (
                     sync_entry.slope * t1[mask] + sync_entry.intercept
                 )  # Sync to imec0 (expmtPrbAcq) timebase
-            assert not any(np.isnan(t2)), (
-                "Some of the provided sample indices were not covered by segments \n"
-                "and therefore couldn't be converted to time"
-            )
+            is_nan = np.isnan(t2)
+            if any(is_nan):
+                msg = "Some of the provided times were not covered by the original recording and therefore can't be converted unambiguously."
+                if extrapolate:
+                    logger.warning(msg + " Using sync info from the nearest file.")
+                    allowed_times = experiment_probe_ftable[
+                        ["expmtPrbAcqFirstTime", "expmtPrbAcqLastTime"]
+                    ].values.flatten()
+                    allowed_files = experiment_probe_ftable[
+                        ["path", "path"]
+                    ].values.flatten()
+                    for ix_t in np.where(is_nan)[0]:
+                        nearest_allowed = utils.find_nearest(allowed_times, t1[ix_t])
+                        nearest_fname = allowed_files[nearest_allowed].name
+                        sync_entry = experiment_sync_table.loc[nearest_fname]
+                        t2[ix_t] = sync_entry.slope * t1[ix_t] + sync_entry.intercept
+                else:
+                    raise ValueError(msg)
 
             return t2
 
@@ -275,6 +290,7 @@ def get_time_synchronizer(
     stream: Optional[str] = None,
     probe: Optional[str] = None,
     binfile: Optional[pathlib.Path] = None,
+    extrapolate: bool = False,
 ) -> Callable[[np.ndarray], np.ndarray]:
     if binfile is not None:
         (_, _, _, probe_, stream_, _) = file_mgmt.parse_sglx_fname(binfile.name)
@@ -292,4 +308,6 @@ def get_time_synchronizer(
             experiment, sglx_subject.name, constants.SYNC_FNAME_MAP[stream]
         )
     )
-    return get_time2time(experiment_sync_table, experiment_probe_ftable, binfile)
+    return get_time2time(
+        experiment_sync_table, experiment_probe_ftable, binfile, extrapolate
+    )
