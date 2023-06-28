@@ -239,7 +239,7 @@ def get_time2time(
     if binfile is not None:
         # If we know the file a-priori, we can give a maximally precise time2time function
         def file_time2time(t1):
-            sync_entry = experiment_sync_table.loc[binfile.path.name]
+            sync_entry = experiment_sync_table.loc[binfile.name]
             return sync_entry.slope * t1 + sync_entry.intercept
 
         return file_time2time
