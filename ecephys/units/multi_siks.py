@@ -1,12 +1,14 @@
 from typing import Optional, Callable
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from tqdm import tqdm
 
 from ecephys.units import cluster_trains
 from ecephys.units import dtypes
 from ecephys.units import SpikeInterfaceKilosortSorting
+import ecephys.utils
 
 
 class MultiSIKS:
@@ -114,6 +116,8 @@ class MultiSIKS:
         self, display_progress: bool = True, **kwargs
     ) -> dtypes.ClusterTrains_Secs:
         """Return ClusterTrains, keyed by multiprobe cluster IDs."""
+        if not kwargs.pop("return_times", True):
+            raise ValueError("return_times must be True")
         mp_cluster_ids = kwargs.pop("cluster_ids", self.get_unit_ids())
         si_cluster_ids, cluster_probes = self.multiprobe_cluster_ids_to_si_cluster_ids(
             mp_cluster_ids
@@ -133,3 +137,40 @@ class MultiSIKS:
     ) -> tuple[dtypes.SpikeTrain_Secs, dtypes.ClusterIXs, dtypes.ClusterIDs]:
         trains = self.get_cluster_trains()
         return cluster_trains.convert_cluster_trains_to_spike_vector(trains)
+
+    def get_trains_by_property(
+        self,
+        property_name: str = "acronym",
+        values: Optional[
+            npt.ArrayLike
+        ] = None,  # Filter trains, keeping only those with the indicated property values.
+        display_progress=True,
+        **kwargs,
+    ) -> dtypes.SpikeTrainDict:
+        """Get all spike trains, merged and keyed by the desired property (e.g. depth, or structure)."""
+
+        if not kwargs.pop("return_times", True):
+            raise ValueError("return_times must be True")
+
+        if property_name == "cluster_id":
+            return self.get_cluster_trains(
+                cluster_ids=values, display_progress=display_progress, **kwargs
+            )
+
+        if values is None:
+            values = self.properties[property_name].unique()
+
+        if display_progress:
+            values = tqdm(values, desc=f"Loading trains by `{property_name}`: ")
+
+        return {
+            val: ecephys.utils.kway_mergesort(
+                [
+                    s.get_property_spike_train(
+                        property_name, val, return_times=True, **kwargs
+                    )
+                    for s in self.sortings.values()
+                ]
+            )
+            for val in values
+        }

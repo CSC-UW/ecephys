@@ -11,15 +11,20 @@ from ecephys.units import dtypes
 
 
 def get_peths_from_trains(
-    trains: dtypes.ClusterTrains_Secs,
-    event_times: np.ndarray,
+    trains: dtypes.SpikeTrainDict_Secs,
+    event_times: np.ndarray[np.float64],
     event_labels: Optional[np.ndarray] = None,
     pre_time: float = 0.4,
     post_time: float = 0.8,
     bin_size: float = 0.025,
     return_fr: bool = True,
-    property_frame: Optional[pd.DataFrame] = None,
-    property_names: Optional[list[str]] = None,
+    train_keys="spike_train",  # Could be acronym, etc. Special behavior if cluster_id
+    property_frame: Optional[
+        pd.DataFrame
+    ] = None,  # Only applies if train_keys == "cluster_id"
+    property_names: Optional[
+        list[str]
+    ] = None,  # Only applies if train_keys == "cluster_id"
 ) -> xr.DataArray:
     """Get PETHs, using numba to speed up the loop.
     If you already have a spike vector (costly, but it happens), use get_peths_from_spike_vector instead. It is lighting fast.
@@ -38,10 +43,11 @@ def get_peths_from_trains(
 
     We keep v2 around because it is simpler and faster for small data, but also because the numba typed dict, which this relies on, may be unstable or lose support.
     """
+    train_ids = np.array(list(trains.keys()))
     numba_trains = numba.typed.Dict.empty(numba.types.int64, numba.types.float64[:])
-    for id, train in trains.items():
-        numba_trains[id] = train
-    binned_spikes, tscale, cluster_ids = bin_spiketrains_numba(
+    for numba_id, train_id in enumerate(train_ids):
+        numba_trains[numba_id] = trains[train_id]
+    binned_spikes, tscale, numba_ids = bin_spiketrains_numba(
         numba_trains, event_times, pre_time, post_time, bin_size
     )
 
@@ -50,9 +56,9 @@ def get_peths_from_trains(
 
     peths = xr.DataArray(
         binned_spikes,
-        dims=("cluster_id", "event", "time"),
+        dims=(train_keys, "event", "time"),
         coords={
-            "cluster_id": cluster_ids,
+            train_keys: train_ids[np.array(numba_ids)],
             "event": event_times,
             "time": tscale,
         },
@@ -61,7 +67,7 @@ def get_peths_from_trains(
     if not (event_labels is None):
         peths = peths.assign_coords({"event_type": ("event", event_labels)})
 
-    if not (property_frame is None):
+    if (train_keys == "cluster_id") and (property_frame is not None):
         peths = add_cluster_properties_to_peths(peths, property_frame, property_names)
 
     return peths
@@ -79,12 +85,12 @@ def bin_spiketrains_numba(numba_trains, event_times, pre_time, post_time, bin_si
     epoch_bounds[:, 0] = ts[:, 0]
     epoch_bounds[:, 1] = ts[:, -1]
 
-    cluster_ids = np.asarray(list(numba_trains.keys()))
+    train_ids = list(numba_trains.keys())
     binned_spikes = np.zeros(
-        shape=(cluster_ids.size, event_times.size, n_bins), dtype=np.float64
+        shape=(len(train_ids), event_times.size, n_bins), dtype=np.float64
     )
-    for i_unit in numba.prange(cluster_ids.size):
-        id = cluster_ids[i_unit]
+    for i_unit in numba.prange(len(train_ids)):
+        id = train_ids[i_unit]
         unit_spike_times = numba_trains[id]
         epoch_idxs = np.searchsorted(unit_spike_times, epoch_bounds)
         for i_event, (ep, t) in enumerate(zip(epoch_idxs, ts)):
@@ -96,11 +102,11 @@ def bin_spiketrains_numba(numba_trains, event_times, pre_time, post_time, bin_si
 
     tscale = (tscale[:-1] + tscale[1:]) / 2
 
-    return binned_spikes, tscale, cluster_ids
+    return binned_spikes, tscale, train_ids
 
 
 def add_cluster_properties_to_peths(
-    da: xr.DataArray,
+    peths: xr.DataArray,
     property_frame: pd.DataFrame,
     property_names: Optional[list[str]] = None,
 ) -> xr.DataArray:
@@ -112,13 +118,13 @@ def add_cluster_properties_to_peths(
         The name of the cluster ID dimension. Usually this would be `cluster_id`, but in the case of cross-correlograms it might be `clusterA` or `clusterB`.
     """
     property_frame = property_frame.set_index("cluster_id").loc[
-        da["cluster_id"].values
+        peths["cluster_id"].values
     ]  # Order cluster_ids (i.e. rows) of properties dataframe to match datarray order
     property_names = (
         property_frame.columns if property_names is None else property_names
     )
     coords = {col: ("cluster_id", property_frame[col].values) for col in property_names}
-    return da.assign_coords(coords)
+    return peths.assign_coords(coords)
 
 
 ################

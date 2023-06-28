@@ -13,6 +13,7 @@ ClusterTrains_Secs = dict[np.int64, SpikeTrain_Secs]  # Key: Cluster ID
 ClusterTrains = Union[ClusterTrains_Samples, ClusterTrains_Secs]
 
 SpikeTrainDict = dict[Any, SpikeTrain]
+SpikeTrainDict_Secs = dict[Any, SpikeTrain_Secs]
 
 ClusterIDs = npt.NDArray[np.int64]
 ClusterIXs = npt.NDArray[np.int64]
