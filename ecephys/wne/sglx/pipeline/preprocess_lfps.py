@@ -23,7 +23,7 @@ def do_experiment(
     opts_project: SGLXProject,
     chunk_duration: int = 300,  # Size of zarr chunks, in seconds
 ):
-    lf_table = sglx_subject.get_lfp_bin_table(experiment, alias=alias)
+    lf_table = sglx_subject.get_lfp_bin_table(experiment)
     probes = lf_table["probe"].unique()
     for probe in probes:
         do_experiment_probe(
