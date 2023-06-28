@@ -229,9 +229,20 @@ def make_bins(
     half_window_size = window_ms / 2 * 1e-3
     bin_size = bin_ms * 1e-3
     num_bins = 2 * int(half_window_size / bin_size)
-    assert num_bins >= 1
+    assert num_bins >= 2, "Requested correlogram would produce < 2 bins"
+    assert np.isclose(
+        num_bins * bin_size, half_window_size * 2
+    ), "Requested correlogram would not be 0-centered"
 
-    bins = np.arange(-half_window_size, half_window_size + bin_size, bin_size)
+    # np.arange is numerically unstable, so use linspace instead
+    bins, step = np.linspace(
+        -half_window_size,
+        half_window_size + bin_size,
+        num_bins + 1,
+        endpoint=False,
+        retstep=True,
+    )
+    assert np.isclose(step, bin_size), "Bin size is not as expected"
 
     return bins, half_window_size, bin_size
 
