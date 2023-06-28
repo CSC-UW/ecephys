@@ -24,9 +24,10 @@ def do_experiment_probe(
     opts_project: SGLXProject,
     sync_project: SGLXProject,
     dest_project: SGLXProject,
+    alias: Optional[str] = None,
 ):
     opts = opts_project.load_experiment_subject_params(experiment, sglx_subject.name)
-    lfp_table = sglx_subject.get_lfp_bin_table(experiment, probe=probe)
+    lfp_table = sglx_subject.get_lfp_bin_table(experiment, probe=probe, alias=alias)
 
     for lfp_file in tqdm(list(lfp_table.itertuples())):
         [emg_file] = wne_sglx_utils.get_sglx_file_counterparts(
