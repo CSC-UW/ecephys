@@ -129,17 +129,17 @@ def load_singleprobe_sorting(
     # extractor = units.si_ks_sorting.fix_isi_violations_ratio(extractor)
 
     # Add anatomy to the extractor, if available.
-    if wneAnatomyProject is not None:
-        anatomy_file = wneAnatomyProject.get_experiment_subject_file(
-            experiment, sglxSubject.name, f"{probe}.structures.htsv"
-        )
-        assert anatomy_file.exists(), (
-            f"Could not find anatomy file at: {anatomy_file}.\n"
-            f"Set `wneAnatomyProject = None` in kwargs to ignore anatomy."
-        )
+    if wneAnatomyProject is None:
+        wneAnatomyProject = sglxSortingProject
+
+    anatomy_file = wneAnatomyProject.get_experiment_subject_file(
+        experiment, sglxSubject.name, f"{probe}.structures.htsv"
+    )
+    if anatomy_file.exists():
         structs = utils.read_htsv(anatomy_file)
     else:
-        # TODO: Passing np.Inf will break ephyviewer, when it attempts to plot all depths.
+        import warnings
+        warnings.warn("Could not find anatomy file at: {anatomy_file}. Using dummy structure table")
         structs = units.siutils.get_dummy_structure_table(lo=-np.Inf, hi=np.Inf)
     extractor = units.siutils.add_anatomy_properties_to_extractor(extractor, structs)
 
