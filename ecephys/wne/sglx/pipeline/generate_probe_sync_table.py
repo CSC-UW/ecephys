@@ -107,17 +107,16 @@ def get_session_sync_table(
     fits = fits.sort_values(["source_probe", "target_probe"])
     for probe in set(probes) - {"imec0"}:
         is_probe = fits["source_probe"] == probe
-        if fits.loc[is_probe].isna().any().any():
-            raise NotImplementedError(
-                "Should only interpolate if file duration is too short for barcodes."
-            )
-            fits.loc[is_probe] = fits.loc[is_probe].interpolate(
-                method="linear", limit=1, limit_direction="both"
-            )
+        is_na = fits[is_probe & fits[["slope", "intercept"]].isna().any(axis=1)]
+        # Only interpolate if the file is so short that the lack of sync info to have capture sufficient sync pulses.
+        if not is_na.empty:
+            prb_ftab = probe_ftabs[probe].copy()
+            prb_ftab["filename"] = prb_ftab.apply(lambda x: x.path.name, axis=1)
+            prb_ftab = prb_ftab.set_index("filename")
+            if all(prb_ftab.loc[is_na["source"], "fileTimeSecs"] < 60):
+                fits.loc[is_probe] = fits.loc[is_probe].interpolate(method="linear")
     if fits["slope"].isna().any() or fits["intercept"].isna().any():
-        raise ValueError(
-            "Unable to interpolate missing sync info. Too much missing data for the given interpolation limit."
-        )
+        raise ValueError("Unable to interpolate all the missing sync info.")
     return fits
 
 
