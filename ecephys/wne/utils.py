@@ -2,7 +2,7 @@ import logging
 
 import xarray as xr
 
-from ecephys import utils
+import ecephys.utils
 from ecephys.wne import Project
 from ecephys.wne import constants
 
@@ -40,7 +40,7 @@ def open_lfps(
             lf = lf.chunk(lf.encoding["preferred_chunks"])
 
     if hotfix_times:
-        utils.hotfix_times(lf.time.values)
+        ecephys.utils.hotfix_times(lf.time.values)
     if drop_duplicate_times:
         lf = lf.drop_duplicates(dim="time", keep="first")
     return lf

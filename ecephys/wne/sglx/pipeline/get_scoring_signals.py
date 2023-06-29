@@ -81,10 +81,14 @@ def write_edf_for_visbrain(
     assert np.allclose(
         lfp_t0, emg_t0, atol=0.100
     ), "LFP and EMG should start within 100ms of each other"
+    ns = min(
+        lfp.time.size, emg.time.size
+    )  # The signals can still be off by a sample or two
+
     lfp_hdrs = make_signal_headers_from_datarray(lfp, transducer="LFP")
-    lfp_sigs = [lfp.sel(signal=hdr["label"]).values for hdr in lfp_hdrs]
+    lfp_sigs = [lfp.sel(signal=hdr["label"]).values[:ns] for hdr in lfp_hdrs]
     emg_hdrs = make_signal_headers_from_datarray(emg, transducer="dEMG")
-    emg_sigs = [emg.sel(signal=hdr["label"]).values for hdr in emg_hdrs]
+    emg_sigs = [emg.sel(signal=hdr["label"]).values[:ns] for hdr in emg_hdrs]
     signal_headers = lfp_hdrs + emg_hdrs
     signals = lfp_sigs + emg_sigs
 
