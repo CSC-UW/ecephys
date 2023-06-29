@@ -1,4 +1,5 @@
 import datetime
+import logging
 import pathlib
 from typing import Optional
 
@@ -17,6 +18,9 @@ from pandas.core.dtypes.common import (
 
 from ecephys.sglxr import ImecMap
 from ecephys.sglxr.external import readSGLX
+
+
+logger = logging.getLogger(__name__)
 
 
 def validate_probe_type(meta: dict):
@@ -197,8 +201,8 @@ def open_trigger(
     start_time: float = 0,
     end_time: float = np.Inf,
     t0: float = 0.0,
-    dt0=None,
-    blocksize: int = 250000,
+    dt0: Optional[datetime.datetime] = None,
+    blocksize: Optional[int] = None,
 ) -> xr.DataArray:
     """Open SpikeGLX timeseries data as an xarray DataArray, backed by a lazy dask array.
 
@@ -277,10 +281,17 @@ def open_trigger(
     # Get timestamps of each sample
     time, datetime, _ = _get_timestamps(meta, firstSamp, lastSamp, t0=t0, dt0=dt0_)
 
-    # Make memory map to selected data.
     im = ImecMap.from_meta(meta)
     channels = im.chans if channels is None else channels
-    rawData = memmap_dask_array(bin_path, meta, blocksize)
+    # If we want data as a chunked, lazy, dask array, we need many memmaps.
+    if blocksize is not None:
+        # Since the memmaps don't seem to be closed properly upon garbage collection...
+        logger.warning(
+            "Loading SGLX binary data as lazy, chunked, dask array can lead to `Device or resource busy` errors, if too many files are opened this way."
+        )
+        rawData = memmap_dask_array(bin_path, meta, blocksize)
+    else:
+        rawData = readSGLX.makeMemMapRaw(bin_path, meta)
     selectData = rawData[channels, firstSamp : lastSamp + 1]
 
     # apply gain correction and convert to uV
@@ -309,5 +320,24 @@ def open_trigger(
     return data
 
 
-def load_trigger(*args, **kwargs) -> xr.DataArray:
-    return open_trigger(*args, **kwargs).compute()
+def load_trigger(
+    bin_path: pathlib.Path,
+    channels: list[int] = None,
+    start_time: float = 0,
+    end_time: float = np.Inf,
+    t0: float = 0.0,
+    dt0: Optional[datetime.datetime] = None,
+    blocksize: Optional[int] = None,
+) -> xr.DataArray:
+    da = open_trigger(
+        bin_path=bin_path,
+        channels=channels,
+        start_time=start_time,
+        end_time=end_time,
+        t0=t0,
+        dt0=dt0,
+        blocksize=blocksize,
+    )
+    if blocksize is not None:
+        da = da.compute()
+    return da
