@@ -81,7 +81,7 @@ class SGLXProject(Project):
                     f"Could not find sync table at {probe_sync_file}.\n"
                     f"`allow_no_sync_file` == True : Ignoring probe sync in sample2time"
                 )
-                return None
+                sync_table=None
             else:
                 raise FileNotFoundError(f"No sync file at {probe_sync_file}")
         else:
