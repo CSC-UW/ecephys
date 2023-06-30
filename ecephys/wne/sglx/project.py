@@ -71,8 +71,7 @@ class SGLXProject(Project):
         # TODO: Once permissions are fixed, should come from f = wneProject.get_experiment_subject_file(experiment, subject, f"prb_sync.ap.htsv")
         # Load probe sync table.
         probe_sync_file = (
-            self.get_alias_subject_directory(experiment, alias, subject)
-            / f"{sorting}.{probe}"
+            self.get_experiment_subject_directory(experiment, subject)
             / "prb_sync.ap.htsv"
         )
         if not probe_sync_file.exists():
