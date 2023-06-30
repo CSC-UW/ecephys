@@ -61,6 +61,6 @@ def do_experiment_probe(
         )
         hg = hypnogram.FloatHypnogram.clean(hg)
         consolidated_hypnogram_file = data_project.get_experiment_subject_file(
-            experiment, sglx_subject.name, constants.HYPNOGRAM_FNAME
+            experiment, sglx_subject.name, f"{probe}.{constants.HYPNOGRAM_FNAME}"
         )
         hg.write_htsv(consolidated_hypnogram_file)
