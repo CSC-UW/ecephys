@@ -16,17 +16,13 @@ def do_experiment_probe(
     data_project: SGLXProject,
     sync_project: SGLXProject,
 ):
-    lfp_file = (
-        data_project.get_experiment_subject_file(
-            experiment, sglx_subject.name, constants.SCORING_LFP
-        ),
+    lfp_file = data_project.get_experiment_subject_file(
+        experiment, sglx_subject.name, constants.SCORING_LFP
     )
     lfp = xr.open_dataarray(lfp_file, engine="zarr", chunks="auto")
 
-    emg_file = (
-        data_project.get_experiment_subject_file(
-            experiment, sglx_subject.name, constants.SCORING_EMG
-        ),
+    emg_file = data_project.get_experiment_subject_file(
+        experiment, sglx_subject.name, constants.SCORING_EMG
     )
     emg = xr.open_dataarray(emg_file, engine="zarr", chunks="auto")
 
