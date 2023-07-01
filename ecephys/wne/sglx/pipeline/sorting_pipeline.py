@@ -393,8 +393,7 @@ class SpikeInterfaceSortingPipeline:
 
     ##### Sorting output #####
 
-    @property
-    def kilosort_binary_recording_extractor(self) -> si.BinaryRecordingExtractor:
+    def get_kilosort_binary_recording_extractor(self) -> si.BinaryRecordingExtractor:
         if self._kilosort_binary_recording_extractor is None:
             self._kilosort_binary_recording_extractor = (
                 utils.siutils.load_kilosort_bin_as_si_recording(
@@ -405,24 +404,22 @@ class SpikeInterfaceSortingPipeline:
             )
         return self._kilosort_binary_recording_extractor
 
-    @property
-    def processed_extractor_for_waveforms(self) -> si.BaseRecording:
+    def get_processed_extractor_for_waveforms(self) -> si.BaseRecording:
         """Return binary recording.dat if available, or repreprocess lazily"""
         if self.preprocessed_bin_path.exists():  # No need to re-run
-            return self.kilosort_binary_recording_extractor
+            return self.get_kilosort_binary_recording_extractor()
         else:  # Need to re-run.
             if self._preprocessed_si_recording is None:
                 self.run_preprocessing()
             return self._preprocessed_si_recording
 
-    @property
-    def sorting_extractor(self) -> si.KiloSortSortingExtractor:
+    def get_sorting_extractor(self, with_recording=True) -> si.KiloSortSortingExtractor:
         if self._si_sorting_extractor is None:
-            sorting = se.read_kilosort(self.sorter_output_dir)
-            if not sorting.has_recording():
-                sorting.register_recording(self.processed_extractor_for_waveforms)
-            self._si_sorting_extractor = sorting
-        return self._si_sorting_extractor
+            self._si_sorting_extractor = se.read_kilosort(self.sorter_output_dir)
+        sorting = self._si_sorting_extractor
+        if with_recording and not sorting.has_recording():
+            sorting.register_recording(self.get_processed_extractor_for_waveforms())
+        return sorting
 
     ##### Reinstantiate ######
 
