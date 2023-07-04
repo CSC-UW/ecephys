@@ -74,19 +74,19 @@ preprocessing:
         sigma_smooth_s: null
 sorting:
   sorter_name: kilosort2_5
-  sorter_path: "/Volumes/scratch/neuropixels/matlab/external/Kilosort-wisc-v2.5"  # Only for KS
+  sorter_path: "/Volumes/scratch/neuropixels/matlab/external/Kilosort-upstream-v2.5"
   sorter_params:  # Passed directly to spikeinterface.run_sorter
-    do_preprocessing: False # MANDATORY FALSE
+    skip_kilosort_preprocessing: True  # DO NOT TOUCH
+    scaleproc: 200  # DO NOT TOUCH: MUST be equal to post-whitening scaling during postpro
+    nblocks: 0  # DO NOT TOUCH: Effectively skip running kilosort's datashift2.m
+    do_correction: False  # DO NOT TOUCH: Effectively skip running kilosort's datashift2.m . Ignord if nblocks=0
+    car: True # Ignored
     detect_threshold: 6
     projection_threshold: [10, 4]
     preclust_threshold: 8
-    car: True
     minFR: 0.1
     minfr_goodchannels: 0.1
-    nblocks: 5
-    do_correction: True
     sig: 20
-    lam: 10
     freq_min: 150
     sigmaMask: 30
     nPCs: 3
