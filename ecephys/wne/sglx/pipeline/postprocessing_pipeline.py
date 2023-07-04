@@ -401,9 +401,8 @@ class SpikeInterfacePostprocessingPipeline:
                 sorting=waveform_sorting,
             )
             if with_recording:
-                # Hack to have recording even if we deleted or moved the data,
-                # because load_from_folder(.., with_recording=True) assumes same recording file locations etc
-                we._recording = waveform_recording
+                # Hack to have recording even if we moved raw files an/or deleted `recording.dat`
+                we.set_recording(waveform_recording)
         else:
             if not with_recording:
                 raise ValueError(
