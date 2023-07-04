@@ -417,6 +417,7 @@ class SpikeInterfacePostprocessingPipeline:
                     waveform_sorting,
                     folder=waveform_output_dir,
                     overwrite=True,
+                    use_relative_path=True,
                     **waveforms_kwargs,
                     **self.job_kwargs,
                 )
