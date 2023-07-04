@@ -170,7 +170,7 @@ class SpikeInterfacePostprocessingPipeline:
             self._hypnogram = None
             self._hypnogram_states = None
         else:
-            if isinstance(hypnogram_source, SGLXProject):
+            if isinstance(hypnogram_source, Project):
                 self._hypnogram = (
                     load_hypnogram_for_si_slicing(
                         hypnogram_source,
