@@ -370,7 +370,7 @@ def _prepro_drift_correction(
 
     with Timing(name="Correct motion on traces: "):
         print(si_rec.get_traces(start_frame=0, end_frame=100).shape)
-        rec_corrected = motion_interpolation.CorrectMotionRecording(
+        rec_corrected = motion_interpolation.InterpolateMotionRecording(
             si_rec,
             motion,
             temporal_bins,
