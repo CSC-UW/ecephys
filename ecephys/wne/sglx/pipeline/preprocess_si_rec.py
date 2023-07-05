@@ -6,7 +6,7 @@ import numpy as np
 from spikeinterface import widgets
 import spikeinterface.full as si
 from spikeinterface.sortingcomponents import (
-    motion_correction,
+    motion_interpolation,
     motion_estimation,
     peak_detection,
     peak_pipeline,
@@ -331,7 +331,7 @@ def _prepro_drift_correction(
         with Timing(name="Get corrected peaks (debugging figure): "):
             print("Correct motion on peaks")
             times = si_rec.get_times()
-            peak_locations_corrected = motion_correction.correct_motion_on_peaks(
+            peak_locations_corrected = motion_interpolation.correct_motion_on_peaks(
                 peaks,
                 peak_locations,
                 times,
@@ -370,7 +370,7 @@ def _prepro_drift_correction(
 
     with Timing(name="Correct motion on traces: "):
         print(si_rec.get_traces(start_frame=0, end_frame=100).shape)
-        rec_corrected = motion_correction.CorrectMotionRecording(
+        rec_corrected = motion_interpolation.CorrectMotionRecording(
             si_rec,
             motion,
             temporal_bins,
