@@ -35,11 +35,7 @@ Pathlike = Union[Path, str]
 POSTPRO_OPTS_FNAME = "postpro_opts.yaml"
 OUTPUT_HYPNO_FNAME = "hypnogram.htsv"
 
-HYPNOGRAM_INCLUDED_STATES = [
-    "NREM",
-    "Wake",
-    "REM"
-]
+HYPNOGRAM_INCLUDED_STATES = ["NREM", "Wake", "REM"]
 
 METRICS_COLUMNS_TO_PLOT = [
     "group",
@@ -304,12 +300,16 @@ class SpikeInterfacePostprocessingPipeline:
             dirname += f"_{state}"
         return self.postprocessing_output_dir / dirname
 
-    def get_waveform_extractor_by_state(self, state=None, with_recording=True) -> si.WaveformExtractor:
+    def get_waveform_extractor_by_state(
+        self, state=None, with_recording=True
+    ) -> si.WaveformExtractor:
         """Return cached or load/extract (full or state-specific) waveform extractor."""
         if self._si_waveform_extractor_by_state.get(state, None) is None:
             self._si_waveform_extractor_by_state[
                 state
-            ] = self.load_or_extract_waveform_extractor_by_state(state=state, with_recording=with_recording)
+            ] = self.load_or_extract_waveform_extractor_by_state(
+                state=state, with_recording=with_recording
+            )
         return self._si_waveform_extractor_by_state[state]
 
     def get_recording_for_waveforms_by_state(self, state=None) -> si.BaseRecording:
@@ -325,14 +325,18 @@ class SpikeInterfacePostprocessingPipeline:
             combine="concatenate",
         )
 
-    def get_sorting_for_waveforms_by_state(self, state=None, with_recording=True) -> si.BaseSorting:
+    def get_sorting_for_waveforms_by_state(
+        self, state=None, with_recording=True
+    ) -> si.BaseSorting:
         """Return cached or load/extract (full or state-specific) waveform extractor."""
         if state is not None and not with_recording:
             raise ValueError(
                 "The sorting must have an attached recording for slicing/concatenation of state of interest. Please set `with_recording`=True"
             )
 
-        sorting = self._sorting_pipeline.get_sorting_extractor(with_recording=with_recording)
+        sorting = self._sorting_pipeline.get_sorting_extractor(
+            with_recording=with_recording
+        )
 
         if state is None:
             return sorting
@@ -350,7 +354,10 @@ class SpikeInterfacePostprocessingPipeline:
         return self._opts_by_state.copy()
 
     def load_or_extract_waveform_extractor_by_state(
-        self, state=None, opts=None, with_recording=True,
+        self,
+        state=None,
+        opts=None,
+        with_recording=True,
     ) -> si.WaveformExtractor:
         """Load a waveform extractor. This may `extract` previously computed and saved waveforms."""
 
@@ -367,7 +374,9 @@ class SpikeInterfacePostprocessingPipeline:
         ), "Cannot load waveform extractor for unsorted recording."
 
         waveform_output_dir = self.get_waveforms_output_dir_by_state(state=state)
-        waveform_sorting = self.get_sorting_for_waveforms_by_state(state=state, with_recording=with_recording)
+        waveform_sorting = self.get_sorting_for_waveforms_by_state(
+            state=state, with_recording=with_recording
+        )
         if with_recording:
             waveform_recording = self.get_recording_for_waveforms_by_state(state=state)
             assert (
@@ -378,12 +387,9 @@ class SpikeInterfacePostprocessingPipeline:
             waveform_recording = None
 
         # If we have already extracted waveforms before, re-use those.
-        load_precomputed_waveforms = (
-            not self._rerun_existing
-            and (
-                (waveform_output_dir/"principal_components").exists()
-                 or (waveform_output_dir/"quality_metrics").exists()
-            )
+        load_precomputed_waveforms = not self._rerun_existing and (
+            (waveform_output_dir / "principal_components").exists()
+            or (waveform_output_dir / "quality_metrics").exists()
         )
         if load_precomputed_waveforms:
             print(
@@ -400,8 +406,12 @@ class SpikeInterfacePostprocessingPipeline:
                 we._recording = waveform_recording
         else:
             if not with_recording:
-                raise ValueError("Waveforms can't be loaded. Extracting waveforms: please set `with_recording=True`")
-            print(f"Extracting waveforms. Sorting: {waveform_sorting}, Recording: {waveform_recording}")
+                raise ValueError(
+                    "Waveforms can't be loaded. Extracting waveforms: please set `with_recording=True`"
+                )
+            print(
+                f"Extracting waveforms. Sorting: {waveform_sorting}, Recording: {waveform_recording}"
+            )
             with Timing(name="Extract waveforms: "):
                 we = si.extract_waveforms(
                     waveform_recording,
@@ -641,8 +651,8 @@ class SpikeInterfacePostprocessingPipeline:
         experiment: str,
         alias: str,
         probe: str,
-        sorting_basename: str,
-        postprocessing_name: str,
+        sorting_basename: str = "sorting",
+        postprocessing_name: str = "postpro",
         rerun_existing: bool = False,
     ):
         main_output_dir = sorting_pipeline.get_main_output_dir(
