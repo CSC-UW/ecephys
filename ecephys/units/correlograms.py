@@ -74,6 +74,34 @@ def compute_autocorrelograms(
 
 
 @numba.jit(
+    (numba.float64[::1], numba.float32, numba.float32),
+    nopython=True,
+    nogil=True,
+    cache=True,
+)
+def _compute_time_autocorr_numba(spike_times, half_window_size, bin_size):
+    num_half_bins = int(half_window_size / bin_size)
+    num_bins = 2 * num_half_bins
+
+    auto_corr = np.zeros(num_bins, dtype=np.int64)
+
+    for i in range(len(spike_times)):
+        for j in range(i + 1, len(spike_times)):
+            diff = spike_times[j] - spike_times[i]
+
+            if diff > half_window_size:
+                break
+
+            bin = int(math.floor(diff / bin_size))
+            auto_corr[num_half_bins + bin] += 1
+
+            bin = int(math.floor(-diff / bin_size))
+            auto_corr[num_half_bins + bin] += 1
+
+    return auto_corr
+
+
+@numba.jit(
     (
         numba.int64[:, ::1],
         numba.int64[::1],
@@ -103,34 +131,6 @@ def _compute_time_autocorrelograms_numba(
             cluster_spike_times, half_window_size, bin_size
         )
         num_spikes[i] = cluster_spike_times.size
-
-
-@numba.jit(
-    (numba.float64[::1], numba.float32, numba.float32),
-    nopython=True,
-    nogil=True,
-    cache=True,
-)
-def _compute_time_autocorr_numba(spike_times, half_window_size, bin_size):
-    num_half_bins = int(half_window_size / bin_size)
-    num_bins = 2 * num_half_bins
-
-    auto_corr = np.zeros(num_bins, dtype=np.int64)
-
-    for i in range(len(spike_times)):
-        for j in range(i + 1, len(spike_times)):
-            diff = spike_times[j] - spike_times[i]
-
-            if diff > half_window_size:
-                break
-
-            bin = int(math.floor(diff / bin_size))
-            auto_corr[num_half_bins + bin] += 1
-
-            bin = int(math.floor(-diff / bin_size))
-            auto_corr[num_half_bins + bin] += 1
-
-    return auto_corr
 
 
 def validate_cluster_autocorrelograms(da: dtypes.XArray):
@@ -212,6 +212,37 @@ def compute_intrapopulation_correlograms(
 
 
 @numba.jit(
+    (numba.float64[::1], numba.float64[::1], numba.float32, numba.float32),
+    nopython=True,
+    nogil=True,
+    cache=True,
+)
+def _compute_time_crosscorr_numba(
+    spike_times1, spike_times2, half_window_size, bin_size
+):
+    num_half_bins = int(half_window_size / bin_size)
+    num_bins = 2 * num_half_bins
+
+    cross_corr = np.zeros(num_bins, dtype=np.int64)
+
+    start_j = 0
+    for i in range(len(spike_times1)):
+        for j in range(start_j, len(spike_times2)):
+            diff = spike_times1[i] - spike_times2[j]
+
+            if diff >= half_window_size:
+                start_j += 1
+                continue
+            if diff < -half_window_size:
+                break
+
+            bin = int(math.floor(diff / bin_size))
+            cross_corr[num_half_bins + bin] += 1
+
+    return cross_corr
+
+
+@numba.jit(
     (
         numba.int64[:, :, ::1],
         numba.int64[::1],
@@ -253,37 +284,6 @@ def _compute_intrapopulation_time_correlograms_numba(
                 )
                 correlograms[i, j, :] += cc
                 correlograms[j, i, :] += cc[::-1]
-
-
-@numba.jit(
-    (numba.float64[::1], numba.float64[::1], numba.float32, numba.float32),
-    nopython=True,
-    nogil=True,
-    cache=True,
-)
-def _compute_time_crosscorr_numba(
-    spike_times1, spike_times2, half_window_size, bin_size
-):
-    num_half_bins = int(half_window_size / bin_size)
-    num_bins = 2 * num_half_bins
-
-    cross_corr = np.zeros(num_bins, dtype=np.int64)
-
-    start_j = 0
-    for i in range(len(spike_times1)):
-        for j in range(start_j, len(spike_times2)):
-            diff = spike_times1[i] - spike_times2[j]
-
-            if diff >= half_window_size:
-                start_j += 1
-                continue
-            if diff < -half_window_size:
-                break
-
-            bin = int(math.floor(diff / bin_size))
-            cross_corr[num_half_bins + bin] += 1
-
-    return cross_corr
 
 
 def validate_cluster_crosscorrelograms(da: dtypes.XArray):
