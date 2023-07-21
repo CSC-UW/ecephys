@@ -16,45 +16,13 @@ from spikeinterface.sortingcomponents import (
 logger = logging.getLogger(__name__)
 
 
-def get_raw_peak_fig(
-    si_rec, peaks, peak_locations, motion, temporal_bins, spatial_bins, extra_check
-):
-    ALPHA = 0.002  # >= 0.002 or invisible
-    if len(peaks) <= 50e6:
-        DECIMATE_RATIO = 1
-    elif len(peaks) <= 400e6:
-        DECIMATE_RATIO = 5
-    else:
-        DECIMATE_RATIO = 10
-
-    fig, ax = plt.subplots(figsize=(20, 60))
-
-    # Peak motion
-    x = peaks[::DECIMATE_RATIO]["sample_index"] / si_rec.get_sampling_frequency()
-    y = peak_locations[::DECIMATE_RATIO]["y"]
-
-    ax.scatter(x, y, s=1, color="k", alpha=ALPHA)
-
-    widgets.plot_displacement(
-        motion, temporal_bins, spatial_bins, extra_check, with_histogram=False, ax=ax
-    )
-    ax.set_title(
-        f"Original peaks and estimated motion \n"
-        f"Total N={len(peaks)} peaks. Plot {100/DECIMATE_RATIO}% of peaks."
-    )
-
-    return fig
-
-
-def get_peak_displacement_fig(
+def plot_motion(
     si_rec,
     peaks,
     peak_locations,
-    peak_locations_corrected,
     motion,
     temporal_bins,
     spatial_bins,
-    extra_check,
 ):
     ALPHA = 0.002  # >= 0.002 or invisible
     if len(peaks) <= 50e6:
@@ -64,37 +32,23 @@ def get_peak_displacement_fig(
     else:
         DECIMATE_RATIO = 10
 
-    fig = plt.figure(figsize=(60, 20), layout="constrained")
-    spec = fig.add_gridspec(2, 3)
+    fig = plt.figure(figsize=(60, 60), layout="constrained")
 
-    # Peak motion
-    x = peaks[::DECIMATE_RATIO]["sample_index"] / si_rec.get_sampling_frequency()
-    y = peak_locations[::DECIMATE_RATIO]["y"]
-    y_corrected = peak_locations_corrected[::DECIMATE_RATIO]["y"]
-
-    ax = fig.add_subplot(spec[:, 0])  # Left
-    ax.scatter(x, y, s=1, color="k", alpha=ALPHA)
-    widgets.plot_displacement(
-        motion, temporal_bins, spatial_bins, extra_check, with_histogram=False, ax=ax
+    motion_info = {
+        "parameters": {"sampling_frequency": si_rec.get_sampling_frequency()},
+        "peaks": peaks,
+        "peak_locations": peak_locations,
+        "motion": motion,
+        "temporal_bins": temporal_bins,
+        "spatial_bins": spatial_bins,
+    }
+    widgets.plot_motion(
+        motion_info,
+        figure=fig,
+        amplitude_alpha=ALPHA,
+        color_amplitude=True,
+        scatter_decimate=DECIMATE_RATIO,
     )
-    ax.set_title(
-        f"Original peaks and estimated motion \n"
-        f"Total N={len(peaks)} peaks. Plot {100/DECIMATE_RATIO}% of peaks."
-    )
-
-    ax = fig.add_subplot(spec[:, 1])
-    ax.scatter(x, y_corrected, s=1, color="k", alpha=ALPHA)
-    ax.set_title("Corrected peaks")
-
-    # Peak motion
-    ax = fig.add_subplot(spec[0, 2])  # Top right
-    ax.plot(motion)
-    ax.set_title("Motion estimates")
-
-    ax = fig.add_subplot(spec[1, 2])  # Bottom right
-    ax.plot(motion)
-    ax.set_ylim(-100, 100)
-    ax.set_title("Motion estimates")
 
     return fig
 
@@ -274,11 +228,7 @@ def _prepro_drift_correction(
         motion = npz["motion"]
         temporal_bins = npz["temporal_bins"]
         spatial_bins = npz["spatial_bins"]
-        extra_check = dict(
-            # motion_histogram=npz['motion_histogram'],
-            # spatial_hist_bins=npz['spatial_hist_bins'],
-            # temporal_hist_bins=npz['temporal_hist_bins'],
-        )
+        extra_check = dict()
 
     clean_motion = rerun_existing or compute_motion or not clean_motion_path.exists()
     if clean_motion:
@@ -300,7 +250,6 @@ def _prepro_drift_correction(
             motion=motion_clean,
             temporal_bins=temporal_bins,
             spatial_bins=spatial_bins,
-            **extra_check,
         )
     else:
         print("Load clean motion from :")
@@ -310,66 +259,30 @@ def _prepro_drift_correction(
         temporal_bins = npz["temporal_bins"]
         spatial_bins = npz["spatial_bins"]
         extra_check = dict(
-            # motion_histogram=npz['motion_histogram'],
-            # spatial_hist_bins=npz['spatial_hist_bins'],
-            # temporal_hist_bins=npz['temporal_hist_bins'],
         )
     motion = motion_clean
 
     # Only plot if we changed the motions and can't find the plots already
-    plot_filepaths = {
-        "displacement": output_dir / "peak_displacement.png",
-        "displacement_hq": output_dir / "peak_displacement_hq.png",
-        "raw_peaks_hq": output_dir / "peak_uncorrected_hq.png",
-    }
+    plot_filepath = output_dir / "motion_summary.png"
     make_debugging_plots = (
         rerun_existing
         or clean_motion
-        or not all([f.exists() for f in plot_filepaths.values()])
+        or not plot_filepath.exists()
     )
     if make_debugging_plots:
-        with Timing(name="Get corrected peaks (debugging figure): "):
-            print("Correct motion on peaks")
-            times = si_rec.get_times()
-            peak_locations_corrected = motion_interpolation.correct_motion_on_peaks(
-                peaks,
-                peak_locations,
-                times,
-                motion,
-                temporal_bins,
-                spatial_bins,
-                direction="y",
-            )
-
-        with Timing(name="Plot peak displacement and corrected peaks: "):
-            print(f"Save debugging figs at {plot_filepaths}")
-            fig = get_peak_displacement_fig(
-                si_rec,
-                peaks,
-                peak_locations,
-                peak_locations_corrected,
-                motion,
-                temporal_bins,
-                spatial_bins,
-                extra_check,
-            )
-            fig.savefig(plot_filepaths["displacement"], bbox_inches="tight")
-            fig.savefig(plot_filepaths["displacement_hq"], bbox_inches="tight", dpi=500)
-            fig = get_raw_peak_fig(
+        with Timing(name="Plot motion: "):
+            print(f"Save debugging figs at {plot_filepath}")
+            fig = plot_motion(
                 si_rec,
                 peaks,
                 peak_locations,
                 motion,
                 temporal_bins,
                 spatial_bins,
-                extra_check,
             )
-            savepath = output_dir / "peak_uncorrected_hq.png"
-            print(f"Save debugging fig at {savepath}")
-            fig.savefig(plot_filepaths["raw_peaks_hq"], bbox_inches="tight", dpi=500)
+            fig.savefig(plot_filepath, bbox_inches="tight", dpi=200)
 
     with Timing(name="Correct motion on traces: "):
-        print(si_rec.get_traces(start_frame=0, end_frame=100).shape)
         rec_corrected = motion_interpolation.InterpolateMotionRecording(
             si_rec,
             motion,
