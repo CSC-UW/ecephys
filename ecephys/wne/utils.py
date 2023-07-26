@@ -1,28 +1,32 @@
 import logging
+import warnings
 
 import xarray as xr
 
 import ecephys.utils
-from ecephys.wne import Project
+from ecephys import xrsig
+from ecephys.wne.sglx import SGLXProject
 from ecephys.wne import constants
 
 logger = logging.getLogger(__name__)
 
 
 def open_lfps(
-    project: Project,
+    project: SGLXProject,
     subject: str,
     experiment: str,
     probe: str,
     hotfix_times=False,
     drop_duplicate_times=False,
     chunks="auto",
+    anatomy_proj: SGLXProject = None,
     **xr_kwargs,
 ):
     lf_file = project.get_experiment_subject_file(
         experiment, subject, f"{probe}{constants.LFP_EXT}"
     )
     lf = xr.open_dataarray(lf_file, engine="zarr", chunks=chunks, **xr_kwargs)
+    lf = lf.drop_vars("datetime", errors="ignore")
     # When loaded, attempting to access lf.chunksizes (or use fns that leverage chunking) will result in the following:
     # ValueError: Object has inconsistent chunks along dimension time. This can be fixed by calling unify_chunks().
     # This is because the datetime coordinate, despite being on the time dimension, has different chunksizes.
@@ -43,4 +47,20 @@ def open_lfps(
         ecephys.utils.hotfix_times(lf.time.values)
     if drop_duplicate_times:
         lf = lf.drop_duplicates(dim="time", keep="first")
+
+    # Add anatomy, if available
+    if anatomy_proj is not None:
+        anatomy_file = anatomy_proj.get_experiment_subject_file(
+            experiment, subject, f"{probe}.structures.htsv"
+        )
+        if anatomy_file.exists():
+            structs = ecephys.utils.read_htsv(anatomy_file)
+            lf = xrsig.assign_laminar_coordinate(
+                lf, structs, sigdim="channel", lamdim="y"
+            )
+        else:
+            warnings.warn(
+                "Could not find anatomy file at: {anatomy_file}. Using dummy structure table"
+            )
+
     return lf
