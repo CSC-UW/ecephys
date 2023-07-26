@@ -1,18 +1,19 @@
+import gzip
+import pickle
 import itertools as it
 import logging
 from pathlib import Path
 from typing import Optional
-import yaml
 
 import numpy as np
 import pandas as pd
+import yaml
+
 import spikeinterface as si
 import spikeinterface.extractors as se
-
-from ecephys.wne.sglx import experiments
-from ecephys.wne.sglx import sessions
 from ecephys import utils
 from ecephys.sglx import file_mgmt
+from ecephys.wne.sglx import experiments, sessions
 
 logger = logging.getLogger(__name__)
 
@@ -237,9 +238,9 @@ class SGLXSubject:
 class SGLXSubjectLibrary:
     def __init__(self, libdir: Path):
         self.libdir = libdir
-        self.cachefile = self.libdir / "wne_sglx_cache.pkl"
+        self.cachefile = self.libdir / "wne_sglx_cache.gz"
         self.cache = (
-            pd.read_pickle(self.cachefile) if self.cachefile.is_file() else None
+            self.read_cache() if self.cachefile.is_file() else None
         )
 
     def get_subject_file(self, subjectName: str) -> Path:
@@ -273,7 +274,14 @@ class SGLXSubjectLibrary:
     def write_cache(self):
         if self.cache is None:
             self.refresh_cache()
-        self.cache.to_pickle(self.cachefile)
+        # Compress because we overpassed github's filesize limit
+        with gzip.open(self.cachefile, "wb") as f:
+            pickle.dump(self.cache, f)
+    
+    def read_cache(self):
+        # Compress because we overpassed github's filesize limit
+        with gzip.open(self.cachefile, "rb") as f:
+            return pickle.load(f)
 
 
 # TODO: Remove as soon as SpikeInterface adds this functionality.
