@@ -328,6 +328,7 @@ def plot_spectrogram(
     ax: matplotlib.Axes, optional
         Axes upon which to plot.
     """
+    # NOTE: No, you cannot use imshow unless frequencies are evenly spaced!
     freqs, spg_times, spg = trim_spectrogram(freqs, spg_times, spg, f_range, t_range)
 
     ax = check_ax(ax, figsize=figsize)
