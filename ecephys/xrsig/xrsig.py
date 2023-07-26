@@ -1,4 +1,6 @@
 import logging
+import os
+from typing import Optional
 
 import kcsd
 import neuropixel
@@ -6,6 +8,8 @@ from neurodsp import fourier
 from neurodsp import voltage
 import neurodsp.utils
 import numpy as np
+import pandas as pd
+import ssqueezepy as ssq
 from tqdm.auto import tqdm
 import xarray as xr
 
@@ -17,20 +21,30 @@ from ecephys.utils import dask_utils
 logger = logging.getLogger(__name__)
 
 
+def validate_timeseries(
+    da: xr.DataArray,
+    timedim: str = "time",
+    check_times: bool = False,
+):
+    if not timedim in da.dims:
+        raise AttributeError(f"Timeseries DataArray must have dimension ({timedim})")
+    if not "fs" in da.attrs:
+        raise ValueError("Timeseries must have sampling rate attr `fs`")
+    if check_times and not np.all(np.diff(da[timedim].values) >= 0):
+        raise ValueError("Timeseries times must be monotonically increasing.")
+
+
 def validate_2d_timeseries(
     da: xr.DataArray,
     timedim: str = "time",
     sigdim: str = "channel",
     check_times: bool = False,
 ):
+    validate_timeseries(da, timedim=timedim, check_times=check_times)
     if not da.dims == (timedim, sigdim):
         raise AttributeError(
             f"Timeseries2D DataArray must have dimensions ({timedim}, {sigdim})"
         )
-    if not "fs" in da.attrs:
-        raise ValueError("Timeseries2D must have sampling rate attr `fs`")
-    if check_times and not np.all(np.diff(da[timedim].values) >= 0):
-        raise ValueError("Timeseries2D times must be monotonically increasing.")
 
 
 def validate_laminar(da: xr.DataArray, sigdim: str = "channel", lamdim: str = "y"):
@@ -386,3 +400,139 @@ def iterate_timeseries_chunks(da: xr.DataArray):
         da.isel({"time": slice(chunk_bounds[i], chunk_bounds[i + 1])})
         for i in range(n_chunks)
     )
+
+
+def make_trialed(
+    da: xr.DataArray,
+    pre: float,
+    post: float,
+    event_frames: np.ndarray[int] = None,
+    event_times: np.ndarray[float] = None,
+) -> xr.DataArray:
+    # It is absolutely necessary to have the data loaded into memory for decent performance.
+    # xrsig.validate_timeseries(da, check_times=True)
+    if event_frames is None:
+        in_da = (event_times >= da.time.values[0] + pre) & (
+            event_times <= da.time.values[-1] - post
+        )
+        event_times = event_times[in_da]
+        event_frames = np.searchsorted(da.time.values, event_times)
+        event_times = da.time.values[event_frames]
+
+    trial_start_frames = event_frames - int(pre * da.fs)
+    trial_end_frames = event_frames + int(post * da.fs)
+
+    trialinfo = pd.DataFrame(
+        {
+            "event_time": event_times,
+            "event_frame": event_frames.astype(int),
+            "start_frame": trial_start_frames.astype(int),
+            "end_frame": trial_end_frames.astype(int),
+        }
+    )
+    trialinfo = trialinfo[
+        ~(trialinfo < 0).any(axis=1)
+    ]  # Remove events whose window starts before the data
+    trialinfo = trialinfo[
+        ~(trialinfo >= da.time.size).any(axis=1)
+    ]  # Remove events whose window ends after the data
+
+    num_trial_frames = int(pre * da.fs) + int(post * da.fs)
+    assert all(
+        trialinfo["end_frame"] - trialinfo["start_frame"] == num_trial_frames
+    ), "Trials are uniform length."
+
+    # Reshape the LFP, adding an event dimension as the last dimension
+    trials = []
+    time = np.linspace(-pre, post, num_trial_frames)
+    for trl in trialinfo.itertuples():
+        da_trial = (
+            da.isel(time=slice(trl.start_frame, trl.end_frame))
+            .drop_vars("time")
+            .assign_coords(time=time, event=trl.event_time)
+        )
+        trials.append(da_trial)
+    return xr.concat(trials, dim="event"), in_da
+
+
+def assign_laminar_coordinate(
+    da: xr.DataArray,
+    table: pd.DataFrame,
+    sigdim: str = "channel",
+    lamdim: str = "y",
+    fill_value="???",
+) -> xr.DataArray:
+    """Label channels based on depth. Useful for adding anatomy."""
+    validate_laminar(da, sigdim, lamdim)
+    coords_to_add = [c for c in table.columns if c not in ["lo", "hi"]]
+    depths = da[lamdim].to_numpy()
+    for coord_name in coords_to_add:
+        coord_values = np.empty(depths.shape, dtype=object)
+        for i in range(len(table)):
+            mask = (depths >= table["lo"].iloc[i]) & (depths <= table["hi"].iloc[i])
+            coord_values[np.where(mask)] = table[coord_name].iloc[i]
+        coord_values[pd.isnull(coord_values)] = fill_value
+        da = da.assign_coords({coord_name: (sigdim, coord_values)})
+    return da
+
+
+def cwt(da: xr.DataArray, sigdim: str = "channel", parallel=True, **cwt_kwargs):
+    """Complex wavelet transform. Do you have pyfftw installed?"""
+    validate_2d_timeseries(da, sigdim=sigdim)
+    if parallel:
+        os.environ["SSQ_PARALLEL"] = "1"
+    Wx, freqs, scales = npsig.cwt(da.values.T, da.fs, **cwt_kwargs)
+    return (
+        xr.DataArray(
+            np.atleast_3d(Wx),
+            dims=(sigdim, "frequency", "time"),
+            coords={
+                "frequency": freqs,
+                **da["time"].coords,
+                **da[sigdim].coords,
+            },
+            attrs=da.attrs,
+        )
+        .assign_attrs(scales=scales)
+        .sortby("frequency")
+    )
+
+
+def ssq_cwt(da: xr.DataArray, sigdim: str = "channel", parallel=True, **cwt_kwargs):
+    """Synchrosqueezed complex wavelet transform. Do you have pyfftw installed?
+    SSQ CWT may be unstable at low frequencies (<20Hz) when data length is limited.
+    Memory footprint is much higher than for plain CWT, plus does differentiation.
+    """
+    validate_2d_timeseries(da, sigdim=sigdim)
+    if parallel:
+        os.environ["SSQ_PARALLEL"] = "1"
+    Tx, Wx, freqs, scales, *_ = ssq.ssq_cwt(da.T.values, fs=da.fs, **cwt_kwargs)
+    Tx = (
+        xr.DataArray(
+            np.atleast_3d(Tx),  # Do you want abs?
+            dims=(sigdim, "frequency", "time"),
+            coords={
+                "frequency": freqs,
+                **da["time"].coords,
+                **da[sigdim].coords,
+            },
+            attrs=da.attrs,
+        )
+        .assign_attrs(scales=scales)
+        .sortby("frequency")
+    )  # Syncrhosqueezed transform
+    Wx = (
+        xr.DataArray(
+            np.atleast_3d(Wx),  # Do you want abs?
+            dims=(sigdim, "frequency", "time"),
+            coords={
+                "frequency": freqs,
+                **da["time"].coords,
+                **da[sigdim].coords,
+            },
+            attrs=da.attrs,
+        )
+        .assign_attrs(scales=scales)
+        .sortby("frequency")
+    )  # Regular transform
+    return Tx, Wx

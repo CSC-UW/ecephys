@@ -63,3 +63,57 @@ def stft(
     ) / float(fs) + t0
 
     return Sfs, stft_times, np.atleast_3d(np.abs(Sx))
+
+
+def cwt(
+    x,
+    fs,
+    wavelet="gmw",
+    scales="log-piecewise",
+    nv=None,
+    padtype="reflect",
+    vectorized=True,
+    nan_checks=True,
+    patience=0,
+    cache_wavelet=None,
+):
+    """Compute a 0-th order continuous wavelet transform (CWT) of `x`.
+    For more information, see :func:`ssqueezepy.ssq_cwt`.
+    """
+    if nv is None and not isinstance(scales, np.ndarray):
+        nv = 32
+    N = x.shape[-1]
+    dt, fs, t = ssq.utils._process_fs_and_t(fs, None, N)
+    wavelet = ssq.wavelets.Wavelet._init_if_not_isinstance(wavelet, N=N)
+    scales, cwt_scaletype, *_ = ssq.utils.process_scales(
+        scales, N, wavelet, nv=nv, get_params=True
+    )
+    Wx, scales = ssq.cwt(
+        x,
+        wavelet,
+        scales=scales,
+        fs=fs,
+        nv=nv,
+        l1_norm=True,
+        derivative=False,
+        padtype=padtype,
+        rpadded=False,
+        vectorized=vectorized,
+        astensor=True,
+        patience=patience,
+        cache_wavelet=cache_wavelet,
+        nan_checks=nan_checks,
+    )
+    was_padded = bool(padtype is not None)
+    freqs = ssq.ssqueezing._compute_associated_frequencies(
+        scales,
+        N,
+        wavelet,
+        cwt_scaletype,
+        maprange="peak",
+        was_padded=was_padded,
+        dt=dt,
+        transform="cwt",
+    )
+    freqs = freqs[::-1]
+    return Wx, freqs, scales
