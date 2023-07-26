@@ -11,13 +11,13 @@ from ecephys.wne.sglx import utils as wne_sglx_utils
 
 
 def get_sync_table(
-    wneProject: SGLXProject,
-    wneSubject: SGLXSubject,
     experiment: str,
+    sglx_subject: SGLXSubject,
+    sglx_project: SGLXProject,
     stream: str = "ap",
 ) -> pd.DataFrame:
-    opts = wneProject.load_experiment_subject_json(
-        experiment, wneSubject.name, constants.EXP_PARAMS_FNAME
+    opts = sglx_project.load_experiment_subject_json(
+        experiment, sglx_subject.name, constants.EXP_PARAMS_FNAME
     )
     if opts["imSyncType"] != "barcode":
         raise NotImplementedError("Sync table generation only implemented for barcodes")
@@ -29,14 +29,14 @@ def get_sync_table(
     barcode_values = []
 
     block_barcode_times, block_barcode_values = sync.get_tdt_barcodes(
-        wneSubject.get_tdt_block_path(experiment), syncStore
+        sglx_subject.get_tdt_block_path(experiment), syncStore
     )
-    ftab = wneSubject.get_experiment_frame(
+    ftab = sglx_subject.get_experiment_frame(
         experiment, stream=stream, ftype="bin", probe="imec0"
     )
     for f in ftab.itertuples():
         [barcode_file] = wne_sglx_utils.get_sglx_file_counterparts(
-            wneProject, wneSubject.name, [f.path], ".barcodes.htsv"
+            sglx_project, sglx_subject.name, [f.path], ".barcodes.htsv"
         )
         binfile_barcodes = utils.read_htsv(barcode_file)
         good_binfile_barcodes, binfile_slice, block_slice = sync.get_shared_sequence(
@@ -66,14 +66,14 @@ def get_sync_table(
 
 
 def do_experiment(
-    wneProject: SGLXProject,
-    wneSubject: SGLXSubject,
     experiment: str,
+    sglx_subject: SGLXSubject,
+    sglx_project: SGLXProject,
     stream: str = "ap",
 ):
-    sync_table = get_sync_table(wneProject, wneSubject, experiment, stream)
+    sync_table = get_sync_table(experiment, sglx_subject, sglx_project, stream=stream)
 
-    f = wneProject.get_experiment_subject_file(
-        experiment, wneSubject.name, f"tdt_sync.{stream}.htsv"
+    f = sglx_project.get_experiment_subject_file(
+        experiment, sglx_subject.name, f"tdt_sync.{stream}.htsv"
     )
     utils.write_htsv(sync_table, f)
