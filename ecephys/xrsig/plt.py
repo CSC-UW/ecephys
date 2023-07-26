@@ -59,15 +59,42 @@ def plot_laminar_scalars_horizontal(
     ax.tick_params(**tick_params)
 
 
+def plot_laminar_image_horizontal(
+    da: xr.DataArray,
+    sigdim: str = "channel",
+    lamdim: str = "y",
+    ax: plt.Axes = None,
+    figsize=(32, 6),
+    show_channel_ids=True,
+    tick_params=dict(axis="x", labelsize=8, labelrotation=90),
+    **imshow_kwargs
+):
+    """Plot a depth profile of values.
+    Requires 'y' coordinate on 'channel' dimension."""
+    xrsig.validate_laminar(da, sigdim, lamdim)
+    da = da.sortby(lamdim)
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+
+    tick_labels = list(np.round(da[lamdim].values, 1))
+    if show_channel_ids:
+        tick_labels = list(zip(tick_labels, da[sigdim].values))
+
+    da.plot.imshow(x=lamdim, ax=ax, **imshow_kwargs, add_colorbar=False)
+    ax.set_xticks(da[lamdim].values)
+    ax.set_xticklabels(tick_labels)
+    ax.tick_params(**tick_params)
+
+
 def add_structure_boundaries_to_laminar_plot(
     da: xr.DataArray,
     ax: plt.Axes,
     sigdim: str = "channel",
     struct_coord: str = "structure",
 ):
-    boundaries = da.isel({sigdim: get_boundary_ilocs(da, coord)})
+    boundaries = da.isel({sigdim: get_boundary_ilocs(da, struct_coord)})
     ax.set_yticks(boundaries[sigdim])
-    ax.set_yticklabels(boundaries[coord].values)
+    ax.set_yticklabels(boundaries[struct_coord].values)
     for ch in boundaries[sigdim]:
         ax.axhline(ch, alpha=0.5, color="dimgrey", linestyle="--")
 
