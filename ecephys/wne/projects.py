@@ -334,7 +334,7 @@ class Project:
         if simplify:
             hg = hg.replace_states(constants.SIMPLIFIED_STATES)
         return hg
-    
+
     def load_offs_df(
         self,
         experiment: str,
@@ -343,20 +343,17 @@ class Project:
         off_fname_suffix: str = constants.DF_OFF_FNAME_SUFFIX,
     ):
         """Load and aggregate off files across structures.
-        
+
         Loads and aggregate all files of the form
         `<probe>.<acronym>.<off_fname_suffix>` in the `offs` subdirectory
         of the project's experiment_subject_directory.
         """
-        off_dir = self.get_experiment_subject_directory(
-            experiment,
-            subject
-        )/"offs"
+        off_dir = self.get_experiment_subject_directory(experiment, subject) / "offs"
 
         structure_offs = []
         for f in off_dir.glob(f"{probe}.*{off_fname_suffix}"):
             structure_offs.append(ecephys.utils.read_htsv(f))
-        
+
         return pd.concat(structure_offs).reset_index(drop=True)
 
 
