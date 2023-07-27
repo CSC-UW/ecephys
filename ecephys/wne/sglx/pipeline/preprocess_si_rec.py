@@ -62,6 +62,16 @@ def _compute_peaks(
     peak_detection_params,
     job_kwargs,
 ):
+    # Backwards compatibility
+    if "local_radius_um" in peak_localization_params:
+        peak_localization_params = peak_localization_params.copy()
+        radius = peak_localization_params.pop("local_radius_um")
+        peak_localization_params["radius_um"] = radius
+    if "local_radius_um" in peak_detection_params:
+        peak_detection_params = peak_detection_params.copy()
+        radius = peak_detection_params.pop("local_radius_um")
+        peak_detection_params["radius_um"] = radius
+
     # Steps
     with Timing(name="Get noise levels: "):
         noise_levels = si.get_noise_levels(
@@ -250,10 +260,11 @@ def _prepro_drift_correction(
 
     # Only plot if we changed the motions and can't find the plots already
     plot_filepath = output_dir / "motion_summary.png"
+    old_plot_filepath = output_dir / "peak_displacement.png"
     make_debugging_plots = (
         rerun_existing
         or clean_motion
-        or not plot_filepath.exists()
+        or (not plot_filepath.exists() and not old_plot_filepath.exists()) # Don't re-plot for old sortings
     )
     if make_debugging_plots:
         with Timing(name="Plot motion: "):
