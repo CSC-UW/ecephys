@@ -654,6 +654,7 @@ class SpikeInterfacePostprocessingPipeline:
         sorting_basename: str = "sorting",
         postprocessing_name: str = "postpro",
         rerun_existing: bool = False,
+        n_jobs: int = 1,
     ):
         main_output_dir = sorting_pipeline.get_main_output_dir(
             sglxProject,
@@ -695,6 +696,7 @@ class SpikeInterfacePostprocessingPipeline:
             rerun_existing=rerun_existing,
             options_source=(postpro_output_dir / POSTPRO_OPTS_FNAME),
             hypnogram_source=hypnogram_source,
+            n_jobs=n_jobs,
         )
 
 
