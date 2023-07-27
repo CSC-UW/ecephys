@@ -186,15 +186,9 @@ def _prepro_drift_correction(
             peak_detection_params,
             job_kwargs,
         )
-        print("Save peaks/peak locations at :")
-        print(peaks_path)
-        print(peak_locations_path)
         np.save(peaks_path, peaks)
         np.save(peak_locations_path, peak_locations)
     else:
-        print("Load peaks/peak locations from :")
-        print(peaks_path)
-        print(peak_locations_path)
         peaks = np.load(peaks_path)
         # Allow loading peaks computed before CSC-UW/spikeinterface 71ae7a8e
         # (Effectively unused: we do NOT actually compute preprocessing and sorting with different versions of SI)
@@ -212,8 +206,6 @@ def _prepro_drift_correction(
             motion_method_params,
             motion_params,
         )
-        print("Save uncleaned motion at :")
-        print(motion_path)
         np.savez(
             motion_path,
             motion=motion,
@@ -222,8 +214,6 @@ def _prepro_drift_correction(
             **extra_check,
         )
     else:
-        print("Load uncleaned motion from :")
-        print(motion_path)
         npz = np.load(motion_path)
         motion = npz["motion"]
         temporal_bins = npz["temporal_bins"]
@@ -243,8 +233,6 @@ def _prepro_drift_correction(
             )
         else:
             motion_clean = motion
-        print("Save clean motion at :")
-        print(clean_motion_path)
         np.savez(
             clean_motion_path,
             motion=motion_clean,
@@ -252,8 +240,6 @@ def _prepro_drift_correction(
             spatial_bins=spatial_bins,
         )
     else:
-        print("Load clean motion from :")
-        print(clean_motion_path)
         npz = np.load(motion_path)
         motion_clean = npz["motion"]
         temporal_bins = npz["temporal_bins"]
@@ -271,7 +257,6 @@ def _prepro_drift_correction(
     )
     if make_debugging_plots:
         with Timing(name="Plot motion: "):
-            print(f"Save debugging figs at {plot_filepath}")
             fig = plot_motion(
                 si_rec,
                 peaks,
