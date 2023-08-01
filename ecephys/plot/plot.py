@@ -395,6 +395,7 @@ def plot_hypnogram_overlay(
     ymax=1,
     figsize=(18, 3),
     alpha=0.3,
+    zorder=-1,
 ) -> plt.Axes:
     """Shade plot background using hypnogram state.
 
@@ -404,6 +405,15 @@ def plot_hypnogram_overlay(
         Hypnogram with with state, start_time, end_time columns.
     ax: matplotlib.Axes, optional
         An axes upon which to plot.
+
+
+    Examples
+    --------
+    >>> fig, ax = plt.subplots()
+    Overlay into background, span whole plot yaxis
+    >>> ax = plot_hypnogram(hg, ax=ax)
+    Overlay into foreground, outside of plot yaxis
+    >>> ax = plot_hypnogram(hg, ax=ax, zorder=1000, ymin=1, ymax=1.1)
     """
     if (xlim == "ax") and (not ax is None):
         xlim = ax.get_xlim()
@@ -411,15 +421,20 @@ def plot_hypnogram_overlay(
     ax = check_ax(ax, figsize=figsize)
 
     for i, bout in hypnogram.iterrows():
+        # clip manually on xaxis so we can set clip_on=False for yaxis
+        if xlim is not None:
+            t1 = max(bout[t1_column], xlim[0])
+            t2 = min(bout[t2_column], xlim[1])
         ax.axvspan(
-            bout[t1_column],
-            bout[t2_column],
+            t1,
+            t2,
             alpha=alpha,
             color=state_colors[bout.state],
-            zorder=-1,
+            zorder=zorder,
             ec="none",
             ymin=ymin,
             ymax=ymax,
+            clip_on=False,
         )
 
     if xlim:
