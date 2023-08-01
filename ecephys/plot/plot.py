@@ -16,6 +16,8 @@ from ipywidgets import (
     interactive_output,
     jslink,
 )
+from matplotlib.ticker import MaxNLocator
+
 
 _colorblind = sns.color_palette("colorblind")
 _deep = sns.color_palette("deep")
@@ -96,6 +98,20 @@ def check_ax(ax, figsize=None):
         _, ax = plt.subplots(figsize=figsize)
 
     return ax
+
+
+def set_yticklabels_from_values(ylabels, ys, ax):
+
+    # https://matplotlib.org/stable/gallery/ticks/tick_labels_from_values.html
+    def format_fn(tick_val, tick_pos):
+        if int(tick_val) in ys:
+            return ylabels[int(tick_val)]
+        else:
+            return ''
+
+    # A FuncFormatter is created automatically.
+    ax.yaxis.set_major_formatter(format_fn)
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
 
 
 def plot_spike_train(
@@ -340,6 +356,28 @@ def plot_spectrogram(
 
     if yscale == "log":
         ax.set_ylim(np.min(freqs[freqs > 0]), np.max(freqs))
+
+
+def plot_heatmap(
+    array,
+    times,
+    ylabels=None,
+    figsize=(18, 6),
+    ax=None,
+    **kwargs,
+):
+    """Heatmap supporting time vector and a masked color array"""
+    ax = check_ax(ax, figsize=figsize)
+
+    plot = ax.pcolormesh(times, np.arange(array.shape[0]), array, **kwargs)
+    ax.set_facecolor("black")
+
+    plt.colorbar(plot)
+
+    if ylabels is not None: # Tick labels from values: https://matplotlib.org/stable/gallery/ticks/tick_labels_from_values.html
+        set_yticklabels_from_values(ylabels, range(array.shape[0]), ax)
+
+    return ax
 
 
 def plot_on_off_overlay(on_off_df, state_colors=on_off_colors, **kwargs):
