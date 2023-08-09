@@ -92,3 +92,25 @@ def _get_perievent_data(sigs, event_time, time, time_before, time_after):
     event_samples = np.logical_and(time >= window_start_time, time <= window_end_time)
 
     return sigs[event_samples, :], time[event_samples, :]
+
+
+def take(
+    a: np.ndarray, indices: np.ndarray, axis: int = 0, mode="fill", fill_value=np.nan
+) -> np.ndarray:
+    """Take elements from a along an axis, optionally filling with fill_value if indices are out of bounds.
+
+    Example:
+    take(a=np.eye(5), indices=np.asarray([-1, 0, 1]), axis=1, mode='fill', fill_value=np.nan)
+    array([[nan,  1.,  0.],
+        [nan,  0.,  1.],
+        [nan,  0.,  0.],
+        [nan,  0.,  0.],
+        [nan,  0.,  0.]])
+    """
+    _mode = "clip" if mode == "fill" else mode
+    taken = np.take(a, indices, axis=axis, mode=_mode)
+    if mode == "fill":
+        oob = [slice(None)] * a.ndim
+        oob[axis] = np.argwhere((indices < 0) | (indices > a.shape[axis] - 1)).squeeze()
+        taken[tuple(oob)] = fill_value
+    return taken

@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.signal import cwt, morlet2
 
-from ecephys.signal.utils import get_perievent_time, get_perievent_data
+from ecephys.npsig.utils import get_perievent_time, get_perievent_data
 
 
 def get_perievent_cwtm(evt_sig, fs, freq, normalize=False):

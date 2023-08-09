@@ -12,9 +12,9 @@ import ssqueezepy as ssq
 from scipy import signal
 from neurodsp import voltage, fourier
 import neuropixel
-import ecephys.signal
+import ecephys.npsig
 from ecephys import hypnogram
-from ecephys.signal import filt
+from ecephys.npsig import filt
 from ecephys import plot as eplt
 from ecephys import utils as ece_utils
 
@@ -286,7 +286,7 @@ class Timeseries2D(Timeseries):
         assert np.all(
             np.diff(self["time"].values) >= 0
         ), "The times must be increasing."
-        Sfs, stft_times, Sxx = ecephys.signal.stft(
+        Sfs, stft_times, Sxx = ecephys.npsig.stft(
             self.values.T, self.fs, t0=float(self["time"][0]), **kwargs
         )
         return xr.DataArray(

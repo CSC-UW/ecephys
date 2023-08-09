@@ -1,9 +1,10 @@
 from math import gcd
 
+import colorcet
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-from ecephys.signal.utils import mean_subtract
+from ecephys.npsig.utils import mean_subtract
 from IPython.display import display
 from ipywidgets import (
     BoundedFloatText,
@@ -420,6 +421,7 @@ def lfp_explorer(
     lfps,
     ax,
     chan_labels=None,
+    chan_colors=None,
     window_length=None,
     window_start=None,
     n_plot_chans=None,
@@ -486,6 +488,9 @@ def lfp_explorer(
         linewidth=0.5,
     )
     ax.set_xlim([window_start, window_end])
+    if chan_colors is not None:
+        for idx, line in enumerate(ax.lines):
+            line.set_color(chan_colors[idx + i_chan])
 
     if chan_labels is None:
         chan_labels = np.arange(0, n_data_chans, 1)
@@ -726,3 +731,23 @@ def grouped_barplot(df, cat, subcat, val, err):
     plt.xticks(x, u)
     plt.legend()
     plt.show()
+
+
+def color_by_category(arr: np.ndarray, palette="glasbey_dark") -> tuple[list, dict]:
+    # First, get unique categories, preserving order of appearance
+    _, idx = np.unique(arr, return_index=True)
+    categories = arr[np.sort(idx)]
+
+    # Get colorap
+    if isinstance(palette, str):
+        if palette in colorcet.palette:
+            palette = colorcet.palette[palette]
+        else:
+            palette = plt.get_cmap(palette).colors
+        palette = sns.color_palette(palette, n_colors=categories.size)
+
+    # Assing colors
+    color_map = dict(zip(categories, palette))
+    arr_colored = [color_map[x] for x in arr]
+
+    return arr_colored, color_map

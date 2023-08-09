@@ -9,7 +9,7 @@ from . import (
     plot,
     sglx,
     sglxr,
-    signal,
+    npsig,
     tdtxr,
     sync,
     units,

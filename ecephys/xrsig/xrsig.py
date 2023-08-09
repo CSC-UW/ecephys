@@ -3,6 +3,7 @@ import os
 from typing import Optional
 
 import kcsd
+import matplotlib.pyplot as plt
 import neuropixel
 from neurodsp import fourier
 from neurodsp import voltage
@@ -14,8 +15,9 @@ from tqdm.auto import tqdm
 import xarray as xr
 
 import ecephys.emg_from_lfp
-import ecephys.signal as npsig
 from ecephys import utils
+from ecephys import npsig
+from ecephys import dasig
 from ecephys.utils import dask_utils
 
 logger = logging.getLogger(__name__)
@@ -358,7 +360,7 @@ def _stft(da: xr.DataArray, **kwargs) -> xr.DataArray:
     validate_2d_timeseries(da)
     dt = np.diff(da["time"].values)
     assert np.all(dt >= 0), "The times must be increasing."
-    Sfs, stft_times, Sxx = ecephys.signal.stft(
+    Sfs, stft_times, Sxx = ecephys.npsig.stft(
         da.values.T, da.fs, t0=float(da["time"][0]), **kwargs
     )
     return xr.DataArray(
@@ -411,16 +413,22 @@ def make_trialed(
 ) -> xr.DataArray:
     # It is absolutely necessary to have the data loaded into memory for decent performance.
     # xrsig.validate_timeseries(da, check_times=True)
+    n_frames_pre = int(pre * da.fs)
+    n_frames_post = int(post * da.fs)
     if event_frames is None:
         in_da = (event_times >= da.time.values[0] + pre) & (
             event_times <= da.time.values[-1] - post
         )
-        event_times = event_times[in_da]
-        event_frames = np.searchsorted(da.time.values, event_times)
-        event_times = da.time.values[event_frames]
+        event_frames = np.searchsorted(da.time.values, event_times[in_da])
+    else:
+        in_da = (event_frames >= n_frames_pre) & (
+            event_frames <= da.time.size - n_frames_post
+        )
+        event_frames = event_frames[in_da]
+    event_times = da.time.values[event_frames]
 
-    trial_start_frames = event_frames - int(pre * da.fs)
-    trial_end_frames = event_frames + int(post * da.fs)
+    trial_start_frames = event_frames - n_frames_pre
+    trial_end_frames = event_frames + n_frames_post
 
     trialinfo = pd.DataFrame(
         {
@@ -437,7 +445,7 @@ def make_trialed(
         ~(trialinfo >= da.time.size).any(axis=1)
     ]  # Remove events whose window ends after the data
 
-    num_trial_frames = int(pre * da.fs) + int(post * da.fs)
+    num_trial_frames = n_frames_pre + n_frames_post
     assert all(
         trialinfo["end_frame"] - trialinfo["start_frame"] == num_trial_frames
     ), "Trials are uniform length."
@@ -536,3 +544,66 @@ def ssq_cwt(da: xr.DataArray, sigdim: str = "channel", parallel=True, **cwt_kwar
         .sortby("frequency")
     )  # Regular transform
     return Tx, Wx
+
+
+def butter_bandpass(
+    da: xr.DataArray, lowcut: float, highcut: float, order: int, plot: bool = False
+) -> xr.DataArray:
+    validate_2d_timeseries(da)
+    res = da.copy()
+    if da.chunks is None:
+        res.values = npsig.filt.butter_bandpass(
+            res.values.T, lowcut, highcut, res.fs, order, plot
+        ).T
+    else:
+        res.data = dasig.butter_bandpass(
+            res.data,
+            lowcut,
+            highcut,
+            res.fs,
+            order,
+            time_axis=da.get_axis_num("time"),
+            plot=plot,
+        )
+    return res.__class__(res)
+
+
+def validate_3d_timeseries(
+    da: xr.DataArray,
+    timedim: str = "time",
+    sigdim: str = "channel",
+    evtdim: str = "event",
+    check_times: bool = False,
+):
+    if not da.dims == (timedim, sigdim, evtdim):
+        raise AttributeError(
+            f"Timeseries3D DataArray must have dimensions ({timedim}, {sigdim}, {evtdim})"
+        )
+    if not "fs" in da.attrs:
+        raise ValueError("Timeseries2D must have sampling rate attr `fs`")
+    if check_times and not np.all(np.diff(da[timedim].values) >= 0):
+        raise ValueError("Timeseries2D times must be monotonically increasing.")
+
+
+def demean_trialed(
+    da: xr.DataArray, mean_estimation_time=slice(None, None)
+) -> xr.DataArray:
+    validate_3d_timeseries(da)
+    baseline_means = da.sel(time=mean_estimation_time).mean(dim="time")
+    return (da - baseline_means).assign_attrs(**da.attrs)
+
+
+def detrend_trialed(
+    da: xr.DataArray, trend_estimation_time=slice(None, None)
+) -> xr.DataArray:
+    prestim_lfps = da.sel(time=trend_estimation_time)
+    print("Fitting detrend polynomial...")
+    p = prestim_lfps.polyfit(dim="time", deg=1)
+    print("Evaluating detrend polynomial...")
+    fit = xr.polyval(da["time"], p.polyfit_coefficients)
+    print("Subtracting detrend polynomial...")
+    return (da - fit).assign_attrs(**da.attrs)
+
+
+def get_channel_indices(da: xr.DataArray, channel_ids: np.ndarray) -> np.ndarray:
+    return np.argwhere(da["channel"].isin(channel_ids).values).squeeze()
