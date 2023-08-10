@@ -1,30 +1,17 @@
-from pathlib import Path
+import matplotlib.pyplot as plt
 import probeinterface as pi
 from ecephys.utils import siutils
-import json
-import logging
 
 import numpy as np
-from pyedflib import highlevel as edf
-import scipy.interpolate
-import xarray as xr
 
 from ecephys import utils
-from ecephys.wne import constants
 from ecephys.wne.sglx import SGLXProject
 from ecephys.wne.sglx import SGLXSubject
-import ecephys.wne.utils as wne_utils
 
-import pandas as pd
-from docopt import docopt
-
-import wisc_ecephys_tools as wet
-from ecephys import wne
 from ecephys import utils
-from ecephys.wne.sglx.pipeline.sorting_pipeline import SpikeInterfaceSortingPipeline
 
-from wisc_ecephys_tools.sortings import get_subject_probe_list
 import shutil
+
 
 def _prepare_motion_directory(
     project: SGLXProject,
@@ -134,6 +121,7 @@ def _save_channel_motion(
     channel_motion.plot(figsize=(20, 10)).figure.savefig(
         motion_dir/"channel_motion.png"
     )
+    plt.close()
 
 
 def do_sorting(

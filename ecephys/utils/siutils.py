@@ -16,12 +16,13 @@ def interpolate_motion_per_channel(
     si_motion,
     si_spatial_bins,
     si_temporal_bins,
-    sample2time = None,
+    sample2time,
 ) -> xr.DataArray:
     """
     Interpolate motion at each channel location and temporal bin.
 
-    Args:
+    Parameters
+    ----------
     channel_depths: np.array 1D
         Array-like of channel depths (y-axis location).
     sampling_rate: float
@@ -35,11 +36,14 @@ def interpolate_motion_per_channel(
     si_spatial_bins: np.array
         As returned by spikeinterface.estimate_motion
         Bins for non-rigid motion. If spatial_bins.sahpe[0] == 1 then rigid motion is used.
-    
-    Returns:
-    xarray.DataArray with coordinates "channel_depth" (um), "sample_index" (int), and "time"
-        if the `sample2time` conversion function is provided.
+    sample2time: func
+        As returned by SGLXProject.get_sample2time
 
+    Returns
+    -------
+    channel_motion: xarray.DataArray
+        da with dimensions "depth" and "time" dims & coordinates, and "sample_index" extra
+        coordinates
     """
     temporal_bins = np.asarray(si_temporal_bins)
     spatial_bins = np.asarray(si_spatial_bins)
@@ -53,9 +57,7 @@ def interpolate_motion_per_channel(
             (len(channel_depths), 1),
         )
     else:
-        channel_motions = np.empty(
-            (len(channel_depths), len(temporal_bins))
-        )
+        channel_motions = np.empty((len(channel_depths), len(temporal_bins)))
         for bin_ind, _ in enumerate(temporal_bins):
             # non rigid : interpolation channel motion for this temporal bin
             f = scipy.interpolate.interp1d(
@@ -83,12 +85,11 @@ def interpolate_motion_per_channel(
         coords=coords,
         name="channel_motion",
         attrs=[
-            ("depth", "um"), 
+            ("depth", "um"),
             ("sample_index", "None"),
             ("time", "secs (sample2time)"),
         ],
     )
-
 
 
 def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
@@ -97,8 +98,7 @@ def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
 
     if not isinstance(si_object, (se.BaseSorting, se.BaseRecording)):
         raise ValueError(
-            "Unrecognized datatype for si_object. "
-            "Expected spikeinterface BaseSorting or BaseRecording."
+            "Unrecognized datatype for si_object. " "Expected spikeinterface BaseSorting or BaseRecording."
         )
 
     frame_slice_kwargs = {}
@@ -110,7 +110,7 @@ def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
                 "The sorting object has spikes exceeding the recording duration. You have to remove those spikes "
                 "with the `spikeinterface.curation.remove_excess_spikes()` function"
             )
-        frame_slice_kwargs = {'check_spike_frames': False}
+        frame_slice_kwargs = {"check_spike_frames": False}
 
     si_segments = []
     for epoch in epochs_df.itertuples():
@@ -143,9 +143,7 @@ def load_kilosort_bin_as_si_recording(
     ks_output_dir = Path(ks_output_dir)
     recording_path = ks_output_dir / fname
     if not recording_path.exists():
-        raise ValueError(
-            f"Could not find bin file used for sorting at {recording_path}"
-        )
+        raise ValueError(f"Could not find bin file used for sorting at {recording_path}")
 
     # Get recording.dat info from params.py
     d = {}
