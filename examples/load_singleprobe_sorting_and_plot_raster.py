@@ -6,20 +6,24 @@ sortingProjectName = "shared_sortings"
 subjectName = "CNPIX12-Santiago"
 probe = "imec1"
 experiment = "novel_objects_deprivation"
-alias = "full"
 sorting = "sorting"
 postprocessing = "postpro"
 sharedDataProjectName = "shared_s3"
 
 filters = {
-    "quality": {"good", "mua"}, # "quality" property is "group" from phy curation. Remove noise
+    "quality": {
+        "good",
+        "mua",
+    },  # "quality" property is "group" from phy curation. Remove noise
     "firing_rate": (0.0, float("Inf")),  # No need when plotting by depth
     # ...
 }
 
 # Plotter
 aggregate_spikes_by = "depth"  # "depth"/"cluster_id" or any other property
-tgt_struct_acronyms = None # Plot only target structures, in specific order. eg ["VM", "VL"]
+tgt_struct_acronyms = (
+    None  # Plot only target structures, in specific order. eg ["VM", "VL"]
+)
 
 ### END USER
 
@@ -31,7 +35,6 @@ si_ks_sorting = load_singleprobe_sorting(
     sglxSortingProject,
     sglxSubject,
     experiment,
-    alias,
     probe,
     sorting=sorting,
     postprocessing=postprocessing,

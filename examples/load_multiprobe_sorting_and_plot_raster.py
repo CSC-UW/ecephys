@@ -5,7 +5,6 @@ from ecephys.wne.sglx.utils import load_multiprobe_sorting
 sortingProjectName = "shared_sortings"
 subjectName = "CNPIX12-Santiago"
 experiment = "novel_objects_deprivation"
-alias = "full"
 probes = [
     "imec1",
 ]
@@ -42,7 +41,6 @@ multiprobe_sorting = load_multiprobe_sorting(
     sglxSortingProject,
     sglxSubject,
     experiment,
-    alias,
     probes,
     sortings=sortings,
     postprocessings=postprocessings,

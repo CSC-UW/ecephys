@@ -93,8 +93,8 @@ def load_singleprobe_sorting(
     sglxSortingProject: SGLXProject,
     sglxSubject: SGLXSubject,
     experiment: str,
-    alias: str,
     probe: str,
+    alias: str = "full",
     sorting: str = "sorting",
     postprocessing: str = "postpro",
     wneAnatomyProject: Optional[Project] = None,
@@ -119,9 +119,9 @@ def load_singleprobe_sorting(
     extractor = sglxSortingProject.get_kilosort_extractor(
         sglxSubject.name,
         experiment,
-        alias,
         probe,
-        sorting,
+        alias=alias,
+        sorting=sorting,
         postprocessing=postprocessing,
     )
 
@@ -139,7 +139,10 @@ def load_singleprobe_sorting(
         structs = utils.read_htsv(anatomy_file)
     else:
         import warnings
-        warnings.warn("Could not find anatomy file at: {anatomy_file}. Using dummy structure table")
+
+        warnings.warn(
+            "Could not find anatomy file at: {anatomy_file}. Using dummy structure table"
+        )
         structs = units.siutils.get_dummy_structure_table(lo=-np.Inf, hi=np.Inf)
     extractor = units.siutils.add_anatomy_properties_to_extractor(extractor, structs)
 
@@ -150,8 +153,8 @@ def load_multiprobe_sorting(
     sglxSortingProject: SGLXProject,
     sglxSubject: SGLXSubject,
     experiment: str,
-    alias: str,
     probes: list[str],
+    alias: str = "full",
     sortings: dict[str, str] = None,
     postprocessings: dict[str, str] = None,
     wneAnatomyProject: Optional[Project] = None,
@@ -168,8 +171,8 @@ def load_multiprobe_sorting(
                 sglxSortingProject,
                 sglxSubject,
                 experiment,
-                alias,
                 probe=probe,
+                alias=alias,
                 sorting=sortings[probe],
                 postprocessing=postprocessings[probe],
                 wneAnatomyProject=wneAnatomyProject,

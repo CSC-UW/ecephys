@@ -11,15 +11,19 @@ example:
 python run_off_detection.py experiment alias CNPIX4-Doppio,imec0
 """
 parser = argparse.ArgumentParser(
-    description=(
-        f"Run off detection."
-    ),
+    description=(f"Run off detection."),
     epilog=example_text,
     formatter_class=argparse.RawDescriptionHelpFormatter,
 )
 parser.add_argument("experiment", type=str, help="Name of experiment we run off for.")
-parser.add_argument("alias", type=str, help="Name of alias we run off for.")
-parser.add_argument("subject_probe", type=str, help="Target probe. Comma-separated string of the form `'<subjectName>,<probe>'")
+parser.add_argument(
+    "alias", type=str, help="Name of alias we run off for."
+)  # TODO: Remove? Not used?
+parser.add_argument(
+    "subject_probe",
+    type=str,
+    help="Target probe. Comma-separated string of the form `'<subjectName>,<probe>'",
+)
 args = parser.parse_args()
 
 experiment = args.experiment
@@ -31,13 +35,13 @@ subjectName, probe = subject_probe.split(",")
 sortingProjectName = "shared_sortings"
 sorting = None
 postprocessing = None
-filters= {
+filters = {
     "quality": {"good", "mua"},
-} # Exclude noise
+}  # Exclude noise
 
 # Params for OFF detection
 # tgt_states = None  # List of vigilance states over which we subset spikes. We automatically exclude NoData and bouts before/after start/end of recording
-tgt_states=["NREM", "Wake", "REM"]
+tgt_states = ["NREM", "Wake", "REM"]
 split_by_state = True
 
 on_off_method = "hmmem"
@@ -74,27 +78,30 @@ spatial_params = None
 # }  # Only if spatial_detection = True
 
 # tgt_structure_acronyms=["Po", "VM"]
-tgt_structure_acronyms = None  # List of acronyms of structures to include. All structures if None
+tgt_structure_acronyms = (
+    None  # List of acronyms of structures to include. All structures if None
+)
 # structure_acronyms_to_ignore = []
 structure_acronyms_to_ignore = [
-    'CLA',
-    'HY',
-    'NAc',
-    'NAc-c',
-    'NAc-sh',
-    'SN',
-    'V',
-    'ZI',
-    'ZI-cBRF',
-    'cc-ec-cing-dwn',
-    'cfp',
-    'eml',
-    'ic-cp-lfp-py',
-    'ml',
-    'wmt',
+    "CLA",
+    "HY",
+    "NAc",
+    "NAc-c",
+    "NAc-sh",
+    "SN",
+    "V",
+    "ZI",
+    "ZI-cBRF",
+    "cc-ec-cing-dwn",
+    "cfp",
+    "eml",
+    "ic-cp-lfp-py",
+    "ml",
+    "wmt",
 ]
 
 n_jobs = 10  # Only for spatial OFF detection
+
 
 # Output Path
 # Saves at /path/to/project/<experiment>/<subject>/offs/<off_df_fname>
@@ -111,14 +118,18 @@ def get_off_df_fname(acronym=None):
     fname += ".htsv"
     return fname
 
+
 outputProjectName = "shared_s3"
 
 ###
 
-off_dirpath = wet.get_wne_project(outputProjectName).get_experiment_subject_directory(
-    experiment, 
-    subjectName, 
-)/"offs"
+off_dirpath = (
+    wet.get_wne_project(outputProjectName).get_experiment_subject_directory(
+        experiment,
+        subjectName,
+    )
+    / "offs"
+)
 off_dirpath.mkdir(exist_ok=True, parents=True)
 
 print(f"\nWill save OFFs at eg {off_dirpath/get_off_df_fname('<acronym>')}\n")
@@ -132,23 +143,19 @@ sorting = load_singleprobe_sorting(
     sortingProject,
     sglxSubject,
     experiment,
-    alias,
     probe,
-    sorting,
-    postprocessing,
+    alias=alias,
+    sorting=sorting,
+    postprocessing=postprocessing,
     wneAnatomyProject=anatomyProject,
 )
 sorting = sorting.refine_clusters(
-    simple_filters=filters, # Exclude noise
-    callable_filters = None,
+    simple_filters=filters,  # Exclude noise
+    callable_filters=None,
     include_nans=True,
 )
 
-hg = hypnogramProject.load_float_hypnogram(
-    experiment,
-    sglxSubject.name,
-    simplify=True
-)
+hg = hypnogramProject.load_float_hypnogram(experiment, sglxSubject.name, simplify=True)
 
 # Remove structures to ignore
 all_structures = sorting.structures_by_depth
@@ -158,10 +165,7 @@ sorting = sorting.select_structures(
 print("Structures to run:", sorting.structures_by_depth)
 
 for acronym in sorting.structures_by_depth:
-
-    structure_sorting = sorting.select_structures(
-        [acronym]
-    )
+    structure_sorting = sorting.select_structures([acronym])
 
     off_df = structure_sorting.run_off_detection(
         hg,
@@ -176,7 +180,7 @@ for acronym in sorting.structures_by_depth:
     off_df["structure"] = acronym
     off_df["acronym"] = acronym
 
-    savepath = off_dirpath/get_off_df_fname(acronym)
+    savepath = off_dirpath / get_off_df_fname(acronym)
     print(f"Save aggregate off frame at {savepath}")
 
     if len(off_df):

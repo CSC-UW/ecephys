@@ -161,7 +161,12 @@ class Project:
         return list(opts["probes"].keys())
 
     def get_main_sorting_dir(
-        self, subject: str, experiment: str, alias: str, probe: str, sorting: str
+        self,
+        subject: str,
+        experiment: str,
+        probe: str,
+        alias: str = "full",
+        sorting: str = "sorting",
     ):
         return (
             self.get_alias_subject_directory(experiment, alias, subject)
@@ -172,8 +177,8 @@ class Project:
         self,
         subject: str,
         experiment: str,
-        alias: str,
         probe: str,
+        alias: str = "full",
         sorting: str = "sorting",
         postprocessing: str = "postpro",
     ) -> se.KiloSortSortingExtractor:
@@ -201,7 +206,7 @@ class Project:
         ]
 
         main_sorting_dir = self.get_main_sorting_dir(
-            subject, experiment, alias, probe, sorting
+            subject, experiment, probe, alias=alias, sorting=sorting
         )
         sorter_output_dir = main_sorting_dir / "si_output/sorter_output"
         assert (
@@ -247,13 +252,13 @@ class Project:
         self,
         subject: str,
         experiment: str,
-        alias: str,
         probe: str,
+        alias: str = "full",
         sorting: str = "sorting",
         postprocessing: str = "postpro",
     ):
         main_sorting_dir = self.get_main_sorting_dir(
-            subject, experiment, alias, probe, sorting
+            subject, experiment, probe, alias=alias, sorting=sorting
         )
         postprocessing_dir = main_sorting_dir / postprocessing
         hyp_path = postprocessing_dir / "hypnogram.htsv"
