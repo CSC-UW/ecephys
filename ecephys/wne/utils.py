@@ -20,11 +20,15 @@ def open_lfps(
     drop_duplicate_times=False,
     chunks="auto",
     anatomy_proj: SGLXProject = None,
+    fname_prefix: str = None,
     **xr_kwargs,
 ):
-    lf_file = project.get_experiment_subject_file(
-        experiment, subject, f"{probe}{constants.LFP_EXT}"
+    fname = (
+        f"{fname_prefix}.{probe}{constants.LFP_EXT}"
+        if fname_prefix is not None
+        else f"{probe}{constants.LFP_EXT}"
     )
+    lf_file = project.get_experiment_subject_file(experiment, subject, fname)
     lf = xr.open_dataarray(lf_file, engine="zarr", chunks=chunks, **xr_kwargs)
     lf = lf.drop_vars("datetime", errors="ignore")
     # When loaded, attempting to access lf.chunksizes (or use fns that leverage chunking) will result in the following:

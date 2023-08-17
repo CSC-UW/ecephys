@@ -4,6 +4,7 @@ from typing import Optional
 
 import kcsd
 import matplotlib.pyplot as plt
+import mne.filter
 import neuropixel
 from neurodsp import fourier
 from neurodsp import voltage
@@ -77,6 +78,38 @@ def decimate_timeseries(da: xr.DataArray, q: int) -> xr.DataArray:
     )
     res.attrs["fs"] = da.fs / q
     return res
+
+
+def antialiasing_filter(da: xr.DataArray, q: int) -> xr.DataArray:
+    validate_2d_timeseries(da)
+    res = da.copy()
+    if da.chunks is None:
+        res.values = npsig.antialiasing_filter(
+            da.values, q, time_axis=da.get_axis_num("time")
+        )
+    else:
+        res.data = dasig.antialiasing_filter(
+            res.data,
+            res.fs,
+            q,
+            time_axis=da.get_axis_num("time"),
+        )
+    return res.__class__(res)
+
+
+def mne_filter(
+    da: xr.DataArray, l_freq: float, h_freq: float, **kwargs
+) -> xr.DataArray:
+    validate_2d_timeseries(da)
+    res = da.copy()
+    if da.chunks is None:
+        original_dtype = res.dtype
+        res.values = mne.filter.filter_data(
+            da.values.T.astype(np.float64), da.fs, l_freq, h_freq, **kwargs
+        ).T.astype(original_dtype)
+    else:
+        res.data = dasig.mne_filter(res.data.T, res.fs, l_freq, h_freq, **kwargs).T
+    return res.__class__(res)
 
 
 def spatially_interpolate_timeseries(
@@ -565,6 +598,18 @@ def butter_bandpass(
             time_axis=da.get_axis_num("time"),
             plot=plot,
         )
+    return res.__class__(res)
+
+
+def moving_transform(
+    da: xr.DataArray, window: float, step: float, method: str
+) -> xr.DataArray:
+    validate_2d_timeseries(da)
+    res = da.copy()
+    if da.chunks is None:
+        res.values = npsig.moving_transform(res.values, res.fs, window, step, method)
+    else:
+        res.data = dasig.moving_transform(res.data, res.fs, window, step, method)
     return res.__class__(res)
 
 

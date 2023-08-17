@@ -51,3 +51,17 @@ def estimate_impulse_response_len(b, a, eps=1e-3):
     approx_impulse_len = int(np.ceil(np.log(eps) / np.log(r)))
 
     return approx_impulse_len
+
+
+def antialiasing_filter(x: np.ndarray, q: int, time_axis=0) -> np.ndarray:
+    result_type = x.dtype
+    assert (result_type == np.float64) or (
+        result_type == np.float32
+    ), "Data must be float64 or float32."
+    assert (
+        q < 13
+    ), "It is recommended to call `decimate` multiple times for downsampling factors higher than 13. See scipy.signal.decimate docs."
+    n = 8
+    sos = scipy.signal.cheby1(n, 0.05, 0.8 / q, output="sos")
+    sos = np.asarray(sos, dtype=result_type)
+    return scipy.signal.sosfiltfilt(sos, x, axis=time_axis)
