@@ -63,7 +63,7 @@ publication_colors = {
     "NREM": _pub_nrem,
     "N1": _pub_nrem,
     "N2": _pub_nrem,
-    "IS": _pub_rem,
+    "IS": _pub_nrem,
     "REM": _pub_rem,
     "Art": _pub_nodata,
     "Artifact": _pub_nodata,
