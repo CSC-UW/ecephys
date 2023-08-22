@@ -49,6 +49,7 @@ dependencies = [
     "Statsmodels",
     "tdt",
     "xarray[complete]",
+    "yasa",
 ]
 
 [project.optional-dependencies]
