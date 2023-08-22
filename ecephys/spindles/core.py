@@ -301,13 +301,7 @@ def get_decision_function(
     idx_sum = idx_rel_pow + idx_mcorr + idx_mrms
 
     w = int(convolution_window_length_sec * fs)
-    weight = xr.DataArray(np.ones(w) / w, dims=["convolution_window"])
-    idx_sum = (
-        idx_sum.rolling(time=w, center=True)
-        .construct(time="convolution_window")
-        .dot(weight)
-    )
-    idx_sum = idx_sum.fillna(0)
+    idx_sum.data[:, 0] = np.convolve(idx_sum.data[:, 0], np.ones((w,)), mode='same') / w
 
     return idx_sum
 
