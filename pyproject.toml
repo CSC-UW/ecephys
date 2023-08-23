@@ -24,6 +24,7 @@ dependencies = [
     "dask[complete]",
     "deepdiff",
     "docopt",
+    "elephant",
     "ephyviewer",
     "horology",
     "ibllib",
