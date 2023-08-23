@@ -204,9 +204,10 @@ def get_mrms_thresholds(
     std_dev_threshold: float,
     artifacts: pd.DataFrame,
     hg: hypnogram.FloatHypnogram,
+    reference_state: str = "NREM",
 ) -> xr.DataArray:
     t = mrms.time.values
-    good_nrem = hg.keep_states(["NREM"]).covers_time(t)
+    good_nrem = hg.keep_states([reference_state]).covers_time(t)
     for artifact in artifacts.itertuples():
         times_in_bout = (t >= artifact.start_time) & (t <= artifact.end_time)
         good_nrem[times_in_bout] = False

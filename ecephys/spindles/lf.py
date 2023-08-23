@@ -159,7 +159,7 @@ def detect_single_channel_lf_spindles(
         lf_chan.time.values,
     ).rename("Relative Sigma Power")
     mrms = common.get_single_channel_mrms(lf_sigma, params["mrms_window"], params["mrms_step"]).rename("Sigma RMS")
-    mrms_thresh = common.get_mrms_thresholds(mrms, params["mrms_stds_threshold"], artifacts, hg)
+    mrms_thresh = common.get_mrms_thresholds(mrms, params["mrms_stds_threshold"], artifacts, hg, reference_state="NREM")
     mcorr = common.get_single_channel_mcorr(lf_sigma, lf_broad, params["mcorr_window"], params["mcorr_step"]).rename(
         "Sigma-Broadband LFP Correlation"
     )
