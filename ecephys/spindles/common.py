@@ -69,7 +69,7 @@ def get_decision_function(
     fs: float,
 ):
     idx_sum = np.sum(
-        (da > thresh).astype(int) for da, thresh in signal_threshold_tuples
+        (da > thresh).astype(float) for da, thresh in signal_threshold_tuples
     )
 
     w = int(convolution_window_length_sec * fs)
