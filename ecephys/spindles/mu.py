@@ -33,21 +33,6 @@ def get_mu_spindle_detection_params() -> dict:
     )
 
 
-def get_mu_decision_function(
-    mrms: xr.DataArray,
-    mrms_threshold: float,
-    convolution_window_length_sec: float,
-    fs: float,
-) -> xr.DataArray:
-    idx_mrms = (mrms > mrms_threshold).astype(int)
-    idx_sum = idx_mrms
-
-    w = int(convolution_window_length_sec * fs)
-    idx_sum.data[:, 0] = np.convolve(idx_sum.data[:, 0], np.ones((w,)), mode="same") / w
-
-    return idx_sum
-
-
 def get_mu_spindle_properties(
     mu: xr.DataArray,
     mu_sigma: xr.DataArray,
@@ -108,12 +93,15 @@ def detect_mu_spindles_from_spiketrain(
         mu, params["sigma_lo"], params["sigma_hi"], **params["sigma_filter_kwargs"], verbose=False,
     ).rename("Sigma-filtered instantaneous_rate")
 
-    mrms = common.get_single_channel_mrms(mu_sigma, params["mrms_window"], params["mrms_step"]).rename("Sigma RMS")
-    mrms_thresh = common.get_mrms_thresholds(mrms, params["mrms_stds_threshold"], artifacts, hg, reference_state="NREM")
+    mrms = common.get_single_channel_moving_transform(mu_sigma, "rms", params["mrms_window"], params["mrms_step"]).rename("Sigma RMS")
+    mrms_thresh = common.get_xrsig_thresholds(mrms, params["mrms_stds_threshold"], artifacts, hg, reference_state="NREM")
 
-    decision_function = get_mu_decision_function(
-        mrms,
-        mrms_thresh,
+
+
+    decision_function = common.get_decision_function(
+        [
+            (mrms, mrms_thresh),
+        ],
         params["decision_function_convolution_window"],
         mu.fs,
     ).rename("Decision Function")

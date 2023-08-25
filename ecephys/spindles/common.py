@@ -1,4 +1,5 @@
 import logging
+from ecephys import plot
 import scipy.signal
 
 from ecephys import hypnogram
@@ -33,17 +34,17 @@ def get_relative_sigma_power(
     return rpow
 
 
-def get_single_channel_mrms(da_sigma: xr.DataArray, window: float, step: float) -> xr.DataArray:
-    mrms = xr.zeros_like(da_sigma)
-    _, mrms.values[:, 0] = yasa.moving_transform(
+def get_single_channel_moving_transform(da_sigma: xr.DataArray, method: str, window: float, step: float) -> xr.DataArray:
+    mda = xr.zeros_like(da_sigma)
+    _, mda.values[:, 0] = yasa.moving_transform(
         x=da_sigma.values.squeeze(),
         sf=da_sigma.fs,
         window=window,
         step=step,
-        method="rms",
+        method=method,
         interp=True,
     )
-    return mrms
+    return mda 
 
 
 def get_single_channel_mcorr(
@@ -61,6 +62,20 @@ def get_single_channel_mcorr(
     )
     return mcorr
 
+
+def get_decision_function(
+    signal_threshold_tuples: list[tuple],
+    convolution_window_length_sec: float,
+    fs: float,
+):
+    idx_sum = np.sum(
+        (da > thresh).astype(int) for da, thresh in signal_threshold_tuples
+    )
+
+    w = int(convolution_window_length_sec * fs)
+    idx_sum.data[:, 0] = np.convolve(idx_sum.data[:, 0], np.ones((w,)), mode="same") / w
+
+    return idx_sum
 
 def get_base_spindle_properties(
     da: xr.DataArray,
@@ -129,7 +144,6 @@ def get_base_spindle_properties(
         sp_osc = np.zeros(len(sp))
         sp_sym = np.zeros(len(sp))
         sp_abs = np.zeros(len(sp))
-        sp_rel = np.zeros(len(sp))
         sp_sta = np.zeros(len(sp))
         sp_pro = np.zeros(len(sp))
         trough_times[ch] = []
@@ -175,7 +189,6 @@ def get_base_spindle_properties(
             "Amplitude": sp_amp,
             "RMS": sp_rms,
             "AbsPower": sp_abs,
-            "RelPower": sp_rel,
             "Frequency": sp_freq,
             "Oscillations": sp_osc,
             "Symmetry": sp_sym,
@@ -191,6 +204,7 @@ def get_base_spindle_properties(
 
     if not len(df):
         return
+
     df[["Start", "Peak", "End"]] = df[["Start", "Peak", "End"]]
 
     if hg is not None:
@@ -199,40 +213,33 @@ def get_base_spindle_properties(
     return df, trough_times
 
 
-def get_mrms_thresholds(
-    mrms: xr.DataArray,
+def get_xrsig_thresholds(
+    da: xr.DataArray,
     std_dev_threshold: float,
     artifacts: pd.DataFrame,
     hg: hypnogram.FloatHypnogram,
     reference_state: str = "NREM",
 ) -> xr.DataArray:
-    t = mrms.time.values
+    """Get threshold from distribution across reference state."""
+    t = da.time.values
     good_nrem = hg.keep_states([reference_state]).covers_time(t)
     for artifact in artifacts.itertuples():
         times_in_bout = (t >= artifact.start_time) & (t <= artifact.end_time)
         good_nrem[times_in_bout] = False
-    mrms_thresh = (
-        mrms.isel(time=good_nrem).mean(dim="time") + mrms.isel(time=good_nrem).std(dim="time") * std_dev_threshold
+    da_thresh = (
+        da.isel(time=good_nrem).mean(dim="time") + da.isel(time=good_nrem).std(dim="time") * std_dev_threshold
     )
-    return mrms_thresh
+    return da_thresh 
 
 
 def examine_spindle(
     spindles: pd.DataFrame,
-    da: xr.DataArray,
-    lff_sigma: xr.DataArray,
-    rpow: xr.DataArray,
-    mrms: xr.DataArray,
-    mcorr: xr.DataArray,
-    decision_function: xr.DataArray,
-    rpow_thresh: float,
-    mrms_thresh: xr.DataArray,
-    mcorr_thresh: float,
-    decision_thresh: float,
+    signal_threshold_tuples: list[tuple],
     plot_duration: float = 6.0,
     i: int = None,
     t: float = None,
     channel: str = None,
+    hg = None,
 ):
     if t is None:
         if i is None:
@@ -242,6 +249,7 @@ def examine_spindle(
 
         t = evt.Start + evt.Duration / 2
     else:
+        evt = None
         assert channel is not None
         assert i is None
 
@@ -250,23 +258,19 @@ def examine_spindle(
 
     neighboring_evts = spindles.loc[(spindles["Start"] > t1) & (spindles["End"] < t2)]
 
-    fig, axes = plt.subplots(6, 1, figsize=(16, 8), sharex=True)
-    (ds_ax, sp_ax, rp_ax, rms_ax, corr_ax, idx_ax) = axes
+    fig, axes = plt.subplots(len(signal_threshold_tuples), 1, figsize=(16, 8), sharex=True)
 
-    da.sel(channel=channel, time=slice(t1, t2)).plot.line(x="time", ax=ds_ax)
-    lff_sigma.sel(channel=channel, time=slice(t1, t2)).plot.line(x="time", ax=sp_ax)
-    rpow.sel(channel=channel, time=slice(t1, t2)).plot.line(x="time", ax=rp_ax)
-    rp_ax.axhline(rpow_thresh, c="r")
-    mrms.sel(channel=channel, time=slice(t1, t2)).plot.line(x="time", ax=rms_ax)
-    rms_ax.axhline(mrms_thresh.sel(channel=channel), c="r")
-    mcorr.sel(channel=channel, time=slice(t1, t2)).plot.line(x="time", ax=corr_ax)
-    corr_ax.axhline(mcorr_thresh, c="r")
-    decision_function.sel(channel=channel, time=slice(t1, t2)).plot.line(x="time", ax=idx_ax)
-    idx_ax.axhline(decision_thresh, c="r")
+    for i, (sig, thresh) in enumerate(signal_threshold_tuples):
+        ax = axes[i]
+        sig.sel(channel=channel, time=slice(t1, t2)).plot.line(x="time", ax=ax)
+        if isinstance(thresh, (int, float)):
+            ax.axhline(thresh, c="r")
+        if isinstance(thresh, (xr.DataArray)):
+            ax.axhline(thresh.sel(channel=channel), c="r")
 
     for ax in axes:
 
-        if t is None:
+        if evt is not None:
             ax.axvline(evt.Start, c="g", ls=":")
             ax.axvline(evt.End, c="g", ls=":")
 
@@ -276,4 +280,12 @@ def examine_spindle(
 
         ax.set_title(None)
 
-    # return evt
+        if hg is not None:
+            plot.plot_hypnogram_overlay(hg, ax=ax)
+    
+    if evt is not None:
+        items = [f"{k}: {v}" for k, v in evt.items()]
+        items.insert(5, "\n")
+        title = ", ".join(items)
+        fig.suptitle(title)
+        return evt

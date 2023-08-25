@@ -60,27 +60,6 @@ def select_best_lf_spindle_channel(
     return best_channel
 
 
-def get_lf_decision_function(
-    rpow: xr.DataArray,
-    rpow_threshold: float,
-    mcorr: xr.DataArray,
-    mcorr_threshold: float,
-    mrms: xr.DataArray,
-    mrms_threshold: float,
-    convolution_window_length_sec: float,
-    fs: float,
-) -> xr.DataArray:
-    idx_rel_pow = (rpow > rpow_threshold).astype(int)
-    idx_mcorr = (mcorr > mcorr_threshold).astype(int)
-    idx_mrms = (mrms > mrms_threshold).astype(int)
-    idx_sum = idx_rel_pow + idx_mcorr + idx_mrms
-
-    w = int(convolution_window_length_sec * fs)
-    idx_sum.data[:, 0] = np.convolve(idx_sum.data[:, 0], np.ones((w,)), mode="same") / w
-
-    return idx_sum
-
-
 def get_lf_spindle_properties(
     lf: xr.DataArray,
     lf_sigma: xr.DataArray,
@@ -158,19 +137,18 @@ def detect_single_channel_lf_spindles(
         params["broadband_hi"],
         lf_chan.time.values,
     ).rename("Relative Sigma Power")
-    mrms = common.get_single_channel_mrms(lf_sigma, params["mrms_window"], params["mrms_step"]).rename("Sigma RMS")
-    mrms_thresh = common.get_mrms_thresholds(mrms, params["mrms_stds_threshold"], artifacts, hg, reference_state="NREM")
+    mrms = common.get_single_channel_moving_transform(lf_sigma, "rms", params["mrms_window"], params["mrms_step"]).rename("Sigma RMS")
+    mrms_thresh = common.get_xrsig_thresholds(mrms, params["mrms_stds_threshold"], artifacts, hg, reference_state="NREM")
     mcorr = common.get_single_channel_mcorr(lf_sigma, lf_broad, params["mcorr_window"], params["mcorr_step"]).rename(
         "Sigma-Broadband LFP Correlation"
     )
 
-    decision_function = get_lf_decision_function(
-        rpow,
-        params["relative_sigma_power_threshold"],
-        mcorr,
-        params["mcorr_threshold"],
-        mrms,
-        mrms_thresh,
+    decision_function = common.get_decision_function(
+        [
+            (rpow, params["relative_sigma_power_threshold"]),
+            (mcorr, params["mcorr_threshold"]),
+            (mrms, mrms_thresh),
+        ],
         params["decision_function_convolution_window"],
         lf_chan.fs,
     ).rename("Decision Function")
@@ -196,4 +174,38 @@ def detect_single_channel_lf_spindles(
         decision_function,
         spindles,
         troughs,
+    )
+
+
+def examine_lf_spindle(
+    spindles: pd.DataFrame,
+    lf: xr.DataArray,
+    lff_sigma: xr.DataArray,
+    rpow: xr.DataArray,
+    mrms: xr.DataArray,
+    mcorr: xr.DataArray,
+    decision_function: xr.DataArray,
+    rpow_thresh: float,
+    mrms_thresh: xr.DataArray,
+    mcorr_thresh: float,
+    decision_thresh: float,
+    plot_duration: float = 6.0,
+    i: int = None,
+    t: float = None,
+    channel: str = None,
+):
+    common.examine_spindle(
+        spindles,
+        [
+            (lf, None),
+            (lff_sigma, None),
+            (rpow, rpow_thresh),
+            (mrms, mrms_thresh),
+            (mcorr, mcorr_thresh),
+            (decision_function, decision_thresh), 
+        ],
+        plot_duration=plot_duration,
+        i=i,
+        t=t,
+        channel=channel
     )
