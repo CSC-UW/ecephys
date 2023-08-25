@@ -16,17 +16,26 @@ logger = logging.getLogger(__name__)
 def get_mu_spindle_detection_params() -> dict:
     return dict(
         instantaneous_rate_sfreq_hz=256, # Sampling frequency of gaussian-smoothed spike train
-        instantaneous_rate_gaussian_sigma_msec=10, # Width in msec of gaussian smoothing kernel
+        instantaneous_rate_gaussian_sigma_msec=5, # Width in msec of gaussian smoothing kernel
         sigma_lo=9,  # Minimum spindle frequency
         sigma_hi=16,  # Maximum spindle frequency
+        broadband_lo=0.5,  # Minimum broadband frequency
+        broadband_hi=None,  # Maximum broadband frequency
         sigma_filter_kwargs=dict(
             l_trans_bandwidth=1.5, h_trans_bandwidth=1.5, method="fir"
         ),  # Parameters for mne.filter.filter_data for sigma data
+        stft_window=2.0,  # Relative power STFT
+        stft_step=0.1,  # Relative power STFT
+        rpow_convolution_window = 0.3, # Smoothing of sigma relative power STFT
+        rpow_threshold = 0.15, # Smoothing of sigma relative power STFT
         mrms_window=0.5,  # Moving sigma RMS
         mrms_step=0.1,  # Moving sigma RMS
-        mrms_stds_threshold=1.5,  # Threshold for sigma RMS power, in STDs of the estimation interval mean
+        mrms_stds_threshold=1.,  # Threshold for sigma RMS power, in STDs of the estimation interval mean
+        # mptp_window=0.3,  # Moving peak to peak
+        # mptp_step=0.1,  # Moving  peak to peak
+        # mptp_stds_threshold=1.5,  # Threshold for moving peak to peak
         decision_function_convolution_window=0.1,  # Improve spindle start/end time estimation by smoothing decision index by this much
-        decision_function_threshold=0,  # Decision index above which an event is considered a spindle
+        decision_function_threshold=1.001,  # Decision index above which an event is considered a spindle
         min_distance=0.3,  # Spindles closer than this will be merged together
         min_duration=0.5,  # Minimum spindle duration
         max_duration=2.5,  # Maximum spindle duration
@@ -93,14 +102,38 @@ def detect_mu_spindles_from_spiketrain(
         mu, params["sigma_lo"], params["sigma_hi"], **params["sigma_filter_kwargs"], verbose=False,
     ).rename("Sigma-filtered instantaneous_rate")
 
+    # Smoothed relative power
+    spg = xrsig.stft(
+        mu,
+        n_fft=int(mu.fs * params["stft_window"]),
+        hop_len=int(mu.fs * params["stft_step"]),
+    )
+    rpow = common.get_relative_sigma_power(
+        spg,
+        params["sigma_lo"],
+        params["sigma_hi"],
+        params["broadband_lo"],
+        params["broadband_hi"],
+        mu.time.values,
+    ).rename("Relative Sigma Power")
+    # smooth
+    w = int(params["rpow_convolution_window"] * mu.fs)
+    rpow.data[:, 0] = np.convolve(rpow.data[:, 0], np.ones((w,)), mode="same") / w
+    rpow = rpow.rename("Smoothed relative sigma power")
+    rpow_thresh = common.get_xrsig_thresholds(rpow, params["rpow_stds_threshold"], artifacts, hg, reference_state="NREM")
+    rpow_thresh = params["rpow_threshold"]
+
     mrms = common.get_single_channel_moving_transform(mu_sigma, "rms", params["mrms_window"], params["mrms_step"]).rename("Sigma RMS")
     mrms_thresh = common.get_xrsig_thresholds(mrms, params["mrms_stds_threshold"], artifacts, hg, reference_state="NREM")
 
-
+    # mptp = common.get_single_channel_moving_transform(mu, "ptp", params["mptp_window"], params["mptp_step"]).rename("Moving peak-to-peak")
+    # mptp_thresh = common.get_xrsig_thresholds(mptp, params["mptp_stds_threshold"], artifacts, hg, reference_state="NREM")
 
     decision_function = common.get_decision_function(
         [
+            (rpow, rpow_thresh),
             (mrms, mrms_thresh),
+            # (mptp, mptp_thresh),
         ],
         params["decision_function_convolution_window"],
         mu.fs,
@@ -121,8 +154,12 @@ def detect_mu_spindles_from_spiketrain(
     return (
         mu_sigma,
         mu,
+        rpow,
+        rpow_thresh,
         mrms,
         mrms_thresh,
+        # mptp,
+        # mptp_thresh,
         decision_function,
         spindles,
         troughs,
@@ -133,9 +170,13 @@ def examine_mu_spindle(
     spindles: pd.DataFrame,
     mu: xr.DataArray,
     mu_sigma: xr.DataArray,
+    rpow: xr.DataArray,
     mrms: xr.DataArray,
+    # mptp: xr.DataArray,
     decision_function: xr.DataArray,
+    rpow_thresh: xr.DataArray,
     mrms_thresh: xr.DataArray,
+    # mptp_thresh: xr.DataArray,
     decision_thresh: float,
     plot_duration: float = 6.0,
     i: int = None,
@@ -148,7 +189,9 @@ def examine_mu_spindle(
         [
             (mu, None),
             (mu_sigma, None),
+            (rpow, rpow_thresh),
             (mrms, mrms_thresh),
+            # (mptp, mptp_thresh),
             (decision_function, decision_thresh), 
         ],
         plot_duration=plot_duration,
