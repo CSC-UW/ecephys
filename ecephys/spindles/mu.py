@@ -30,7 +30,7 @@ def get_mu_spindle_detection_params() -> dict:
         rpow_threshold = 0.15, # Smoothing of sigma relative power STFT
         mrms_window=0.5,  # Moving sigma RMS
         mrms_step=0.1,  # Moving sigma RMS
-        mrms_stds_threshold=1.,  # Threshold for sigma RMS power, in STDs of the estimation interval mean
+        mrms_stds_threshold=1.5,  # Threshold for sigma RMS power, in STDs of the estimation interval mean
         # mptp_window=0.3,  # Moving peak to peak
         # mptp_step=0.1,  # Moving  peak to peak
         # mptp_stds_threshold=1.5,  # Threshold for moving peak to peak
@@ -120,7 +120,7 @@ def detect_mu_spindles_from_spiketrain(
     w = int(params["rpow_convolution_window"] * mu.fs)
     rpow.data[:, 0] = np.convolve(rpow.data[:, 0], np.ones((w,)), mode="same") / w
     rpow = rpow.rename("Smoothed relative sigma power")
-    rpow_thresh = common.get_xrsig_thresholds(rpow, params["rpow_stds_threshold"], artifacts, hg, reference_state="NREM")
+    # rpow_thresh = common.get_xrsig_thresholds(rpow, params["rpow_stds_threshold"], artifacts, hg, reference_state="NREM")
     rpow_thresh = params["rpow_threshold"]
 
     mrms = common.get_single_channel_moving_transform(mu_sigma, "rms", params["mrms_window"], params["mrms_step"]).rename("Sigma RMS")
