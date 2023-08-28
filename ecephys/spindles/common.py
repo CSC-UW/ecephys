@@ -235,6 +235,7 @@ def get_xrsig_thresholds(
 def examine_spindle(
     spindles: pd.DataFrame,
     signal_threshold_tuples: list[tuple],
+    troughs=None,
     plot_duration: float = 6.0,
     i: int = None,
     t: float = None,
@@ -260,8 +261,8 @@ def examine_spindle(
 
     fig, axes = plt.subplots(len(signal_threshold_tuples), 1, figsize=(16, 8), sharex=True)
 
-    for i, (sig, thresh) in enumerate(signal_threshold_tuples):
-        ax = axes[i]
+    for j, (sig, thresh) in enumerate(signal_threshold_tuples):
+        ax = axes[j]
         sig.sel(channel=channel, time=slice(t1, t2)).plot.line(x="time", ax=ax)
         if isinstance(thresh, (int, float)):
             ax.axhline(thresh, c="r")
@@ -273,6 +274,10 @@ def examine_spindle(
         if evt is not None:
             ax.axvline(evt.Start, c="g", ls=":")
             ax.axvline(evt.End, c="g", ls=":")
+
+            if troughs is not None:
+                for trough_t in troughs[evt["Channel"]][i]:
+                    ax.axvline(trough_t, c="b", ls=":", lw=0.5)
 
         for e in neighboring_evts.itertuples():
             ax.axvline(e.Start, c="g", ls=":")
