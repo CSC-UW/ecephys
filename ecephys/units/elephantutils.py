@@ -41,8 +41,8 @@ def compute_instantaneous_rate_xrsig(
 
     neotrain = convert_to_neo_spiketrain(
         spiketrain_sec,
-        t_start_sec=t_start_sec,
-        t_stop_sec=t_stop_sec,
+        t_start_sec=min(t_start_sec, np.min(spiketrain_sec)),
+        t_stop_sec=max(t_stop_sec, np.max(spiketrain_sec)),
     )
 
     res = instantaneous_rate(
