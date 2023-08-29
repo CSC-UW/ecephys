@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.signal
 import ssqueezepy as ssq
 
 
@@ -9,20 +10,21 @@ def get_n_fft(fs, s):
     return (n_fft, s), (n_fft_fast, s_fast)
 
 
-def stft(
+def stft_psd(
     x: np.ndarray,
     fs: float,
-    window=None,
+    window="dpss",
     n_fft=None,
-    win_len=None,
     hop_len=None,
-    padtype="reflect",
-    dtype="float32",
     t0=0.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     See `help(ssqueezepy.stft)`.
-    Returns are ordered to match scipy.signal.spectrogram
+    Returns are ordered to match scipy.signal.spectrogram.
+    Returns are scaled as if using scaling=density kwarg in scipy.signal.spectrogram.
+    NO detrending is performed, as if setting detrend=False in scipy.signal.spectrogram.
+    Positive frequncies (+ DC, very important!) are returned.
+    To convert to dB, use 10 * np.log10(Sxx).
 
     Parameters
     ----------
@@ -35,34 +37,82 @@ def stft(
     stft_times: (n_chunks)
     Sx: (n_signals, n_frequencies, n_chunks)
     """
-
     if n_fft is None:
         _, (n_fft, s_fft) = get_n_fft(fs, s=1)
-        # print(f"n_fft not provided. Using STFT chunk size of {s_fft:.2f}s.")
     if hop_len is None:
         hop_len = n_fft // 4
-        # print(f"hop_len not provided. Using STFT hop length of {(hop_len / fs):.2f}s")
+    if window == "dpss":
+        window = scipy.signal.windows.dpss(n_fft, max(4, n_fft // 8), sym=False)
+    elif window == "tukey":
+        window = scipy.signal.windows.tukey(n_fft, alpha=0.25, sym=False)
+    elif isinstance(window, np.ndarray):
+        assert window.size == n_fft, "Window size must match n_fft"
+    else:
+        raise ValueError(f"Unsupported window type: {window}")
 
     Sx = ssq.stft(
         x,
         window=window,
         n_fft=n_fft,
-        win_len=win_len,
+        win_len=n_fft,
         hop_len=hop_len,
         fs=fs,
-        padtype=padtype,
+        padtype="reflect",
         modulated=False,
         derivative=False,
-        dtype=dtype,
+        dtype="float32",
     )
-    Sfs = ssq._ssq_stft._make_Sfs(Sx, fs)
+    Sfs = ssq._ssq_stft._make_Sfs(Sx, fs)  # This uses Sx dtype, so leave it here.
+
+    # Convert complex specturm to PSD
+    Sx = np.conjugate(Sx) * Sx  # (Sx.conj() * Sx).real == square(abs(Sx))
+    win = window.astype(Sx.dtype)  # complex64
+    scale = 1.0 / (fs * (win * win).sum())
+    Sx = Sx * scale
+
+    # Since we are using a one-sided spectrum, reassign power from negative frequencies
+    idxr = [
+        slice(None),
+    ] * Sx.ndim
+    freq_dim = Sx.ndim - 2
+    if n_fft % 2:
+        idxr[freq_dim] = slice(1, None)
+        Sx[tuple(idxr)] *= 2
+    else:
+        # Last point is unpaired Nyquist freq point, don't double
+        idxr[freq_dim] = slice(1, -1)
+        Sx[tuple(idxr)] *= 2
 
     (n_signals, n_samples) = x.shape
     stft_times = (
         np.linspace(0, n_samples, Sx.shape[-1], endpoint=False) + (hop_len / 2)
     ) / float(fs) + t0
 
-    return Sfs, stft_times, np.atleast_3d(np.abs(Sx))
+    return Sfs, stft_times, np.atleast_3d(Sx.real)
+
+
+def complex_stft(
+    x: np.ndarray,  # (n_signals, n_samples)
+    fs: float,
+    n_fft: int = None,
+    hop_len: int = None,
+    t0: float = 0.0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    if n_fft is None:
+        _, (n_fft, s_fft) = get_n_fft(fs, s=1)
+    if hop_len is None:
+        hop_len = n_fft // 4
+
+    fx, tx, Sxx = scipy.signal.spectrogram(
+        x,
+        fs=fs,
+        nperseg=n_fft,
+        noverlap=(n_fft - hop_len),
+        mode="complex",
+        detrend=False,
+    )
+
+    return fx, tx + t0, Sxx  # (n_signals, n_frequencies, n_segments)
 
 
 def cwt(

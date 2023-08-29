@@ -378,22 +378,56 @@ def get_segments(
     return segments
 
 
-def stft(da: xr.DataArray, gap_tolerance: float = 0.001, **kwargs) -> xr.DataArray:
+def stft_psd(da: xr.DataArray, gap_tolerance: float = 0.001, **kwargs) -> xr.DataArray:
     """Perform STFT, works on discontinuous segments of data that have been concatenated together."""
     validate_2d_timeseries(da)
     segments = get_segments(da, gap_tolerance=gap_tolerance)
     return xr.concat(
-        [_stft(da.isel(time=slice(i, j)), **kwargs) for i, j in segments],
+        [_stft_psd(da.isel(time=slice(i, j)), **kwargs) for i, j in segments],
         dim="time",
     )
 
 
-def _stft(da: xr.DataArray, **kwargs) -> xr.DataArray:
+def _stft_psd(da: xr.DataArray, **kwargs) -> xr.DataArray:
     """Only works for continuous segments of evenly-sample data."""
     validate_2d_timeseries(da)
     dt = np.diff(da["time"].values)
     assert np.all(dt >= 0), "The times must be increasing."
-    Sfs, stft_times, Sxx = ecephys.npsig.stft(
+    Sfs, stft_times, Sxx = ecephys.npsig.stft_psd(
+        da.values.T, da.fs, t0=float(da["time"][0]), **kwargs
+    )
+    return xr.DataArray(
+        Sxx,
+        dims=("channel", "frequency", "time"),
+        coords={
+            "frequency": Sfs,
+            "time": stft_times,
+            **da["channel"].coords,
+        },
+        attrs=da.attrs,
+    )
+
+
+def complex_stft(
+    da: xr.DataArray, gap_tolerance: float = 0.001, **kwargs
+) -> xr.DataArray:
+    """Perform STFT, works on discontinuous segments of data that have been concatenated together."""
+    validate_2d_timeseries(da)
+    segments = get_segments(da, gap_tolerance=gap_tolerance)
+    if "n_fft" in kwargs:
+        segments = [s for s in segments if s[1] - s[0] >= kwargs["n_fft"]]
+    return xr.concat(
+        [_complex_stft(da.isel(time=slice(i, j)), **kwargs) for i, j in segments],
+        dim="time",
+    )
+
+
+def _complex_stft(da: xr.DataArray, **kwargs) -> xr.DataArray:
+    """Only works for continuous segments of evenly-sample data."""
+    validate_2d_timeseries(da)
+    dt = np.diff(da["time"].values)
+    assert np.all(dt >= 0), "The times must be increasing."
+    Sfs, stft_times, Sxx = ecephys.npsig.complex_stft(
         da.values.T, da.fs, t0=float(da["time"][0]), **kwargs
     )
     return xr.DataArray(
