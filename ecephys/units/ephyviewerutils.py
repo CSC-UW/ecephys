@@ -65,7 +65,7 @@ def add_epochviewer_to_window(
     event_df: pd.DataFrame
         Frame with "start_time", "duration" and <name_column> columns
     """
-    assert all([c in events_df.columns for c in ["start_time", "state", "duration"]])
+    assert all([c in events_df.columns for c in ["start_time", "duration"] + [name_column]])
 
     all_names = events_df[name_column].unique()
     all_epochs = []

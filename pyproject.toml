@@ -24,6 +24,7 @@ dependencies = [
     "dask[complete]",
     "deepdiff",
     "docopt",
+    "elephant",
     "ephyviewer",
     "horology",
     "ibllib",
@@ -49,6 +50,7 @@ dependencies = [
     "Statsmodels",
     "tdt",
     "xarray[complete]",
+    "yasa",
 ]
 
 [project.optional-dependencies]
