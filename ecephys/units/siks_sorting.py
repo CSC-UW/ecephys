@@ -123,10 +123,6 @@ class SpikeInterfaceKilosortSorting:
         all_structure_acronyms = [s for s in self.properties["acronym"].unique()]
         if tgt_structure_acronyms is None:
             tgt_structure_acronyms = all_structure_acronyms
-        assert all([s in all_structure_acronyms for s in tgt_structure_acronyms]), (
-            f"Invalid value in `tgt_structure_acronyms={tgt_structure_acronyms}`. "
-            f"Available structures: {all_structure_acronyms}"
-        )
         new_obj = siutils.refine_clusters(
             self.si_obj, {"acronym": set(tgt_structure_acronyms)}, include_nans=False
         )
