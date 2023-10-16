@@ -233,12 +233,17 @@ class SpikeInterfaceSortingPipeline:
             self._wneSubject.name,
             f"{self._probe}.ap.{constants.ARTIFACTS_FNAME}",
         )
-        if artifacts_file.exists():
-            return utils.read_htsv(artifacts_file).reset_index(drop=True)
-        else:
+        if not artifacts_file.exists():
             raise FileNotFoundError(
                 f"Expected artifacts file at {artifacts_file}. "
                 f"Please create one or consider specifying a custom path to exclusions  in the `exclusions_source` kwarg."
+            )
+        exclusions = utils.read_htsv(artifacts_file).reset_index(drop=True)
+        MANDATORY_COLUMNS = ["fname", "start_time", "end_time", "type"]
+        if not all([c in exclusions.columns for c in MANDATORY_COLUMNS]):
+            raise ValueError(
+                f"Missing columns for exclusion file at {artifacts_file}.\n"
+                f"Expected the following columns: {MANDATORY_COLUMNS}"
             )
 
     def get_raw_si_recording(self) -> tuple[si.BaseRecording, pd.DataFrame]:
