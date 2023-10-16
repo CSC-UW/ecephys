@@ -66,8 +66,8 @@ class SpikeInterfaceSortingPipeline:
         basename: str,
         rerun_existing: bool = True,
         n_jobs: int = 1,
-        options_source: Union[str, Path] = "wneProject",
-        exclusions: Optional[pd.DataFrame] = None,
+        options_source: Union[str, Project, Path] = "wneProject",
+        exclusions_source: Union[str, Project, Path] = "wneProject",
     ):
         # These properties are private, because they should not be modified after instantiation
         self._wneProject = wneProject
@@ -80,10 +80,15 @@ class SpikeInterfaceSortingPipeline:
         self._basename = basename
 
         # Set the location where options should be loaded from. Either...
-        #   (1) wneProject
+        #   (1) "wneProject" -> main wneProject
+        #   (1) type "Project" -> another wneProject
         #   (2) A custom location of your choosing
         if options_source == "wneProject":
             self._opts_src = wneProject.get_experiment_subject_file(
+                experiment, wneSubject.name, constants.SORTING_PIPELINE_PARAMS_FNAME
+            )
+        elif isinstance(options_source, Project):
+            self._opts_src = options_source.get_experiment_subject_file(
                 experiment, wneSubject.name, constants.SORTING_PIPELINE_PARAMS_FNAME
             )
         else:
@@ -113,10 +118,16 @@ class SpikeInterfaceSortingPipeline:
                     f"Prior opts: {prior_opts}\n"
                 )
 
-        # Exclude artifacts found in the WNE project, unless overriden
-        self._exclusions = (
-            self.get_wne_artifacts() if exclusions is None else exclusions
-        )
+        # Set the location where exclusions should be loaded from. Either...
+        #   (1) "wneProject" -> main wneProject
+        #   (1) type "Project" -> another wneProject
+        #   (2) A custom location of your choosing
+        if exclusions_source == "wneProject":
+            self._exclusions = self.get_wne_artifacts(self._wneProject)
+        elif isinstance(exclusions_source, Project):
+            self._exclusions = self.get_wne_artifacts(exclusions_source)
+        else:
+            self._exclusions = utils.read_htsv(exclusions_source)
         # Ensure we use the same exclusions as previously
         prior_exclusions_path = self.main_output_dir / EXCLUSIONS_FNAME
         if prior_exclusions_path.exists():
@@ -216,8 +227,8 @@ class SpikeInterfaceSortingPipeline:
 
     ##### Preprocessing methods and properties #####
 
-    def get_wne_artifacts(self) -> pd.DataFrame:
-        artifacts_file = self._wneProject.get_experiment_subject_file(
+    def get_wne_artifacts(self, wne_project) -> pd.DataFrame:
+        artifacts_file = wne_project.get_experiment_subject_file(
             self._experiment,
             self._wneSubject.name,
             f"{self._probe}.ap.{constants.ARTIFACTS_FNAME}",
@@ -225,8 +236,9 @@ class SpikeInterfaceSortingPipeline:
         if artifacts_file.exists():
             return utils.read_htsv(artifacts_file).reset_index(drop=True)
         else:
-            return pd.DataFrame(
-                {"fname": [], "start_time": [], "end_time": [], "type": []}
+            raise FileNotFoundError(
+                f"Expected artifacts file at {artifacts_file}. "
+                f"Please create one or consider specifying a custom path to exclusions  in the `exclusions_source` kwarg."
             )
 
     def get_raw_si_recording(self) -> tuple[si.BaseRecording, pd.DataFrame]:
@@ -463,8 +475,6 @@ class SpikeInterfaceSortingPipeline:
                 f"Could not find all required files in {main_output_dir}"
             )
 
-        exclusions = utils.read_htsv(main_output_dir / EXCLUSIONS_FNAME)
-
         return SpikeInterfaceSortingPipeline(
             wneProject,
             wneSubject,
@@ -475,5 +485,5 @@ class SpikeInterfaceSortingPipeline:
             rerun_existing=rerun_existing,
             n_jobs=n_jobs,
             options_source=(main_output_dir / OPTS_FNAME),
-            exclusions=exclusions,
+            exclusions_source=(main_output_dir / EXCLUSIONS_FNAME),
         )
