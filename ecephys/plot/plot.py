@@ -405,7 +405,8 @@ def plot_hypnogram_overlay(
         Hypnogram with with state, start_time, end_time columns.
     ax: matplotlib.Axes, optional
         An axes upon which to plot.
-
+    xlim: str
+        "ax" or "hg"
 
     Examples
     --------
@@ -415,16 +416,24 @@ def plot_hypnogram_overlay(
     Overlay into foreground, outside of plot yaxis
     >>> ax = plot_hypnogram(hg, ax=ax, zorder=1000, ymin=1, ymax=1.1)
     """
-    if (xlim == "ax") and (not ax is None):
-        xlim = ax.get_xlim()
-
     ax = check_ax(ax, figsize=figsize)
+
+    if (xlim in ["ax", None]) and (not ax is None):
+        xlim = ax.get_xlim()
+    elif xlim == "hg":
+        xlim = (hypnogram[t1_column].min(), hypnogram[t2_column].max())
+    elif not isinstance(xlim, tuple(float)):
+        raise ValueError("Invalid value for `xlim` kwarg. Expected 'ax', 'hg' or a tuple")
 
     for i, bout in hypnogram.iterrows():
         # clip manually on xaxis so we can set clip_on=False for yaxis
-        if xlim is not None:
-            t1 = max(bout[t1_column], xlim[0])
-            t2 = min(bout[t2_column], xlim[1])
+        t1 = max(bout[t1_column], xlim[0])
+        t2 = min(bout[t2_column], xlim[1])
+
+        # Don't display out of range
+        if t1 > xlim[1] or t2 < xlim[0]:
+            continue
+
         ax.axvspan(
             t1,
             t2,
