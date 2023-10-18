@@ -126,6 +126,36 @@ def load_postprocessing_hypnogram_for_si_slicing(
     return df
 
 
+def load_sorting_excluded_segments(
+    sglxSortingProject: SGLXProject,
+    sglxSubject: SGLXSubject,
+    experiment: str,
+    probe: str,
+    alias: str = "full",
+    sorting: str = "sorting",
+    as_hypnogram : bool = True,
+) -> hypnogram.FloatHypnogram:
+    segments = sglxSortingProject.load_segments_table(
+        sglxSubject.name,
+        experiment, 
+        alias,
+        probe,
+        sorting,
+        return_all_segment_types = True
+    )
+    exclusions = segments.loc[segments["type"] != "keep"].copy()
+
+    if as_hypnogram:
+        # TODO: sync
+        exclusions["state"] = exclusions["type"]
+        exclusions["start_time"] = exclusions["segmentExpmtPrbAcqFirstTime"]
+        exclusions["end_time"] = exclusions["segmentExpmtPrbAcqLastTime"]
+        exclusions["duration"] = exclusions["end_time"] - exclusions["start_time"]
+        return hypnogram.FloatHypnogram(exclusions.loc[:, ["start_time", "end_time", "duration", "state"]])
+
+    return exclusions
+
+
 def load_singleprobe_sorting(
     sglxSortingProject: SGLXProject,
     sglxSubject: SGLXSubject,

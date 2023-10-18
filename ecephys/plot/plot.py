@@ -41,9 +41,11 @@ state_colors = {
     "REM": _colorblind[1],
     "Art": "crimson",
     "Artifact": "crimson",
+    "artifact": "crimson",
     "?": "crimson",
     "None": _colorblind[8],
     "NoData": "black",
+    "flat": "black",
     "Other": _colorblind[8],
     "Drug": "white",
 }
@@ -69,9 +71,11 @@ publication_colors = {
     "REM": _pub_rem,
     "Art": _pub_nodata,
     "Artifact": _pub_nodata,
+    "artifact": _pub_nodata,
     "None": _pub_unscored,
     "Other": _pub_unscored,
     "NoData": _pub_nodata,
+    "flat": _pub_nodata,
 }
 
 on_off_colors = {
