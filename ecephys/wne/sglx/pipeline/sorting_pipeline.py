@@ -245,6 +245,7 @@ class SpikeInterfaceSortingPipeline:
                 f"Missing columns for exclusion file at {artifacts_file}.\n"
                 f"Expected the following columns: {MANDATORY_COLUMNS}"
             )
+        return exclusions
 
     def get_raw_si_recording(self) -> tuple[si.BaseRecording, pd.DataFrame]:
         use_cached = isinstance(self._raw_si_recording, si.BaseRecording) and self._segments is not None
