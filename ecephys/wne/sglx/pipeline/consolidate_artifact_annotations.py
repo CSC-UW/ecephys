@@ -20,6 +20,21 @@ def do_experiment_probe_stream(
     data_project: SGLXProject,
     sync_project: SGLXProject,
 ):
+    """
+    Consolidate per-trigger-file artifacts.
+    """
+
+    raise NotImplementedError(
+        """
+        This needs discussion/resolution:
+        - Using this function may overwrite previously existing manually annotated artifacts files
+        - There's a conflict in definition of `start_time`/`end_time` between
+        what this function does (start/end_time as experiment' canonical timebase) and what is currently the case in
+        in existing artifact files, and what is expected by the sorting pipeline 
+        (start/end_time as file-based).
+        """
+    )
+
     artifacts = list()
     ftab = sglx_subject.get_experiment_frame(
         experiment, stream=stream, ftype="bin", probe=probe
