@@ -160,19 +160,6 @@ class Project:
         )
         return list(opts["probes"].keys())
 
-    def get_main_sorting_dir(
-        self,
-        subject: str,
-        experiment: str,
-        probe: str,
-        alias: str = "full",
-        sorting: str = "sorting",
-    ):
-        return (
-            self.get_alias_subject_directory(experiment, alias, subject)
-            / f"{sorting}.{probe}"
-        )
-
     def get_kilosort_extractor(
         self,
         subject: str,
@@ -207,8 +194,9 @@ class Project:
             "structure",
         ]
 
-        main_sorting_dir = self.get_main_sorting_dir(
-            subject, experiment, probe, alias=alias, sorting=sorting
+        main_sorting_dir = (
+            self.get_alias_subject_directory(experiment, alias, subject)
+            / f"{sorting}.{probe}"
         )
         sorter_output_dir = main_sorting_dir / "si_output/sorter_output"
         assert (
@@ -271,29 +259,6 @@ class Project:
                     )
 
         return extractor
-
-    def get_sorting_hypnogram(
-        self,
-        subject: str,
-        experiment: str,
-        probe: str,
-        alias: str = "full",
-        sorting: str = "sorting",
-        postprocessing: str = "postpro",
-    ):
-        main_sorting_dir = self.get_main_sorting_dir(
-            subject, experiment, probe, alias=alias, sorting=sorting
-        )
-        postprocessing_dir = main_sorting_dir / postprocessing
-        hyp_path = postprocessing_dir / "hypnogram.htsv"
-
-        if not hyp_path.exists():
-            import warnings
-
-            warnings.warn(f"No `hypnogram.htsv` file in postpro dir. Returning None")
-            return None
-
-        return ecephys.utils.read_htsv(hyp_path)
 
     def get_sharptrack(
         self, subject: str, experiment: str, probe: str
