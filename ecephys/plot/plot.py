@@ -422,7 +422,7 @@ def plot_hypnogram_overlay(
         xlim = ax.get_xlim()
     elif xlim == "hg":
         xlim = (hypnogram[t1_column].min(), hypnogram[t2_column].max())
-    elif not isinstance(xlim, tuple(float)):
+    elif not isinstance(xlim, tuple):
         raise ValueError("Invalid value for `xlim` kwarg. Expected 'ax', 'hg' or a tuple")
 
     for i, bout in hypnogram.iterrows():
