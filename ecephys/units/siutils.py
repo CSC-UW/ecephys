@@ -36,44 +36,45 @@ def get_sorting_info(ks_dir):
 # I don't think we should use KSLabel at all, rather keep the property as "unsorted"
 # I don't think there is an issue with isi_violations_ratio
 def load_extractor(kilosort_output_dir) -> se.KiloSortSortingExtractor:
-    """Get a KiloSort extractor, with various corrections made."""
-    extractor = se.KiloSortSortingExtractor(kilosort_output_dir)
-    property_keys = extractor.get_property_keys()
+    raise ValueError("Deprecated function. Use Project.get_kilosort_extractor")
+#     """Get a KiloSort extractor, with various corrections made."""
+#     extractor = se.KiloSortSortingExtractor(kilosort_output_dir)
+#     property_keys = extractor.get_property_keys()
 
-    # Fix isi_violations_ratio
-    if all(
-        np.isin(
-            ["isi_violations_rate", "firing_rate", "isi_violations_ratio"],
-            property_keys,
-        )
-    ):
-        logger.info("Re-computing and overriding values for isi_violations_ratio.")
-        extractor.set_property(
-            "isi_violations_ratio",
-            extractor.get_property("isi_violations_rate")
-            / extractor.get_property("firing_rate"),
-        )
+#     # Fix isi_violations_ratio
+#     if all(
+#         np.isin(
+#             ["isi_violations_rate", "firing_rate", "isi_violations_ratio"],
+#             property_keys,
+#         )
+#     ):
+#         logger.info("Re-computing and overriding values for isi_violations_ratio.")
+#         extractor.set_property(
+#             "isi_violations_ratio",
+#             extractor.get_property("isi_violations_rate")
+#             / extractor.get_property("firing_rate"),
+#         )
 
-    # KiloSort labels noise clusters as nan. Replacing with `noise` to match SI behavior.
-    if "KSLabel" in property_keys:
-        logger.info(
-            "KiloSort labels noise clusters as nan. Replacing with `noise` to match SI behavior."
-        )
-        kslabel = extractor.get_property("KSLabel")
-        kslabel[pd.isna(kslabel)] = "noise"
-        extractor.set_property("KSLabel", kslabel)
+#     # KiloSort labels noise clusters as nan. Replacing with `noise` to match SI behavior.
+#     if "KSLabel" in property_keys:
+#         logger.info(
+#             "KiloSort labels noise clusters as nan. Replacing with `noise` to match SI behavior."
+#         )
+#         kslabel = extractor.get_property("KSLabel")
+#         kslabel[pd.isna(kslabel)] = "noise"
+#         extractor.set_property("KSLabel", kslabel)
 
-    # If any clusters are uncurated, assign the KiloSort label
-    if all(np.isin(["quality", "KSLabel"], property_keys)):
-        quality = extractor.get_property("quality")
-        uncurated = pd.isna(quality)
-        if any(uncurated):
-            logger.info(f"{uncurated.sum()} clusters are uncurated. Applying KSLabel.")
-            kslabel = extractor.get_property("KSLabel")
-            quality[uncurated] = kslabel[uncurated]
-            extractor.set_property("quality", quality)
+#     # If any clusters are uncurated, assign the KiloSort label
+#     if all(np.isin(["quality", "KSLabel"], property_keys)):
+#         quality = extractor.get_property("quality")
+#         uncurated = pd.isna(quality)
+#         if any(uncurated):
+#             logger.info(f"{uncurated.sum()} clusters are uncurated. Applying KSLabel.")
+#             kslabel = extractor.get_property("KSLabel")
+#             quality[uncurated] = kslabel[uncurated]
+#             extractor.set_property("quality", quality)
 
-    return extractor
+#     return extractor
 
 
 def add_anatomy_properties_to_extractor(
@@ -123,24 +124,27 @@ def get_dummy_structure_table(lo, hi):
 
 
 # TODO: Is this not used anymore? If not, why not?
-def fix_isi_violations_ratio(
-    extractor: se.KiloSortSortingExtractor,
-) -> se.KiloSortSortingExtractor:
-    """Kilosort computes isi_violations_ratio incorrectly, so fix it."""
-    property_keys = extractor.get_property_keys()
-    if all(
-        np.isin(
-            ["isi_violations_rate", "firing_rate", "isi_violations_ratio"],
-            property_keys,
-        )
-    ):
-        logger.info("Re-computing and overriding values for isi_violations_ratio.")
-        extractor.set_property(
-            "isi_violations_ratio",
-            extractor.get_property("isi_violations_rate")
-            / extractor.get_property("firing_rate"),
-        )
-    return extractor
+# TB: I don't think there is an issue with isi_violations_ratio.
+# And if there is, the mistaken metric has been used throughout for 7 years and in Allen so
+# I prefer to remain consistent ... or file an issue in SI
+# def fix_isi_violations_ratio(
+#     extractor: se.KiloSortSortingExtractor,
+# ) -> se.KiloSortSortingExtractor:
+#     """Kilosort computes isi_violations_ratio incorrectly, so fix it."""
+#     property_keys = extractor.get_property_keys()
+#     if all(
+#         np.isin(
+#             ["isi_violations_rate", "firing_rate", "isi_violations_ratio"],
+#             property_keys,
+#         )
+#     ):
+#         logger.info("Re-computing and overriding values for isi_violations_ratio.")
+#         extractor.set_property(
+#             "isi_violations_ratio",
+#             extractor.get_property("isi_violations_rate")
+#             / extractor.get_property("firing_rate"),
+#         )
+#     return extractor
 
 
 def refine_clusters(
