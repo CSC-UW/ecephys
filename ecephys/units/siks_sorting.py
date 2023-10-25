@@ -154,6 +154,7 @@ class SpikeInterfaceKilosortSorting:
             )  # Always cache samples, never times.
 
         # Now, fetch the data from the cache
+        train = self._cache[cluster_id]
         l = (
             None
             if start_frame is None
@@ -164,7 +165,7 @@ class SpikeInterfaceKilosortSorting:
             if end_frame is None
             else np.searchsorted(train, end_frame, side="right")
         )
-        train = self._cache[cluster_id][l:r]
+        train = train[l:r]
 
         # Convert to seconds, if requested
         if return_times:
