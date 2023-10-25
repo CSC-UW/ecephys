@@ -152,6 +152,7 @@ def refine_clusters(
     simple_filters: Optional[dict] = None,
     callable_filters: Optional[list[Callable]] = None,
     include_nans: bool = True,
+    verbose: bool = True,
 ):
     """Subselect clusters based on filters.
 
@@ -206,19 +207,22 @@ def refine_clusters(
             if include_nans:
                 mask = pd.isna(values) | mask
             keep = keep & mask
-            print(f"{property}: {filter} excludes {mask.size - mask.sum()} clusters.")
+            if verbose:
+                print(f"{property}: {filter} excludes {mask.size - mask.sum()} clusters.")
 
     if callable_filters is not None:
         for filter_func in callable_filters:
             mask = filter_func(si_obj)
             keep = keep & mask
-            print(
-                f"Callable filter {filter_func.__name__} excludes {mask.size - mask.sum()} clusters."
-            )
+            if verbose:
+                print(
+                    f"Callable filter {filter_func.__name__} excludes {mask.size - mask.sum()} clusters."
+                )
 
-    print(
-        f"{keep.size - keep.sum()}/{keep.size} clusters excluded by jointly applying filters. {keep.sum()} remain."
-    )
+    if verbose:
+        print(
+            f"{keep.size - keep.sum()}/{keep.size} clusters excluded by jointly applying filters. {keep.sum()} remain."
+        )
     clusterIDs = si_obj.get_unit_ids()[np.where(keep)]
     return si_obj.select_units(clusterIDs)
 
