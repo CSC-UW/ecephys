@@ -43,13 +43,13 @@ class SGLXProject(Project):
 
         segments = utils.read_htsv(segment_file)
 
-        segments["nSegmentSamp"] = segments["end_frame"] - segments["start_frame"]
+        segments["nSegmentSamp"] = segments["withinFileEndFrame"] - segments["withinFileStartFrame"]
         segments["segmentDuration"] = segments["nSegmentSamp"].div(
             segments["imSampRate"]
         )
         segments["segmentExpmtPrbAcqFirstTime"] = segments[
             "expmtPrbAcqFirstTime"
-        ] + segments["start_frame"].div(segments["imSampRate"])
+        ] + segments["withinFileStartFrame"].div(segments["imSampRate"])
         segments["segmentExpmtPrbAcqLastTime"] = (
             segments["segmentExpmtPrbAcqFirstTime"] + segments["segmentDuration"]
         )

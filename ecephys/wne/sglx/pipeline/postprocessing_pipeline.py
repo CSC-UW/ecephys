@@ -721,8 +721,9 @@ def load_hypnogram_for_si_slicing(
     Here we label each sample with the corresponding hypnogram state,
     and then find the edges of the array of states.
 
-    The returned hypnogram has `start_frame` and `end_frame` columns
-    which can be used to slice the corresponding sorting/recording.
+    The returned hypnogram has `start_frame` and `end_frame` columns, 
+    relative to the start of the sorting and can be used to slice the sorting
+    or its underlying recording with the `Extractor.frame_slice()` methods.
 
     Parameters:
     ===========
