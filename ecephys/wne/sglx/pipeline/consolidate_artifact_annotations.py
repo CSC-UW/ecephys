@@ -53,15 +53,15 @@ def do_experiment_probe_stream(
         df = pd.read_csv(artifacts_file)
         df["fname"] = bin_file.path.name
         # TODO: These two fields are currently left here purely for backwards compatibility, but should be removed, and downstream parts of the pipeline that use them should be updated load and use the artifact files directly if they need unsync'd times.
-        df["expmtPrbAcqFirstTime"] = df["start_time"] + bin_file.expmtPrbAcqFirstTime
-        df["expmtPrbAcqLastTime"] = df["end_time"] + bin_file.expmtPrbAcqFirstTime
+        df["expmtPrbAcqFirstTime"] = df["withinFileStartTime"] + bin_file.expmtPrbAcqFirstTime
+        df["expmtPrbAcqLastTime"] = df["withinFileEndTime"] + bin_file.expmtPrbAcqFirstTime
 
         logger.debug(f"Converting file times to canonical timebase...")
         t2t = wne_sglx_utils.get_time_synchronizer(
             sync_project, sglx_subject, experiment, binfile=bin_file.path
         )
-        df["start_time"] = t2t(df["start_time"] + bin_file.expmtPrbAcqFirstTime)
-        df["end_time"] = t2t(df["end_time"] + bin_file.expmtPrbAcqFirstTime)
+        df["start_time"] = t2t(df["withinFileStartTime"] + bin_file.expmtPrbAcqFirstTime)
+        df["end_time"] = t2t(df["withinFileEndTime"] + bin_file.expmtPrbAcqFirstTime)
         df["duration"] = df["end_time"] - df["start_time"]
 
         artifacts.append(df)

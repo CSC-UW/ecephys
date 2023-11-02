@@ -155,7 +155,7 @@ class SGLXSubject:
         probe: str,
         combine: str = "concatenate",
         exclusions: pd.DataFrame = pd.DataFrame(
-            {"fname": [], "start_time": [], "end_time": [], "type": []}
+            {"fname": [], "withinFileStartTime": [], "withinFileEndTime": [], "type": []}
         ),
         sampling_frequency_max_diff: Optional[float] = 0,  # TODO: Should this be 1e-6?
     ) -> tuple[si.BaseRecording, pd.DataFrame]:
@@ -172,8 +172,8 @@ class SGLXSubject:
             Specify which parts of the recording to drop. We slice such that the first and last samples
             of each exclusion are NOT included in the returned recording.
             fname: The name of the file (e.g. 3-2-2021_J_g0_t1.imec1.ap.bin)
-            start_time: The start time of the data to drop, in seconds from the start of the file.
-            end_time: The end time of the data to drop, in seconds from the start of the file.
+            withinFileStartTime: The start time of the data to drop, in seconds from the start of the file.
+            withinFileEndTime: The end time of the data to drop, in seconds from the start of the file.
                 If greater than the file duration, the excess time will be ignored, not dropped from the next file.
             type: A label you can assign to keep track of why this data was excluded. As long as the value is not "keep", the data will be dropped.
 
@@ -326,6 +326,10 @@ def segment_experiment_frame_for_spikeinterface(
     """Split an experiment frame for a single probe, steam, and filetype around a set of periods to exclude.
     For details, see `get_si_recording()`.
     """
+    EXCLUSION_COLS = ["withinFileStartTime", "withinFileEndTime", "fname"]
+    assert all([c in exclusions.columns for c in EXCLUSION_COLS]), (
+        f"Invalid columns for exclusions. Expected: `{EXCLUSION_COLS}`"
+    )
     segments = list()
     # For each file in the experiment, split it if necessary.
     # If not, just create a segment that is the entire file.
@@ -339,12 +343,12 @@ def segment_experiment_frame_for_spikeinterface(
         # For the exclusions pertaining to this file, convert their definition in seconds to precise sample indices,
         # and clip these estimates so that sample indices don't extend beyond the ends of the file.
         exclusions.loc[mask, "start_frame"] = (
-            (exclusions.loc[mask, "start_time"] * file.imSampRate)
+            (exclusions.loc[mask, "withinFileStartTime"] * file.imSampRate)
             .astype(int)
             .clip(0, ns)
         )
         exclusions.loc[mask, "end_frame"] = (
-            (exclusions.loc[mask, "end_time"] * file.imSampRate).astype(int).clip(0, ns)
+            (exclusions.loc[mask, "withinFileEndTime"] * file.imSampRate).astype(int).clip(0, ns)
         )
 
         # Do the actual splitting of the entire file around the exclusions

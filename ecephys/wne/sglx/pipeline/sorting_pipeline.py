@@ -239,7 +239,7 @@ class SpikeInterfaceSortingPipeline:
                 f"Please create one or consider specifying a custom path to exclusions  in the `exclusions_source` kwarg."
             )
         exclusions = utils.read_htsv(artifacts_file).reset_index(drop=True)
-        MANDATORY_COLUMNS = ["fname", "start_time", "end_time", "type"]
+        MANDATORY_COLUMNS = ["fname", "withinFileStartTime", "withinFileEndTime", "type"]
         if not all([c in exclusions.columns for c in MANDATORY_COLUMNS]):
             raise ValueError(
                 f"Missing columns for exclusion file at {artifacts_file}.\n"
