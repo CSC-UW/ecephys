@@ -53,7 +53,6 @@ def do_experiment_probe_stream(
     for bin_file in tqdm(list(ftab.itertuples())):
 
         fname = bin_file.path.name
-        print(fname)
 
         # Entries for this bin in preexisting consolidated artifact file
         exp_df = exp_artifacts.loc[
@@ -78,9 +77,6 @@ def do_experiment_probe_stream(
             comp_df = trig_df.merge(
                 exp_df,indicator = True, how='outer'
             ).loc[lambda x : x['_merge']=='right_only']
-            print(exp_df)
-            print(trig_df)
-            print(comp_df)
             if len(comp_df):
                 raise ValueError(
                     f"""Conflict between artifacts specified at the experiment-level in """
