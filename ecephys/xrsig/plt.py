@@ -68,6 +68,7 @@ def plot_laminar_image_vertical(
     figsize=(4, 20),
     show_channel_ids=True,
     tick_params=dict(axis="y", labelsize=8),
+    add_colorbar=False,
     **imshow_kwargs
 ):
     """Plot a depth profile of values.
@@ -81,7 +82,7 @@ def plot_laminar_image_vertical(
     if show_channel_ids:
         tick_labels = list(zip(tick_labels, da[sigdim].values))
 
-    da.plot.imshow(y=lamdim, ax=ax, **imshow_kwargs, add_colorbar=False)
+    da.plot.imshow(y=lamdim, ax=ax, add_colorbar=add_colorbar, **imshow_kwargs)
     ax.set_yticks(da[lamdim].values)
     ax.set_yticklabels(tick_labels)
     ax.tick_params(**tick_params)
