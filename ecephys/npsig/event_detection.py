@@ -259,3 +259,33 @@ def add_states_to_events(events, hypnogram):
         events.loc[events_in_bout, "state"] = bout.state
 
     return events
+
+
+def touch_and_die(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
+    """Remove any bouts from df1 that overlap with bouts in df2."""
+    if (not len(df1)) or (not len(df2)):
+        return df1
+
+    df1 = df1.copy()
+    df2 = df2.copy()
+
+    if not all(df1["start_time"] <= df1["end_time"]):
+        raise ValueError("Not all start times precede end times in df1.")
+    if not all(df2["start_time"] <= df2["end_time"]):
+        raise ValueError("Not all start times precede end times in df2.")
+
+    drop = np.full_like(df1.index, False, dtype=bool)
+    for bout in df2.itertuples():
+        starts_during = (df1["start_time"] >= bout.start_time) & (
+            df1["start_time"] <= bout.end_time
+        )
+        ends_during = (df1["end_time"] >= bout.start_time) & (
+            df1["end_time"] <= bout.end_time
+        )
+        subsumes = (df1["start_time"] <= bout.start_time) & (
+            df1["end_time"] >= bout.end_time
+        )
+        overlaps = starts_during | ends_during | subsumes
+        drop = drop | overlaps
+
+    return df1.loc[~drop]
