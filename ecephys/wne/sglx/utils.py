@@ -89,6 +89,73 @@ def load_datetime_hypnogram(
     )
 
 
+def load_postprocessing_hypnogram_for_si_slicing(
+    sglxSortingProject,
+    sglxSubject: SGLXSubject,
+    experiment: str,
+    probe: str,
+    alias: str = "full",
+    sorting: str = "sorting",
+    postprocessing: str = "postpro",
+    drop_time_columns: bool = True,
+) -> pd.DataFrame:
+    """Load postprocessing hypnogram, which can be used with si.frame_slice
+
+    Important: 
+    This is NOT adequate for use as regular hypnogram since the 
+    start/end_time and duration fields do not account for gaps!
+    But the start_sample,end_sample columns can be used with 
+    the si.frame_slice() methods.
+    However, this may be used as regular hypnogram after reconciliating with
+    exclusions.
+    """
+    f = sglxSortingProject.get_alias_subject_directory(
+        experiment, alias, sglxSubject.name
+    ) / f"{sorting}.{probe}" / postprocessing / "hypnogram.htsv"
+
+    if not f.exists():
+        import warnings
+        warnings.warn(f"No `hypnogram.htsv` file in postpro dir. Returning None")
+        return None
+
+    df = utils.read_htsv(f)
+    if drop_time_columns:
+        # Drop misleading start/end_time/duration columns
+        return df.drop(columns=["start_time", "end_time", "duration"])
+
+    return df
+
+
+def load_sorting_excluded_segments(
+    sglxSortingProject: SGLXProject,
+    sglxSubject: SGLXSubject,
+    experiment: str,
+    probe: str,
+    alias: str = "full",
+    sorting: str = "sorting",
+    as_hypnogram : bool = True,
+) -> hypnogram.FloatHypnogram:
+    segments = sglxSortingProject.load_segments_table(
+        sglxSubject.name,
+        experiment, 
+        alias,
+        probe,
+        sorting,
+        return_all_segment_types = True
+    )
+    exclusions = segments.loc[segments["type"] != "keep"].copy()
+
+    if as_hypnogram:
+        # TODO: sync
+        exclusions["state"] = exclusions["type"]
+        exclusions["start_time"] = exclusions["segmentExpmtPrbAcqFirstTime"]
+        exclusions["end_time"] = exclusions["segmentExpmtPrbAcqLastTime"]
+        exclusions["duration"] = exclusions["end_time"] - exclusions["start_time"]
+        return hypnogram.FloatHypnogram(exclusions.loc[:, ["start_time", "end_time", "duration", "state"]])
+
+    return exclusions
+
+
 def load_singleprobe_sorting(
     sglxSortingProject: SGLXProject,
     sglxSubject: SGLXSubject,

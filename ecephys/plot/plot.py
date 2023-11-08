@@ -16,6 +16,8 @@ from ipywidgets import (
     interactive_output,
     jslink,
 )
+from matplotlib.ticker import MaxNLocator
+
 
 _colorblind = sns.color_palette("colorblind")
 _deep = sns.color_palette("deep")
@@ -39,9 +41,11 @@ state_colors = {
     "REM": _colorblind[1],
     "Art": "crimson",
     "Artifact": "crimson",
+    "artifact": "crimson",
     "?": "crimson",
     "None": _colorblind[8],
     "NoData": "black",
+    "flat": "black",
     "Other": _colorblind[8],
     "Drug": "white",
 }
@@ -67,9 +71,11 @@ publication_colors = {
     "REM": _pub_rem,
     "Art": _pub_nodata,
     "Artifact": _pub_nodata,
+    "artifact": _pub_nodata,
     "None": _pub_unscored,
     "Other": _pub_unscored,
     "NoData": _pub_nodata,
+    "flat": _pub_nodata,
 }
 
 on_off_colors = {
@@ -96,6 +102,20 @@ def check_ax(ax, figsize=None):
         _, ax = plt.subplots(figsize=figsize)
 
     return ax
+
+
+def set_yticklabels_from_values(ylabels, ys, ax):
+
+    # https://matplotlib.org/stable/gallery/ticks/tick_labels_from_values.html
+    def format_fn(tick_val, tick_pos):
+        if int(tick_val) in ys:
+            return ylabels[int(tick_val)]
+        else:
+            return ''
+
+    # A FuncFormatter is created automatically.
+    ax.yaxis.set_major_formatter(format_fn)
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
 
 
 def plot_spike_train(
@@ -342,6 +362,28 @@ def plot_spectrogram(
         ax.set_ylim(np.min(freqs[freqs > 0]), np.max(freqs))
 
 
+def plot_heatmap(
+    array,
+    times,
+    ylabels=None,
+    figsize=(18, 6),
+    ax=None,
+    **kwargs,
+):
+    """Heatmap supporting time vector and a masked color array"""
+    ax = check_ax(ax, figsize=figsize)
+
+    plot = ax.pcolormesh(times, np.arange(array.shape[0]), array, **kwargs)
+    ax.set_facecolor("black")
+
+    plt.colorbar(plot)
+
+    if ylabels is not None: # Tick labels from values: https://matplotlib.org/stable/gallery/ticks/tick_labels_from_values.html
+        set_yticklabels_from_values(ylabels, range(array.shape[0]), ax)
+
+    return ax
+
+
 def plot_on_off_overlay(on_off_df, state_colors=on_off_colors, **kwargs):
     plot_hypnogram_overlay(on_off_df, state_colors=state_colors, **kwargs)
 
@@ -357,6 +399,7 @@ def plot_hypnogram_overlay(
     ymax=1,
     figsize=(18, 3),
     alpha=0.3,
+    zorder=-1,
 ) -> plt.Axes:
     """Shade plot background using hypnogram state.
 
@@ -366,22 +409,45 @@ def plot_hypnogram_overlay(
         Hypnogram with with state, start_time, end_time columns.
     ax: matplotlib.Axes, optional
         An axes upon which to plot.
-    """
-    if (xlim == "ax") and (not ax is None):
-        xlim = ax.get_xlim()
+    xlim: str
+        "ax" or "hg"
 
+    Examples
+    --------
+    >>> fig, ax = plt.subplots()
+    Overlay into background, span whole plot yaxis
+    >>> ax = plot_hypnogram(hg, ax=ax)
+    Overlay into foreground, outside of plot yaxis
+    >>> ax = plot_hypnogram(hg, ax=ax, zorder=1000, ymin=1, ymax=1.1)
+    """
     ax = check_ax(ax, figsize=figsize)
 
+    if (xlim in ["ax", None]) and (not ax is None):
+        xlim = ax.get_xlim()
+    elif xlim == "hg":
+        xlim = (hypnogram[t1_column].min(), hypnogram[t2_column].max())
+    elif not isinstance(xlim, tuple):
+        raise ValueError("Invalid value for `xlim` kwarg. Expected 'ax', 'hg' or a tuple")
+
     for i, bout in hypnogram.iterrows():
+        # clip manually on xaxis so we can set clip_on=False for yaxis
+        t1 = max(bout[t1_column], xlim[0])
+        t2 = min(bout[t2_column], xlim[1])
+
+        # Don't display out of range
+        if t1 > xlim[1] or t2 < xlim[0]:
+            continue
+
         ax.axvspan(
-            bout[t1_column],
-            bout[t2_column],
+            t1,
+            t2,
             alpha=alpha,
             color=state_colors[bout.state],
-            zorder=-1,
+            zorder=zorder,
             ec="none",
             ymin=ymin,
             ymax=ymax,
+            clip_on=False,
         )
 
     if xlim:

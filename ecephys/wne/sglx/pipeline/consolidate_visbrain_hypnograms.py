@@ -18,9 +18,10 @@ def do_experiment_probe(
     sglx_subject: SGLXSubject,
     sync_project: SGLXProject,
     data_project: SGLXProject,
+    alias: str = "full",
 ):
     visbrain_hypnograms = list()
-    lfp_table = sglx_subject.get_lfp_bin_table(experiment, probe=probe)
+    lfp_table = sglx_subject.get_lfp_bin_table(experiment, probe=probe, alias=alias)
     for lfp_file in tqdm(list(lfp_table.itertuples())):
         [visbrain_hypnogram_file] = wne_sglx_utils.get_sglx_file_counterparts(
             data_project,
@@ -50,7 +51,7 @@ def do_experiment_probe(
             visbrain_hypnograms.append(visbrain_hypnogram)
         else:
             logger.warning(
-                f"Hypnogram {visbrain_hypnogram_file.name} not found. Skipping."
+                f"Hypnogram {visbrain_hypnogram_file} not found. Skipping."
             )
 
     if visbrain_hypnograms:

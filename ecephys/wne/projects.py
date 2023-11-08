@@ -160,19 +160,6 @@ class Project:
         )
         return list(opts["probes"].keys())
 
-    def get_main_sorting_dir(
-        self,
-        subject: str,
-        experiment: str,
-        probe: str,
-        alias: str = "full",
-        sorting: str = "sorting",
-    ):
-        return (
-            self.get_alias_subject_directory(experiment, alias, subject)
-            / f"{sorting}.{probe}"
-        )
-
     def get_kilosort_extractor(
         self,
         subject: str,
@@ -187,7 +174,9 @@ class Project:
         We keep only a subset of the properties loaded by si.read_kilosort(), since some of those
         may contain obsolete metrics, added to the sorting directory and integrated into cluster_info.tsv
         to inform curation.
-        We then add as properties all the metrics from the postprocessing directory.
+
+        We then add as properties all the metrics from the postprocessing directory (originating from both
+        from the "metrics"  and "waveform_metrics" spikeinterface extensions)
         """
 
         PROPERTIES_FROM_SORTING_DIR = [
@@ -205,8 +194,9 @@ class Project:
             "structure",
         ]
 
-        main_sorting_dir = self.get_main_sorting_dir(
-            subject, experiment, probe, alias=alias, sorting=sorting
+        main_sorting_dir = (
+            self.get_alias_subject_directory(experiment, alias, subject)
+            / f"{sorting}.{probe}"
         )
         sorter_output_dir = main_sorting_dir / "si_output/sorter_output"
         assert (
@@ -231,13 +221,16 @@ class Project:
                 f"Could not find postprocessing dir. Ignoring metrics: {postprocessing_dir}"
             )
         else:
+            
+            # "regular" metrics, already aggregated across vigilance states
             metrics_path = postprocessing_dir / "metrics.csv"
             assert (
                 metrics_path.exists()
             ), f"Expected `metrics.csv` file in: {postprocessing_dir}"
 
             metrics = pd.read_csv(metrics_path)
-            assert all([c in metrics.columns] for c in "cluster_id")
+            # Check correct ids 
+            assert set(metrics["cluster_id"].values) == set(extractor.get_unit_ids())
 
             for prop_name in metrics.columns:
                 extractor.set_property(
@@ -245,31 +238,27 @@ class Project:
                     values=metrics[prop_name],
                     ids=metrics["cluster_id"].values,
                 )
+            
+            # "template_metrics"
+            template_metrics_path = postprocessing_dir/"si_output/template_metrics/metrics.csv"
+            if not template_metrics_path.exists():
+                import warnings
+                warnings.warn("Could not find `template_metrics.csv` file. Ignoring template metrics.")
+            else:
+                template_metrics = pd.read_csv(template_metrics_path, index_col=0)
+                # Check correct ids 
+                assert set(template_metrics.index.values) == set(extractor.get_unit_ids())
+                # Check we're not overriding a property
+                assert not any([c in extractor.get_property_keys() for c in template_metrics.columns])
+
+                for prop_name in template_metrics.columns:
+                    extractor.set_property(
+                        key=prop_name,
+                        values=template_metrics[prop_name],
+                        ids=template_metrics.index.values,
+                    )
 
         return extractor
-
-    def get_sorting_hypnogram(
-        self,
-        subject: str,
-        experiment: str,
-        probe: str,
-        alias: str = "full",
-        sorting: str = "sorting",
-        postprocessing: str = "postpro",
-    ):
-        main_sorting_dir = self.get_main_sorting_dir(
-            subject, experiment, probe, alias=alias, sorting=sorting
-        )
-        postprocessing_dir = main_sorting_dir / postprocessing
-        hyp_path = postprocessing_dir / "hypnogram.htsv"
-
-        if not hyp_path.exists():
-            import warnings
-
-            warnings.warn(f"No `hypnogram.htsv` file in postpro dir. Returning None")
-            return None
-
-        return ecephys.utils.read_htsv(hyp_path)
 
     def get_sharptrack(
         self, subject: str, experiment: str, probe: str

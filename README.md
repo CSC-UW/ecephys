@@ -5,17 +5,27 @@ Python tools for extracellular electrophysiology at the Wisconsin Institute for 
 
 ### Requirements:
 
- - spikeinterface, ``CSC-UW`` github fork, `wisc/dev` branch:
+ - spikeinterface, ``CSC-UW`` github fork.
+    - Vanilla: `wisc/dev` branch:
 
-```
-pip install "git+ssh://git@github.com/CSC-UW/spikeinterface.git@wisc/dev
-```
+    ```
+    pip install "git+ssh://git@github.com/CSC-UW/spikeinterface.git@wisc/dev
+    ```
+
+    - For spike sorting: wisc/sorting branch:
+
+    ```
+    pip install "git+ssh://git@github.com/CSC-UW/spikeinterface.git@wisc/sorting
+    ```
+
 or (editable mode)
 ```
 git clone https://github.com/CSC-UW/spikeinterface.git
 cd spikeinterface
 pip install -e .
 ```
+(+ `git checkout wisc/sorting`` for spike sorting)
+
 
   - For spike-interface drift correction: `pytorch``
 
