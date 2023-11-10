@@ -102,7 +102,7 @@ class SGLXProject(Project):
         # Compute which samples in the recording belong to each segment.
         sorted_segments = segments[segments["type"] == "keep"].copy()
         sorted_segments["nSegmentSamples"] = (
-            sorted_segments["end_frame"] - sorted_segments["start_frame"]
+            sorted_segments["withinFileEndFrame"] - sorted_segments["withinFileStartFrame"]
         )  # N of sorted samples in each segment
 
         cum_sorted_samples_by_end = sorted_segments[
@@ -136,7 +136,7 @@ class SGLXProject(Project):
                 t[mask] = (
                     (s[mask] - seg.start_sample) / seg.imSampRate
                     + seg.expmtPrbAcqFirstTime
-                    + seg.start_frame / seg.imSampRate
+                    + seg.withinFileStartFrame / seg.imSampRate
                 )  # Convert to number of seconds in this probe's (expmtPrbAcq) timebase
                 if sync_table is not None:
                     sync_entry = sync_table.loc[
