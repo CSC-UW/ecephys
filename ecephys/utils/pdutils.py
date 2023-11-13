@@ -20,7 +20,7 @@ def write_htsv(df: pd.DataFrame, file: Pathlike):
 
 def read_htsv(file: Pathlike) -> pd.DataFrame:
     assert Path(file).suffix == ".htsv", "File must use extension .htsv"
-    return pd.read_csv(file, sep="\t", header=0)
+    return pd.read_csv(file, sep="\t", header=0, float_precision='round_trip')
 
 
 def store_pandas_netcdf(pd_obj: Union[pd.DataFrame, pd.Series], path: Pathlike):
