@@ -44,15 +44,24 @@ class SGLXProject(Project):
         segments = utils.read_htsv(segment_file)
 
         segments["nSegmentSamp"] = segments["withinFileEndFrame"] - segments["withinFileStartFrame"]
-        segments["segmentDuration"] = segments["nSegmentSamp"].div(
+        segments["segmentDuration"] = segments["nSegmentSamp"].astype(float).div(
             segments["imSampRate"]
         )
         segments["segmentExpmtPrbAcqFirstTime"] = segments[
             "expmtPrbAcqFirstTime"
-        ] + segments["withinFileStartFrame"].div(segments["imSampRate"])
-        segments["segmentExpmtPrbAcqLastTime"] = (
-            segments["segmentExpmtPrbAcqFirstTime"] + segments["segmentDuration"]
-        )
+        ] + segments["withinFileStartFrame"].astype(float).div(segments["imSampRate"])
+        # For LastTime, we work backwards from expmtPrbAcqLastTime (rather than forward
+        # from expmtPrbAcqFirstTime) to ensure that segmentExpmtPrbAcqLastTime <= expmtPrbAcqLastTime
+        # This is not the case when working forward due to floating point errors
+        # segments["segmentExpmtPrbAcqLastTime"] = (
+        #     segments["segmentExpmtPrbAcqFirstTime"] + segments["segmentDuration"]
+        # ) # Nope
+        segments["segmentExpmtPrbAcqLastTime"] = segments[
+            "expmtPrbAcqLastTime"
+        ] - (segments["nFileSamp"] - segments["withinFileEndFrame"]).astype(float).div(segments["imSampRate"])
+
+        assert np.all(segments["segmentExpmtPrbAcqFirstTime"] >= segments["expmtPrbAcqFirstTime"])
+        assert np.all(segments["segmentExpmtPrbAcqLastTime"] <= segments["expmtPrbAcqLastTime"])
 
         if return_all_segment_types:
             return segments

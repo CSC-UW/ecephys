@@ -98,10 +98,11 @@ class SpikeInterfaceKilosortSorting:
         simple_filters: Optional[dict] = None,
         callable_filters: Optional[list[Callable]] = None,
         include_nans: bool = True,
+        verbose: bool = True,
     ):
         """Refine clusters, and conveniently wrap the result, so that the user doesn't have to."""
         new_obj = siutils.refine_clusters(
-            self.si_obj, simple_filters, callable_filters, include_nans
+            self.si_obj, simple_filters, callable_filters, include_nans, verbose=verbose,
         )
         return self.__class__(
             new_obj,
@@ -154,6 +155,7 @@ class SpikeInterfaceKilosortSorting:
             )  # Always cache samples, never times.
 
         # Now, fetch the data from the cache
+        train = self._cache[cluster_id]
         l = (
             None
             if start_frame is None
@@ -164,7 +166,7 @@ class SpikeInterfaceKilosortSorting:
             if end_frame is None
             else np.searchsorted(train, end_frame, side="right")
         )
-        train = self._cache[cluster_id][l:r]
+        train = train[l:r]
 
         # Convert to seconds, if requested
         if return_times:
