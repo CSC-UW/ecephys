@@ -27,6 +27,13 @@ SCORING_LFP = "scoring_lfp.zarr"
 SCORING_EMG = "scoring_emg.zarr"
 SCORING_BDF = "scoring_signals.bdf"
 
+SIMPLIFIED_ARTIFACTS = {
+    "unlabeled": "Artifact",
+    "artifact": "Artifact",
+    "flat": "Artifact",
+    "scrambled": "Artifact",
+}  # "type" column in consolidated artifacts
+
 SIMPLIFIED_STATES = {
     "Wake": "Wake",
     "W": "Wake",
