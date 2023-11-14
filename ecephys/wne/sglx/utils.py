@@ -1,5 +1,6 @@
 import logging
 import pathlib
+import itertools
 from typing import Callable, Optional
 
 import numpy as np
@@ -7,35 +8,19 @@ import pandas as pd
 
 from ecephys import hypnogram
 from ecephys import units
-from ecephys import utils
+import ecephys.utils
 from ecephys.sglx import file_mgmt
 from ecephys.wne import constants
 from ecephys.wne import Project
+from ecephys.wne import utils as wne_utils
 from ecephys.wne.sglx import sessions
 from ecephys.wne.sglx import SGLXProject
 from ecephys.wne.sglx import SGLXSubject
 
+
 logger = logging.getLogger(__name__)
 
-
-def float_hypnogram_to_datetime(
-    subj: SGLXSubject, experiment: str, hyp: hypnogram.FloatHypnogram, hyp_prb: str
-) -> hypnogram.DatetimeHypnogram:
-    df = hyp._df.copy()
-    df["start_time"] = subj.t2dt(experiment, hyp_prb, df["start_time"])
-    df["end_time"] = subj.t2dt(experiment, hyp_prb, df["end_time"])
-    df["duration"] = df["end_time"] - df["start_time"]
-    return hypnogram.DatetimeHypnogram(df)
-
-
-def datetime_hypnogram_to_float(
-    subj: SGLXSubject, experiment: str, hyp: hypnogram.DatetimeHypnogram, hyp_prb: str
-) -> hypnogram.FloatHypnogram:
-    df = hyp._df.copy()
-    df["start_time"] = subj.dt2t(experiment, hyp_prb, df["start_time"])
-    df["end_time"] = subj.dt2t(experiment, hyp_prb, df["end_time"])
-    df["duration"] = df["end_time"] - df["start_time"]
-    return hypnogram.FloatHypnogram(df)
+MIN_BOUT_DURATION_SEC = 0.1
 
 
 def get_sglx_file_counterparts(
@@ -69,91 +54,208 @@ def get_sglx_file_counterparts(
     counterparts = sessions.mirror_raw_data_paths(
         project.get_subject_directory(subject), paths
     )  # Mirror paths at the project's subject directory
-    counterparts = [
-        file_mgmt.replace_ftype(p, extension, remove_probe, remove_stream)
-        for p in counterparts
-    ]
-    return utils.remove_duplicates(counterparts)
+    counterparts = [file_mgmt.replace_ftype(p, extension, remove_probe, remove_stream) for p in counterparts]
+    return ecephys.utils.remove_duplicates(counterparts)
 
 
-def load_datetime_hypnogram(
+def load_sorting_inclusions_and_artifacts(
+    t2t,
+    project,
+    sglx_subject,
+    experiment,
+    probe,
+    alias,
+    sorting,
+):
+    # Query inclusions from segments used in actual sorting
+    # segments are in probe timebase and need to be converted to common timebase
+    segments = project.load_segments_table(
+        sglx_subject.name, experiment, alias, probe, sorting, return_all_segment_types=True
+    ).copy()
+    segments = pd.DataFrame(
+        {
+            "start_time": t2t(segments["segmentExpmtPrbAcqFirstTime"]),
+            "end_time": t2t(segments["segmentExpmtPrbAcqLastTime"]),
+            "type": segments["type"],
+        }
+    )  # Raw segment table is in probe timebase
+
+    inclusions = segments.loc[segments["type"] == "keep"]
+    artifacts = inclusions.iloc[:0].copy() # Dummy
+
+    return inclusions, artifacts
+
+
+def load_sglx_inclusions_and_artifacts(
+    t2t,
+    project,
+    sglx_subject,
+    experiment,
+    probe,
+    alias,
+    stream,
+):
+    if alias != "full":
+        raise NotImplementedError("Restrict artifacts to alias")
+
+    # Inclusions are available SGLX files
+    # Need conversion from probetimebase
+    ftable = sglx_subject.get_experiment_frame(
+        experiment,
+        alias,
+        probe=probe,
+        stream=stream,
+        ftype="bin",
+    )
+    inclusions = pd.DataFrame(
+        {
+            "start_time": t2t(ftable["expmtPrbAcqFirstTime"]),
+            "end_time": t2t(ftable["expmtPrbAcqLastTime"]),
+        }
+    )
+
+    # Incorporate project-wide artifacts
+    # Those are already in common-time base, no need for conversion
+    artifacts = wne_utils.load_consolidated_artifacts(
+        project, experiment, sglx_subject.name, probe, stream, simplify=True
+    )
+
+    return inclusions, artifacts
+
+
+def load_bouts_to_reconcile_as_hypnogram(
+    project: SGLXProject,
+    experiment: str,
+    sglx_subject: SGLXSubject,
+    probe: str,
+    source: str,
+    alias: str = "full",
+    sorting: str = "sorting",
+    min_bout_duration_sec=MIN_BOUT_DURATION_SEC,
+) -> hypnogram.FloatHypnogram:
+    if source in ["sorting", "ap"]:
+        stream = "ap"
+    elif source == "lf":
+        stream = source
+    else:
+        assert False
+
+    # Convert from probe timebase to common timebase asap
+    t2t = get_time_synchronizer(
+        project,
+        sglx_subject,
+        experiment,
+        probe=probe,
+        stream=stream,
+    )
+
+    if source == "sorting":
+        inclusions, artifacts = load_sorting_inclusions_and_artifacts(
+            t2t,
+            project,
+            sglx_subject,
+            experiment,
+            probe,
+            alias,
+            sorting,
+        )
+
+    elif source in ["lf", "ap"]:
+        inclusions, artifacts = load_sglx_inclusions_and_artifacts(
+            t2t,
+            project,
+            sglx_subject,
+            experiment,
+            probe,
+            alias,
+            stream,
+        )
+
+    # Infer "NoData" hypnogram from inclusions
+    # 1-sample imprecision
+    no_data = ecephys.utils.get_gaps(
+        inclusions,
+        t1_colname="start_time",
+        t2_colname="end_time",
+    )
+    no_data["state"] = "NoData"
+    no_data_hg = hypnogram.FloatHypnogram(no_data)
+
+    # Get "artifacts" hypnogram: "type" column now becomes "state"
+    artifacts = artifacts.rename(columns={"type": "state"})
+    artifacts["duration"] = artifacts["end_time"] - artifacts["start_time"]
+    artifacts_hg = hypnogram.FloatHypnogram(artifacts)
+
+    # Reconcile NoData & artifacts
+    return hypnogram.FloatHypnogram(
+        no_data_hg.reconcile(artifacts_hg, how="other").keep_longer(min_bout_duration_sec).reset_index(drop=True)
+    )
+
+
+def load_reconciled_float_hypnogram(
     project: Project,
     experiment: str,
-    subject: SGLXSubject,
+    sglx_subject: SGLXSubject,
+    probes: list[str],
+    sources: list[str],
     simplify: bool = True,
-) -> hypnogram.DatetimeHypnogram:
-    hg = project.load_float_hypnogram(experiment, subject, simplify)
-    params = project.load_experiment_subject_params(experiment, subject.name)
-    return float_hypnogram_to_datetime(
-        subject, experiment, hg, params["hypnogram_probe"]
-    )
-
-
-def load_postprocessing_hypnogram_for_si_slicing(
-    sglxSortingProject,
-    sglxSubject: SGLXSubject,
-    experiment: str,
-    probe: str,
-    alias: str = "full",
-    sorting: str = "sorting",
-    postprocessing: str = "postpro",
-    drop_time_columns: bool = True,
-) -> pd.DataFrame:
-    """Load postprocessing hypnogram, which can be used with si.frame_slice
-
-    Important: 
-    This is NOT adequate for use as regular hypnogram since the 
-    start/end_time and duration fields do not account for gaps!
-    But the start_sample,end_sample columns can be used with 
-    the si.frame_slice() methods.
-    However, this may be used as regular hypnogram after reconciliating with
-    exclusions.
-    """
-    f = sglxSortingProject.get_alias_subject_directory(
-        experiment, alias, sglxSubject.name
-    ) / f"{sorting}.{probe}" / postprocessing / "hypnogram.htsv"
-
-    if not f.exists():
-        import warnings
-        warnings.warn(f"No `hypnogram.htsv` file in postpro dir. Returning None")
-        return None
-
-    df = utils.read_htsv(f)
-    if drop_time_columns:
-        # Drop misleading start/end_time/duration columns
-        return df.drop(columns=["start_time", "end_time", "duration"])
-
-    return df
-
-
-def load_sorting_excluded_segments(
-    sglxSortingProject: SGLXProject,
-    sglxSubject: SGLXSubject,
-    experiment: str,
-    probe: str,
-    alias: str = "full",
-    sorting: str = "sorting",
-    as_hypnogram : bool = True,
+    alias="full",
+    sorting="sorting",
 ) -> hypnogram.FloatHypnogram:
-    segments = sglxSortingProject.load_segments_table(
-        sglxSubject.name,
-        experiment, 
-        alias,
-        probe,
-        sorting,
-        return_all_segment_types = True
+    """Load FloatHypnogram reconciled with LF/AP/sorting artifacts & NoData.
+
+    Favor using this function, rather than load_raw_float_hypnogram, for
+    actual analyses! It ensures that the probes' actual NoData bouts and
+    artifacts are incorporated in the returned hypnogram.
+
+    This is not guaranteed to be the case with the load_raw_float_hypnogram,
+    since:
+        - SGLX files and artifacts may vary across streams/probes
+        - Some bouts may have been excluded from a sorting
+
+    Parameters:
+    ===========
+    project: Project
+        Used to load sorting segments, sync table, and LF artifacts
+    experiment: str
+    subject: SGLXSubject
+    probes: list[str]
+        Probes for which we load bouts to reconcile with raw hypnogram
+    sources: list[str]
+        Sources must be one of ["ap", "lf", "sorting"].
+        For "lf" and "ap" source, the NoData bouts are inferred from the sglx filetable,
+        and the artifacts are loaded from the project's default consolidated
+        artifact file.  For "sorting" source, NoData bouts are loaded from the
+        sorting segments table.
+    simplify: bool
+        Passed to load_raw_float_hypnogram. Simplifies states from raw float hypnogram
+    alias: str
+        Alias used for sorting. Used only when querying "sorting" source.
+    sorting: str
+        Name of sorting. Used only when querying "sorting" source
+    """
+    SOURCES = ["sorting", "ap", "lf"]
+    if not set(sources) <= set(SOURCES):
+        raise ValueError(
+            f"Invalid value in `sources` argument. The following sources are recognized: `{SOURCES}`"
+        )
+    hg = wne_utils.load_raw_float_hypnogram(
+        project,
+        experiment,
+        sglx_subject.name,
+        simplify=simplify,
     )
-    exclusions = segments.loc[segments["type"] != "keep"].copy()
+    for source, probe in itertools.product(sources, probes):
+        hg = hg.reconcile(
+            load_bouts_to_reconcile_as_hypnogram(
+                project, experiment, sglx_subject, probe, source, alias=alias, sorting=sorting
+            ),
+            how="other",
+        )
 
-    if as_hypnogram:
-        # TODO: sync
-        exclusions["state"] = exclusions["type"]
-        exclusions["start_time"] = exclusions["segmentExpmtPrbAcqFirstTime"]
-        exclusions["end_time"] = exclusions["segmentExpmtPrbAcqLastTime"]
-        exclusions["duration"] = exclusions["end_time"] - exclusions["start_time"]
-        return hypnogram.FloatHypnogram(exclusions.loc[:, ["start_time", "end_time", "duration", "state"]])
-
-    return exclusions
+    return hypnogram.FloatHypnogram(
+        hg.reset_index(drop=True)
+    )
 
 
 def load_singleprobe_sorting(
@@ -203,13 +305,11 @@ def load_singleprobe_sorting(
         experiment, sglxSubject.name, f"{probe}.structures.htsv"
     )
     if anatomy_file.exists():
-        structs = utils.read_htsv(anatomy_file)
+        structs = ecephys.utils.read_htsv(anatomy_file)
     else:
         import warnings
 
-        warnings.warn(
-            "Could not find anatomy file at: {anatomy_file}. Using dummy structure table"
-        )
+        warnings.warn("Could not find anatomy file at: {anatomy_file}. Using dummy structure table")
         structs = units.siutils.get_dummy_structure_table(lo=-np.Inf, hi=np.Inf)
     extractor = units.siutils.add_anatomy_properties_to_extractor(extractor, structs)
 
@@ -250,6 +350,7 @@ def load_multiprobe_sorting(
     )
 
 
+# Is this deprecated? What's the difference with SGLXProject.get_sample2time?
 def get_experiment_sample2time(
     experiment_sync_table: pd.DataFrame, experiment_probe_ftable: pd.DataFrame
 ) -> Callable[[np.ndarray], np.ndarray]:
@@ -273,18 +374,14 @@ def get_experiment_sample2time(
         t = np.empty(s.size, dtype="float")
         t[:] = np.nan  # Check a posteriori if we covered all input samples
         for file in experiment_probe_ftable.itertuples():
-            mask = (s >= file.start_sample) & (
-                s < file.end_sample
-            )  # Mask samples belonging to this segment
+            mask = (s >= file.start_sample) & (s < file.end_sample)  # Mask samples belonging to this segment
             t[mask] = (
                 s[mask] - file.start_sample
             ) / file.imSampRate + file.expmtPrbAcqFirstTime  # Convert to number of seconds in this probe's (expmtPrbAcq) timebase
             sync_entry = experiment_sync_table.loc[
                 file.fname
             ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
-            t[mask] = (
-                sync_entry.slope * t[mask] + sync_entry.intercept
-            )  # Sync to imec0 (expmtPrbAcq) timebase
+            t[mask] = sync_entry.slope * t[mask] + sync_entry.intercept  # Sync to imec0 (expmtPrbAcq) timebase
         assert not any(np.isnan(t)), (
             "Some of the provided sample indices were not covered by segments \n"
             "and therefore couldn't be converted to time"
@@ -326,9 +423,7 @@ def get_time2time(
                 sync_entry = experiment_sync_table.loc[
                     file.path.name
                 ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
-                t2[mask] = (
-                    sync_entry.slope * t1[mask] + sync_entry.intercept
-                )  # Sync to imec0 (expmtPrbAcq) timebase
+                t2[mask] = sync_entry.slope * t1[mask] + sync_entry.intercept  # Sync to imec0 (expmtPrbAcq) timebase
             is_nan = np.isnan(t2)
             if any(is_nan):
                 msg = "Some of the provided times were not covered by the original recording and therefore can't be converted unambiguously."
@@ -337,11 +432,9 @@ def get_time2time(
                     allowed_times = experiment_probe_ftable[
                         ["expmtPrbAcqFirstTime", "expmtPrbAcqLastTime"]
                     ].values.flatten()
-                    allowed_files = experiment_probe_ftable[
-                        ["path", "path"]
-                    ].values.flatten()
+                    allowed_files = experiment_probe_ftable[["path", "path"]].values.flatten()
                     for ix_t in np.where(is_nan)[0]:
-                        nearest_allowed = utils.find_nearest(allowed_times, t1[ix_t])
+                        nearest_allowed = ecephys.utils.find_nearest(allowed_times, t1[ix_t])
                         nearest_fname = allowed_files[nearest_allowed].name
                         sync_entry = experiment_sync_table.loc[nearest_fname]
                         t2[ix_t] = sync_entry.slope * t1[ix_t] + sync_entry.intercept
@@ -370,14 +463,8 @@ def get_time_synchronizer(
         assert stream == stream_, "Mismatch between provided stream and binfile"
     assert probe is not None, "Must provide probe"
     assert stream is not None, "Must provide stream"
-    experiment_probe_ftable = sglx_subject.get_experiment_frame(
-        experiment, ftype="bin", stream=stream, probe=probe
+    experiment_probe_ftable = sglx_subject.get_experiment_frame(experiment, ftype="bin", stream=stream, probe=probe)
+    experiment_sync_table = ecephys.utils.read_htsv(
+        sync_project.get_experiment_subject_file(experiment, sglx_subject.name, constants.SYNC_FNAME_MAP[stream])
     )
-    experiment_sync_table = utils.read_htsv(
-        sync_project.get_experiment_subject_file(
-            experiment, sglx_subject.name, constants.SYNC_FNAME_MAP[stream]
-        )
-    )
-    return get_time2time(
-        experiment_sync_table, experiment_probe_ftable, binfile, extrapolate
-    )
+    return get_time2time(experiment_sync_table, experiment_probe_ftable, binfile, extrapolate)

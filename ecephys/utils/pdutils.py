@@ -152,6 +152,15 @@ def dt_series_to_seconds(
     return (dt_series - t0).dt.total_seconds().values
 
 
+def get_gaps(df, t1_colname: str = "start_time", t2_colname: str = "end_time", min_gap_duration_sec: float = 0):
+    gaps = pd.DataFrame({
+            t1_colname: df.iloc[:-1][t2_colname].values,
+            t2_colname: df.iloc[1:][t1_colname].values,
+    })
+    gaps["duration"] = gaps[t2_colname] - gaps[t1_colname]
+    return gaps[gaps["duration"] > min_gap_duration_sec]
+
+
 def get_edges_start_end_samples_df(state_vector: ArrayLike):
     """Return df with `state`, `start_frame`, `end_frame` cols from array of states."""
     edges = np.where(state_vector[1:] != state_vector[0:-1])
