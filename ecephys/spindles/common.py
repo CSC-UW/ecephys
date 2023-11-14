@@ -34,7 +34,9 @@ def get_relative_sigma_power(
     return rpow
 
 
-def get_single_channel_moving_transform(da_sigma: xr.DataArray, method: str, window: float, step: float) -> xr.DataArray:
+def get_single_channel_moving_transform(
+    da_sigma: xr.DataArray, method: str, window: float, step: float
+) -> xr.DataArray:
     mda = xr.zeros_like(da_sigma)
     _, mda.values[:, 0] = yasa.moving_transform(
         x=da_sigma.values.squeeze(),
@@ -44,7 +46,7 @@ def get_single_channel_moving_transform(da_sigma: xr.DataArray, method: str, win
         method=method,
         interp=True,
     )
-    return mda 
+    return mda
 
 
 def get_single_channel_mcorr(
@@ -68,14 +70,13 @@ def get_decision_function(
     convolution_window_length_sec: float,
     fs: float,
 ):
-    idx_sum = np.sum(
-        (da > thresh).astype(float) for da, thresh in signal_threshold_tuples
-    )
+    idx_sum = np.sum((da > thresh).astype(float) for da, thresh in signal_threshold_tuples)
 
     w = int(convolution_window_length_sec * fs)
     idx_sum.data[:, 0] = np.convolve(idx_sum.data[:, 0], np.ones((w,)), mode="same") / w
 
     return idx_sum
+
 
 def get_base_spindle_properties(
     da: xr.DataArray,
@@ -100,7 +101,7 @@ def get_base_spindle_properties(
 
     # Hilbert power (to define the instantaneous frequency / power)
     analytic = scipy.signal.hilbert(da_sigma.values.T, N=nfast)[:, :n_samples]
-    inst_phase = np.angle(analytic)
+    inst_phase = np.unwrap(np.angle(analytic))
     inst_pow = np.square(np.abs(analytic))
     inst_freq = sf / (2 * np.pi) * np.diff(inst_phase, axis=-1)
 
@@ -226,10 +227,8 @@ def get_xrsig_thresholds(
     for artifact in artifacts.itertuples():
         times_in_bout = (t >= artifact.start_time) & (t <= artifact.end_time)
         good_nrem[times_in_bout] = False
-    da_thresh = (
-        da.isel(time=good_nrem).mean(dim="time") + da.isel(time=good_nrem).std(dim="time") * std_dev_threshold
-    )
-    return da_thresh 
+    da_thresh = da.isel(time=good_nrem).mean(dim="time") + da.isel(time=good_nrem).std(dim="time") * std_dev_threshold
+    return da_thresh
 
 
 def examine_spindle(
@@ -240,7 +239,7 @@ def examine_spindle(
     i: int = None,
     t: float = None,
     channel: str = None,
-    hg = None,
+    hg=None,
 ):
     if t is None:
         if i is None:
@@ -270,7 +269,6 @@ def examine_spindle(
             ax.axhline(thresh.sel(channel=channel), c="r")
 
     for ax in axes:
-
         if evt is not None:
             ax.axvline(evt.Start, c="g", ls=":")
             ax.axvline(evt.End, c="g", ls=":")
@@ -287,7 +285,7 @@ def examine_spindle(
 
         if hg is not None:
             plot.plot_hypnogram_overlay(hg, ax=ax)
-    
+
     if evt is not None:
         items = [f"{k}: {v}" for k, v in evt.items()]
         items.insert(5, "\n")
