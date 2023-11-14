@@ -224,7 +224,7 @@ def reconcile_labeled_intervals(
             assert (
                 sum(left_intervals) == 1
             ), "More than one interval in h2 overlaps the start of an interval found in h1. Is h2 well formed?"
-            left_interval = df2[left_intervals]
+            left_interval = df2[left_intervals].copy()
             left_interval[hi] = row[lo]
             left_interval[delta] = left_interval[hi] - left_interval[lo]
             df2[left_intervals] = left_interval
@@ -237,7 +237,7 @@ def reconcile_labeled_intervals(
             assert (
                 sum(right_intervals) == 1
             ), "More than one interval in df2 overlaps the end of an interval found in df1. Is df2 well formed?"
-            right_interval = df2[right_intervals]
+            right_interval = df2[right_intervals].copy()
             right_interval[lo] = row[hi]
             right_interval[delta] = right_interval[hi] - right_interval[lo]
             df2[right_intervals] = right_interval
