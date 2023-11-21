@@ -45,6 +45,7 @@ state_colors = {
     "?": "crimson",
     "None": _colorblind[8],
     "NoData": "black",
+    "NoDataWake": "black",
     "flat": "black",
     "Other": _colorblind[8],
     "Drug": "white",
@@ -75,6 +76,7 @@ publication_colors = {
     "None": _pub_unscored,
     "Other": _pub_unscored,
     "NoData": _pub_nodata,
+    "NoDataWake": _pub_wake,
     "flat": _pub_nodata,
 }
 
@@ -105,22 +107,19 @@ def check_ax(ax, figsize=None):
 
 
 def set_yticklabels_from_values(ylabels, ys, ax):
-
     # https://matplotlib.org/stable/gallery/ticks/tick_labels_from_values.html
     def format_fn(tick_val, tick_pos):
         if int(tick_val) in ys:
             return ylabels[int(tick_val)]
         else:
-            return ''
+            return ""
 
     # A FuncFormatter is created automatically.
     ax.yaxis.set_major_formatter(format_fn)
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
 
 
-def plot_spike_train(
-    data, Tmax=None, ax=None, linewidth=0.1, linelengths=0.95, lineoffsets=1.0, **kwargs
-):
+def plot_spike_train(data, Tmax=None, ax=None, linewidth=0.1, linelengths=0.95, lineoffsets=1.0, **kwargs):
     """Spike raster.
 
     Args:
@@ -183,9 +182,7 @@ def plot_psth_hist(psth_array, window, binsize, ylabel=None, ylim=None):
     return f, ax
 
 
-def plot_psth_heatmap(
-    psth_array, ylabels, window, binsize, clim=None, cbar_label=None, ax=None
-):
+def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_label=None, ax=None):
     """PSTH Heatmap.
 
     Args:
@@ -232,9 +229,7 @@ def plot_psth_heatmap(
 
     # x ticks: Only 0, first and last value
     xtic_len = gcd(int(abs(window[0] * 1000)), int(window[1] * 1000))
-    xtic_labels = range(
-        int(window[0] * 1000), int(window[1] * 1000) + xtic_len, xtic_len
-    )
+    xtic_labels = range(int(window[0] * 1000), int(window[1] * 1000) + xtic_len, xtic_len)
     xtic_locs = [(j - (window[0] * 1000)) / (binsize * 1000) for j in xtic_labels]
     if 0 not in xtic_labels:
         xtic_labels.append(0)
@@ -378,7 +373,9 @@ def plot_heatmap(
 
     plt.colorbar(plot)
 
-    if ylabels is not None: # Tick labels from values: https://matplotlib.org/stable/gallery/ticks/tick_labels_from_values.html
+    if (
+        ylabels is not None
+    ):  # Tick labels from values: https://matplotlib.org/stable/gallery/ticks/tick_labels_from_values.html
         set_yticklabels_from_values(ylabels, range(array.shape[0]), ax)
 
     return ax
@@ -574,9 +571,7 @@ def interactive_lfp_explorer(time, lfps, chan_labels=None, figsize=(20, 8)):
     See `lfp_explorer`.
     """
     # Create interactive widgets for controlling plot parameters
-    window_length = FloatSlider(
-        min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
-    )
+    window_length = FloatSlider(min=0.25, max=4.0, step=0.25, value=1.0, description="Secs")
     window_start = FloatSlider(
         min=np.min(time),
         max=np.max(time),
@@ -591,15 +586,9 @@ def interactive_lfp_explorer(time, lfps, chan_labels=None, figsize=(20, 8)):
         value=np.min(time),
         description="Pos",
     )
-    jslink(
-        (window_start, "value"), (_window_start, "value")
-    )  # Allow control from either widget for easy navigation
-    n_plot_chans = IntSlider(
-        min=1, max=lfps.shape[1], step=1, value=16, description="nCh"
-    )
-    i_chan = IntSlider(
-        min=0, max=(lfps.shape[1] - 1), step=1, value=1, description="Ch"
-    )
+    jslink((window_start, "value"), (_window_start, "value"))  # Allow control from either widget for easy navigation
+    n_plot_chans = IntSlider(min=1, max=lfps.shape[1], step=1, value=16, description="nCh")
+    i_chan = IntSlider(min=0, max=(lfps.shape[1] - 1), step=1, value=1, description="Ch")
     vspace = IntSlider(min=0, max=100000, step=100, value=300, description="V Space")
     zero_mean = Checkbox(True, description="Zero-mean")
     flip_dv = Checkbox(False, description="D/V")
@@ -713,9 +702,7 @@ def interactive_colormesh_explorer(time, sig, y=None, figsize=(20, 8)):
     See `colormesh_explorer`.
     """
     # Create interactive widgets for controlling plot parameters
-    window_length = FloatSlider(
-        min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
-    )
+    window_length = FloatSlider(min=0.25, max=4.0, step=0.25, value=1.0, description="Secs")
     window_start = FloatSlider(
         min=np.min(time),
         max=np.max(time),
@@ -730,12 +717,8 @@ def interactive_colormesh_explorer(time, sig, y=None, figsize=(20, 8)):
         value=np.min(time),
         description="Pos",
     )
-    jslink(
-        (window_start, "value"), (_window_start, "value")
-    )  # Allow control from either widget for easy navigation
-    n_y = IntSlider(
-        min=1, max=sig.shape[1], step=1, value=sig.shape[1], description="nRows"
-    )
+    jslink((window_start, "value"), (_window_start, "value"))  # Allow control from either widget for easy navigation
+    n_y = IntSlider(min=1, max=sig.shape[1], step=1, value=sig.shape[1], description="nRows")
     i_y = IntSlider(min=0, max=(sig.shape[1] - 1), step=1, value=1, description="Row")
     zero_mean = Checkbox(False, description="Zero-mean")
     flip_ud = Checkbox(False, description="U/D")
