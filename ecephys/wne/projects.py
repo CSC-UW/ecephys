@@ -258,6 +258,11 @@ class Project:
                         ids=template_metrics.index.values,
                     )
 
+        # Add extra info
+        extractor.set_property(key="subject", values=[subject] * len(extractor.get_unit_ids()))
+        extractor.set_property(key="experiment", values=[experiment] * len(extractor.get_unit_ids()))
+        extractor.set_property(key="probe", values=[probe] * len(extractor.get_unit_ids()))
+
         return extractor
 
     def get_sharptrack(
