@@ -225,7 +225,11 @@ def add_spatialoff_viewer_to_window(
         channel_names=depthstamps,
     )
 
-    view = ephyviewer.TraceImageViewer(source=source, name=view_name)
+    try:
+        view = ephyviewer.TraceImageViewer(source=source, name=view_name)
+    except AttributeError:
+        raise ImportError("TraceImageViewer is not accessible in vanilla ephyviewer. Install github.com/csc-uw/ephyviewer fork")
+
     window.add_view(view, location="bottom")
 
     if add_event_list:
