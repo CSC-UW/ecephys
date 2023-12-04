@@ -135,16 +135,15 @@ def add_spiketrainviewer_to_window(
     structs = structs.sort_values(
         by="lo", ascending=False
     )  # Sort by depth. They should already be sorted this way...
-    lo = structs["lo"].values
-    hi = structs["hi"].values
-    view_name = f"Structures: {structs['acronym'].unique()}, lo={lo}-{hi}um, N={len(properties)}"
+    descr = structs.apply(lambda x: f"{x.acronym}: {x.lo}-{x.hi}um, N={len(properties[properties.acronym == x.acronym])}", axis=1)
+    view_name = f"Structures: {' | '.join(descr.tolist())}"
     if probe is not None:
         view_name = f"Probe: {probe}, {view_name}"
 
     # Get tgt values for grouping trains (We want to represent empty depths)
     if by == "depth":
         # Descending depths between structure min/max in 20um steps
-        min_val, max_val = lo.min(), hi.max()
+        min_val, max_val = structs.lo.min(), structs.hi.max()
         if min_val == -float("Inf") or max_val == float("Inf"):
             min_val, max_val = properties.depth.min(), properties.depth.max()
         tgt_values = np.arange(min_val, max_val + DEPTH_STEP, DEPTH_STEP)[::-1]
