@@ -135,8 +135,11 @@ def add_spiketrainviewer_to_window(
     structs = structs.sort_values(
         by="lo", ascending=False
     )  # Sort by depth. They should already be sorted this way...
-    descr = structs.apply(lambda x: f"{x.acronym}: {x.lo}-{x.hi}um, N={len(properties[properties.acronym == x.acronym])}", axis=1)
-    view_name = f"Structures: {' | '.join(descr.tolist())}"
+    descr_series = structs.apply(lambda x: f"{x.acronym}: {x.lo}-{x.hi}um, N={len(properties[properties.acronym == x.acronym])}", axis=1)
+    descr_str = ' | '.join(descr_series.tolist())
+    if not descr_str:
+        descr_str = f"Unknown, N={len(properties)}"
+    view_name = f"Structures: {descr_str}"
     if probe is not None:
         view_name = f"Probe: {probe}, {view_name}"
 
@@ -144,8 +147,10 @@ def add_spiketrainviewer_to_window(
     if by == "depth":
         # Descending depths between structure min/max in 20um steps
         min_val, max_val = structs.lo.min(), structs.hi.max()
-        if min_val == -float("Inf") or max_val == float("Inf"):
-            min_val, max_val = properties.depth.min(), properties.depth.max()
+        if min_val == -float("Inf") or np.isnan(min_val):
+            min_val = properties.depth.min()
+        if max_val == float("Inf") or np.isnan(max_val):
+            max_val = properties.depth.max()
         tgt_values = np.arange(min_val, max_val + DEPTH_STEP, DEPTH_STEP)[::-1]
     else:
         # Units sorted by depth within each structure
