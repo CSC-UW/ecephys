@@ -163,7 +163,7 @@ def add_spiketrainviewer_to_window(
 
         if by != "cluster_id":
             ids = properties[properties[by] == tgt_value].cluster_id.values
-            label = f"{label}, ids={ids}"
+            label = f"{label}, ids={ids}, struct={properties[properties.cluster_id.isin(ids)].acronym.unique()}"
 
         all_trains.append(
             {
