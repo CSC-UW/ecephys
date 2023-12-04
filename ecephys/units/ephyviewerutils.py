@@ -5,6 +5,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from ecephys import hypnogram
+from ecephys.wne import constants
 import ecephys.plot
 from ecephys.units import SpikeInterfaceKilosortSorting
 from ecephys.units import MultiSIKS
@@ -55,6 +56,7 @@ def add_epochviewer_to_window(
     events_df: pd.DataFrame,
     view_name="Events",
     name_column="state",
+    name_order=None,
     color_by_name=None,
     add_event_list=True,
 ):
@@ -67,7 +69,10 @@ def add_epochviewer_to_window(
     """
     assert all([c in events_df.columns for c in ["start_time", "duration"] + [name_column]])
 
-    all_names = events_df[name_column].unique()
+    all_names_unordered = events_df[name_column].unique()
+    if name_order is None:
+        name_order = all_names_unordered
+    all_names = [n for n in name_order if n in all_names_unordered] + [n for n in all_names_unordered if n not in name_order]
     all_epochs = []
 
     for name in all_names:
@@ -90,6 +95,7 @@ def add_epochviewer_to_window(
             view.by_channel_params[f"ch{i}", "color"] = matplotlib.colors.rgb2hex(
                 color_by_name[name]
             )
+    view.params["label_fill_color"] = "#00000000" # Transparent label background for visibility
 
     window.add_view(view, location="bottom", orientation="vertical")
 
@@ -109,6 +115,7 @@ def add_hypnogram_view_to_window(
         hg,
         view_name="Hypnogram",
         name_column="state",
+        name_order=constants.EPHYVIEWER_STATE_ORDER,
         color_by_name=ecephys.plot.state_colors,
     )
 
@@ -180,6 +187,7 @@ def add_spiketrainviewer_to_window(
     source = ephyviewer.InMemorySpikeSource(all_spikes=all_trains)
     view = ephyviewer.SpikeTrainViewer(source=source, name=view_name)
 
+    view.params["label_fill_color"] = "#00000000" # Transparent label background for visibility
     for p, v in view_params.items():
         view.params[p] = v
 

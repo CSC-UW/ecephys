@@ -51,3 +51,13 @@ SIMPLIFIED_STATES = {
     "Art": "Artifact",
     "None": "Other",
 }
+
+EPHYVIEWER_STATE_ORDER = [
+    "Wake",
+    "NREM",
+    "REM",
+    "IS",
+    "MA",
+    "Artifact",
+    "Other",
+]
