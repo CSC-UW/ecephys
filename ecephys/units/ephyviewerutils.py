@@ -266,12 +266,11 @@ def add_spiketrain_views_from_sorting(
     tgt_struct_acronyms: list[str] = None,
     group_by_structure: bool = True,
 ):
+    all_structures = sorting.structures_by_depth  # Descending depths
+    if tgt_struct_acronyms is None:
+        tgt_struct_acronyms = all_structures
+
     if group_by_structure:
-        all_structures = sorting.structures_by_depth  # Descending depths
-
-        if tgt_struct_acronyms is None:
-            tgt_struct_acronyms = all_structures
-
         for tgt_struct_acronym in tgt_struct_acronyms:
             window = add_spiketrainviewer_to_window(
                 window,
@@ -279,10 +278,10 @@ def add_spiketrain_views_from_sorting(
                 by=by,
                 probe=None,
             )
-
     else:
-        # Full probe
-        window = add_spiketrainviewer_to_window(window, sorting, by=by, probe=None)
+        window = add_spiketrainviewer_to_window(
+            window, sorting.select_structures(tgt_struct_acronyms), by=by, probe=None
+        )
 
     return window
 
