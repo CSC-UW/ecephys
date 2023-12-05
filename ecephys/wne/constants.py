@@ -17,6 +17,7 @@ SORTING_PIPELINE_PARAMS_FNAME = "sorting_pipeline_params.yaml"
 EMG_FNAME = "emg.nc"
 ARTIFACTS_FNAME = "artifacts.htsv"
 HYPNOGRAM_FNAME = "hypnogram.htsv"
+HYPNOGRAM_EPHYVIEWER_EDITS_FNAME = "hypnogram_ephyviewer_edits.csv"
 DATETIME_HYPNOGRAM_FNAME = "hypnogram_datetime.htsv"
 HIPPOCAMPAL_SUBREGIONS_FNAME = "hippocampal_subregions.json"
 

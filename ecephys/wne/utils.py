@@ -86,6 +86,22 @@ def load_raw_datetime_hypnogram(
     return float_hypnogram_to_datetime(subject, experiment, hg, params["hypnogram_probe"])
 
 
+def load_ephyviewer_hypnogram_edits(
+    project: Project,
+    experiment: str,
+    subject: str,
+    simplify: bool = True,
+) -> pd.DataFrame:
+    f = project.get_experiment_subject_file(experiment, subject, constants.HYPNOGRAM_EPHYVIEWER_EDITS_FNAME)
+    df = pd.read_csv(f, sep=",")
+    df = df.rename({"time": "start_time", "label": "state"}, axis=1)
+    df["end_time"] = df["start_time"] + df["duration"]
+    hg = hypnogram.FloatHypnogram(df)
+    if simplify:
+        hg = hg.replace_states(constants.SIMPLIFIED_STATES)
+    return hg
+
+
 def load_postprocessing_hypnogram_for_si_slicing(
     sglxSortingProject,
     sglxSubject: SGLXSubject,

@@ -198,6 +198,7 @@ def load_reconciled_float_hypnogram(
     sglx_subject: SGLXSubject,
     probes: list[str],
     sources: list[str],
+    reconcile_ephyviewer_edits: bool = True,
     simplify: bool = True,
     alias="full",
     sorting="sorting",
@@ -205,11 +206,14 @@ def load_reconciled_float_hypnogram(
     """Load FloatHypnogram reconciled with LF/AP/sorting artifacts & NoData.
 
     Favor using this function, rather than load_raw_float_hypnogram, for
-    actual analyses! It ensures that the probes' actual NoData bouts and
-    artifacts are incorporated in the returned hypnogram.
+    actual analyses! It ensures that :
+        - the probes' actual NoData bouts and
+        - the probes' artifacts
+        - Manual edits made post-hoc in ephyviewer
+    are incorporated
 
     This is not guaranteed to be the case with the load_raw_float_hypnogram,
-    since:
+    in particular since:
         - SGLX files and artifacts may vary across streams/probes
         - Some bouts may have been excluded from a sorting
 
@@ -245,6 +249,16 @@ def load_reconciled_float_hypnogram(
         sglx_subject.name,
         simplify=simplify,
     )
+    if reconcile_ephyviewer_edits:
+        print(wne_utils.load_ephyviewer_hypnogram_edits(
+                project, experiment, sglx_subject.name, simplify=simplify
+        ))
+        hg = hg.reconcile(
+            wne_utils.load_ephyviewer_hypnogram_edits(
+                project, experiment, sglx_subject.name, simplify=simplify
+            ),
+            how="other"
+        )
     for source, probe in itertools.product(sources, probes):
         hg = hg.reconcile(
             load_bouts_to_reconcile_as_hypnogram(
