@@ -250,9 +250,6 @@ def load_reconciled_float_hypnogram(
         simplify=simplify,
     )
     if reconcile_ephyviewer_edits:
-        print(wne_utils.load_ephyviewer_hypnogram_edits(
-                project, experiment, sglx_subject.name, simplify=simplify
-        ))
         hg = hg.reconcile(
             wne_utils.load_ephyviewer_hypnogram_edits(
                 project, experiment, sglx_subject.name, simplify=simplify
