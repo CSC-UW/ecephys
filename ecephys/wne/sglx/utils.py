@@ -264,7 +264,7 @@ def load_reconciled_float_hypnogram(
             how="other",
         )
 
-    return hypnogram.FloatHypnogram(
+    return hypnogram.FloatHypnogram.clean(
         hg.reset_index(drop=True)
     )
 

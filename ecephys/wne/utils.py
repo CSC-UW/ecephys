@@ -72,6 +72,7 @@ def load_raw_float_hypnogram(
     hg = hypnogram.FloatHypnogram.from_htsv(f)
     if simplify:
         hg = hg.replace_states(constants.SIMPLIFIED_STATES)
+        hg = hypnogram.FloatHypnogram.clean(hg._df)
     return hg
 
 
@@ -96,7 +97,7 @@ def load_ephyviewer_hypnogram_edits(
     df = pd.read_csv(f, sep=",")
     df = df.rename({"time": "start_time", "label": "state"}, axis=1)
     df["end_time"] = df["start_time"] + df["duration"]
-    hg = hypnogram.FloatHypnogram(df)
+    hg = hypnogram.FloatHypnogram.clean(df)
     if simplify:
         hg = hg.replace_states(constants.SIMPLIFIED_STATES)
     return hg
