@@ -94,6 +94,9 @@ def load_ephyviewer_hypnogram_edits(
     simplify: bool = True,
 ) -> pd.DataFrame:
     f = project.get_experiment_subject_file(experiment, subject, constants.HYPNOGRAM_EPHYVIEWER_EDITS_FNAME)
+    if not f.exists():
+        return hypnogram.FloatHypnogram(pd.DataFrame([], columns=["state", "start_time", "end_time", "duration"]))
+
     df = pd.read_csv(f, sep=",")
     df = df.rename({"time": "start_time", "label": "state"}, axis=1)
     df["end_time"] = df["start_time"] + df["duration"]
