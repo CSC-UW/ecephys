@@ -100,10 +100,12 @@ def load_ephyviewer_hypnogram_edits(
     df = pd.read_csv(f, sep=",")
     df = df.rename({"time": "start_time", "label": "state"}, axis=1)
     df["end_time"] = df["start_time"] + df["duration"]
-    hg = hypnogram.FloatHypnogram.clean(df)
+    hg = hypnogram.FloatHypnogram(df)
     if simplify:
         hg = hg.replace_states(constants.SIMPLIFIED_STATES)
-    return hg
+    return hypnogram.FloatHypnogram(
+        hypnogram.condense(hg._df, 0.1)
+    )
 
 
 def load_postprocessing_hypnogram_for_si_slicing(
