@@ -1,7 +1,6 @@
 # TODO: Handle dropping of duplicate timestamps across files?
 
 import logging
-from typing import Optional
 
 from tqdm.auto import tqdm
 
