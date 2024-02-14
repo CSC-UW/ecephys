@@ -2,6 +2,7 @@ import logging
 import pathlib
 from pathlib import Path
 from typing import Callable, Union
+import tqdm
 
 import numpy as np
 
@@ -76,6 +77,7 @@ class SGLXProject(Project):
         probe: str,
         sorting: str,
         allow_no_sync_file=False,
+        progress_bar=False,
     ) -> Callable:
         # TODO: Once permissions are fixed, should come from f = wneProject.get_experiment_subject_file(experiment, subject, f"prb_sync.ap.htsv")
         # Load probe sync table.
@@ -134,11 +136,14 @@ class SGLXProject(Project):
             sync_table = sync_table.set_index("source")
 
         # TODO: Rename start_sample -> si_start_sample?
-        def sample2time(s):
+        def sample2time(s, progress_bar=progress_bar):
             s = s.astype("float")
             t = np.empty(s.size, dtype="float")
             t[:] = np.nan  # Check a posteriori if we covered all input samples
-            for seg in sorted_segments.itertuples():
+            iterable = list(sorted_segments.itertuples())
+            if progress_bar:
+                iterable = tqdm.tqdm(iterable)
+            for seg in iterable:
                 mask = (s >= seg.start_sample) & (
                     s < seg.end_sample
                 )  # Mask samples belonging to this segment
