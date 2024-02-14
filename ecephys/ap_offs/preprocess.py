@@ -40,7 +40,11 @@ def preprocess_neuropixels_si_recording(
     pro_rec = sp.phase_shift(pro_rec)
     pro_rec = sp.common_reference(pro_rec, reference="global", operator="median")
     pro_rec = sp.interpolate_bad_channels(pro_rec, bad_channel_ids)
+    pro_rec = sp.zscore(pro_rec, dtype='float32')
+    pro_rec = sp.rectify(pro_rec)
+    pro_rec = sp.gaussian_filter(pro_rec, freq_min=None, freq_max=opts["gaussian_filt_max"])
 
+    # After smoothing because this affects noise levels
     if motion_npzfile is not None and opts["motion_correct"]:
         motion = motion_npzfile["motion"]
         temporal_bins = motion_npzfile["temporal_bins"]
@@ -52,15 +56,12 @@ def preprocess_neuropixels_si_recording(
             spatial_bins,
             direction=1,
             border_mode="remove_channels",
-            spatial_interpolation_method="kriging",
+            spatial_interpolation_method="nearest",
             sigma_um=20.0,
             p=1,
             num_closest=3,
         )
 
-    pro_rec = sp.zscore(pro_rec, dtype='float32')
-    pro_rec = sp.rectify(pro_rec)
-    pro_rec = sp.gaussian_filter(pro_rec, freq_min=None, freq_max=opts["gaussian_filt_max"])
     pro_rec = sp.decimate(pro_rec, decimation_factor=opts["decimation_factor"])
 
     # Order by depth
