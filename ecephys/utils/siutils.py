@@ -125,14 +125,26 @@ def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
     if combine == "concatenate":
 
         if isinstance(si_object, se.BaseSorting):
-            return si.concatenate_sortings(si_segments)
+            rec = si.concatenate_sortings(si_segments)
         elif isinstance(si_object, se.BaseRecording):
-            return si.concatenate_recordings(si_segments)
+            rec = si.concatenate_recordings(si_segments)
 
     elif combine == "append":
         raise NotImplementedError
 
-    assert False
+    else:
+        assert False
+
+    # Apply to time vector if there's any (not handled by SI)
+    if si_object.has_time_vector():
+        raw_times = si_object.get_times()
+        times = []
+        for epoch in epochs_df.itertuples():
+            times += list(raw_times[epoch.start_frame:epoch.end_frame])
+        times = np.array(times)
+        rec.set_times(times)
+
+    return rec
 
 
 def load_kilosort_bin_as_si_recording(
