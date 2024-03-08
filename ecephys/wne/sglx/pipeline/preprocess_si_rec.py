@@ -250,7 +250,7 @@ def _prepro_drift_correction(
             spatial_bins=spatial_bins,
         )
     else:
-        npz = np.load(motion_path)
+        npz = np.load(clean_motion_path)
         motion_clean = npz["motion"]
         temporal_bins = npz["temporal_bins"]
         spatial_bins = npz["spatial_bins"]
