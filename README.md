@@ -9,16 +9,6 @@ Python tools for extracellular electrophysiology at the Wisconsin Institute for 
 I reccomend Python 3.11. `pyfftw` technically allows you to use Python >3.11, but only provides prebuilt wheels through 3.11, and if you are using mamba/conda and CPython (probable), `pyfftw`'s build will probably fail for 3.12.     
 
 You need to use the `CSC-UW` fork of `spikeinterface`. The specific branch you need depends on your intent. For running spike sorting, use `wisc/sorting`. For everything else, use `wisc/dev`. 
-```
-pip install "git+ssh://git@github.com/CSC-UW/spikeinterface.git@wisc/dev # For general use 
-pip install "git+ssh://git@github.com/CSC-UW/spikeinterface.git@wisc/sorting # For spike sorting
-# Example of an editable install
-git clone https://github.com/CSC-UW/spikeinterface.git
-cd spikeinterface
-pip install -e .
-git checkout wisc/sorting
-```
-
 If you are spike sorting, you probably also want `pytorch` for spikeinterface's drift correction. 
 If you are using `ephyviewer` and Python 3.11, I reccomend PySide6 + Qt6:
 ```
