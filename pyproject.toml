@@ -21,7 +21,7 @@ dependencies = [
     "bg-atlasapi",
     "chardet",
     "colorcet",
-    "dask[complete]",
+    "dask[complete] == 2024.2.1", # This was the last dask relase supporting pandas < 2
     "deepdiff",
     "docopt",
     "elephant",
