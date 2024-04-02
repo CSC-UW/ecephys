@@ -16,39 +16,80 @@ import scipy.stats
 import xarray as xr
 
 DEFAULT_OPTS = {
-    "median_filter_N_chans": 5,
-    "median_filter_N_samples": 20,
+    "median_filter_N_chans": 1,
+    "median_filter_N_samples": 10,
     "std_threshold": 0.085,
     "std_threshold_ratio": 0.5,
     "mad_threshold": 1.5,
-    "min_off_median_duration": 0.01,
-    "min_off_span": 100,
-    # "min_off_convexity_ratio": 0.75,
-    "min_off_convexity_ratio": 0.0,
 }
 
 
-def get_thresh(x, opts):
-    return np.median(x) - opts["mad_threshold"] * scipy.stats.median_abs_deviation(x)
+def get_mad_thresh(x, opts=None, bins=None):
+    mode = bins[np.argmax(np.histogram(x, bins=bins)[0])]
+    return mode - opts["mad_threshold"] * scipy.stats.median_abs_deviation(x)
 
-def get_thresholds(da, opts):
-    if da.shape[1]:
-        dat = dask.array.apply_along_axis(
-            partial(get_thresh, opts=opts),
-            0,
-            da,
-        )
-    else:
-        dat = []
+def get_quantile_thresh(x, opts=None):
+    quantile = opts["quantile_threshold"]
+    return np.quantile(x, quantile)
+
+def get_thresholds(da, method="mad", opts=None):
+    if opts is None:
+        opts = DEFAULT_OPTS
+    
+    assert method in ["mad", "quantile"]
+    if method == "mad":
+        bins = np.linspace(float(da.data.min()), float(da.data.max()), 100)
+        func = partial(get_mad_thresh, opts=opts, bins=bins)
+    if method == "quantile":
+        func = partial(get_quantile_thresh, opts=opts)
+
+    dat = dask.array.apply_along_axis(
+        func,
+        0,
+        da,
+    )
+
     return xr.DataArray(
         data=dat,
         dims=("channel"),
         coords={
-            "channel": da.channel
+            "channel": da.channel,
+            "y": ("channel", da.y.data)
         },
         name="Detection threshold",
-        attrs={"mad_threshold": opts["mad_threshold"]}
+        attrs={
+            "method": method,
+            "opts": opts,
+        }
     )
+
+
+def clean_binary_mask(off_mask):
+
+    NSAMPLES = 10
+    NCHANNELS_CLEAN = 3
+    NCHANNELS_CONNECT = 5 
+
+    import dask_image.ndmorph
+    
+    # Vertical: Connect across bad channels
+    struct = np.ones((1, NCHANNELS_CLEAN))
+    off_mask.data = dask_image.ndmorph.binary_closing(off_mask.data, structure=struct, iterations=1)
+    
+    # # # Horizontal  Remove shorter blobs
+    struct = np.ones((NSAMPLES, 1))
+    off_mask.data = dask_image.ndmorph.binary_opening(off_mask.data, structure=struct, iterations=1)
+    
+    # # # vertical : Remove few-channel epochs
+    struct = np.ones((1, NCHANNELS_CLEAN))
+    off_mask.data = dask_image.ndmorph.binary_opening(off_mask.data, structure=struct, iterations=1)
+    
+    # # vertical : Connect distant blobs vertically
+    struct = np.ones((1, NCHANNELS_CONNECT))
+    off_mask.data = dask_image.ndmorph.binary_closing(off_mask.data, structure=struct, iterations=1)
+
+    return off_mask
+
 
 def get_offs_df(da, lbl_ixs):
     """Generate offs dataframe.
@@ -91,14 +132,16 @@ def get_offs_df(da, lbl_ixs):
     df['span'] = df['hi'] - df['lo']
 
     def _assign_convexity_metrics(df, lbl_ixs):
-        from scipy.spatial import ConvexHull, QhullError
-        try:
-            convex_area = df.apply(
-                lambda row: ConvexHull(np.transpose(np.array(lbl_ixs[row["label"]]))).volume,
-                axis=1
-            )
-        except QhullError:
-            convex_area = float("Inf")
+        def _get_row_area(row):
+            from scipy.spatial import ConvexHull, QhullError
+            try:
+                return ConvexHull(np.transpose(np.array(lbl_ixs[row["label"]]))).volume
+            except QhullError:
+                convex_area = float("Inf")
+        convex_area = df.apply(
+            lambda row: _get_row_area(row),
+            axis=1
+        )
         df["convexity_ratio"] = df["area"] / convex_area
         return df
 
@@ -123,6 +166,9 @@ def detect_ap_offs(da, thresholds, opts=None):
     off_mask = da.copy()
     off_mask.data = dask.array.where(da < thresholds, True, False)
 
+    # Morphological cleaning
+    off_mask = clean_binary_mask(off_mask)
+
     # Labels for each contiguous blob
     lbl_da = da.copy()
     lbl_img, _ = dask_image.ndmeasure.label(off_mask)
@@ -133,11 +179,6 @@ def detect_ap_offs(da, thresholds, opts=None):
     # {label: (col_indices, row_indices)}
     lbl_ixs = scipy.ndimage.value_indices(np.array(lbl_da.data), ignore_value=0) # {lbl: (row/time_indices, col/chan_indices)}
 
-    offs_raw = get_offs_df(da, lbl_ixs, opts)
-    offs_clean = offs_raw[
-        (offs_raw["median_duration"] >= opts["min_off_median_duration"])
-        & (offs_raw["span"] >= opts["min_off_span"])
-        & (offs_raw["convexity_ratio"] >= opts["min_off_convexity_ratio"])
-    ]
+    offs_raw = get_offs_df(da, lbl_ixs)
 
-    return offs_raw, offs_clean, lbl_ixs
+    return offs_raw, lbl_ixs

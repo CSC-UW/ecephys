@@ -14,9 +14,10 @@ from pathlib import Path
 import numpy
 
 
-DEFAULT_OPTS = {
-    "bandpass_filt_min": 100,
+DEFAULT_OPTS_NPX = {
+    "bandpass_filt_min": 300,
     "bandpass_filt_max": 12000,
+    "common_reference": "global",
     "gaussian_filt_max": 20,
     "decimation_factor": 100,
     "motion_correct": True,
@@ -31,14 +32,16 @@ def preprocess_neuropixels_si_recording(
     assert len(time_vector) == si_rec.get_num_samples()
 
     if opts is None:
-        opts = DEFAULT_OPTS
-    assert set(DEFAULT_OPTS.keys()) == set(opts.keys())
+        opts = DEFAULT_OPTS_NPX
+    assert set(DEFAULT_OPTS_NPX.keys()) == set(opts.keys())
+
+    print(f"Processing with opts: {opts}")
 
     pro_rec = si_rec
     bad_channel_ids, _ = sp.detect_bad_channels(pro_rec)
     pro_rec = sp.bandpass_filter(pro_rec, opts["bandpass_filt_min"], opts["bandpass_filt_max"])
     pro_rec = sp.phase_shift(pro_rec)
-    pro_rec = sp.common_reference(pro_rec, reference="global", operator="median")
+    pro_rec = sp.common_reference(pro_rec, reference=opts["common_reference"], operator="median")
     pro_rec = sp.interpolate_bad_channels(pro_rec, bad_channel_ids)
     pro_rec = sp.zscore(pro_rec, dtype='float32')
     pro_rec = sp.rectify(pro_rec)

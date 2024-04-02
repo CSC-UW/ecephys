@@ -30,10 +30,6 @@ detection_opts = {
     "std_threshold": 0.085,
     "std_threshold_ratio": 0.5,
     "mad_threshold": 1.5,
-    "min_off_median_duration": 0.01,
-    "min_off_span": 100,
-    # "min_off_convexity_ratio": 0.75,
-    "min_off_convexity_ratio": 0.0,
 }
 
 # You might want to use a different pipeline for non-neuropixels recording...
@@ -70,7 +66,7 @@ da.data = dask_image.ndfilters.median_filter(
 # da = da.sel(channel=...)
 
 thresholds = ap_offs.detect.get_thresholds(da, detection_opts)
-offs_raw, offs_clean, lbl_ixs = ap_offs.detect.detect_ap_offs(da, thresholds, opts=detection_opts)
+offs_df, lbl_ixs = ap_offs.detect.detect_ap_offs(da, thresholds, opts=detection_opts)
 
 client.close()
 
