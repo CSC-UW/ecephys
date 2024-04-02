@@ -51,6 +51,12 @@ SIMPLIFIED_STATES = {
     "REM": "REM",
     "Art": "Artifact",
     "None": "Other",
+    # Mice hypnograms:
+    "Brief-Arousal": "MA",
+    "Transition-to-Wake": "Other",
+    "Transition-to-NREM": "Other",
+    "Transition-to-REM": "Other", # TODO: Possibly equivalent to IS
+    "Wake-Good": "Wake",
 }
 
 EPHYVIEWER_STATE_ORDER = [
