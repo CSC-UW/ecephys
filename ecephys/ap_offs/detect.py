@@ -21,6 +21,10 @@ DEFAULT_OPTS = {
     "std_threshold": 0.085,
     "std_threshold_ratio": 0.5,
     "mad_threshold": 1.5,
+    # Clean binary mask
+    "n_channels_clean": 3,
+    "n_channels_connect": 5,
+    "n_samples": 10,
 }
 
 
@@ -64,28 +68,28 @@ def get_thresholds(da, method="mad", opts=None):
     )
 
 
-def clean_binary_mask(off_mask):
-
-    NSAMPLES = 10
-    NCHANNELS_CLEAN = 3
-    NCHANNELS_CONNECT = 5 
+def clean_binary_mask(off_mask, n_samples=10, n_channels_clean=3, n_channels_connect=5):
 
     import dask_image.ndmorph
     
     # Vertical: Connect across bad channels
-    struct = np.ones((1, NCHANNELS_CLEAN))
+    struct = np.ones((1, n_channels_clean))
+    print(f"Binary close: {struct.shape}")
     off_mask.data = dask_image.ndmorph.binary_closing(off_mask.data, structure=struct, iterations=1)
     
     # # # Horizontal  Remove shorter blobs
-    struct = np.ones((NSAMPLES, 1))
+    struct = np.ones((n_samples, 1))
+    print(f"Binary open: {struct.shape}")
     off_mask.data = dask_image.ndmorph.binary_opening(off_mask.data, structure=struct, iterations=1)
     
     # # # vertical : Remove few-channel epochs
-    struct = np.ones((1, NCHANNELS_CLEAN))
+    struct = np.ones((1, n_channels_clean))
+    print(f"Binary open: {struct.shape}")
     off_mask.data = dask_image.ndmorph.binary_opening(off_mask.data, structure=struct, iterations=1)
     
     # # vertical : Connect distant blobs vertically
-    struct = np.ones((1, NCHANNELS_CONNECT))
+    struct = np.ones((1, n_channels_connect))
+    print(f"Binary close: {struct.shape}")
     off_mask.data = dask_image.ndmorph.binary_closing(off_mask.data, structure=struct, iterations=1)
 
     return off_mask
@@ -167,7 +171,12 @@ def detect_ap_offs(da, thresholds, opts=None):
     off_mask.data = dask.array.where(da < thresholds, True, False)
 
     # Morphological cleaning
-    off_mask = clean_binary_mask(off_mask)
+    off_mask = clean_binary_mask(
+        off_mask,
+        n_samples=opts["n_samples"],
+        n_channels_clean=opts["n_channels_clean"],
+        n_channels_connect=opts["n_channels_connect"],
+    )
 
     # Labels for each contiguous blob
     lbl_da = da.copy()
