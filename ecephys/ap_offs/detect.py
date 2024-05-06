@@ -169,6 +169,7 @@ def detect_ap_offs(da, thresholds, opts=None):
     # Binary mask of below threhsold pixels
     off_mask = da.copy()
     off_mask.data = dask.array.where(da < thresholds, True, False)
+    off_mask.name = "OFF mask"
 
     # Morphological cleaning
     off_mask = clean_binary_mask(
@@ -182,6 +183,7 @@ def detect_ap_offs(da, thresholds, opts=None):
     lbl_da = da.copy()
     lbl_img, _ = dask_image.ndmeasure.label(off_mask)
     lbl_da.data = lbl_img
+    lbl_da.name = "OFF label"
     del off_mask
     print("Done labelling")
 
@@ -190,4 +192,4 @@ def detect_ap_offs(da, thresholds, opts=None):
 
     offs_raw = get_offs_df(da, lbl_ixs)
 
-    return offs_raw, lbl_ixs
+    return offs_raw, lbl_da, lbl_ixs
