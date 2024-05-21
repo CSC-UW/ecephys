@@ -59,3 +59,26 @@ def add_ap_off_overlay(da: xr.DataArray, lbl_ixs: dict, offs_df: pd.DataFrame, a
             add_colorbar=False,
             **plot_kwargs,
         )
+
+
+def add_mean_ap_off_overlay(offs_df: pd.DataFrame, ax, xlim: tuple[float], ax_ylim: tuple[float], **plot_kwargs):
+
+    offs_sel = offs_df[
+        (offs_df.start_time.between(*xlim))
+        & (offs_df.end_time.between(*xlim))
+    ]
+
+    def data_y_to_ax_y(data_y):
+        ymin, ymax = ax_ylim
+        return (data_y-ymin)/(ymax - ymin)
+
+    for off_row in offs_sel.itertuples():
+
+        ax.axvspan(
+            off_row.start_time,
+            off_row.end_time,
+            data_y_to_ax_y(off_row.lo),
+            data_y_to_ax_y(off_row.hi),
+            facecolor="yellow",
+            **plot_kwargs
+        )
