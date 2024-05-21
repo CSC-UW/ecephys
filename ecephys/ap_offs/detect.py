@@ -16,12 +16,8 @@ import scipy.stats
 import xarray as xr
 
 DEFAULT_OPTS = {
-    "median_filter_N_chans": 1,
-    "median_filter_N_samples": 10,
-    "std_threshold": 0.085,
-    "std_threshold_ratio": 0.5,
-    "mad_threshold": 1.5,
     # Clean binary mask
+    "clean_binary_mask": True,
     "n_channels_clean": 3,
     "n_channels_connect": 5,
     "n_samples": 10,
@@ -164,7 +160,10 @@ def detect_ap_offs(da, thresholds, opts=None):
 
     if opts is None:
         opts = DEFAULT_OPTS
-    assert set(DEFAULT_OPTS.keys()) <= set(opts.keys())
+    missing_keys = set(DEFAULT_OPTS.keys()) - set(opts.keys())
+    if missing_keys:
+        import warnings
+        warnings.warn(f"Following keys might be missing from `opts` kwarg: {missing_keys}")
 
     # Binary mask of below threhsold pixels
     off_mask = da.copy()
@@ -172,12 +171,13 @@ def detect_ap_offs(da, thresholds, opts=None):
     off_mask.name = "OFF mask"
 
     # Morphological cleaning
-    off_mask = clean_binary_mask(
-        off_mask,
-        n_samples=opts["n_samples"],
-        n_channels_clean=opts["n_channels_clean"],
-        n_channels_connect=opts["n_channels_connect"],
-    )
+    if opts["clean_binary_mask"]:
+        off_mask = clean_binary_mask(
+            off_mask,
+            n_samples=opts["n_samples"],
+            n_channels_clean=opts["n_channels_clean"],
+            n_channels_connect=opts["n_channels_connect"],
+        )
 
     # Labels for each contiguous blob
     lbl_da = da.copy()
