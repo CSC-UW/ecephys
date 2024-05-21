@@ -101,6 +101,27 @@ def get_offs_df(da, lbl_ixs):
         {<label>: (<col_indices>, <row_indices>)}
     """
 
+    if not lbl_ixs:
+        return pd.DataFrame(
+            columns=[
+                "area",
+                "start_frame",
+                "end_frame",
+                "median_nframes",
+                "lo_chan_idx",
+                "max_chan_idx",
+                "label",
+                "start_time",
+                "end_time",
+                "duration",
+                "median_duration",
+                "lo",
+                "hi",
+                "span",
+                "convexity_ratio",
+            ]
+        )
+
     def _get_median_nframes(col_indices, row_indices):
         tmp = pd.DataFrame({'row': row_indices, 'col': col_indices})
         return tmp.groupby('row').count()['col'].median()
