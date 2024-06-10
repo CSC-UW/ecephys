@@ -123,7 +123,7 @@ def add_hypnogram_view_to_window(
 def add_spiketrainviewer_to_window(
     window: ephyviewer.MainViewer,
     sorting: SpikeInterfaceKilosortSorting,
-    by="cluster_id",
+    by="depth",
     probe=None,
     view_params=None,
 ):
