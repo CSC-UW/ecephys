@@ -20,7 +20,8 @@ DEFAULT_OPTS = {
     "clean_binary_mask": True,
     "n_channels_clean": 3,
     "n_channels_connect": 5,
-    "n_samples": 10,
+    "n_samples_connect": 10,
+    "n_samples_clean": None,
 }
 
 
@@ -64,29 +65,39 @@ def get_thresholds(da, method="mad", opts=None):
     )
 
 
-def clean_binary_mask(off_mask, n_samples=10, n_channels_clean=3, n_channels_connect=5):
+def clean_binary_mask(off_mask, n_samples_connect=None, n_samples_clean=10, n_channels_clean=3, n_channels_connect=5):
 
     import dask_image.ndmorph
+
+    # Horizontal: Connect across samples
+    if n_samples_connect is not None:
+        struct = np.ones((n_samples_connect, 1))
+        print(f"Binary close: {struct.shape}")
+        off_mask.data = dask_image.ndmorph.binary_closing(off_mask.data, structure=struct, iterations=1)
     
     # Vertical: Connect across bad channels
-    struct = np.ones((1, n_channels_clean))
-    print(f"Binary close: {struct.shape}")
-    off_mask.data = dask_image.ndmorph.binary_closing(off_mask.data, structure=struct, iterations=1)
+    if n_channels_clean is not None:
+        struct = np.ones((1, n_channels_clean))
+        print(f"Binary close: {struct.shape}")
+        off_mask.data = dask_image.ndmorph.binary_closing(off_mask.data, structure=struct, iterations=1)
     
     # # # Horizontal  Remove shorter blobs
-    struct = np.ones((n_samples, 1))
-    print(f"Binary open: {struct.shape}")
-    off_mask.data = dask_image.ndmorph.binary_opening(off_mask.data, structure=struct, iterations=1)
+    if n_samples_clean is not None:
+        struct = np.ones((n_samples_clean, 1))
+        print(f"Binary open: {struct.shape}")
+        off_mask.data = dask_image.ndmorph.binary_opening(off_mask.data, structure=struct, iterations=1)
     
     # # # vertical : Remove few-channel epochs
-    struct = np.ones((1, n_channels_clean))
-    print(f"Binary open: {struct.shape}")
-    off_mask.data = dask_image.ndmorph.binary_opening(off_mask.data, structure=struct, iterations=1)
+    if n_channels_clean is not None:
+        struct = np.ones((1, n_channels_clean))
+        print(f"Binary open: {struct.shape}")
+        off_mask.data = dask_image.ndmorph.binary_opening(off_mask.data, structure=struct, iterations=1)
     
     # # vertical : Connect distant blobs vertically
-    struct = np.ones((1, n_channels_connect))
-    print(f"Binary close: {struct.shape}")
-    off_mask.data = dask_image.ndmorph.binary_closing(off_mask.data, structure=struct, iterations=1)
+    if n_channels_connect is not None:
+        struct = np.ones((1, n_channels_connect))
+        print(f"Binary close: {struct.shape}")
+        off_mask.data = dask_image.ndmorph.binary_closing(off_mask.data, structure=struct, iterations=1)
 
     return off_mask
 
@@ -195,7 +206,8 @@ def detect_ap_offs(da, thresholds, opts=None):
     if opts["clean_binary_mask"]:
         off_mask = clean_binary_mask(
             off_mask,
-            n_samples=opts["n_samples"],
+            n_samples_connect=opts["n_samples_connect"],
+            n_samples_clean=opts["n_samples_clean"],
             n_channels_clean=opts["n_channels_clean"],
             n_channels_connect=opts["n_channels_connect"],
         )
