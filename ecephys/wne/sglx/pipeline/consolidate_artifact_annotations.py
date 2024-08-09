@@ -83,7 +83,7 @@ def do_experiment_probe_stream(
                     f""" \n`{outfile}`, \nand at the trigger-file level in \n{artifacts_file}. \n"""
                     f"""When a trigger artifact file exists, it should contain all the entries """
                     f"""for this file.  Please delete the following entries in the experiment file, """
-                    f"""or copy them in the trigger file: \n{comp_df.loc[common_cols]}"""
+                    f"""or copy them in the trigger file: \n{comp_df.loc[:, common_cols]}"""
                 )
 
             # Merge old and new
