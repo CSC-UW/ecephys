@@ -53,7 +53,6 @@ def add_ap_off_overlay(da: xr.DataArray, lbl_ixs: dict, offs_df: pd.DataFrame, a
             ax=ax,
             # Hack for full yellow
             # cmap="winter",
-            cmap="summer",
             vmin=0,
             vmax=1,
             add_colorbar=False,
@@ -79,6 +78,6 @@ def add_mean_ap_off_overlay(offs_df: pd.DataFrame, ax, xlim: tuple[float], ax_yl
             off_row.end_time,
             data_y_to_ax_y(off_row.lo),
             data_y_to_ax_y(off_row.hi),
-            facecolor="yellow",
+            # facecolor="yellow",
             **plot_kwargs
         )
