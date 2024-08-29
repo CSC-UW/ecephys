@@ -139,7 +139,7 @@ def get_offs_df(da, lbl_ixs):
 
     _lbls = np.sort(list(lbl_ixs.keys()))
     start_frames = pd.DataFrame([lbl_ixs[lbl][0].min() for lbl in _lbls], columns=['start_frame'], index=_lbls)
-    end_frames = pd.DataFrame([lbl_ixs[lbl][0].max() for lbl in _lbls], columns=['end_frame'], index=_lbls)
+    end_frames = pd.DataFrame([lbl_ixs[lbl][0].max() + 1 for lbl in _lbls], columns=['end_frame'], index=_lbls)
     median_nframes = pd.DataFrame([_get_median_nframes(*lbl_ixs[lbl]) for lbl in _lbls], columns=['median_nframes'], index=_lbls)
     lo_chan_ix = pd.DataFrame([lbl_ixs[lbl][1].min() for lbl in _lbls], columns=['lo_chan_idx'], index=_lbls)
     max_chan_idx = pd.DataFrame([lbl_ixs[lbl][1].max() for lbl in _lbls], columns=['max_chan_idx'], index=_lbls)
@@ -156,7 +156,7 @@ def get_offs_df(da, lbl_ixs):
     t = da.time.values
 
     df['start_time'] = t[df['start_frame'].values]
-    df['end_time'] = t[df['end_frame'].values]
+    df['end_time'] = t[df['end_frame'].values - 1] + 1 / da.attrs["fs"] # In case end_frame is on a gap
     df['duration'] = df['end_time'] - df['start_time']
     df['median_duration'] = df['median_nframes'] / da.attrs["fs"]
     df['lo'] = y[df['lo_chan_idx'].values]
