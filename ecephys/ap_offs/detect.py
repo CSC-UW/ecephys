@@ -20,8 +20,8 @@ DEFAULT_OPTS = {
     "clean_binary_mask": True,
     "n_channels_clean": 3,
     "n_channels_connect": 5,
-    "n_samples_connect": 10,
-    "n_samples_clean": None,
+    "n_samples_connect": None,
+    "n_samples_clean": 10,
 }
 
 
