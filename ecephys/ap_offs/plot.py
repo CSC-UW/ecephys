@@ -59,6 +59,8 @@ def add_ap_off_overlay(da: xr.DataArray, lbl_ixs: dict, offs_df: pd.DataFrame, a
             **plot_kwargs,
         )
 
+    ax.set_xlim(xlim)
+
 
 def add_mean_ap_off_overlay(offs_df: pd.DataFrame, ax, xlim: tuple[float], ax_ylim: tuple[float], **plot_kwargs):
 
