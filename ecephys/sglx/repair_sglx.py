@@ -18,12 +18,11 @@ import warnings
 from pathlib import Path
 
 
-__author__ = 'Tom Bugnon <tombugnon@hotmail.com>'
-__license__ = 'Public Domain, 2021'
+__author__ = "Tom Bugnon <tombugnon@hotmail.com>"
+__license__ = "Public Domain, 2021"
 
 
-def repair_meta(binpath, dry_run=True, backup_original_meta=True,
-                ignore_SHA1=False, preview_metadata=True):
+def repair_meta(binpath, dry_run=True, backup_original_meta=True, ignore_SHA1=False, preview_metadata=True):
     """Add missing fields to SGLX metadata 3B2 files following SGLX crash.
 
     The following fields may be missing from file following SGLX crash:
@@ -59,16 +58,16 @@ def repair_meta(binpath, dry_run=True, backup_original_meta=True,
     # fileSizeBytes
     print("Check `fileSizeBytes` field.")
     assert not binpath.is_symlink()
-    if 'fileSizeBytes' not in meta:
-        meta['fileSizeBytes'] = str(binpath.stat().st_size)
+    if "fileSizeBytes" not in meta:
+        meta["fileSizeBytes"] = str(binpath.stat().st_size)
         print(f"Derived missing `fileSizeBytes` value: {meta['fileSizeBytes']}")
-    fileSizeBytes = int(meta['fileSizeBytes'])
+    fileSizeBytes = int(meta["fileSizeBytes"])
     assert fileSizeBytes == binpath.stat().st_size
 
     # Check filesize consistency and possibly trim the bin
-    nChan = int(meta['nSavedChans'])
-    if not fileSizeBytes/2 % nChan == 0:
-        msg = 'Inconsistent number of samples across channels! '
+    nChan = int(meta["nSavedChans"])
+    if not fileSizeBytes / 2 % nChan == 0:
+        msg = "Inconsistent number of samples across channels! "
         trim_bin = False
         if not trim_bin:
             raise ValueError(
@@ -83,33 +82,32 @@ def repair_meta(binpath, dry_run=True, backup_original_meta=True,
     # fileTimeSecs
     print("Check `fileTimeSecs` field.")
     sRate = SampRate(meta)
-    nFileSamp = int(fileSizeBytes/(2*nChan))  # /2 because int16
-    if 'fileTimeSecs' not in meta:
-        meta['fileTimeSecs'] = str(nFileSamp / sRate)
+    nFileSamp = int(fileSizeBytes / (2 * nChan))  # /2 because int16
+    if "fileTimeSecs" not in meta:
+        meta["fileTimeSecs"] = str(nFileSamp / sRate)
         print(f"Derived missing `fileTimeSecs` value: {meta['fileTimeSecs']}")
-    assert float(meta['fileTimeSecs']) == nFileSamp / sRate
+    assert float(meta["fileTimeSecs"]) == nFileSamp / sRate
 
     # 'firstSample'
     print("Check `firstSample` field.")
     derived_firstSample = derive_first_sample(metaPath)
-    if 'firstSample' not in meta:
+    if "firstSample" not in meta:
         if derived_firstSample is not None:
             print(f"Derived missing `firstSample` value: {derived_firstSample}")
-            meta['firstSample'] = str(derived_firstSample)
-    assert (derived_firstSample is None
-            or int(meta['firstSample']) == derived_firstSample)
+            meta["firstSample"] = str(derived_firstSample)
+    assert derived_firstSample is None or int(meta["firstSample"]) == derived_firstSample
 
     # SHA1 hash
     if not ignore_SHA1:
         print("Check `fileSHA1` field.", end=" ", flush=True)
-        if 'fileSHA1' not in meta:
+        if "fileSHA1" not in meta:
             print("Missing `fileSHA1` field. Computing... ", end="", flush=True)
             fileSHA1 = get_sha1_hexdigest(binpath).upper()
             print(f"SHA1 hash = {fileSHA1}")
-            meta['fileSHA1'] = fileSHA1
+            meta["fileSHA1"] = fileSHA1
         else:
             print(f"Checking SHA1 hash integrity...", end=" ", flush=True)
-            assert get_sha1_hexdigest(binpath).upper() == meta['fileSHA1']
+            assert get_sha1_hexdigest(binpath).upper() == meta["fileSHA1"]
             print(f"Ok!")
     else:
         print("Ignoring SHA1 hash integrity.")
@@ -122,33 +120,37 @@ def repair_meta(binpath, dry_run=True, backup_original_meta=True,
         print(f'Repaired metadata full string: \n\n"""\n{metadata_string}"""\n')
 
     if dry_run:
-        print("Set `dry_run=False` for overwriting to file`. Copy of original"
-              "meta will be saved if `backup_original_meta=True`")
+        print(
+            "Set `dry_run=False` for overwriting to file`. Copy of original"
+            "meta will be saved if `backup_original_meta=True`"
+        )
         return
 
     if backup_original_meta:
-        bak_path = metaPath.parent / (metaPath.name + '.bak')
+        bak_path = metaPath.parent / (metaPath.name + ".bak")
         if bak_path.exists():
-            raise FileExistsError(f"Attempting to override existing backup at {bak_path}. Please delete or move this file manually beforehand.")
+            raise FileExistsError(
+                f"Attempting to override existing backup at {bak_path}. Please delete or move this file manually beforehand."
+            )
         print(f"Copying original meta file to {bak_path}")
         shutil.copyfile(metaPath, bak_path)
 
     print(f"Writing to {metaPath}. If files differ, check for carriage returns.")
-    with open(metaPath, 'w') as f:
+    with open(metaPath, "w") as f:
         f.write(metadata_string)
 
 
 def get_sha1_hexdigest(binpath):
 
-    BUF_SIZE = 32768 # Read file in 32kb chunks
+    BUF_SIZE = 32768  # Read file in 32kb chunks
     sha1 = hashlib.sha1()
-    with open(binpath, 'rb') as f:
+    with open(binpath, "rb") as f:
 
         while True:
-           data = f.read(BUF_SIZE)
-           if not data:
-              break
-           sha1.update(data)
+            data = f.read(BUF_SIZE)
+            if not data:
+                break
+            sha1.update(data)
         return sha1.hexdigest()
 
 
@@ -157,17 +159,14 @@ def derive_first_sample(metapath):
 
     previous_metapath = previous_trigger_metapath(metapath)
     if not previous_metapath.exists():
-        warnings.warn(
-            "Could not find previous trigger meta file. Ignoring `firstSample`"
-            " field"
-        )
+        warnings.warn("Could not find previous trigger meta file. Ignoring `firstSample`" " field")
         return None
 
     # Previous file endSample
     meta = readMeta_noparse(previous_metapath)
-    nChan = int(meta['nSavedChans'])
-    nFileSamp = int(int(meta['fileSizeBytes'])/(2*nChan))
-    startSample = int(meta['firstSample'])
+    nChan = int(meta["nSavedChans"])
+    nFileSamp = int(int(meta["fileSizeBytes"]) / (2 * nChan))
+    startSample = int(meta["firstSample"])
 
     return startSample + nFileSamp
 
@@ -176,7 +175,7 @@ def previous_trigger_metapath(metapath):
 
     # Derive previous trigger's meta path
     match = re.match(
-        f'\A(.*)_g([0-9]+)_t(.*).imec([0-9]+)(.*).meta\Z',
+        r"\A(.*)_g([0-9]+)_t(.*).imec([0-9]+)(.*).meta\Z",
         str(metapath),
     )
     if match is None:
@@ -207,17 +206,17 @@ def readMeta_noparse(metaPath):
             mdatList = f.read().splitlines()
             # convert the list entries into key value pairs
             for m in mdatList:
-                csList = m.split(sep='=')
+                csList = m.split(sep="=")
                 currKey = csList[0]
                 metaDict[currKey] = csList[1]
     else:
         print("no meta file")
-    return(metaDict)
+    return metaDict
 
 
 def SampRate(meta):
-    if meta['typeThis'] == 'imec':
-        srate = float(meta['imSampRate'])
+    if meta["typeThis"] == "imec":
+        srate = float(meta["imSampRate"])
     else:
-        srate = float(meta['niSampRate'])
-    return(srate)
+        srate = float(meta["niSampRate"])
+    return srate

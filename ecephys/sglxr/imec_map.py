@@ -22,9 +22,7 @@ def _all_equal(iterator):
 
 def validate_probe_type(meta):
     if ("imDatPrb_type" not in meta) or (int(meta["imDatPrb_type"]) != 0):
-        raise NotImplementedError(
-            "This module has only been tested with Neuropixel 1.0 probes."
-        )
+        raise NotImplementedError("This module has only been tested with Neuropixel 1.0 probes.")
 
 
 def check_library(fname):
@@ -84,8 +82,8 @@ def parse_snsChanMap(snsChanMap_string, assert_stream_type=False):
         names=["label", "acq_order", "usr_order"],
         engine="python",
     )
-    cmp["stream"] = cmp["label"].str.extract("(\D+)")
-    cmp["chan_id"] = cmp["label"].str.extract("(\d+)").astype(int)
+    cmp["stream"] = cmp["label"].str.extract(r"(\D+)")
+    cmp["chan_id"] = cmp["label"].str.extract(r"(\d+)").astype(int)
     if assert_stream_type == "LF":
         assert len(cmp) == (nLFP + nSY), "File header does not match content."
     if assert_stream_type == "AP":
@@ -129,8 +127,8 @@ def read_cmp_file(file):
         skiprows=1,
         engine="python",
     )
-    cmp["stream"] = cmp["label"].str.extract("(\D+)")
-    cmp["chan_id"] = cmp["label"].str.extract("(\d+)").astype(int)
+    cmp["stream"] = cmp["label"].str.extract(r"(\D+)")
+    cmp["chan_id"] = cmp["label"].str.extract(r"(\d+)").astype(int)
     assert len(cmp) == (nAP + nLFP + nSY), "File header does not match content."
     return cmp
 
@@ -146,9 +144,7 @@ def write_cmp(cmp, file):
         The file to write.
     """
     nAP, nLF, nSY = cmp.groupby("stream").count()["acq_order"][["AP", "LF", "SY"]]
-    lines = [f"{nAP},{nLF},{nSY}"] + [
-        f"{row.label};{row.acq_order} {row.usr_order}" for row in cmp.itertuples()
-    ]
+    lines = [f"{nAP},{nLF},{nSY}"] + [f"{row.label};{row.acq_order} {row.usr_order}" for row in cmp.itertuples()]
     with open(file, "w") as f:
         f.write("\n".join(lines))
 
@@ -170,13 +166,9 @@ def imro_to_depth_ordered_cmp(imro, base_to_tip=True):
         The channel map table, with the same format returned by `parse_snsChanMap` or `read_cmp_file`.
     """
     imro = imro.sort_values(["chan_id"])
-    label = pd.Series(
-        [f"AP{id}" for id in imro["chan_id"]]
-        + [f"LF{id}" for id in imro["chan_id"]]
-        + ["SY0"]
-    )
-    stream = label.str.extract("(\D+)").values.squeeze()
-    chan_id = label.str.extract("(\d+)").astype(int).values.squeeze()
+    label = pd.Series([f"AP{id}" for id in imro["chan_id"]] + [f"LF{id}" for id in imro["chan_id"]] + ["SY0"])
+    stream = label.str.extract(r"(\D+)").values.squeeze()
+    chan_id = label.str.extract(r"(\d+)").astype(int).values.squeeze()
     acq_order = [i for i in range(len(label))]
 
     # Get depth ordering for AP channels first.
@@ -187,9 +179,7 @@ def imro_to_depth_ordered_cmp(imro, base_to_tip=True):
         .index.values
     )
     # Use the AP channel ordering to order LF and SY channels.
-    usr_order = np.concatenate(
-        [y_order, y_order + len(imro), np.atleast_1d(len(imro) * 2)]
-    )
+    usr_order = np.concatenate([y_order, y_order + len(imro), np.atleast_1d(len(imro) * 2)])
     return pd.DataFrame(
         {
             "label": label.values,
@@ -268,9 +258,7 @@ class ImecMap:
     def get_stream(self, stream_type):
         """Get just the LFP or AP portion of the map."""
         if self._stream_type and (self._stream_type != stream_type):
-            raise ValueError(
-                f"Cannot get {stream_type} for map of type {self._stream_type}"
-            )
+            raise ValueError(f"Cannot get {stream_type} for map of type {self._stream_type}")
         return self.full[self.full["stream"] == stream_type]
 
     @property
