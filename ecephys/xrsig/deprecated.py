@@ -10,7 +10,7 @@ import seaborn as sns
 import ecephys.emg_from_lfp as lfemg
 import ssqueezepy as ssq
 from scipy import signal
-from neurodsp import voltage, fourier
+from ibldsp import voltage, fourier
 import neuropixel
 import ecephys.npsig
 from ecephys import hypnogram
@@ -32,9 +32,7 @@ class DataArrayWrapper:
         elif isinstance(obj, xr.DataArray):
             da = obj
         else:
-            raise ValueError(
-                f"Cannot create {self.__class__.__name__} from object of type {type(obj)}."
-            )
+            raise ValueError(f"Cannot create {self.__class__.__name__} from object of type {type(obj)}.")
         self._da = da
 
     def __getattr__(self, attr):
@@ -68,20 +66,14 @@ class Laminar(DataArrayWrapper):
 
     def _validate(self):
         if not "channel" in self.dims:
-            raise AttributeError(
-                f"{self.__class__.__name__} must include a channel dimension."
-            )
+            raise AttributeError(f"{self.__class__.__name__} must include a channel dimension.")
         if not "y" in self["channel"].coords:
-            raise AttributeError(
-                f"{self.__class__.__name__} must have y coordinate on channel dimension."
-            )
+            raise AttributeError(f"{self.__class__.__name__} must have y coordinate on channel dimension.")
 
     def get_pitch(self):
         """Get the vertical spacing between electrode sites, in microns"""
         vals = np.diff(np.unique(self["y"].values))
-        assert ece_utils.all_equal(
-            vals
-        ), f"Electrode pitch is not uniform. Pitches:\n {vals}"
+        assert ece_utils.all_equal(vals), f"Electrode pitch is not uniform. Pitches:\n {vals}"
         return np.absolute(vals[0])
 
 
@@ -102,13 +94,9 @@ class LaminarScalars(Laminar):
         if ax is None:
             fig, ax = plt.subplots(figsize=figsize)
 
-        da = (
-            self.sortby("y") if "y" in self.coords else self._da
-        )  # Sort by depth if possible
+        da = self.sortby("y") if "y" in self.coords else self._da  # Sort by depth if possible
         da.plot.line(y="y", ax=ax, **kwargs)
-        ytick_labels = [
-            x for x in zip(np.round(da["y"].values, 2), da["channel"].values)
-        ]
+        ytick_labels = [x for x in zip(np.round(da["y"].values, 2), da["channel"].values)]
         ax.set_yticks(da.y.values)
         ax.set_yticklabels(ytick_labels)
 
@@ -160,9 +148,7 @@ class LaminarVectors(Laminar):
         ax.set_xscale(xscale)
         ax.set_xlabel(self._otherdim)
         ax.set_ylabel("Position [um]")
-        ytick_labels = [
-            y for y in zip(np.round(y[::xticks], 2), self["channel"].values[::xticks])
-        ]
+        ytick_labels = [y for y in zip(np.round(y[::xticks], 2), self["channel"].values[::xticks])]
         ax.set_yticks(y[::xticks])
         ax.set_yticklabels(ytick_labels)
         if xscale == "log":
@@ -203,14 +189,10 @@ class Timeseries(DataArrayWrapper):
     def _validate(self):
         expected_attrs = {"fs"}
         if not "time" in self.dims:
-            raise AttributeError(
-                f"{self.__class__.__name__} must have dimension `time`."
-            )
+            raise AttributeError(f"{self.__class__.__name__} must have dimension `time`.")
         for attr in expected_attrs:
             if not attr in self.attrs:
-                raise AttributeError(
-                    f"{self.__class__.__name__} must have attribute {attr}."
-                )
+                raise AttributeError(f"{self.__class__.__name__} must have attribute {attr}.")
 
 
 class Timeseries2D(Timeseries):
@@ -231,25 +213,17 @@ class Timeseries2D(Timeseries):
         if not len(self.dims) == 2:
             raise AttributeError(f"{self.__class__.__name__} must have 2 dimensions.")
         if not self.dims[0] == "time":
-            raise AttributeError(
-                f"{self.__class__.__name__} must have time as the first dimension."
-            )
+            raise AttributeError(f"{self.__class__.__name__} must have time as the first dimension.")
 
     def butter_bandpass(self, lowcut, highcut, order, plot=True):
         da = self._da.copy()
-        da.values = filt.butter_bandpass(
-            da.values.T, lowcut, highcut, da.fs, order, plot
-        ).T
+        da.values = filt.butter_bandpass(da.values.T, lowcut, highcut, da.fs, order, plot).T
         if plot:
             plotDur = 1  # seconds
             plotT = slice(self["time"].min(), self["time"].min() + plotDur)
-            self.sel(time=plotT).plot.line(
-                x="time", add_legend=False, figsize=(36, 5), alpha=0.1
-            )
+            self.sel(time=plotT).plot.line(x="time", add_legend=False, figsize=(36, 5), alpha=0.1)
             plt.title(f"First {plotDur}s of original signal")
-            da.sel(time=plotT).plot.line(
-                x="time", add_legend=False, figsize=(36, 5), alpha=0.1
-            )
+            da.sel(time=plotT).plot.line(x="time", add_legend=False, figsize=(36, 5), alpha=0.1)
             plt.title(f"First {plotDur}s of filtered signal")
         return self.__class__(da)
 
@@ -270,25 +244,16 @@ class Timeseries2D(Timeseries):
         segments = [(i, j) for i, j in zip(segments[:-1], segments[1:])]
 
         segment_sizes = [self.time.values[i:j].size for i, j in segments]
-        assert (
-            np.sum(segment_sizes) == self.time.values.size
-        ), "Every sample in the data must be accounted for."
+        assert np.sum(segment_sizes) == self.time.values.size, "Every sample in the data must be accounted for."
         return xr.concat(
-            [
-                self.__class__(self.isel(time=slice(i, j)))._stft(**kwargs)
-                for i, j in segments
-            ],
+            [self.__class__(self.isel(time=slice(i, j)))._stft(**kwargs) for i, j in segments],
             dim="time",
         )
 
     def _stft(self, **kwargs):
         """Only works for continuous segments of evenly-sample data."""
-        assert np.all(
-            np.diff(self["time"].values) >= 0
-        ), "The times must be increasing."
-        Sfs, stft_times, Sxx = ecephys.npsig.stft(
-            self.values.T, self.fs, t0=float(self["time"][0]), **kwargs
-        )
+        assert np.all(np.diff(self["time"].values) >= 0), "The times must be increasing."
+        Sfs, stft_times, Sxx = ecephys.npsig.stft(self.values.T, self.fs, t0=float(self["time"][0]), **kwargs)
         return xr.DataArray(
             Sxx,
             dims=(self._sigdim, "frequency", "time"),
@@ -303,29 +268,18 @@ class Timeseries2D(Timeseries):
     def make_trialed(self, tTrials, tPre, tPost, tol=None):
         method = "nearest" if tol is not None else None
         # Get precise stamples of trial zero, start, and end times
-        sTrial = (
-            np.round((self.time - self.time.min()) * self.fs, 0).astype("int")
-        ).sel(time=tTrials, tolerance=tol, method=method)
+        sTrial = (np.round((self.time - self.time.min()) * self.fs, 0).astype("int")).sel(
+            time=tTrials, tolerance=tol, method=method
+        )
         sPre = sTrial - int(tPre * self.fs)
         sPost = sTrial + int(tPost * self.fs)
 
-        trials = pd.DataFrame({"sTrial": sTrial, "sPre": sPre, "sPost": sPost}).astype(
-            "int"
-        )
-        trials = trials[
-            ~(trials < 0).any(axis=1)
-        ]  # Remove events whose window starts before the data
-        trials = trials[
-            ~(trials >= self.time.size).any(axis=1)
-        ]  # Remove events whose window ends after the data
+        trials = pd.DataFrame({"sTrial": sTrial, "sPre": sPre, "sPost": sPost}).astype("int")
+        trials = trials[~(trials < 0).any(axis=1)]  # Remove events whose window starts before the data
+        trials = trials[~(trials >= self.time.size).any(axis=1)]  # Remove events whose window ends after the data
 
         # Reshape the LFP, adding an third event dimension
-        dat3d = np.dstack(
-            [
-                self.isel(time=slice(trl.sPre, trl.sPost)).values
-                for trl in trials.itertuples()
-            ]
-        )
+        dat3d = np.dstack([self.isel(time=slice(trl.sPre, trl.sPost)).values for trl in trials.itertuples()])
 
         # Get precise timestamps along which events are aligned
         (nTrialSamples, nChans, nTrials) = dat3d.shape
@@ -345,9 +299,7 @@ class Timeseries2D(Timeseries):
     def ssq_cwt(self, plot_filterbank=False, **kwargs):
         """Synchrosqueezed complex wavelet transform. Do you have pyfftw installed?"""
         os.environ["SSQ_PARALLEL"] = "1"
-        logger.warn(
-            "SSQ CWT may be unstable at low frequencies (<20Hz) when data length is limited."
-        )
+        logger.warn("SSQ CWT may be unstable at low frequencies (<20Hz) when data length is limited.")
         if self.time.size > 1e6:
             logger.warn(
                 f"You requested a synchrosqueezed complex wavelet transform with > {1e6} points. Maybe you want a STFT..."
@@ -356,9 +308,7 @@ class Timeseries2D(Timeseries):
         Tx, Wx, freqs, scales, *_ = ssq.ssq_cwt(self.T.values, fs=self.fs, **kwargs)
         if plot_filterbank and kwargs.get("wavelet") is not None:
             plt.figure(figsize=(22, 6))
-            ssq.Wavelet(kwargs.get("wavelet"), ssq.p2up(self.time.size)[0]).viz(
-                "filterbank", scales=scales
-            )
+            ssq.Wavelet(kwargs.get("wavelet"), ssq.p2up(self.time.size)[0]).viz("filterbank", scales=scales)
 
         cwtSq = xr.DataArray(
             np.atleast_3d(np.abs(Tx)),
@@ -388,9 +338,7 @@ class Timeseries2D(Timeseries):
         assert np.all(freqs <= nyquist)
         w = 6
         widths = w * self.fs / (2 * freqs * np.pi)
-        cwt = np.apply_along_axis(
-            lambda x: signal.cwt(x, signal.morlet2, widths, w=w), 0, self.values
-        )
+        cwt = np.apply_along_axis(lambda x: signal.cwt(x, signal.morlet2, widths, w=w), 0, self.values)
 
         # if normalize:
         #    cwt = cwt / (1 / freqs)[:, None]
@@ -457,9 +405,7 @@ class LFPs(Timeseries2D, Laminar):
         """
         umPerMm = 1000
         if not "y" in self.coords:
-            raise AttributeError(
-                f"kCSD method requires a y coordinate on the last dimension."
-            )
+            raise AttributeError(f"kCSD method requires a y coordinate on the last dimension.")
 
         # Make sure we get CSD estimates at electrode locations, rather than say, in between electrodes.
         pitchMm = self.get_pitch() / umPerMm  # Convert um to mm for KCSD package.
@@ -512,9 +458,7 @@ class LFPs(Timeseries2D, Laminar):
         DataArray:
             EMG with time dimension and timedelta, datetime coords.
         """
-        values = lfemg.compute_emg(
-            self.transpose(self._sigdim, "time").values, self.fs, **emgKwargs
-        ).flatten()
+        values = lfemg.compute_emg(self.transpose(self._sigdim, "time").values, self.fs, **emgKwargs).flatten()
         time = np.linspace(self.time.min(), self.time.max(), values.size)
 
         emg = xr.DataArray(
@@ -534,9 +478,7 @@ class LFPs(Timeseries2D, Laminar):
         """signals: list of IDs of signals to interpolate"""
         do_interp = np.isin(self[self._sigdim], signals)
         if not do_interp.any():
-            logger.debug(
-                "None of the requested signals are present in the data. Doing nothing."
-            )
+            logger.debug("None of the requested signals are present in the data. Doing nothing.")
             return
         else:
             logger.debug(
@@ -545,15 +487,11 @@ class LFPs(Timeseries2D, Laminar):
         if "x" in self[self._sigdim].coords:
             x = self["x"].values
         else:
-            print(
-                "Data do not contain x coordinates on channel dimension. Assuming all electrodes are colinear."
-            )
+            print("Data do not contain x coordinates on channel dimension. Assuming all electrodes are colinear.")
             x = np.zeros_like(self["y"])
 
         lf = self._da if inplace else self.copy()
-        lf.values = voltage.interpolate_bad_channels(
-            lf.values.T, do_interp.astype("int"), x=x, y=self["y"].values
-        ).T
+        lf.values = voltage.interpolate_bad_channels(lf.values.T, do_interp.astype("int"), x=x, y=self["y"].values).T
         return self.__class__(lf)
 
 
@@ -564,9 +502,7 @@ class NPX1LFPs(LFPs):
 
     def _validate(self):
         if not self.dims == ("time", "channel"):
-            raise AttributeError(
-                f"{self.__class__.__name__} must have dimensions (time, channel)"
-            )
+            raise AttributeError(f"{self.__class__.__name__} must have dimensions (time, channel)")
 
     def dephase(self, q=1, inplace=True):
         hdr = neuropixel.trace_header(version=1)
@@ -685,9 +621,7 @@ def keep_hypnogram_contents(dat, hg):
     return dat.sel(datetime=keep)
 
 
-def plot_yx_channel_vectors(
-    da, dim, continuous_colors=False, add_legend=False, ax=None
-):
+def plot_yx_channel_vectors(da, dim, continuous_colors=False, add_legend=False, ax=None):
     ax = ecephys.plot.check_ax(ax, figsize=(10, 15))
 
     if continuous_colors:
@@ -703,10 +637,7 @@ def plot_yx_channel_vectors(
         dat.plot_laminar(ax=ax, color=color_lut[c])
 
     if add_legend:
-        legend_elements = [
-            mpatches.Patch(label=key, facecolor=color)
-            for key, color in color_lut.items()
-        ]
+        legend_elements = [mpatches.Patch(label=key, facecolor=color) for key, color in color_lut.items()]
         lgd = ax.legend(
             handles=legend_elements,
             handlelength=1,

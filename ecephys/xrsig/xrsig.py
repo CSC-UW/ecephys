@@ -6,9 +6,9 @@ import kcsd
 import matplotlib.pyplot as plt
 import mne.filter
 import neuropixel
-from neurodsp import fourier
-from neurodsp import voltage
-import neurodsp.utils
+from ibldsp import fourier
+from ibldsp import voltage
+import ibldsp.utils
 import numpy as np
 import pandas as pd
 import ssqueezepy as ssq
@@ -148,7 +148,7 @@ def preprocess_neuropixels_ibl_style(
 ) -> xr.DataArray:
     validate_2d_timeseries(pots)
     validate_laminar(pots)
-    wg = neurodsp.utils.WindowGenerator(ns=pots["time"].size, nswin=chunk_size, overlap=chunk_overlap)
+    wg = ibldsp.utils.WindowGenerator(ns=pots["time"].size, nswin=chunk_size, overlap=chunk_overlap)
     segments = list()
     for first, last in tqdm(list(wg.firstlast)):
         seg = pots.isel(time=slice(first, last))

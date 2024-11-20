@@ -87,7 +87,7 @@ on_off_colors = {
 
 
 # This function is taken directly from neurodsp.plts.utils.
-# We cannot use the neurodsp package, because a critical IBL library shadows the name.
+# We previously could not use the neurodsp package, because a critical IBL library (now ibldsp) shadowed the name.
 def check_ax(ax, figsize=None):
     """Check whether a figure axes object is defined, define if not.
     Parameters
