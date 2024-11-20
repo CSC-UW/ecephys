@@ -21,14 +21,14 @@ dependencies = [
     "bg-atlasapi",
     "chardet",
     "colorcet",
-    "dask[complete] == 2024.2.1", # This was the last dask relase supporting pandas < 2
+    "dask[complete]", # 2024.2.1 was the last dask relase supporting pandas < 2, but cannot be used with Python >= 3.11.9
     "dask-image",
     "deepdiff",
     "docopt",
     "elephant",
     "ephyviewer",
     "horology",
-    "ibllib",
+    "ibl-neuropixel",
     "ipykernel",
     "ipympl",
     "ipython",
@@ -37,7 +37,7 @@ dependencies = [
     "mat73",
     "matplotlib >= 3.7",
     "numpy",
-    "pandas == 1.5.3", # This was the last pandas release before 2.0.0. 
+    "pandas", # 1.5.3 was the last pandas release before 2.0.0.
     "pyEDFlib",
     "pyfftw",
     "PyYAML",
