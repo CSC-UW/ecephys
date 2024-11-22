@@ -14,4 +14,6 @@ If you are spike sorting, you probably also want `pytorch` for spikeinterface's 
 ### Apologies
 
 Unfortuantely, this package cannot be published to PyPI so long as its dependencies include git URLs (e.g. our spikeinterface fork)
-Also, we desparately need to update from `pandas` `1.x` to `2.x` and/or `polars`.
+The parts of `ecephys` that are tied to our fork because of reliance on the old API need to be factored out into their own package. Then, hopefully updated and brought back in. Otherwise, they will block the package from being able to use the latest spikeinterface indefinitely.
+
+Also, we desparately need to update from `pandas` `1.x` to `2.x` and/or `polars` (WIP).
