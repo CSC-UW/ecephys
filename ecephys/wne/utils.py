@@ -55,6 +55,7 @@ def load_consolidated_artifacts(
     return artifacts
 
 
+# SUS: This whole function appears to be an unnecessary duplication of ecephys.wne.projects.Project.load_float_hypnogram()
 def load_raw_float_hypnogram(
     project: Project,
     experiment: str,
@@ -72,6 +73,8 @@ def load_raw_float_hypnogram(
     hg = hypnogram.FloatHypnogram.from_htsv(f)
     if simplify:
         hg = hg.replace_states(constants.SIMPLIFIED_STATES)
+        # SUS: This clean() should not be necessary. It is already done in ecephys.wne.sglx.pipeline.consoldate_visbrain_hypnograms.do_experiment_probe().
+        # Although, it will change NaNs to NoData. Is that expected downstream somewhere?
         hg = hypnogram.FloatHypnogram.clean(hg._df)
     return hg
 
@@ -103,9 +106,7 @@ def load_ephyviewer_hypnogram_edits(
     hg = hypnogram.FloatHypnogram(df)
     if simplify:
         hg = hg.replace_states(constants.SIMPLIFIED_STATES)
-    return hypnogram.FloatHypnogram(
-        hypnogram.condense(hg._df, 0.1)
-    )
+    return hypnogram.FloatHypnogram(hypnogram.condense(hg._df, 0.1))
 
 
 def load_postprocessing_hypnogram_for_si_slicing(

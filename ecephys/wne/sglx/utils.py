@@ -20,7 +20,9 @@ from ecephys.wne.sglx import SGLXSubject
 
 logger = logging.getLogger(__name__)
 
-MIN_BOUT_DURATION_SEC = 0.1
+MIN_BOUT_DURATION_SEC = (
+    0.1  # SUS: Why is this a module level constant? Why is it not just a pre-defined parameter? Why not a WNE constant?
+)
 
 
 def get_sglx_file_counterparts(
@@ -81,7 +83,7 @@ def load_sorting_inclusions_and_artifacts(
     )  # Raw segment table is in probe timebase
 
     inclusions = segments.loc[segments["type"] == "keep"]
-    artifacts = inclusions.iloc[:0].copy() # Dummy
+    artifacts = inclusions.iloc[:0].copy()  # Dummy
 
     return inclusions, artifacts
 
@@ -123,6 +125,7 @@ def load_sglx_inclusions_and_artifacts(
     return inclusions, artifacts
 
 
+# SUS: This function's name does not appear to describe what it does: return all the NoData and/or artifactual periods from a probe.
 def load_bouts_to_reconcile_as_hypnogram(
     project: SGLXProject,
     experiment: str,
@@ -136,9 +139,9 @@ def load_bouts_to_reconcile_as_hypnogram(
     if source in ["sorting", "ap"]:
         stream = "ap"
     elif source == "lf":
-        stream = source
+        stream = "lf"
     else:
-        assert False
+        raise ValueError(f"Invalid source: {source}")
 
     # Convert from probe timebase to common timebase asap
     t2t = get_time_synchronizer(
@@ -215,7 +218,9 @@ def load_reconciled_float_hypnogram(
     This is not guaranteed to be the case with the load_raw_float_hypnogram,
     in particular since:
         - SGLX files and artifacts may vary across streams/probes
-        - Some bouts may have been excluded from a sorting
+        - Some bouts may have been excluded from a sorting # TODO: Why?
+
+    # If probes and sources are not passed (e.g. empty lists), this function effectively is just for loading the ephyviewer edits and/or cleaning.
 
     Parameters:
     ===========
@@ -231,6 +236,7 @@ def load_reconciled_float_hypnogram(
         and the artifacts are loaded from the project's default consolidated
         artifact file.  For "sorting" source, NoData bouts are loaded from the
         sorting segments table.
+        # TODO: How are these related? Is the sorting segments table always a superset of the consolidated artifact file?
     simplify: bool
         Passed to load_raw_float_hypnogram. Simplifies states from raw float hypnogram
     alias: str
@@ -242,7 +248,7 @@ def load_reconciled_float_hypnogram(
     if not set(sources) <= set(SOURCES):
         raise ValueError(
             f"Invalid value in `sources` argument. The following sources are recognized: `{SOURCES}`"
-        )
+        )  # TODO: This is not true. As written, sources=[] will also pass this test. Is that intended, or a bug?
     hg = wne_utils.load_raw_float_hypnogram(
         project,
         experiment,
@@ -251,11 +257,13 @@ def load_reconciled_float_hypnogram(
     )
     if reconcile_ephyviewer_edits:
         hg = hg.reconcile(
-            wne_utils.load_ephyviewer_hypnogram_edits(
-                project, experiment, sglx_subject.name, simplify=simplify
-            ),
-            how="other"
+            wne_utils.load_ephyviewer_hypnogram_edits(project, experiment, sglx_subject.name, simplify=simplify),
+            how="other",
         )
+
+    # Only keep bouts that are artifact-free and have data on EVERY probe. The "most conservative" hypnogram, if you will.
+    # Any period covered by this hypnogram is guaranteed to be artifact-free and have data on every probe.
+    # SUS: If either sources or probes is an empty list, this for-loop will be bypassed entirely. Is that intended?
     for source, probe in itertools.product(sources, probes):
         hg = hg.reconcile(
             load_bouts_to_reconcile_as_hypnogram(
@@ -264,9 +272,7 @@ def load_reconciled_float_hypnogram(
             how="other",
         )
 
-    return hypnogram.FloatHypnogram.clean(
-        hg.reset_index(drop=True)
-    )
+    return hypnogram.FloatHypnogram.clean(hg.reset_index(drop=True))
 
 
 def load_singleprobe_sorting(
