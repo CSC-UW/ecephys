@@ -12,15 +12,13 @@ ArrayLike = Union[np.array, list]
 
 def write_htsv(df: pd.DataFrame, file: Pathlike):
     assert Path(file).suffix == ".htsv", "File must use extension .htsv"
-    Path(file).parent.mkdir(
-        parents=True, exist_ok=True
-    )  # Make parent directories if they do not exist
+    Path(file).parent.mkdir(parents=True, exist_ok=True)  # Make parent directories if they do not exist
     df.to_csv(file, sep="\t", header=True, index=(df.index.name is not None))
 
 
 def read_htsv(file: Pathlike) -> pd.DataFrame:
     assert Path(file).suffix == ".htsv", "File must use extension .htsv"
-    return pd.read_csv(file, sep="\t", header=0, float_precision='round_trip')
+    return pd.read_csv(file, sep="\t", header=0, float_precision="round_trip")
 
 
 def store_pandas_netcdf(pd_obj: Union[pd.DataFrame, pd.Series], path: Pathlike):
@@ -134,16 +132,12 @@ def get_grouped_ecdf(df: pd.DataFrame, col: str, group_var: str) -> pd.DataFrame
     for group_name, dat in df.groupby(group_var):
         dat_sorted = np.sort(dat[col])
         ecdf = 1.0 * np.arange(len(dat[col])) / (len(dat[col]) - 1)
-        ecdfs.append(
-            pd.DataFrame({col: dat_sorted, "ecdf": ecdf, group_var: group_name})
-        )
+        ecdfs.append(pd.DataFrame({col: dat_sorted, "ecdf": ecdf, group_var: group_name}))
 
     return pd.concat(ecdfs)
 
 
-def dt_series_to_seconds(
-    dt_series: pd.Series, t0: Optional[np.datetime64] = None
-) -> np.ndarray:
+def dt_series_to_seconds(dt_series: pd.Series, t0: Optional[np.datetime64] = None) -> np.ndarray:
     assert is_datetime64_ns_dtype(dt_series), "dt_series must be datetime64[ns] series"
     if t0 is None:
         t0 = dt_series.min()
@@ -153,10 +147,12 @@ def dt_series_to_seconds(
 
 
 def get_gaps(df, t1_colname: str = "start_time", t2_colname: str = "end_time", min_gap_duration_sec: float = 0):
-    gaps = pd.DataFrame({
+    gaps = pd.DataFrame(
+        {
             t1_colname: df.iloc[:-1][t2_colname].values,
             t2_colname: df.iloc[1:][t1_colname].values,
-    })
+        }
+    )
     gaps["duration"] = gaps[t2_colname] - gaps[t1_colname]
     return gaps[gaps["duration"] > min_gap_duration_sec]
 
@@ -221,11 +217,7 @@ def reconcile_labeled_intervals(
             right_interval[lo] = row[hi]
             right_interval[delta] = right_interval[hi] - right_interval[lo]
             df2 = df2[~super_intervals]
-            df2 = (
-                pd.concat([df2, left_interval, right_interval])
-                .sort_values(lo)
-                .reset_index(drop=True)
-            )
+            df2 = pd.concat([df2, left_interval, right_interval]).sort_values(lo).reset_index(drop=True)
 
         # If df2 contains any interval that overlaps the start of this interval, truncate it.
         left_intervals = (df2[lo] < row[lo]) & (df2[hi] > row[lo]) & (df2[hi] < row[hi])
@@ -239,9 +231,7 @@ def reconcile_labeled_intervals(
             df2[left_intervals] = left_interval
 
         # If df2 contains any interval that overlaps the endof this interval, adjust its start time.
-        right_intervals = (
-            (df2[lo] > row[lo]) & (df2[lo] < row[hi]) & (df2[hi] > row[hi])
-        )
+        right_intervals = (df2[lo] > row[lo]) & (df2[lo] < row[hi]) & (df2[hi] > row[hi])
         if any(right_intervals):
             assert (
                 sum(right_intervals) == 1
@@ -251,5 +241,8 @@ def reconcile_labeled_intervals(
             right_interval[delta] = right_interval[hi] - right_interval[lo]
             df2[right_intervals] = right_interval
 
-    result = pd.concat([df2, df1]).sort_values(lo).reset_index(drop=True)
+    result = (
+        df1.copy() if df2.empty else df2.copy() if df1.empty else pd.concat([df2, df1])
+    )  # Concatenate, handling possibly empty dataframes
+    result = result.sort_values(lo).reset_index(drop=True)  # Sort and reset index
     return result.loc[~(result[delta] == 0)]
