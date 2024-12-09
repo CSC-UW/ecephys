@@ -131,7 +131,7 @@ def load_bouts_to_reconcile_as_hypnogram(
     experiment: str,
     sglx_subject: SGLXSubject,
     probe: str,
-    source: str,
+    source: str,  # TODO: Currently, you have to check first if the source exists. This function should probably do that for you.
     alias: str = "full",
     sorting: str = "sorting",
     min_bout_duration_sec=MIN_BOUT_DURATION_SEC,

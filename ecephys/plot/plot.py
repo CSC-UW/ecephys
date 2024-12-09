@@ -43,6 +43,7 @@ state_colors = {
     "Artifact": "crimson",
     "artifact": "crimson",
     "?": "crimson",
+    "scrambling": "crimson",
     "None": _colorblind[8],
     "NoData": "black",
     "NoDataWake": "black",
