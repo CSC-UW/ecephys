@@ -14,7 +14,7 @@ def plot_laminar_scalars_vertical(
     figsize=(10, 15),
     show_channel_ids=True,
     tick_params=dict(axis="y", labelsize=8),
-    **line_kwargs
+    **line_kwargs,
 ):
     """Plot a depth profile of values.
     Requires 'y' coordinate on 'channel' dimension."""
@@ -41,7 +41,7 @@ def plot_laminar_scalars_horizontal(
     figsize=(32, 10),
     show_channel_ids=True,
     tick_params=dict(axis="x", labelsize=8, labelrotation=90),
-    **line_kwargs
+    **line_kwargs,
 ):
     """Plot a depth profile of values.
     Requires 'y' coordinate on 'channel' dimension."""
@@ -69,7 +69,7 @@ def plot_laminar_image_vertical(
     show_channel_ids=True,
     tick_params=dict(axis="y", labelsize=8),
     add_colorbar=False,
-    **imshow_kwargs
+    **imshow_kwargs,
 ):
     """Plot a depth profile of values.
     Requires 'y' coordinate on 'channel' dimension."""
@@ -96,7 +96,7 @@ def plot_laminar_image_horizontal(
     figsize=(32, 6),
     show_channel_ids=True,
     tick_params=dict(axis="x", labelsize=8, labelrotation=90),
-    **imshow_kwargs
+    **imshow_kwargs,
 ):
     """Plot a depth profile of values.
     Requires 'y' coordinate on 'channel' dimension."""
@@ -124,7 +124,7 @@ def plot_laminar_timeseries(
     figsize: tuple = (32, 10),
     show_channel_ids: bool = True,
     tick_params=dict(axis="y", labelsize=8),
-    **line_kwargs
+    **line_kwargs,
 ):
     xrsig.validate_laminar(da, sigdim, lamdim)
     xrsig.validate_2d_timeseries(da)
@@ -145,15 +145,15 @@ def plot_laminar_timeseries(
 
 
 def add_structure_boundaries_to_laminar_plot(
-    da: xr.DataArray,
-    ax: plt.Axes,
-    sigdim: str = "channel",
-    struct_coord: str = "structure",
+    da: xr.DataArray, ax: plt.Axes, sigdim: str = "channel", struct_coord: str = "structure", lamdim="y", labels=True
 ):
     boundaries = da.isel({sigdim: get_boundary_ilocs(da, struct_coord)})
-    ax.set_yticks(boundaries[sigdim])
-    ax.set_yticklabels(boundaries[struct_coord].values)
-    for ch in boundaries[sigdim]:
+    ax.set_yticks(boundaries[lamdim])
+    if labels:
+        ax.set_yticklabels(boundaries[struct_coord].values)
+    else:
+        ax.set_yticklabels([])
+    for ch in boundaries[lamdim]:
         ax.axhline(ch, alpha=0.5, color="dimgrey", linestyle="--")
 
 
@@ -166,23 +166,11 @@ def get_boundary_ilocs(da: xr.DataArray, coord_name: str) -> np.ndarray:
     return np.where(np.isin(df.index, boundary_locs))[0]
 
 
-def plot_traces(
-    da: xr.DataArray,
-    chan_labels=None,
-    chan_colors=None,
-    palette="glasbey_dark",
-    **kwargs
-):
+def plot_traces(da: xr.DataArray, chan_labels=None, chan_colors=None, palette="glasbey_dark", **kwargs):
     xrsig.validate_2d_timeseries(da)
     if isinstance(chan_labels, str) and chan_labels in da["channel"].coords:
         chan_labels = da[chan_labels].values
     if isinstance(chan_colors, str) and chan_colors in da["channel"].coords:
         chan_colors, _ = eplt.color_by_category(da[chan_colors].values, palette=palette)
 
-    eplt.lfp_explorer(
-        da.time.values,
-        da.values,
-        chan_labels=chan_labels,
-        chan_colors=chan_colors,
-        **kwargs
-    )
+    eplt.lfp_explorer(da.time.values, da.values, chan_labels=chan_labels, chan_colors=chan_colors, **kwargs)
