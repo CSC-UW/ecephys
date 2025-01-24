@@ -47,7 +47,7 @@ dependencies = [
     "seaborn",
     "sortednp",
     "spikeinterface",
-    "ssqueezepy",
+    "ssqueezepy @ git+https://github.com/OverLordGoldDragon/ssqueezepy.git", # Until 0.6.6 is on PyPI
     "Statsmodels",
     "tdt",
     "xarray[complete]",
