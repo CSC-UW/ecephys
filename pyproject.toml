@@ -33,7 +33,7 @@ dependencies = [
     "ipympl",
     "ipython",
     "ipywidgets",
-    "kcsd",
+    "kcsd @ git+https://github.com/CSC-UW/kCSD-python.git", # Until upstream/PyPI use scipy.integrate.simpson.
     "mat73",
     "matplotlib >= 3.7",
     "numpy",
@@ -55,10 +55,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-
 dev = [
-    "black",
-    "altair",
+    "ruff"
+]
+run-sorting = [
+    "spikeinterface"
+]
+load-sorting = [
+    "spikeinterface"
 ]
 
 [build-system]
@@ -70,3 +74,9 @@ line-length = 120
 
 [tool.setuptools]
 packages = ["ecephys"]
+
+[tool.uv.sources]
+spikeinterface = [
+  { git = "https://github.com/CSC-UW/spikeinterface.git", branch = "wisc/sorting", extra = "run-sorting" },
+  { git = "https://github.com/CSC-UW/spikeinterface.git", branch = "wisc/dev", extra = "load-sorting" },
+]
