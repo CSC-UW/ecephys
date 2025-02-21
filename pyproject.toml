@@ -26,7 +26,7 @@ dependencies = [
     "deepdiff",
     "docopt",
     "elephant",
-    "ephyviewer",
+    "ephyviewer", # We should refactor so as to make this optional.
     "horology",
     "ibl-neuropixel",
     "ipykernel",
@@ -40,6 +40,7 @@ dependencies = [
     "pandas", # 1.5.3 was the last pandas release before 2.0.0.
     "pyEDFlib",
     "pyfftw",
+    "PySide6", # For ephyviewer
     "PyYAML",
     "ripple-detection",
     "scikit-learn",
