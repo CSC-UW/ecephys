@@ -6,8 +6,7 @@ Python tools for extracellular electrophysiology at the Wisconsin Institute for 
 ### Requirements:
 *Updated 2/21/2025.*
 
-Confirmed to work with Python 3.12. 
-Python 3.13 should work. Previously, the bottleneck was `numba` (required by `spikeinterface`, and used in `unit` module code), but this now supports 3.13.
+Confirmed to work with Python 3.12.7 and 3.13.2. 
 
 You need to use the `CSC-UW` fork of `spikeinterface`. The specific branch you need depends on your intent. For running spike sorting, use `wisc/sorting`. For everything else, use `wisc/dev`. If you are using `uv` as a package/environment manager (highly recommended), this should be handled for you when you install `ecephys[run-sorting]` or `ecephys[load-sorting]`.
 If you are spike sorting, you probably also want `pytorch` for spikeinterface's drift correction.
