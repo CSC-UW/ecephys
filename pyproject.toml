@@ -26,7 +26,9 @@ dependencies = [
     "deepdiff",
     "docopt",
     "elephant",
-    "ephyviewer", # We should refactor so as to make this optional.
+    # You may be able to get away with just the PyPI version of ephyviewer.
+    # Its upstream appears abandoned. We might want to remove it as a dependency before imposes a version ceiling.
+    "ephyviewer @ git+https://github.com/CSC-UW/ephyviewer.git", 
     "horology",
     "ibl-neuropixel",
     "ipykernel",
