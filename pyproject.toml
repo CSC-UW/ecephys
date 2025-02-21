@@ -55,14 +55,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
-    "ruff"
-]
 run-sorting = [
     "spikeinterface"
 ]
 load-sorting = [
     "spikeinterface"
+]
+
+[dependency-groups]
+dev = [
+    "ruff"
 ]
 
 [build-system]
