@@ -1,33 +1,46 @@
-BARCODE_EXT = ".barcodes.htsv"
-TTL_EXT = ".ttls.htsv"
-AP_SYNC_FNAME = "prb_sync.ap.htsv"
-LF_SYNC_FNAME = "prb_sync.lf.htsv"
-SYNC_FNAME_MAP = {"ap": AP_SYNC_FNAME, "lf": LF_SYNC_FNAME}
-NETCDF_EXT = ".nc"
-EMG_EXT = ".emg.nc"
-EDF_EXT = ".edf"
-BDF_EXT = ".bdf"
-LFP_EXT = ".lf.zarr"
-ARTIFACTS_EXT = ".artifacts.csv"
-VISBRAIN_EXT = ".hypnogram.txt"
-VISBRAIN_FS = 100  # Visbrain will automatically resample everything to 100Hz, so just nip it in the bud.
+from enum import Enum
+from typing import Final, Tuple
 
-EXP_PARAMS_FNAME = "experiment_params.json"
-SORTING_PIPELINE_PARAMS_FNAME = "sorting_pipeline_params.yaml"
-EMG_FNAME = "emg.nc"
-ARTIFACTS_FNAME = "artifacts.htsv"
-HYPNOGRAM_FNAME = "hypnogram.htsv"
-HYPNOGRAM_EPHYVIEWER_EDITS_FNAME = "hypnogram_ephyviewer_edits.csv"
-DATETIME_HYPNOGRAM_FNAME = "hypnogram_datetime.htsv"
-HIPPOCAMPAL_SUBREGIONS_FNAME = "hippocampal_subregions.json"
+# Visbrain will automatically resample everything to 100Hz, so just nip it in the bud.
+VISBRAIN_FS: Final = 100
 
+
+class FileExtensions(str, Enum):
+    BARCODE = ".barcodes.htsv"
+    TTL = ".ttls.htsv"
+    NETCDF = ".nc"
+    EMG = ".emg.nc"
+    EDF = ".edf"
+    BDF = ".bdf"
+    LFP = ".lf.zarr"
+    ARTIFACTS = ".artifacts.csv"
+    VISBRAIN = ".hypnogram.txt"
+
+
+class Files(str, Enum):
+    AP_SYNC = "prb_sync.ap.htsv"
+    LF_SYNC = "prb_sync.lf.htsv"
+    EXP_PARAMS = "experiment_params.json"
+    SORTING_PIPELINE_PARAMS = "sorting_pipeline_params.yaml"
+    EMG = "emg.nc"
+    ARTIFACTS = "artifacts.htsv"
+    HYPNOGRAM = "hypnogram.htsv"
+    HYPNOGRAM_EPHYVIEWER_EDITS = "hypnogram_ephyviewer_edits.csv"
+    DATETIME_HYPNOGRAM = "hypnogram_datetime.htsv"
+    HIPPOCAMPAL_SUBREGIONS = "hippocampal_subregions.json"
+    SCORING_LFP = "scoring_lfp.zarr"
+    SCORING_EMG = "scoring_emg.zarr"
+    SCORING_BDF = "scoring_signals.bdf"
+
+
+SYNC_FNAME_MAP = {"ap": Files.AP_SYNC, "lf": Files.LF_SYNC}
+
+# TODO: This should not be in this module.
 # Full fname is f"{prb}.{acronym}.{OFF_FNAME_SUFFIX}""
 DF_OFF_FNAME_SUFFIX = "global_offs_bystate_conservative_0.05.htsv"
 
-SCORING_LFP = "scoring_lfp.zarr"
-SCORING_EMG = "scoring_emg.zarr"
-SCORING_BDF = "scoring_signals.bdf"
 
+#  TODO: The following are not constants, and should be elsewhere.
 SIMPLIFIED_ARTIFACTS = {
     "unlabeled": "Artifact",
     "artifact": "Artifact",
@@ -55,16 +68,18 @@ SIMPLIFIED_STATES = {
     "Brief-Arousal": "MA",
     "Transition-to-Wake": "Other",
     "Transition-to-NREM": "Other",
-    "Transition-to-REM": "Other", # TODO: Possibly equivalent to IS
+    "Transition-to-REM": "Other",  # TODO: Possibly equivalent to IS
     "Wake-Good": "Wake",
 }
 
-EPHYVIEWER_STATE_ORDER = [
-    "Wake",
-    "NREM",
-    "REM",
-    "IS",
-    "MA",
-    "Artifact",
-    "Other",
-]
+EPHYVIEWER_STATE_ORDER: Final[Tuple[str, ...]] = tuple(
+    [
+        "Wake",
+        "NREM",
+        "REM",
+        "IS",
+        "MA",
+        "Artifact",
+        "Other",
+    ]
+)

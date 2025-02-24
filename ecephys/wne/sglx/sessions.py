@@ -38,11 +38,13 @@ of AP data often requires specialized storage.
 #       verbose and also allow splitting of data across locations based on factors other
 #       than stream type.
 
-from itertools import chain
 import logging
-import pandas as pd
 import re
+from itertools import chain
 from pathlib import Path
+
+import pandas as pd
+
 from ecephys.sglx import file_mgmt
 
 logger = logging.getLogger(__name__)
@@ -61,7 +63,7 @@ def get_gate_directories(session_sglx_dir):
     """
     matches = [
         p
-        for p in session_sglx_dir.glob(f"*_g*")
+        for p in session_sglx_dir.glob("*_g*")
         if (p.is_dir() and re.search(r"_g\d+\Z", p.name))
     ]
     return sorted(matches)

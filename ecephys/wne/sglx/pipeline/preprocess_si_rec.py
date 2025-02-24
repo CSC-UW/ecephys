@@ -1,16 +1,16 @@
 import logging
 
-from horology import Timing
 import matplotlib.pyplot as plt
 import numpy as np
-from spikeinterface import widgets
 import spikeinterface.full as si
+from horology import Timing
+from spikeinterface import widgets
 from spikeinterface.sortingcomponents import (
-    motion_interpolation,
     motion_estimation,
+    motion_interpolation,
     peak_detection,
-    peak_pipeline,
     peak_localization,
+    peak_pipeline,
 )
 
 logger = logging.getLogger(__name__)
@@ -202,8 +202,18 @@ def _prepro_drift_correction(
         peaks = np.load(peaks_path)
         # Allow loading peaks computed before CSC-UW/spikeinterface 71ae7a8e
         # (Effectively unused: we do NOT actually compute preprocessing and sorting with different versions of SI)
-        if peaks.dtype.names == ('sample_ind', 'channel_ind', 'amplitude', 'segment_ind'):
-            peaks.dtype = [('sample_index', '<i8'), ('channel_index', '<i8'), ('amplitude', '<f8'), ('segment_index', '<i8')]
+        if peaks.dtype.names == (
+            "sample_ind",
+            "channel_ind",
+            "amplitude",
+            "segment_ind",
+        ):
+            peaks.dtype = [
+                ("sample_index", "<i8"),
+                ("channel_index", "<i8"),
+                ("amplitude", "<f8"),
+                ("segment_index", "<i8"),
+            ]
         peak_locations = np.load(peak_locations_path)
 
     compute_motion = rerun_existing or compute_peaks or not motion_path.exists()
@@ -254,8 +264,7 @@ def _prepro_drift_correction(
         motion_clean = npz["motion"]
         temporal_bins = npz["temporal_bins"]
         spatial_bins = npz["spatial_bins"]
-        extra_check = dict(
-        )
+        extra_check = dict()
     motion = motion_clean
 
     # Only plot if we changed the motions and can't find the plots already
@@ -264,7 +273,9 @@ def _prepro_drift_correction(
     make_debugging_plots = (
         rerun_existing
         or clean_motion
-        or (not plot_filepath.exists() and not old_plot_filepath.exists()) # Don't re-plot for old sortings
+        or (
+            not plot_filepath.exists() and not old_plot_filepath.exists()
+        )  # Don't re-plot for old sortings
     )
     if make_debugging_plots:
         with Timing(name="Plot motion: "):
@@ -350,7 +361,7 @@ def preprocess_si_recording(
         elif step_name == "whiten":
             # Backwards compatibility
             step_params = step_params.copy()
-            if not "dtype" in step_params:
+            if "dtype" not in step_params:
                 step_params["dtype"] = "float32"
             si_rec = PREPRO_FUNCTIONS[step_name](si_rec, **step_params)
         else:

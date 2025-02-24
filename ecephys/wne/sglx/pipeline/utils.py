@@ -3,10 +3,10 @@ from typing import Optional
 import pandas as pd
 import xarray as xr
 
-from ecephys import utils
-from ecephys.wne.sglx import SGLXProject
-from ecephys.wne.sglx import SGLXSubject
-from ecephys.wne.sglx import utils as wne_sglx_utils
+import ecephys.utils
+from ecephys.wne.sglx import utils as sglx_utils
+from ecephys.wne.sglx.project import SGLXProject
+from ecephys.wne.sglx.subject import SGLXSubject
 
 #####
 # DataArray functions
@@ -23,7 +23,7 @@ def gather_counterpart_netcdfs(
     "Gather netCDF."
     assert da_ext.endswith(".nc"), "Files to gather must use extension .nc"
     lfp_table = wne_subject.get_lfp_bin_table(experiment, probe=probe)
-    da_files = wne_sglx_utils.get_sglx_file_counterparts(
+    da_files = sglx_utils.get_sglx_file_counterparts(
         wne_project, wne_subject.name, lfp_table.path.values, da_ext
     )
     da_list = [xr.load_dataarray(f) for f in da_files if f.is_file()]
@@ -40,7 +40,7 @@ def remove_counterpart_netcdfs(
     "Remove netCDFs."
     assert da_ext.endswith(".nc"), "Files to gather must use extension .nc"
     lfp_table = wne_subject.get_lfp_bin_table(experiment, probe=probe)
-    da_files = wne_sglx_utils.get_sglx_file_counterparts(
+    da_files = sglx_utils.get_sglx_file_counterparts(
         wne_project, wne_subject.name, lfp_table.path.values, da_ext
     )
     for f in da_files:
@@ -66,9 +66,9 @@ def gather_and_save_counterpart_netcdfs(
         experiment, wne_subject.name
     )
     if to_npy:
-        utils.write_da_as_npy(da, output_name, save_dir)
+        ecephys.utils.write_da_as_npy(da, output_name, save_dir)
     else:
-        utils.save_xarray_to_netcdf(da, save_dir / output_name)
+        ecephys.utils.save_xarray_to_netcdf(da, save_dir / output_name)
     if remove_after:
         remove_counterpart_netcdfs(src_project, wne_subject, experiment, probe, da_ext)
 
@@ -87,10 +87,10 @@ def gather_alias_htsv(
     ext: str,
 ) -> pd.DataFrame:
     lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
-    htsvFiles = wne_sglx_utils.get_sglx_file_counterparts(
+    htsvFiles = sglx_utils.get_sglx_file_counterparts(
         wneProject, wneSubject.name, lfpTable.path.values, ext
     )
-    dfs = [utils.read_htsv(f) for f in htsvFiles if f.is_file()]
+    dfs = [ecephys.utils.read_htsv(f) for f in htsvFiles if f.is_file()]
     return pd.concat(dfs).reset_index(drop=True)
 
 
@@ -110,4 +110,4 @@ def gather_and_save_alias_htsv(
     savefile = destProject.get_alias_subject_file(
         experiment, alias, wneSubject.name, outFname
     )
-    utils.write_htsv(df, savefile)
+    ecephys.utils.write_htsv(df, savefile)

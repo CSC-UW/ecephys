@@ -32,11 +32,11 @@ from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
+import spikeinterface.extractors as se
 import yaml
 
 import ecephys.sglx
 import ecephys.utils
-import spikeinterface.extractors as se
 from ecephys import hypnogram, sharptrack, sync
 from ecephys.wne import constants
 
@@ -199,12 +199,12 @@ class Project:
             / f"{sorting}.{probe}"
         )
         sorter_output_dir = main_sorting_dir / "si_output/sorter_output"
-        assert (
-            sorter_output_dir.is_dir()
-        ), f"Expected Kilosort directory not found: {sorter_output_dir}"
-        assert (
-            sorter_output_dir / "spike_times.npy"
-        ).exists(), f"Expected `spike_times.npy` file in: {sorter_output_dir}"
+        assert sorter_output_dir.is_dir(), (
+            f"Expected Kilosort directory not found: {sorter_output_dir}"
+        )
+        assert (sorter_output_dir / "spike_times.npy").exists(), (
+            f"Expected `spike_times.npy` file in: {sorter_output_dir}"
+        )
         extractor = se.read_kilosort(sorter_output_dir, keep_good_only=False)
 
         # Keep only properties of interest
@@ -221,15 +221,14 @@ class Project:
                 f"Could not find postprocessing dir. Ignoring metrics: {postprocessing_dir}"
             )
         else:
-            
             # "regular" metrics, already aggregated across vigilance states
             metrics_path = postprocessing_dir / "metrics.csv"
-            assert (
-                metrics_path.exists()
-            ), f"Expected `metrics.csv` file in: {postprocessing_dir}"
+            assert metrics_path.exists(), (
+                f"Expected `metrics.csv` file in: {postprocessing_dir}"
+            )
 
             metrics = pd.read_csv(metrics_path)
-            # Check correct ids 
+            # Check correct ids
             assert set(metrics["cluster_id"].values) == set(extractor.get_unit_ids())
 
             for prop_name in metrics.columns:
@@ -238,18 +237,30 @@ class Project:
                     values=metrics[prop_name],
                     ids=metrics["cluster_id"].values,
                 )
-            
+
             # "template_metrics"
-            template_metrics_path = postprocessing_dir/"si_output/template_metrics/metrics.csv"
+            template_metrics_path = (
+                postprocessing_dir / "si_output/template_metrics/metrics.csv"
+            )
             if not template_metrics_path.exists():
                 import warnings
-                warnings.warn("Could not find `template_metrics.csv` file. Ignoring template metrics.")
+
+                warnings.warn(
+                    "Could not find `template_metrics.csv` file. Ignoring template metrics."
+                )
             else:
                 template_metrics = pd.read_csv(template_metrics_path, index_col=0)
-                # Check correct ids 
-                assert set(template_metrics.index.values) == set(extractor.get_unit_ids())
+                # Check correct ids
+                assert set(template_metrics.index.values) == set(
+                    extractor.get_unit_ids()
+                )
                 # Check we're not overriding a property
-                assert not any([c in extractor.get_property_keys() for c in template_metrics.columns])
+                assert not any(
+                    [
+                        c in extractor.get_property_keys()
+                        for c in template_metrics.columns
+                    ]
+                )
 
                 for prop_name in template_metrics.columns:
                     extractor.set_property(
@@ -259,9 +270,15 @@ class Project:
                     )
 
         # Add extra info
-        extractor.set_property(key="subject", values=[subject] * len(extractor.get_unit_ids()))
-        extractor.set_property(key="experiment", values=[experiment] * len(extractor.get_unit_ids()))
-        extractor.set_property(key="probe", values=[probe] * len(extractor.get_unit_ids()))
+        extractor.set_property(
+            key="subject", values=[subject] * len(extractor.get_unit_ids())
+        )
+        extractor.set_property(
+            key="experiment", values=[experiment] * len(extractor.get_unit_ids())
+        )
+        extractor.set_property(
+            key="probe", values=[probe] * len(extractor.get_unit_ids())
+        )
 
         return extractor
 

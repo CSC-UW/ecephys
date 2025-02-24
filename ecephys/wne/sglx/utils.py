@@ -1,28 +1,24 @@
+import itertools
 import logging
 import pathlib
-import itertools
 from typing import Callable, Optional
 
 import numpy as np
 import pandas as pd
 
-from ecephys import hypnogram
-from ecephys import units
 import ecephys.utils
+from ecephys import hypnogram, units
 from ecephys.sglx import file_mgmt
 from ecephys.wne import constants
-from ecephys.wne import Project
 from ecephys.wne import utils as wne_utils
+from ecephys.wne.project import Project
 from ecephys.wne.sglx import sessions
-from ecephys.wne.sglx import SGLXProject
-from ecephys.wne.sglx import SGLXSubject
-
+from ecephys.wne.sglx.project import SGLXProject
+from ecephys.wne.sglx.subject import SGLXSubject
 
 logger = logging.getLogger(__name__)
 
-MIN_BOUT_DURATION_SEC = (
-    0.1  # SUS: Why is this a module level constant? Why is it not just a pre-defined parameter? Why not a WNE constant?
-)
+MIN_BOUT_DURATION_SEC = 0.1  # SUS: Why is this a module level constant? Why is it not just a pre-defined parameter? Why not a WNE constant?
 
 
 def get_sglx_file_counterparts(
@@ -56,7 +52,10 @@ def get_sglx_file_counterparts(
     counterparts = sessions.mirror_raw_data_paths(
         project.get_subject_directory(subject), paths
     )  # Mirror paths at the project's subject directory
-    counterparts = [file_mgmt.replace_ftype(p, extension, remove_probe, remove_stream) for p in counterparts]
+    counterparts = [
+        file_mgmt.replace_ftype(p, extension, remove_probe, remove_stream)
+        for p in counterparts
+    ]
     return ecephys.utils.remove_duplicates(counterparts)
 
 
@@ -72,7 +71,12 @@ def load_sorting_inclusions_and_artifacts(
     # Query inclusions from segments used in actual sorting
     # segments are in probe timebase and need to be converted to common timebase
     segments = project.load_segments_table(
-        sglx_subject.name, experiment, alias, probe, sorting, return_all_segment_types=True
+        sglx_subject.name,
+        experiment,
+        alias,
+        probe,
+        sorting,
+        return_all_segment_types=True,
     ).copy()
     segments = pd.DataFrame(
         {
@@ -191,7 +195,9 @@ def load_bouts_to_reconcile_as_hypnogram(
 
     # Reconcile NoData & artifacts
     return hypnogram.FloatHypnogram(
-        no_data_hg.reconcile(artifacts_hg, how="other").keep_longer(min_bout_duration_sec).reset_index(drop=True)
+        no_data_hg.reconcile(artifacts_hg, how="other")
+        .keep_longer(min_bout_duration_sec)
+        .reset_index(drop=True)
     )
 
 
@@ -257,7 +263,9 @@ def load_reconciled_float_hypnogram(
     )
     if reconcile_ephyviewer_edits:
         hg = hg.reconcile(
-            wne_utils.load_ephyviewer_hypnogram_edits(project, experiment, sglx_subject.name, simplify=simplify),
+            wne_utils.load_ephyviewer_hypnogram_edits(
+                project, experiment, sglx_subject.name, simplify=simplify
+            ),
             how="other",
         )
 
@@ -267,7 +275,13 @@ def load_reconciled_float_hypnogram(
     for source, probe in itertools.product(sources, probes):
         hg = hg.reconcile(
             load_bouts_to_reconcile_as_hypnogram(
-                project, experiment, sglx_subject, probe, source, alias=alias, sorting=sorting
+                project,
+                experiment,
+                sglx_subject,
+                probe,
+                source,
+                alias=alias,
+                sorting=sorting,
             ),
             how="other",
         )
@@ -326,7 +340,9 @@ def load_singleprobe_sorting(
     else:
         import warnings
 
-        warnings.warn("Could not find anatomy file at: {anatomy_file}. Using dummy structure table")
+        warnings.warn(
+            "Could not find anatomy file at: {anatomy_file}. Using dummy structure table"
+        )
         structs = units.siutils.get_dummy_structure_table(lo=-np.Inf, hi=np.Inf)
     extractor = units.siutils.add_anatomy_properties_to_extractor(extractor, structs)
 
@@ -391,14 +407,19 @@ def get_experiment_sample2time(
         t = np.empty(s.size, dtype="float")
         t[:] = np.nan  # Check a posteriori if we covered all input samples
         for file in experiment_probe_ftable.itertuples():
-            mask = (s >= file.start_sample) & (s < file.end_sample)  # Mask samples belonging to this segment
+            mask = (s >= file.start_sample) & (
+                s < file.end_sample
+            )  # Mask samples belonging to this segment
             t[mask] = (
-                s[mask] - file.start_sample
-            ) / file.imSampRate + file.expmtPrbAcqFirstTime  # Convert to number of seconds in this probe's (expmtPrbAcq) timebase
+                (s[mask] - file.start_sample) / file.imSampRate
+                + file.expmtPrbAcqFirstTime
+            )  # Convert to number of seconds in this probe's (expmtPrbAcq) timebase
             sync_entry = experiment_sync_table.loc[
                 file.fname
             ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
-            t[mask] = sync_entry.slope * t[mask] + sync_entry.intercept  # Sync to imec0 (expmtPrbAcq) timebase
+            t[mask] = (
+                sync_entry.slope * t[mask] + sync_entry.intercept
+            )  # Sync to imec0 (expmtPrbAcq) timebase
         assert not any(np.isnan(t)), (
             "Some of the provided sample indices were not covered by segments \n"
             "and therefore couldn't be converted to time"
@@ -415,9 +436,9 @@ def get_time2time(
     binfile: Optional[pathlib.Path] = None,
     extrapolate: bool = False,
 ) -> Callable[[np.ndarray], np.ndarray]:
-    assert (
-        len(experiment_probe_ftable["probe"].unique()) == 1
-    ), "Cannot generate a time2time function without knowing the probe"
+    assert len(experiment_probe_ftable["probe"].unique()) == 1, (
+        "Cannot generate a time2time function without knowing the probe"
+    )
     experiment_sync_table = experiment_sync_table.set_index("source")
 
     if binfile is not None:
@@ -440,7 +461,9 @@ def get_time2time(
                 sync_entry = experiment_sync_table.loc[
                     file.path.name
                 ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
-                t2[mask] = sync_entry.slope * t1[mask] + sync_entry.intercept  # Sync to imec0 (expmtPrbAcq) timebase
+                t2[mask] = (
+                    sync_entry.slope * t1[mask] + sync_entry.intercept
+                )  # Sync to imec0 (expmtPrbAcq) timebase
             is_nan = np.isnan(t2)
             if any(is_nan):
                 msg = "Some of the provided times were not covered by the original recording and therefore can't be converted unambiguously."
@@ -449,9 +472,13 @@ def get_time2time(
                     allowed_times = experiment_probe_ftable[
                         ["expmtPrbAcqFirstTime", "expmtPrbAcqLastTime"]
                     ].values.flatten()
-                    allowed_files = experiment_probe_ftable[["path", "path"]].values.flatten()
+                    allowed_files = experiment_probe_ftable[
+                        ["path", "path"]
+                    ].values.flatten()
                     for ix_t in np.where(is_nan)[0]:
-                        nearest_allowed = ecephys.utils.find_nearest(allowed_times, t1[ix_t])
+                        nearest_allowed = ecephys.utils.find_nearest(
+                            allowed_times, t1[ix_t]
+                        )
                         nearest_fname = allowed_files[nearest_allowed].name
                         sync_entry = experiment_sync_table.loc[nearest_fname]
                         t2[ix_t] = sync_entry.slope * t1[ix_t] + sync_entry.intercept
@@ -480,8 +507,14 @@ def get_time_synchronizer(
         assert stream == stream_, "Mismatch between provided stream and binfile"
     assert probe is not None, "Must provide probe"
     assert stream is not None, "Must provide stream"
-    experiment_probe_ftable = sglx_subject.get_experiment_frame(experiment, ftype="bin", stream=stream, probe=probe)
-    experiment_sync_table = ecephys.utils.read_htsv(
-        sync_project.get_experiment_subject_file(experiment, sglx_subject.name, constants.SYNC_FNAME_MAP[stream])
+    experiment_probe_ftable = sglx_subject.get_experiment_frame(
+        experiment, ftype="bin", stream=stream, probe=probe
     )
-    return get_time2time(experiment_sync_table, experiment_probe_ftable, binfile, extrapolate)
+    experiment_sync_table = ecephys.utils.read_htsv(
+        sync_project.get_experiment_subject_file(
+            experiment, sglx_subject.name, constants.SYNC_FNAME_MAP[stream]
+        )
+    )
+    return get_time2time(
+        experiment_sync_table, experiment_probe_ftable, binfile, extrapolate
+    )

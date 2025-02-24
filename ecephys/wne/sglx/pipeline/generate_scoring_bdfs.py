@@ -1,12 +1,12 @@
 import numpy as np
-from tqdm.auto import tqdm
 import xarray as xr
+from tqdm.auto import tqdm
 
 from ecephys.wne import constants
-from ecephys.wne.sglx import SGLXProject
-from ecephys.wne.sglx import SGLXSubject
-from ecephys.wne.sglx import utils as wne_sglx_utils
+from ecephys.wne.sglx import utils
 from ecephys.wne.sglx.pipeline import get_scoring_signals
+from ecephys.wne.sglx.project import SGLXProject
+from ecephys.wne.sglx.subject import SGLXSubject
 
 
 def do_experiment_probe(
@@ -28,7 +28,7 @@ def do_experiment_probe(
 
     lfp_table = sglx_subject.get_lfp_bin_table(experiment, probe=probe)
     for lfp_file in tqdm(list(lfp_table.itertuples())):
-        [visbrain_file] = wne_sglx_utils.get_sglx_file_counterparts(
+        [visbrain_file] = utils.get_sglx_file_counterparts(
             data_project,
             sglx_subject.name,
             [lfp_file.path],
@@ -36,7 +36,7 @@ def do_experiment_probe(
             remove_stream=True,
         )
         visbrain_file.parent.mkdir(parents=True, exist_ok=True)
-        t2t = wne_sglx_utils.get_time_synchronizer(
+        t2t = utils.get_time_synchronizer(
             sync_project, sglx_subject, experiment, binfile=lfp_file.path
         )
         (t1, t2) = t2t(

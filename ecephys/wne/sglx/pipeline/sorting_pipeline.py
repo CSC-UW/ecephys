@@ -1,23 +1,23 @@
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 import deepdiff
-from horology import Timing
 import pandas as pd
-from pandas.testing import assert_frame_equal
 import probeinterface as pi
 import spikeinterface.extractors as se
 import spikeinterface.full as si
 import spikeinterface.sorters as ss
 import yaml
+from horology import Timing
+from pandas.testing import assert_frame_equal
 
-from ecephys import utils
+import ecephys.utils
 from ecephys.wne import constants
-from ecephys.wne import Project
-from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne.project import Project
 from ecephys.wne.sglx.pipeline import preprocess_si_rec
+from ecephys.wne.sglx.subject import SGLXSubject
 
 # TODO: Be consistent about using logger vs print
 logger = logging.getLogger(__name__)
@@ -127,11 +127,11 @@ class SpikeInterfaceSortingPipeline:
         elif isinstance(exclusions_source, Project):
             self._exclusions = self.get_wne_artifacts(exclusions_source)
         else:
-            self._exclusions = utils.read_htsv(exclusions_source)
+            self._exclusions = ecephys.utils.read_htsv(exclusions_source)
         # Ensure we use the same exclusions as previously
         prior_exclusions_path = self.main_output_dir / EXCLUSIONS_FNAME
         if prior_exclusions_path.exists():
-            prior_exclusions = utils.read_htsv(prior_exclusions_path)
+            prior_exclusions = ecephys.utils.read_htsv(prior_exclusions_path)
             try:
                 assert_frame_equal(
                     prior_exclusions,
@@ -163,7 +163,7 @@ class SpikeInterfaceSortingPipeline:
         self._segments = None
         prior_segments_path = self.main_output_dir / SEGMENTS_FNAME
         if prior_segments_path.exists():
-            self._segments = utils.read_htsv(prior_segments_path)
+            self._segments = ecephys.utils.read_htsv(prior_segments_path)
 
         # TODO use only properties
         # Pipeline steps, specific to SI
@@ -195,13 +195,13 @@ class SpikeInterfaceSortingPipeline:
                 repr
                 + f"""
             First segment full path: \n{self._segments.path.values[0]}
-        AP segment table: \n{self._segments.loc[:,['fname', 'type', 'withinFileStartFrame', 'withinFileEndFrame', 'fileDuration', 'segmentDuration', 'fileDuration']]}
+        AP segment table: \n{self._segments.loc[:, ["fname", "type", "withinFileStartFrame", "withinFileEndFrame", "fileDuration", "segmentDuration", "fileDuration"]]}
             """
             )
         if self._raw_si_recording is None or self._segments is None:
             repr = (
                 repr
-                + f"""
+                + """
             Run `get_raw_si_recording` method to display segments/recording info.\n`
             """
             )
@@ -238,8 +238,13 @@ class SpikeInterfaceSortingPipeline:
                 f"Expected artifacts file at {artifacts_file}. "
                 f"Please create one or consider specifying a custom path to exclusions  in the `exclusions_source` kwarg."
             )
-        exclusions = utils.read_htsv(artifacts_file).reset_index(drop=True)
-        MANDATORY_COLUMNS = ["fname", "withinFileStartTime", "withinFileEndTime", "type"]
+        exclusions = ecephys.utils.read_htsv(artifacts_file).reset_index(drop=True)
+        MANDATORY_COLUMNS = [
+            "fname",
+            "withinFileStartTime",
+            "withinFileEndTime",
+            "type",
+        ]
         if not all([c in exclusions.columns for c in MANDATORY_COLUMNS]):
             raise ValueError(
                 f"Missing columns for exclusion file at {artifacts_file}.\n"
@@ -248,7 +253,10 @@ class SpikeInterfaceSortingPipeline:
         return exclusions
 
     def get_raw_si_recording(self) -> tuple[si.BaseRecording, pd.DataFrame]:
-        use_cached = isinstance(self._raw_si_recording, si.BaseRecording) and self._segments is not None
+        use_cached = (
+            isinstance(self._raw_si_recording, si.BaseRecording)
+            and self._segments is not None
+        )
         if not use_cached:
             self._raw_si_recording, self._segments = self._wneSubject.get_si_recording(
                 self._experiment,
@@ -262,7 +270,7 @@ class SpikeInterfaceSortingPipeline:
         # Ensure we used the same segments as previously
         prior_segments_path = self.main_output_dir / SEGMENTS_FNAME
         if prior_segments_path.exists():
-            prior_segments = utils.read_htsv(prior_segments_path)
+            prior_segments = ecephys.utils.read_htsv(prior_segments_path)
             try:
                 # Couldn't make it work for all columns because of rounding x dtype
                 cols_to_compare = [
@@ -339,8 +347,10 @@ class SpikeInterfaceSortingPipeline:
         self.main_output_dir.mkdir(exist_ok=True, parents=True)
         with open(self.main_output_dir / OPTS_FNAME, "w") as f:
             yaml.dump(self.opts, f)
-        utils.write_htsv(self._exclusions, self.main_output_dir / EXCLUSIONS_FNAME)
-        utils.write_htsv(segments, self.main_output_dir / SEGMENTS_FNAME)
+        ecephys.utils.write_htsv(
+            self._exclusions, self.main_output_dir / EXCLUSIONS_FNAME
+        )
+        ecephys.utils.write_htsv(segments, self.main_output_dir / SEGMENTS_FNAME)
 
         # Save preprocessed probe
         pi.write_probeinterface(
@@ -366,13 +376,13 @@ class SpikeInterfaceSortingPipeline:
         # If sorting is already complete and we are rerun_existing=False, just return.
         if self.is_sorted and not self._rerun_existing:
             logger.info(
-                f"Data are already sorted and rerun_existing=False. Doing nothing.\n\n"
+                "Data are already sorted and rerun_existing=False. Doing nothing.\n\n"
             )
             return
 
         if self._preprocessed_si_recording is None:
             raise AttributeError(
-                f"No preprocessing object found.\n" "You need to run preprocessing."
+                "No preprocessing object found.\nYou need to run preprocessing."
             )
 
         # Get sorter and parameters
@@ -382,7 +392,7 @@ class SpikeInterfaceSortingPipeline:
 
         # If using KiloSort2.5, we need to set the path to the KiloSort executable
         if sorter_name == "kilosort2_5":
-            if not "sorter_path" in sorting_opts:
+            if "sorter_path" not in sorting_opts:
                 raise ValueError(
                     "Expected 'sorter_path' key in sorting opts for kilosort.\n"
                     "You might be using obsolete formatting for opts file?"
@@ -416,7 +426,7 @@ class SpikeInterfaceSortingPipeline:
     def get_kilosort_binary_recording_extractor(self) -> si.BinaryRecordingExtractor:
         if self._kilosort_binary_recording_extractor is None:
             self._kilosort_binary_recording_extractor = (
-                utils.siutils.load_kilosort_bin_as_si_recording(
+                ecephys.utils.siutils.load_kilosort_bin_as_si_recording(
                     self.sorter_output_dir,
                     fname=self.preprocessed_bin_path.name,
                     si_probe=self.preprocessed_probe,

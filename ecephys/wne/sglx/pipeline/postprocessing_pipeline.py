@@ -1,32 +1,31 @@
 import json
 import logging
+import textwrap
 from pathlib import Path
 from typing import Union
 
 import deepdiff
-from horology import Timing
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from pandas.api.types import is_numeric_dtype
-from pandas.testing import assert_frame_equal
 import seaborn as sns
 import spikeinterface.full as si
 import spikeinterface.postprocessing as sp
 import spikeinterface.qualitymetrics as sq
 import spikeinterface.widgets as sw
-from spikeinterface.qualitymetrics.misc_metrics import compute_amplitude_cutoffs
-import textwrap
-from tqdm import tqdm
 import yaml
+from horology import Timing
+from pandas.api.types import is_numeric_dtype
+from pandas.testing import assert_frame_equal
+from spikeinterface.qualitymetrics.misc_metrics import compute_amplitude_cutoffs
+from tqdm import tqdm
 
+import ecephys.utils
 from ecephys import hypnogram
-from ecephys import utils
-from ecephys.wne import constants
-from ecephys.wne import Project
-from ecephys.wne.sglx import SGLXProject
-from ecephys.wne.sglx import SGLXSubject
+from ecephys.wne import Project, constants
 from ecephys.wne.sglx.pipeline import sorting_pipeline
+from ecephys.wne.sglx.project import SGLXProject
+from ecephys.wne.sglx.subject import SGLXSubject
 
 # TODO: Be consistent about using logger vs print
 logger = logging.getLogger(__name__)
@@ -191,18 +190,18 @@ class SpikeInterfacePostprocessingPipeline:
                 # Only when instantiating with load_from_folder
                 prior_hypno_path = self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
                 assert prior_hypno_path == hypnogram_source
-                self._hypnogram = utils.read_htsv(hypnogram_source)
+                self._hypnogram = ecephys.utils.read_htsv(hypnogram_source)
             else:
                 raise ValueError(
                     f"Unrecognize type for `hypnogram_source`: {hypnogram_source}"
                 )
             self._hypnogram_states = self._hypnogram.state.unique()
-            assert not None in self._hypnogram_states
+            assert None not in self._hypnogram_states
 
         # Ensure we use same hypno as previously
         prior_hypno_path = self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
         if prior_hypno_path.exists():
-            prior_hypno = utils.read_htsv(prior_hypno_path)
+            prior_hypno = ecephys.utils.read_htsv(prior_hypno_path)
             try:
                 assert_frame_equal(prior_hypno, self._hypnogram, check_dtype=False)
             except AssertionError as e:
@@ -221,9 +220,9 @@ class SpikeInterfacePostprocessingPipeline:
             assert {"waveforms", "postprocessing", "metrics"}.issubset(
                 self._opts_by_state
             )
-            assert (
-                self._hypnogram is not None
-            ), "Opts request processing by state, but no hypnogram was found"
+            assert self._hypnogram is not None, (
+                "Opts request processing by state, but no hypnogram was found"
+            )
 
         # Set compute details
         self.job_kwargs = {
@@ -245,7 +244,7 @@ class SpikeInterfacePostprocessingPipeline:
         # with N=0 spikes, which messes up postprocessing. Those are filtered out somehow when running phy.
         assert (
             self._sorting_pipeline.sorter_output_dir / "cluster_info.tsv"
-        ).exists(), f"You need to open/save this sorting with Phy first."
+        ).exists(), "You need to open/save this sorting with Phy first."
 
     def __repr__(self):
         repr = f"""
@@ -255,10 +254,10 @@ class SpikeInterfacePostprocessingPipeline:
         """
         if self._hypnogram is not None:
             repr += (
-                f"""Hypnogram: {self._hypnogram.groupby('state')["duration"].sum()}"""
+                f"""Hypnogram: {self._hypnogram.groupby("state")["duration"].sum()}"""
             )
         else:
-            repr += f"Hypnogram: None"
+            repr += "Hypnogram: None"
 
         return repr + f"\n\nSorting pipeline: {self._sorting_pipeline}"
 
@@ -305,10 +304,10 @@ class SpikeInterfacePostprocessingPipeline:
     ) -> si.WaveformExtractor:
         """Return cached or load/extract (full or state-specific) waveform extractor."""
         if self._si_waveform_extractor_by_state.get(state, None) is None:
-            self._si_waveform_extractor_by_state[
-                state
-            ] = self.load_or_extract_waveform_extractor_by_state(
-                state=state, with_recording=with_recording
+            self._si_waveform_extractor_by_state[state] = (
+                self.load_or_extract_waveform_extractor_by_state(
+                    state=state, with_recording=with_recording
+                )
             )
         return self._si_waveform_extractor_by_state[state]
 
@@ -319,7 +318,7 @@ class SpikeInterfacePostprocessingPipeline:
         if state is None:
             return rec
 
-        return utils.cut_and_combine_si_extractors(
+        return ecephys.utils.siutils.cut_and_combine_si_extractors(
             rec,
             self._hypnogram[self._hypnogram["state"] == state].copy(),
             combine="concatenate",
@@ -341,7 +340,7 @@ class SpikeInterfacePostprocessingPipeline:
         if state is None:
             return sorting
 
-        return utils.cut_and_combine_si_extractors(
+        return ecephys.utils.siutils.cut_and_combine_si_extractors(
             sorting,
             self._hypnogram[self._hypnogram["state"] == state],
             combine="concatenate",
@@ -363,15 +362,15 @@ class SpikeInterfacePostprocessingPipeline:
 
         opts = self.get_opts_by_state(state=state)
 
-        if not "waveforms" in opts:
+        if "waveforms" not in opts:
             raise ValueError(
                 f"Expected 'waveforms' entry in postprocessing options: {opts}."
             )
         waveforms_kwargs = opts["waveforms"]
 
-        assert (
-            self._sorting_pipeline.is_sorted
-        ), "Cannot load waveform extractor for unsorted recording."
+        assert self._sorting_pipeline.is_sorted, (
+            "Cannot load waveform extractor for unsorted recording."
+        )
 
         waveform_output_dir = self.get_waveforms_output_dir_by_state(state=state)
         waveform_sorting = self.get_sorting_for_waveforms_by_state(
@@ -427,7 +426,7 @@ class SpikeInterfacePostprocessingPipeline:
     def _run_si_metrics_by_state(self, state=None):
         opts = self.get_opts_by_state(state=state)
 
-        if not "metrics" in opts:
+        if "metrics" not in opts:
             raise ValueError(
                 f"Expected 'metrics' entry in postprocessing options: {opts}"
             )
@@ -479,7 +478,7 @@ class SpikeInterfacePostprocessingPipeline:
     def _run_si_postprocessing_by_state(self, state=None):
         opts = self.get_opts_by_state(state=state)
 
-        if not "postprocessing" in opts:
+        if "postprocessing" not in opts:
             raise ValueError(
                 "Expected 'postprocessing' entry in postprocessing options: {opts}"
             )
@@ -507,7 +506,7 @@ class SpikeInterfacePostprocessingPipeline:
         self.postprocessing_output_dir.mkdir(exist_ok=True)
         # Save hypnogram used
         if self._hypnogram is not None:
-            utils.write_htsv(
+            ecephys.utils.write_htsv(
                 self._hypnogram, self.postprocessing_output_dir / OUTPUT_HYPNO_FNAME
             )
 
@@ -584,7 +583,7 @@ class SpikeInterfacePostprocessingPipeline:
             c for c in metrics.columns if any([n in c for n in METRICS_COLUMNS_TO_PLOT])
         ]
 
-        print(f"Plot metrics distribution")
+        print("Plot metrics distribution")
         for name in tqdm(select_cols):
             if not is_numeric_dtype(metrics[name]):
                 continue
@@ -619,7 +618,7 @@ class SpikeInterfacePostprocessingPipeline:
             c for c in metrics.columns if any([n in c for n in METRICS_COLUMNS_TO_PLOT])
         ]
 
-        print(f"Plot unit summaries")
+        print("Plot unit summaries")
 
         for unit_id in tqdm(we.sorting.get_unit_ids()):
             w = sw.plot_unit_summary(we, unit_id=unit_id)
@@ -721,7 +720,7 @@ def load_hypnogram_for_si_slicing(
     Here we label each sample with the corresponding hypnogram state,
     and then find the edges of the array of states.
 
-    The returned hypnogram has `start_frame` and `end_frame` columns, 
+    The returned hypnogram has `start_frame` and `end_frame` columns,
     relative to the start of the sorting and can be used to slice the sorting
     or its underlying recording with the `Extractor.frame_slice()` methods.
 
@@ -801,7 +800,9 @@ def load_hypnogram_for_si_slicing(
     decimated_frame_states = np.concatenate(segment_decimated_frame_states_list)
 
     # df with start_frame, end_frame columns, still in decimated indices
-    decimated_frame_hypno = utils.get_edges_start_end_samples_df(decimated_frame_states)
+    decimated_frame_hypno = ecephys.utils.get_edges_start_end_samples_df(
+        decimated_frame_states
+    )
 
     # df with start_frame, end_frame columns, in original indices
     frame_hypno = decimated_frame_hypno.copy()

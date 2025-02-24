@@ -5,9 +5,9 @@ from tqdm.auto import tqdm
 
 from ecephys import hypnogram
 from ecephys.wne import constants
-from ecephys.wne.sglx import SGLXProject
-from ecephys.wne.sglx import SGLXSubject
-from ecephys.wne.sglx import utils as wne_sglx_utils
+from ecephys.wne.sglx import utils
+from ecephys.wne.sglx.project import SGLXProject
+from ecephys.wne.sglx.subject import SGLXSubject
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def do_experiment_probe(
     visbrain_hypnograms = list()
     lfp_table = sglx_subject.get_lfp_bin_table(experiment, probe=probe, alias=alias)
     for lfp_file in tqdm(list(lfp_table.itertuples())):
-        [visbrain_hypnogram_file] = wne_sglx_utils.get_sglx_file_counterparts(
+        [visbrain_hypnogram_file] = utils.get_sglx_file_counterparts(
             data_project,
             sglx_subject.name,
             [lfp_file.path],
@@ -35,8 +35,8 @@ def do_experiment_probe(
             visbrain_hypnogram = hypnogram.FloatHypnogram.from_visbrain(
                 visbrain_hypnogram_file
             )
-            logger.debug(f"Converting file times to canonical timebase...")
-            t2t = wne_sglx_utils.get_time_synchronizer(
+            logger.debug("Converting file times to canonical timebase...")
+            t2t = utils.get_time_synchronizer(
                 sync_project, sglx_subject, experiment, binfile=lfp_file.path
             )
             visbrain_hypnogram["start_time"] = t2t(
@@ -50,9 +50,7 @@ def do_experiment_probe(
             )
             visbrain_hypnograms.append(visbrain_hypnogram)
         else:
-            logger.warning(
-                f"Hypnogram {visbrain_hypnogram_file} not found. Skipping."
-            )
+            logger.warning(f"Hypnogram {visbrain_hypnogram_file} not found. Skipping.")
 
     if visbrain_hypnograms:
         hg = (

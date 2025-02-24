@@ -1,16 +1,12 @@
-import matplotlib.pyplot as plt
-import probeinterface as pi
-from ecephys.utils import siutils
-
-import numpy as np
-
-from ecephys import utils
-from ecephys.wne.sglx import SGLXProject
-from ecephys.wne.sglx import SGLXSubject
-
-from ecephys import utils
-
 import shutil
+
+import matplotlib.pyplot as plt
+import numpy as np
+import probeinterface as pi
+
+import ecephys.utils
+from ecephys.wne.sglx.project import SGLXProject
+from ecephys.wne.sglx.subject import SGLXSubject
 
 
 def _prepare_motion_directory(
@@ -22,43 +18,49 @@ def _prepare_motion_directory(
     sorting: str = "sorting",
 ):
     """Copy relevant data to `motion_best_estimate` sorting subdir.
-    
-    Pull either from `preprocessing` or `preprocessing.bak` 
+
+    Pull either from `preprocessing` or `preprocessing.bak`
     sorting subdirectory.
     """
-    sorting_path = project.get_alias_subject_directory(
-        experiment,
-        alias,
-        sglx_subject.name,
-    )/f"{sorting}.{probe}"
+    sorting_path = (
+        project.get_alias_subject_directory(
+            experiment,
+            alias,
+            sglx_subject.name,
+        )
+        / f"{sorting}.{probe}"
+    )
     assert sorting_path.exists()
 
-    motion_dir = sorting_path/"motion_best_estimate"
-    if motion_dir.exists() and all([
-        (motion_dir/fname).exists() for fname in [
-            "motion_non_rigid_clean.npz",
-            "opts.yaml",
+    motion_dir = sorting_path / "motion_best_estimate"
+    if motion_dir.exists() and all(
+        [
+            (motion_dir / fname).exists()
+            for fname in [
+                "motion_non_rigid_clean.npz",
+                "opts.yaml",
+            ]
         ]
-    ]):
+    ):
         return
-        
+
     motion_dir.mkdir(exist_ok=True)
 
-    prepro_path = sorting_path/"preprocessing"
-    prepro_bak_path = sorting_path/"preprocessing.bak"
-    assert(prepro_path.exists() or prepro_bak_path.exists())
+    prepro_path = sorting_path / "preprocessing"
+    prepro_bak_path = sorting_path / "preprocessing.bak"
+    assert prepro_path.exists() or prepro_bak_path.exists()
 
     path = prepro_path if prepro_path.exists() else prepro_bak_path
     for src in path.glob("*"):
-        tgt = motion_dir/src.name
+        tgt = motion_dir / src.name
         if not tgt.exists():
             shutil.copy(src, tgt)
         assert tgt.exists()
-    
-    if not (motion_dir/"opts.yaml").exists():
-        src = prepro_path.parent/"opts.yaml"
+
+    if not (motion_dir / "opts.yaml").exists():
+        src = prepro_path.parent / "opts.yaml"
         assert src.exists()
-        tgt = motion_dir/src.name
+        tgt = motion_dir / src.name
         shutil.copy(src, tgt)
 
 
@@ -71,30 +73,33 @@ def _save_channel_motion(
     sorting: str = "sorting",
 ):
     """Load SI motion, interpolate per channel, and save as `channel_motion.nc`"""
-    sorting_path = project.get_alias_subject_directory(
-        experiment,
-        alias,
-        sglx_subject.name,
-    )/f"{sorting}.{probe}"
-    motion_dir = sorting_path/"motion_best_estimate"
+    sorting_path = (
+        project.get_alias_subject_directory(
+            experiment,
+            alias,
+            sglx_subject.name,
+        )
+        / f"{sorting}.{probe}"
+    )
+    motion_dir = sorting_path / "motion_best_estimate"
 
     # Load motion info
-    motion_path = motion_dir/"motion_non_rigid_clean.npz"
+    motion_path = motion_dir / "motion_non_rigid_clean.npz"
     npz = np.load(motion_path)
-    motion = npz['motion']
-    spatial_bins = npz['spatial_bins']
-    temporal_bins = npz['temporal_bins']
+    motion = npz["motion"]
+    spatial_bins = npz["spatial_bins"]
+    temporal_bins = npz["temporal_bins"]
 
     # Load channel depths from probe object with border channels removed
-    probe_path = sorting_path/"preprocessed_si_probe.json"
+    probe_path = sorting_path / "preprocessed_si_probe.json"
     probe_group = pi.read_probeinterface(probe_path)
     assert len(probe_group.probes) == 1, "Expected to find only one probe"
     si_probe = probe_group.probes[0]
     channel_depths = si_probe.to_dataframe().sort_values(by="y")["y"].values
 
     # Load sampling rate
-    segments_path = sorting_path/"segments.htsv"
-    sampling_rate = utils.read_htsv(segments_path)["imSampRate"].values[0]
+    segments_path = sorting_path / "segments.htsv"
+    sampling_rate = ecephys.utils.read_htsv(segments_path)["imSampRate"].values[0]
 
     # Sample2time
     sample2time = project.get_sample2time(
@@ -105,21 +110,19 @@ def _save_channel_motion(
         sorting=sorting,
     )
 
-    channel_motion = siutils.interpolate_motion_per_channel(
+    channel_motion = ecephys.utils.siutils.interpolate_motion_per_channel(
         channel_depths,
         sampling_rate,
         motion,
         spatial_bins,
         temporal_bins,
-        sample2time=sample2time
+        sample2time=sample2time,
     )
 
-    channel_motion.to_netcdf(
-        motion_dir/"channel_motion.nc"
-    )
+    channel_motion.to_netcdf(motion_dir / "channel_motion.nc")
 
     channel_motion.plot(figsize=(20, 10)).figure.savefig(
-        motion_dir/"channel_motion.png"
+        motion_dir / "channel_motion.png"
     )
     plt.close()
 

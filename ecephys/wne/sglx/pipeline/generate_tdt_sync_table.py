@@ -1,13 +1,12 @@
 import numpy as np
 import pandas as pd
 
+import ecephys.utils
 from ecephys import sync
-from ecephys import utils
-
 from ecephys.wne import constants
-from ecephys.wne.sglx import SGLXProject
-from ecephys.wne.sglx import SGLXSubject
-from ecephys.wne.sglx import utils as wne_sglx_utils
+from ecephys.wne.sglx import utils
+from ecephys.wne.sglx.project import SGLXProject
+from ecephys.wne.sglx.subject import SGLXSubject
 
 
 def get_sync_table(
@@ -35,10 +34,10 @@ def get_sync_table(
         experiment, stream=stream, ftype="bin", probe="imec0"
     )
     for f in ftab.itertuples():
-        [barcode_file] = wne_sglx_utils.get_sglx_file_counterparts(
+        [barcode_file] = utils.get_sglx_file_counterparts(
             sglx_project, sglx_subject.name, [f.path], ".barcodes.htsv"
         )
-        binfile_barcodes = utils.read_htsv(barcode_file)
+        binfile_barcodes = ecephys.utils.read_htsv(barcode_file)
         good_binfile_barcodes, binfile_slice, block_slice = sync.get_shared_sequence(
             binfile_barcodes["value"].values, block_barcode_values
         )
@@ -76,4 +75,4 @@ def do_experiment(
     f = sglx_project.get_experiment_subject_file(
         experiment, sglx_subject.name, f"tdt_sync.{stream}.htsv"
     )
-    utils.write_htsv(sync_table, f)
+    ecephys.utils.write_htsv(sync_table, f)

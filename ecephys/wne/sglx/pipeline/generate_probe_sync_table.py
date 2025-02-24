@@ -4,12 +4,12 @@ import warnings
 import numpy as np
 import pandas as pd
 
+import ecephys.utils
 from ecephys import sync
-from ecephys import utils
 from ecephys.wne import constants
-from ecephys.wne.sglx import SGLXProject
-from ecephys.wne.sglx import SGLXSubject
-from ecephys.wne.sglx import utils as wne_sglx_utils
+from ecephys.wne.sglx import utils
+from ecephys.wne.sglx.project import SGLXProject
+from ecephys.wne.sglx.subject import SGLXSubject
 
 
 def do_experiment(
@@ -21,7 +21,7 @@ def do_experiment(
 
     experiment_sync_table = pd.concat(
         [
-            utils.read_htsv(
+            ecephys.utils.read_htsv(
                 project.get_project_subject_file(
                     sglx_subject.name, f"{id}.prb_sync.{stream}.htsv"
                 )
@@ -32,7 +32,7 @@ def do_experiment(
     f = project.get_experiment_subject_file(
         experiment, sglx_subject.name, f"prb_sync.{stream}.htsv"
     )
-    utils.write_htsv(experiment_sync_table, f)
+    ecephys.utils.write_htsv(experiment_sync_table, f)
 
 
 def do_session(
@@ -43,7 +43,7 @@ def do_session(
     f = project.get_project_subject_file(
         sglx_subject.name, f"{session_id}.prb_sync.{stream}.htsv"
     )
-    utils.write_htsv(sync_table, f)
+    ecephys.utils.write_htsv(sync_table, f)
 
 
 def get_imec0_session_sync_table(ftab: pd.DataFrame):
@@ -123,16 +123,16 @@ def get_session_sync_table(
 def _load_ttls(
     project: SGLXProject, sglx_subject: SGLXSubject, binpath: pathlib.Path
 ) -> pd.DataFrame:
-    [syncfile] = wne_sglx_utils.get_sglx_file_counterparts(
+    [syncfile] = utils.get_sglx_file_counterparts(
         project, sglx_subject.name, [binpath], constants.TTL_EXT
     )
-    return utils.read_htsv(syncfile)
+    return ecephys.utils.read_htsv(syncfile)
 
 
 def _load_barcodes(
     project: SGLXProject, sglx_subject: SGLXSubject, binpath: pathlib.Path
 ) -> pd.DataFrame:
-    [syncfile] = wne_sglx_utils.get_sglx_file_counterparts(
+    [syncfile] = utils.get_sglx_file_counterparts(
         project, sglx_subject.name, [binpath], constants.BARCODE_EXT
     )
     return utils.read_htsv(syncfile)
@@ -140,9 +140,9 @@ def _load_barcodes(
 
 def _get_session_sync_type(session_ftab: pd.DataFrame) -> str:
     imSyncType = session_ftab["imSyncType"].values
-    assert utils.all_equal(
-        imSyncType
-    ), "Expected all session files to have the same sync type"
+    assert utils.all_equal(imSyncType), (
+        "Expected all session files to have the same sync type"
+    )
     return imSyncType[0]
 
 
@@ -155,12 +155,12 @@ def _get_probe_ftabs(session_ftab: pd.DataFrame) -> dict[str, pd.DataFrame]:
 
     for probe, tab in probe_ftabs.items():
         cols = ["session", "run", "gate", "trigger"]
-        assert all(
-            tab[cols] == probe_ftabs["imec0"][cols]
-        ), "Files are not matched across probe tables"
-        assert all(
-            tab.index == probe_ftabs["imec0"].index
-        ), "File indices are not matched across probe tables"
+        assert all(tab[cols] == probe_ftabs["imec0"][cols]), (
+            "Files are not matched across probe tables"
+        )
+        assert all(tab.index == probe_ftabs["imec0"].index), (
+            "File indices are not matched across probe tables"
+        )
 
     nFiles = len(probe_ftabs["imec0"])
     return probes, probe_ftabs, nFiles

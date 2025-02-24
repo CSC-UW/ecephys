@@ -4,12 +4,11 @@ import logging
 
 from tqdm.auto import tqdm
 
-from ecephys import sglxr
-from ecephys import utils
-from ecephys import xrsig
-from ecephys.wne.sglx import SGLXProject
-from ecephys.wne.sglx import SGLXSubject
-import ecephys.wne.sglx.utils
+import ecephys.utils
+from ecephys import sglxr, xrsig
+from ecephys.wne.sglx import utils as sglx_utils
+from ecephys.wne.sglx.project import SGLXProject
+from ecephys.wne.sglx.subject import SGLXSubject
 
 logger = logging.getLogger(__name__)
 
@@ -95,15 +94,15 @@ def do_experiment_probe(
             lfp_file.path,
             t0=lfp_file.expmtPrbAcqFirstTime,
         )
-        logger.info(f"Converting to canonical timebase...")
-        t2t = ecephys.wne.sglx.utils.get_time_synchronizer(
+        logger.info("Converting to canonical timebase...")
+        t2t = sglx_utils.get_time_synchronizer(
             sync_project, sglx_subject, experiment, binfile=lfp_file.path
         )
         lfp = lfp.assign_coords({"time": t2t(lfp["time"].values)})
         logger.info("Preprocessing...")
         lfp = xrsig.preprocess_neuropixels_ibl_style(lfp, bad_channels)
         lfp.name = "lfp"
-        lfp.attrs = utils.drop_unserializeable(lfp.attrs)
+        lfp.attrs = ecephys.utils.drop_unserializeable(lfp.attrs)
 
         logger.info(f"Saving to: {zarr_file}")
         if i == 0:

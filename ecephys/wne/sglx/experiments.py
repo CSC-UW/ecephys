@@ -1,6 +1,8 @@
 import itertools as it
+
 import pandas as pd
-from ...sglx import file_mgmt
+
+from ecephys.sglx import file_mgmt
 
 # TODO: Currently, there can be no clean `get_session_directory(subject_name, experiment_name) function,
 #       because there is no single session directory -- it can be split across AP and LF locations, and we
@@ -65,10 +67,9 @@ def add_experiment_times(ftab: pd.DataFrame) -> pd.DataFrame:
             ).total_seconds()
             acq["expmtPrbAcqFirstTime"] = acq["firstTime"] + segAcqOffset
             acq["expmtPrbAcqLastTime"] = acq["lastTime"] + segAcqOffset
-            acq[
-                "expmtPrbAcqFirstDatetime"
-            ] = firstAcquisitionDatetime + pd.to_timedelta(
-                acq["expmtPrbAcqFirstTime"], "s"
+            acq["expmtPrbAcqFirstDatetime"] = (
+                firstAcquisitionDatetime
+                + pd.to_timedelta(acq["expmtPrbAcqFirstTime"], "s")
             )
             acq["expmtPrbAcqLastDatetime"] = firstAcquisitionDatetime + pd.to_timedelta(
                 acq["expmtPrbAcqLastTime"], "s"

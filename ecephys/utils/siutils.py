@@ -1,12 +1,11 @@
+# TODO: These functions are not really utilities, and should probably exist elsewhere, like the units or wne subpackages.
+from pathlib import Path
+
+import numpy as np
+import scipy.interpolate
 import spikeinterface as si
 import spikeinterface.extractors as se
-from pathlib import Path
-import scipy.interpolate
-import numpy as np
 import xarray as xr
-
-import spikeinterface.extractors as se
-from spikeinterface.core import concatenate_recordings, concatenate_sortings
 from spikeinterface.core.waveform_tools import has_exceeding_spikes
 
 
@@ -61,7 +60,12 @@ def interpolate_motion_per_channel(
         for bin_ind, _ in enumerate(temporal_bins):
             # non rigid : interpolation channel motion for this temporal bin
             f = scipy.interpolate.interp1d(
-                spatial_bins, si_motion[bin_ind, :], kind="linear", axis=0, bounds_error=False, fill_value="extrapolate"
+                spatial_bins,
+                si_motion[bin_ind, :],
+                kind="linear",
+                axis=0,
+                bounds_error=False,
+                fill_value="extrapolate",
             )
             channel_motions[:, bin_ind] = f(channel_depths)
     sample_index = (temporal_bins * sampling_rate).astype(int)
@@ -98,7 +102,8 @@ def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
 
     if not isinstance(si_object, (se.BaseSorting, se.BaseRecording)):
         raise ValueError(
-            "Unrecognized datatype for si_object. " "Expected spikeinterface BaseSorting or BaseRecording."
+            "Unrecognized datatype for si_object. "
+            "Expected spikeinterface BaseSorting or BaseRecording."
         )
 
     frame_slice_kwargs = {}
@@ -123,7 +128,6 @@ def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
         )
 
     if combine == "concatenate":
-
         if isinstance(si_object, se.BaseSorting):
             rec = si.concatenate_sortings(si_segments)
         elif isinstance(si_object, se.BaseRecording):
@@ -140,7 +144,7 @@ def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
         raw_times = si_object.get_times()
         times = []
         for epoch in epochs_df.itertuples():
-            times += list(raw_times[epoch.start_frame:epoch.end_frame])
+            times += list(raw_times[epoch.start_frame : epoch.end_frame])
         times = np.array(times)
         rec.set_times(times)
 
@@ -155,7 +159,9 @@ def load_kilosort_bin_as_si_recording(
     ks_output_dir = Path(ks_output_dir)
     recording_path = ks_output_dir / fname
     if not recording_path.exists():
-        raise ValueError(f"Could not find bin file used for sorting at {recording_path}")
+        raise ValueError(
+            f"Could not find bin file used for sorting at {recording_path}"
+        )
 
     # Get recording.dat info from params.py
     d = {}

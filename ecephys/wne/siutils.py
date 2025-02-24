@@ -1,54 +1,68 @@
+from types import MappingProxyType
 from typing import Callable, Optional
 
 import numpy as np
+import pandas as pd
 import spikeinterface as si
 
-required_metric_thresholds = {
-    "quality": {
-        "permissive": {"good", "mua", np.NaN},
-        "moderate": {"good", "mua", np.NaN},
-        "conservative": {"good", "mua", np.NaN},
-    },
-    "firing_rate": {
-        "permissive": (0.2, np.Inf),
-        "moderate": (0.5, np.Inf),
-        "conservative": (0.5, np.Inf),
-    },
-}
+import ecephys.utils
+from ecephys.wne.project import Project
+from ecephys.wne.subject import Subject
 
-isolation_metric_thresholds = {
-    "isi_violations_ratio": {
-        "permissive": (0.0, 0.5),
-        "moderate": (0.0, 0.3),
-        "conservative": (0.0, 0.1),
-    },
-    "rp_contamination": {
-        "permissive": (0.0, 0.5),
-        "moderate": (0.0, 0.3),
-        "conservative": (0.0, 0.1),
-    },
-    "nn_isolation": {
-        "permissive": (0.7, np.Inf),
-        "moderate": (0.8, np.Inf),
-        "conservative": (0.9, np.Inf),
-    },
-}
-
-false_negative_metric_thresholds = {
-    "amplitude_cutoff": {
-        "permissive": (0.0, 0.499),
-        "moderate": (0.0, 0.499),
-        "conservative": (0.0, 0.3),
+required_metric_thresholds = MappingProxyType(
+    {
+        "quality": {
+            "permissive": {"good", "mua", np.NaN},
+            "moderate": {"good", "mua", np.NaN},
+            "conservative": {"good", "mua", np.NaN},
+        },
+        "firing_rate": {
+            "permissive": (0.2, np.Inf),
+            "moderate": (0.5, np.Inf),
+            "conservative": (0.5, np.Inf),
+        },
     }
-}
+)
 
-presence_metric_thresholds = {
-    "presence_ratio": {
-        "permissive": (0.8, np.Inf),
-        "moderate": (0.9, np.Inf),
-        "conservative": (0.9, np.Inf),
+isolation_metric_thresholds = MappingProxyType(
+    {
+        "isi_violations_ratio": {
+            "permissive": (0.0, 0.5),
+            "moderate": (0.0, 0.3),
+            "conservative": (0.0, 0.1),
+        },
+        "rp_contamination": {
+            "permissive": (0.0, 0.5),
+            "moderate": (0.0, 0.3),
+            "conservative": (0.0, 0.1),
+        },
+        "nn_isolation": {
+            "permissive": (0.7, np.Inf),
+            "moderate": (0.8, np.Inf),
+            "conservative": (0.9, np.Inf),
+        },
     }
-}
+)
+
+false_negative_metric_thresholds = MappingProxyType(
+    {
+        "amplitude_cutoff": {
+            "permissive": (0.0, 0.499),
+            "moderate": (0.0, 0.499),
+            "conservative": (0.0, 0.3),
+        }
+    }
+)
+
+presence_metric_thresholds = MappingProxyType(
+    {
+        "presence_ratio": {
+            "permissive": (0.8, np.Inf),
+            "moderate": (0.9, np.Inf),
+            "conservative": (0.9, np.Inf),
+        }
+    }
+)
 
 
 def _select_inviolate(
@@ -127,3 +141,44 @@ def get_quality_metric_filters(
         callable_filters.append(select_present)
 
     return simple_filters, callable_filters
+
+
+def load_postprocessing_hypnogram_for_slicing(
+    sorting_project: Project,
+    subject: Subject,
+    experiment: str,
+    probe: str,
+    alias: str = "full",
+    sorting: str = "sorting",
+    postprocessing: str = "postpro",
+    drop_time_columns: bool = True,
+) -> pd.DataFrame:
+    """Load postprocessing hypnogram, which can be used with si.frame_slice
+
+    Important:
+    This is NOT adequate for use as regular hypnogram since the
+    start/end_time and duration fields do not account for gaps!
+    But the start_sample,end_sample columns can be used with
+    the si.frame_slice() methods.
+    However, this may be used as regular hypnogram after reconciliating with
+    exclusions.
+    """
+    f = (
+        sorting_project.get_alias_subject_directory(experiment, alias, subject.name)
+        / f"{sorting}.{probe}"
+        / postprocessing
+        / "hypnogram.htsv"
+    )
+
+    if not f.exists():
+        import warnings
+
+        warnings.warn("No `hypnogram.htsv` file in postpro dir. Returning None")
+        return None
+
+    df = ecephys.utils.read_htsv(f)
+    if drop_time_columns:
+        # Drop misleading start/end_time/duration columns
+        return df.drop(columns=["start_time", "end_time", "duration"])
+
+    return df

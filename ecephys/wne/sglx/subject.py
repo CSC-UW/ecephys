@@ -5,23 +5,24 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-import yaml
-
 import spikeinterface as si
 import spikeinterface.extractors as se
+
 from ecephys import utils
 from ecephys.sglx import file_mgmt
 from ecephys.wne.sglx import experiments, sessions
+from ecephys.wne.subject import Subject
 
 logger = logging.getLogger(__name__)
 
 
-class SGLXSubject:
+class SGLXSubject(Subject):
     """The cache contains the sessions frame."""
 
-    def __init__(self, subjectYamlFile: Path, subjectCache: Optional[pd.DataFrame] = None):
-        self.name = subjectYamlFile.stem
-        self.doc = SGLXSubject.load_yaml_doc(subjectYamlFile)
+    def __init__(
+        self, subjectYamlFile: Path, subjectCache: Optional[pd.DataFrame] = None
+    ):
+        Subject.__init__(self, subjectYamlFile)
         self.cache = self.refresh_cache() if subjectCache is None else subjectCache
 
     def __repr__(self) -> str:
@@ -35,7 +36,11 @@ class SGLXSubject:
             ).assign(imSyncType=sessionDict.get("imSyncType", None))
             for sessionDict in self.doc["recording_sessions"]
         }
-        self.cache = pd.concat(sessionFrames, names=["session"]).reset_index(level=0).reset_index(drop=True)
+        self.cache = (
+            pd.concat(sessionFrames, names=["session"])
+            .reset_index(level=0)
+            .reset_index(drop=True)
+        )
         return self.cache
 
     def get_session_frame(self, session_id: str, **kwargs) -> pd.DataFrame:
@@ -59,7 +64,9 @@ class SGLXSubject:
     ) -> pd.DataFrame:
         """Get all SpikeGLX files matching selection criteria."""
         sessionIDs = self.get_experiment_session_ids(experiment)
-        frame = self.cache[self.cache["session"].isin(sessionIDs)]  # Get the cache slice containing this experiment.
+        frame = self.cache[
+            self.cache["session"].isin(sessionIDs)
+        ]  # Get the cache slice containing this experiment.
         if frame.empty:
             logger.info(
                 f"No frame found for {self.name}: {experiment} with recording session IDs: {sessionIDs} \n"
@@ -75,24 +82,36 @@ class SGLXSubject:
                 raise ValueError(
                     f"Alias {alias} must be specified as a list of subaliases, even if there is only a single subalias."
                 )
-            subaliasFrames = [sessions.get_subalias_frame(frame, sa) for sa in subaliases]
+            subaliasFrames = [
+                sessions.get_subalias_frame(frame, sa) for sa in subaliases
+            ]
             frame = pd.concat(subaliasFrames).reset_index(drop=True)
 
         return file_mgmt.loc(frame, **kwargs).reset_index(drop=True)
 
     def get_lfp_bin_paths(self, experiment: str, alias=None, **kwargs) -> list[Path]:
-        return self.get_experiment_frame(experiment, alias, stream="lf", ftype="bin", **kwargs).path.values
+        return self.get_experiment_frame(
+            experiment, alias, stream="lf", ftype="bin", **kwargs
+        ).path.values
 
     def get_ap_bin_paths(self, experiment: str, alias=None, **kwargs) -> list[Path]:
-        return self.get_experiment_frame(experiment, alias, stream="ap", ftype="bin", **kwargs).path.values
+        return self.get_experiment_frame(
+            experiment, alias, stream="ap", ftype="bin", **kwargs
+        ).path.values
 
     def get_lfp_bin_table(self, experiment: str, alias=None, **kwargs) -> pd.DataFrame:
-        return self.get_experiment_frame(experiment, alias, stream="lf", ftype="bin", **kwargs)
+        return self.get_experiment_frame(
+            experiment, alias, stream="lf", ftype="bin", **kwargs
+        )
 
     def get_ap_bin_table(self, experiment: str, alias=None, **kwargs) -> pd.DataFrame:
-        return self.get_experiment_frame(experiment, alias, stream="ap", ftype="bin", **kwargs)
+        return self.get_experiment_frame(
+            experiment, alias, stream="ap", ftype="bin", **kwargs
+        )
 
-    def get_experiment_data_times(self, experiment: str, probe: str, as_datetimes=False) -> tuple:
+    def get_experiment_data_times(
+        self, experiment: str, probe: str, as_datetimes=False
+    ) -> tuple:
         df = self.get_experiment_frame(experiment, probe=probe)
         if as_datetimes:
             return (
@@ -114,8 +133,10 @@ class SGLXSubject:
         subaliases = self.doc["experiments"][experiment]["aliases"][alias]
 
         def get_subalias_datetimes(subalias: dict) -> tuple:
-            if not ("start_time" in subalias) and ("end_time" in subalias):
-                raise NotImplementedError(f"All subaliases of {alias} must have start_time and end_time fields.")
+            if "start_time" not in subalias and ("end_time" in subalias):
+                raise NotImplementedError(
+                    f"All subaliases of {alias} must have start_time and end_time fields."
+                )
             return (
                 pd.to_datetime(subalias["start_time"]),
                 pd.to_datetime(subalias["end_time"]),
@@ -131,7 +152,12 @@ class SGLXSubject:
         probe: str,
         combine: str = "concatenate",
         exclusions: pd.DataFrame = pd.DataFrame(
-            {"fname": [], "withinFileStartTime": [], "withinFileEndTime": [], "type": []}
+            {
+                "fname": [],
+                "withinFileStartTime": [],
+                "withinFileEndTime": [],
+                "type": [],
+            }
         ),
         sampling_frequency_max_diff: Optional[float] = 0,  # TODO: Should this be 1e-6?
     ) -> tuple[si.BaseRecording, pd.DataFrame]:
@@ -166,7 +192,9 @@ class SGLXSubject:
                 segmentDuration: Duration in sec of segment.
         """
         # Get the experiment frame. This should be for a single probe, and a single stream.
-        ftab = self.get_experiment_frame(experiment, alias=alias, stream=stream, ftype="bin", probe=probe)
+        ftab = self.get_experiment_frame(
+            experiment, alias=alias, stream=stream, ftype="bin", probe=probe
+        )
         # Split the experiment frame around the exclusions, using precise sample indices.
         segments = segment_experiment_frame_for_spikeinterface(ftab, exclusions)
 
@@ -174,9 +202,14 @@ class SGLXSubject:
         good_segments = segments[segments["type"] == "keep"]
         recordings = list()
         for segment in good_segments.itertuples():
-            extractor = se.SpikeGLXRecordingExtractor(segment.gate_dir, stream_id=f"{probe}.{stream}")
-            recording = extractor.select_segments([segment.gate_dir_trigger_file_idx]).frame_slice(
-                start_frame=segment.withinFileStartFrame, end_frame=segment.withinFileEndFrame
+            extractor = se.SpikeGLXRecordingExtractor(
+                segment.gate_dir, stream_id=f"{probe}.{stream}"
+            )
+            recording = extractor.select_segments(
+                [segment.gate_dir_trigger_file_idx]
+            ).frame_slice(
+                start_frame=segment.withinFileStartFrame,
+                end_frame=segment.withinFileEndFrame,
             )
             recordings.append(recording)
 
@@ -188,7 +221,9 @@ class SGLXSubject:
         else:
             raise ValueError(f"Got unexpected value for `combine`: {combine}")
 
-        recording = fn(recordings, sampling_frequency_max_diff=sampling_frequency_max_diff)
+        recording = fn(
+            recordings, sampling_frequency_max_diff=sampling_frequency_max_diff
+        )
 
         # We return both recording and segments together, rather than making the available separately,
         # to ensure that you never get a segment table unless it is actually proven to produce a valid extractor object.
@@ -197,18 +232,13 @@ class SGLXSubject:
     def get_tdt_block_path(self, experiment: str):
         return Path(self.doc["experiments"][experiment]["tdt_block_path"])
 
-    @staticmethod
-    def load_yaml_doc(yaml_path: Path) -> dict:
-        """Load a YAML file that contains only one document."""
-        with open(yaml_path) as fp:
-            yaml_doc = yaml.safe_load(fp)
-        return yaml_doc
-
 
 class SGLXSubjectLibrary:
     def __init__(self, libdir: Path):
         self.libdir = libdir
-        self.cachefile = self.libdir / "wne_sglx_cache.gz"  # TODO: Extension should be .pkl.gz
+        self.cachefile = (
+            self.libdir / "wne_sglx_cache.gz"
+        )  # TODO: Extension should be .pkl.gz
         self.cache = self.read_cache() if self.cachefile.is_file() else None
 
     def get_subject_file(self, subjectName: str) -> Path:
@@ -216,7 +246,9 @@ class SGLXSubjectLibrary:
 
     def get_subject(self, subjectName: str) -> SGLXSubject:
         subjectFrame = (
-            self.cache[self.cache["subject"] == subjectName].drop(columns="subject").reset_index(drop=True)
+            self.cache[self.cache["subject"] == subjectName]
+            .drop(columns="subject")
+            .reset_index(drop=True)
             if self.cache is not None
             else None
         )
@@ -231,7 +263,9 @@ class SGLXSubjectLibrary:
         for name in names:
             logger.debug(f"Refreshing cache for {name}")
             subjectCaches.append(SGLXSubject(self.get_subject_file(name)).cache)
-        self.cache = pd.concat(subjectCaches, keys=names, names=["subject"]).reset_index(level=0)
+        self.cache = pd.concat(
+            subjectCaches, keys=names, names=["subject"]
+        ).reset_index(level=0)
         return self.cache
 
     # TODO: This would be better written as an HTSV or PQT, with datatypes assigned during loading.
@@ -281,35 +315,51 @@ def _get_gate_dir_trigger_file_index(ftab: pd.DataFrame) -> pd.DataFrame:
     return ftab
 
 
-def segment_experiment_frame_for_spikeinterface(ftab: pd.DataFrame, exclusions: pd.DataFrame) -> pd.DataFrame:
+def segment_experiment_frame_for_spikeinterface(
+    ftab: pd.DataFrame, exclusions: pd.DataFrame
+) -> pd.DataFrame:
     """Split an experiment frame for a single probe, steam, and filetype around a set of periods to exclude.
     For details, see `get_si_recording()`.
     """
     EXCLUSION_COLS = ["withinFileStartTime", "withinFileEndTime", "fname"]
-    assert all(
-        [c in exclusions.columns for c in EXCLUSION_COLS]
-    ), f"Invalid columns for exclusions. Expected: `{EXCLUSION_COLS}`"
+    assert all([c in exclusions.columns for c in EXCLUSION_COLS]), (
+        f"Invalid columns for exclusions. Expected: `{EXCLUSION_COLS}`"
+    )
     segments = list()
     # For each file in the experiment, split it if necessary.
     # If not, just create a segment that is the entire file.
     for file in ftab.itertuples():
         ns = file.nFileSamp
         fname = file.path.name
-        mask = exclusions["fname"] == fname  # Get the exclusions pertaining to this file.
+        mask = (
+            exclusions["fname"] == fname
+        )  # Get the exclusions pertaining to this file.
 
         # For the exclusions pertaining to this file, convert their definition in seconds to precise sample indices,
         # and clip these estimates so that sample indices don't extend beyond the ends of the file.
         exclusions.loc[mask, "withinFileStartFrame"] = (
-            (exclusions.loc[mask, "withinFileStartTime"] * file.imSampRate).astype(int).clip(0, ns)
+            (exclusions.loc[mask, "withinFileStartTime"] * file.imSampRate)
+            .astype(int)
+            .clip(0, ns)
         )
         exclusions.loc[mask, "withinFileEndFrame"] = (
-            (exclusions.loc[mask, "withinFileEndTime"] * file.imSampRate).astype(int).clip(0, ns)
+            (exclusions.loc[mask, "withinFileEndTime"] * file.imSampRate)
+            .astype(int)
+            .clip(0, ns)
         )
 
         # Do the actual splitting of the entire file around the exclusions
         file_segments = utils.reconcile_labeled_intervals(
-            exclusions.loc[mask, ["withinFileStartFrame", "withinFileEndFrame", "type"]],
-            pd.DataFrame({"withinFileStartFrame": [0], "withinFileEndFrame": [ns], "type": "keep"}),
+            exclusions.loc[
+                mask, ["withinFileStartFrame", "withinFileEndFrame", "type"]
+            ],
+            pd.DataFrame(
+                {
+                    "withinFileStartFrame": [0],
+                    "withinFileEndFrame": [ns],
+                    "type": "keep",
+                }
+            ),
             "withinFileStartFrame",
             "withinFileEndFrame",
         ).drop(columns="delta")
@@ -331,19 +381,21 @@ def segment_experiment_frame_for_spikeinterface(ftab: pd.DataFrame, exclusions: 
         file_segments.loc[j, "withinFileStartFrame"] += 1
 
         # Do some sanity checks, ensuring that every sample in the file is accounted for.
-        assert (
-            file_segments["withinFileStartFrame"].min() == 0
-        ), "Something went wrong when splitting file around exclusions."
-        assert file_segments["withinFileEndFrame"].max() == (
-            ns
-        ), "Something went wrong when splitting file around exclusions."
+        assert file_segments["withinFileStartFrame"].min() == 0, (
+            "Something went wrong when splitting file around exclusions."
+        )
+        assert file_segments["withinFileEndFrame"].max() == (ns), (
+            "Something went wrong when splitting file around exclusions."
+        )
         segments.append(file_segments)
         assert (
             file_segments["withinFileEndFrame"] - file_segments["withinFileStartFrame"]
         ).sum() == ns, "Something went wrong when splitting file around exclusions."
 
     # Return the segments, adding metadata about the files that they come from, for convenience.
-    segments = pd.concat(segments, ignore_index=True).astype({"withinFileStartFrame": int, "withinFileEndFrame": int})
+    segments = pd.concat(segments, ignore_index=True).astype(
+        {"withinFileStartFrame": int, "withinFileEndFrame": int}
+    )
     ftab["fname"] = ftab["path"].apply(lambda x: x.name)
 
     stab = segments.merge(ftab, on="fname")

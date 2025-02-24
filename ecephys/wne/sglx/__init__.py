@@ -1,6 +1,6 @@
-from . import pipeline, utils
+from . import experiments, pipeline, sessions, utils
 from .project import SGLXProject, SGLXProjectLibrary
-from .subjects import SGLXSubject, SGLXSubjectLibrary
+from .subject import SGLXSubject, SGLXSubjectLibrary
 
 __all__ = [
     "SGLXSubject",
@@ -8,5 +8,7 @@ __all__ = [
     "SGLXProject",
     "SGLXProjectLibrary",
     "utils",
+    "experiments",
     "pipeline",
+    "sessions",
 ]

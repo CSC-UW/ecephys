@@ -2,12 +2,12 @@ import logging
 import pathlib
 from pathlib import Path
 from typing import Callable, Union
-import tqdm
 
 import numpy as np
+import tqdm
 
-from ecephys import utils
-from ecephys.wne import Project, ProjectLibrary
+import ecephys.utils
+from ecephys.wne.project import Project, ProjectLibrary
 
 Pathlike = Union[Path, str]
 
@@ -42,11 +42,13 @@ class SGLXProject(Project):
         if not segment_file.exists():
             raise FileNotFoundError(f"Segment table not found at {segment_file}.")
 
-        segments = utils.read_htsv(segment_file)
+        segments = ecephys.utils.read_htsv(segment_file)
 
-        segments["nSegmentSamp"] = segments["withinFileEndFrame"] - segments["withinFileStartFrame"]
-        segments["segmentDuration"] = segments["nSegmentSamp"].astype(float).div(
-            segments["imSampRate"]
+        segments["nSegmentSamp"] = (
+            segments["withinFileEndFrame"] - segments["withinFileStartFrame"]
+        )
+        segments["segmentDuration"] = (
+            segments["nSegmentSamp"].astype(float).div(segments["imSampRate"])
         )
         segments["segmentExpmtPrbAcqFirstTime"] = segments[
             "expmtPrbAcqFirstTime"
@@ -57,12 +59,16 @@ class SGLXProject(Project):
         # segments["segmentExpmtPrbAcqLastTime"] = (
         #     segments["segmentExpmtPrbAcqFirstTime"] + segments["segmentDuration"]
         # ) # Nope
-        segments["segmentExpmtPrbAcqLastTime"] = segments[
-            "expmtPrbAcqLastTime"
-        ] - (segments["nFileSamp"] - segments["withinFileEndFrame"]).astype(float).div(segments["imSampRate"])
+        segments["segmentExpmtPrbAcqLastTime"] = segments["expmtPrbAcqLastTime"] - (
+            segments["nFileSamp"] - segments["withinFileEndFrame"]
+        ).astype(float).div(segments["imSampRate"])
 
-        assert np.all(segments["segmentExpmtPrbAcqFirstTime"] >= segments["expmtPrbAcqFirstTime"])
-        assert np.all(segments["segmentExpmtPrbAcqLastTime"] <= segments["expmtPrbAcqLastTime"])
+        assert np.all(
+            segments["segmentExpmtPrbAcqFirstTime"] >= segments["expmtPrbAcqFirstTime"]
+        )
+        assert np.all(
+            segments["segmentExpmtPrbAcqLastTime"] <= segments["expmtPrbAcqLastTime"]
+        )
 
         if return_all_segment_types:
             return segments
@@ -91,11 +97,11 @@ class SGLXProject(Project):
                     f"Could not find sync table at {probe_sync_file}.\n"
                     f"`allow_no_sync_file` == True : Ignoring probe sync in sample2time"
                 )
-                sync_table=None
+                sync_table = None
             else:
                 raise FileNotFoundError(f"No sync file at {probe_sync_file}")
         else:
-            sync_table = utils.read_htsv(
+            sync_table = ecephys.utils.read_htsv(
                 probe_sync_file
             )  # Used to map this probe's times to imec0.
 
@@ -113,7 +119,8 @@ class SGLXProject(Project):
         # Compute which samples in the recording belong to each segment.
         sorted_segments = segments[segments["type"] == "keep"].copy()
         sorted_segments["nSegmentSamples"] = (
-            sorted_segments["withinFileEndFrame"] - sorted_segments["withinFileStartFrame"]
+            sorted_segments["withinFileEndFrame"]
+            - sorted_segments["withinFileStartFrame"]
         )  # N of sorted samples in each segment
 
         cum_sorted_samples_by_end = sorted_segments[
@@ -122,9 +129,9 @@ class SGLXProject(Project):
         cum_sorted_samples_by_start = cum_sorted_samples_by_end.shift(
             1, fill_value=0
         )  # N of sorted samples by the start of each segment
-        sorted_segments[
-            "start_sample"
-        ] = cum_sorted_samples_by_start  # First sample index of concatenated recording belonging to each semgent
+        sorted_segments["start_sample"] = (
+            cum_sorted_samples_by_start  # First sample index of concatenated recording belonging to each semgent
+        )
         sorted_segments["end_sample"] = cum_sorted_samples_by_end
 
         # Given a sample number in the SI recording, we can now figure out:

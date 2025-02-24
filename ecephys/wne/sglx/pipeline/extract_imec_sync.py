@@ -4,12 +4,12 @@ from pathlib import Path
 import pandas as pd
 from tqdm.auto import tqdm
 
+import ecephys.utils
 from ecephys import sync
-from ecephys import utils
 from ecephys.wne import constants
-from ecephys.wne.sglx import SGLXProject
-from ecephys.wne.sglx import SGLXSubject
-from ecephys.wne.sglx import utils as wne_sglx_utils
+from ecephys.wne.sglx import utils
+from ecephys.wne.sglx.project import SGLXProject
+from ecephys.wne.sglx.subject import SGLXSubject
 
 logger = logging.getLogger(__name__)
 
@@ -17,18 +17,18 @@ logger = logging.getLogger(__name__)
 def extract_barcodes_from_saved_ttls(
     sglx_project: SGLXProject, sglx_subject: SGLXSubject, binfile: Path
 ):
-    [ttl_file] = wne_sglx_utils.get_sglx_file_counterparts(
+    [ttl_file] = utils.get_sglx_file_counterparts(
         sglx_project, sglx_subject.name, [binfile], constants.TTL_EXT
     )
-    ttls = utils.read_htsv(ttl_file)
+    ttls = ecephys.utils.read_htsv(ttl_file)
     times, values = sync.extract_barcodes_from_times(
         ttls["rising"].values, ttls["falling"].values, bar_duration=0.029
     )
     barcodes = pd.DataFrame({"time": times, "value": values})
-    [barcode_file] = wne_sglx_utils.get_sglx_file_counterparts(
+    [barcode_file] = utils.get_sglx_file_counterparts(
         sglx_project, sglx_subject.name, [binfile], constants.BARCODE_EXT
     )
-    utils.write_htsv(barcodes, barcode_file)
+    ecephys.utils.write_htsv(barcodes, barcode_file)
 
 
 def save_sglx_imec_ttls(
@@ -36,10 +36,10 @@ def save_sglx_imec_ttls(
 ):
     rising, falling = sync.extract_ttl_edges_from_sglx_imec(binfile)
     ttls = pd.DataFrame({"rising": rising, "falling": falling})
-    [htsvFile] = wne_sglx_utils.get_sglx_file_counterparts(
+    [htsvFile] = utils.get_sglx_file_counterparts(
         wne_project, sglx_subject.name, [binfile], constants.TTL_EXT
     )
-    utils.write_htsv(ttls, htsvFile)
+    ecephys.utils.write_htsv(ttls, htsvFile)
 
 
 def do_experiment(
