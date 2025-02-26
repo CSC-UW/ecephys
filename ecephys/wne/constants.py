@@ -1,11 +1,11 @@
-from enum import Enum
+from enum import StrEnum
 from typing import Final, Tuple
 
 # Visbrain will automatically resample everything to 100Hz, so just nip it in the bud.
 VISBRAIN_FS: Final = 100
 
 
-class FileExtensions(str, Enum):
+class FileExtensions(StrEnum):
     BARCODE = ".barcodes.htsv"
     TTL = ".ttls.htsv"
     NETCDF = ".nc"
@@ -17,7 +17,7 @@ class FileExtensions(str, Enum):
     VISBRAIN = ".hypnogram.txt"
 
 
-class Files(str, Enum):
+class Files(StrEnum):
     AP_SYNC = "prb_sync.ap.htsv"
     LF_SYNC = "prb_sync.lf.htsv"
     EXP_PARAMS = "experiment_params.json"
@@ -27,7 +27,7 @@ class Files(str, Enum):
     HYPNOGRAM = "hypnogram.htsv"
     HYPNOGRAM_EPHYVIEWER_EDITS = "hypnogram_ephyviewer_edits.csv"
     DATETIME_HYPNOGRAM = "hypnogram_datetime.htsv"
-    HIPPOCAMPAL_SUBREGIONS = "hippocampal_subregions.json"
+    HIPPOCAMPAL_SUBREGIONS = "hippocampal_subregions.json"  # TODO: Not general. Remove to project-specific repositories.
     SCORING_LFP = "scoring_lfp.zarr"
     SCORING_EMG = "scoring_emg.zarr"
     SCORING_BDF = "scoring_signals.bdf"
