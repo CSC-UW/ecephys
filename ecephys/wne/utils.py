@@ -7,6 +7,8 @@ import xarray as xr
 import ecephys.utils
 from ecephys import hypnogram, xrsig
 from ecephys.wne import constants
+from ecephys.wne.constants import FileExtensions as Exts
+from ecephys.wne.constants import Files
 from ecephys.wne.project import Project
 from ecephys.wne.subject import Subject
 
@@ -44,7 +46,7 @@ def load_consolidated_artifacts(
     artifacts_path = project.get_experiment_subject_file(
         experiment,
         subject,
-        f"{probe}.{stream}.{constants.ARTIFACTS_FNAME}",
+        f"{probe}.{stream}.{Files.ARTIFACTS}",
     )
     if artifacts_path.exists():
         artifacts = ecephys.utils.read_htsv(artifacts_path).loc[
@@ -73,9 +75,7 @@ def load_raw_float_hypnogram(
     from LF-band artifacts, AP-band artifacts, or sorting exclusions.  Consider
     using ecephys.wne.sglx.utils.load_reconciled_float_hypnogram instead.
     """
-    f = project.get_experiment_subject_file(
-        experiment, subject, constants.HYPNOGRAM_FNAME
-    )
+    f = project.get_experiment_subject_file(experiment, subject, Files.HYPNOGRAM)
     hg = hypnogram.FloatHypnogram.from_htsv(f)
     if simplify:
         hg = hg.replace_states(constants.SIMPLIFIED_STATES)
@@ -105,7 +105,7 @@ def load_ephyviewer_hypnogram_edits(
     simplify: bool = True,
 ) -> pd.DataFrame:
     f = project.get_experiment_subject_file(
-        experiment, subject, constants.HYPNOGRAM_EPHYVIEWER_EDITS_FNAME
+        experiment, subject, Files.HYPNOGRAM_EPHYVIEWER_EDITS
     )
     if not f.exists():
         return hypnogram.FloatHypnogram(
@@ -134,9 +134,9 @@ def open_lfps(
     **xr_kwargs,
 ):
     fname = (
-        f"{fname_prefix}.{probe}{constants.LFP_EXT}"
+        f"{fname_prefix}.{probe}{Exts.LFP}"
         if fname_prefix is not None
-        else f"{probe}{constants.LFP_EXT}"
+        else f"{probe}{Exts.LFP}"
     )
     lf_file = project.get_experiment_subject_file(experiment, subject, fname)
     lf = xr.open_dataarray(lf_file, engine="zarr", chunks=chunks, **xr_kwargs)

@@ -39,6 +39,7 @@ import ecephys.sglx
 import ecephys.utils
 from ecephys import hypnogram, sharptrack, sync
 from ecephys.wne import constants
+from ecephys.wne.constants import Files
 
 Pathlike = Union[Path, str]
 
@@ -150,14 +151,10 @@ class Project:
             return yaml.load(f, Loader=yaml.SafeLoader)
 
     def load_experiment_subject_params(self, experiment: str, subject: str) -> dict:
-        return self.load_experiment_subject_json(
-            experiment, subject, constants.EXP_PARAMS_FNAME
-        )
+        return self.load_experiment_subject_json(experiment, subject, Files.EXP_PARAMS)
 
     def get_all_probes(self, subject: str, experiment: str) -> list[str]:
-        opts = self.load_experiment_subject_json(
-            experiment, subject, constants.EXP_PARAMS_FNAME
-        )
+        opts = self.load_experiment_subject_json(experiment, subject, Files.EXP_PARAMS)
         return list(opts["probes"].keys())
 
     def get_kilosort_extractor(
@@ -290,9 +287,7 @@ class Project:
         experiment_params.json should include a probes->`probe_name`->SHARP-Track->filename.mat field.
         filename.mat is then to be found in the same location as experiment_params.json (i.e.e the experiment-subject directory)
         """
-        opts = self.load_experiment_subject_json(
-            experiment, subject, constants.EXP_PARAMS_FNAME
-        )
+        opts = self.load_experiment_subject_json(experiment, subject, Files.EXP_PARAMS)
         fname = opts["probes"][probe]["SHARP-Track"]
         file = self.get_experiment_subject_file(experiment, subject, fname)
         return sharptrack.SHARPTrack(file)
@@ -343,9 +338,7 @@ class Project:
         subject: str,
         simplify: bool = True,
     ) -> hypnogram.FloatHypnogram:
-        f = self.get_experiment_subject_file(
-            experiment, subject, constants.HYPNOGRAM_FNAME
-        )
+        f = self.get_experiment_subject_file(experiment, subject, Files.HYPNOGRAM)
         hg = hypnogram.FloatHypnogram.from_htsv(f)
         if simplify:
             hg = hg.replace_states(constants.SIMPLIFIED_STATES)
