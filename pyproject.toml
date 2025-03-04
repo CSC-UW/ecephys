@@ -45,6 +45,7 @@ dependencies = [
     "PySide6", # For ephyviewer
     "PyYAML",
     "ripple-detection",
+    "scikit-image", 
     "scikit-learn",
     "scipy",
     "seaborn",
