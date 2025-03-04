@@ -1,9 +1,9 @@
-from collections.abc import Iterable
-from functools import reduce
 import itertools as it
 import json
 import logging
 import pathlib
+from collections.abc import Iterable
+from functools import reduce
 
 import numpy as np
 from rich.console import Console
