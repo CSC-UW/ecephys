@@ -1,9 +1,9 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import xarray as xr
 
-from ecephys import xrsig
 from ecephys import plot as eplt
+from ecephys import xrsig
 
 
 def plot_laminar_scalars_vertical(
@@ -145,7 +145,13 @@ def plot_laminar_timeseries(
 
 
 def add_structure_boundaries_to_laminar_plot(
-    da: xr.DataArray, ax: plt.Axes, sigdim: str = "channel", struct_coord: str = "structure", lamdim="y", labels=True
+    da: xr.DataArray,
+    ax: plt.Axes,
+    sigdim: str = "channel",
+    struct_coord: str = "structure",
+    lamdim="y",
+    labels=True,
+    line_kwargs=dict(alpha=0.5, color="dimgrey", linestyle="--"),
 ):
     boundaries = da.isel({sigdim: get_boundary_ilocs(da, struct_coord)})
     ax.set_yticks(boundaries[lamdim])
@@ -154,7 +160,7 @@ def add_structure_boundaries_to_laminar_plot(
     else:
         ax.set_yticklabels([])
     for ch in boundaries[lamdim]:
-        ax.axhline(ch, alpha=0.5, color="dimgrey", linestyle="--")
+        ax.axhline(ch, **line_kwargs)
 
 
 def get_boundary_ilocs(da: xr.DataArray, coord_name: str) -> np.ndarray:
@@ -166,11 +172,23 @@ def get_boundary_ilocs(da: xr.DataArray, coord_name: str) -> np.ndarray:
     return np.where(np.isin(df.index, boundary_locs))[0]
 
 
-def plot_traces(da: xr.DataArray, chan_labels=None, chan_colors=None, palette="glasbey_dark", **kwargs):
+def plot_traces(
+    da: xr.DataArray,
+    chan_labels=None,
+    chan_colors=None,
+    palette="glasbey_dark",
+    **kwargs,
+):
     xrsig.validate_2d_timeseries(da)
     if isinstance(chan_labels, str) and chan_labels in da["channel"].coords:
         chan_labels = da[chan_labels].values
     if isinstance(chan_colors, str) and chan_colors in da["channel"].coords:
         chan_colors, _ = eplt.color_by_category(da[chan_colors].values, palette=palette)
 
-    eplt.lfp_explorer(da.time.values, da.values, chan_labels=chan_labels, chan_colors=chan_colors, **kwargs)
+    eplt.lfp_explorer(
+        da.time.values,
+        da.values,
+        chan_labels=chan_labels,
+        chan_colors=chan_colors,
+        **kwargs,
+    )
