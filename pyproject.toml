@@ -75,9 +75,6 @@ dev = [
 requires = ["setuptools>=62.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.black]
-line-length = 120
-
 [tool.setuptools]
 packages = ["ecephys"]
 
