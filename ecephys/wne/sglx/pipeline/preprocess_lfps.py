@@ -2,6 +2,7 @@
 
 import logging
 
+import numpy as np
 from tqdm.auto import tqdm
 
 import ecephys.utils
@@ -88,6 +89,7 @@ def do_experiment_probe(
         experiment, sglx_subject.name, f"{probe}.lf.zarr"
     )
     lf_table = sglx_subject.get_lfp_bin_table(experiment, probe=probe)
+    max_t = float("-inf")  # Maximum timestamp encounted so far
     for i, lfp_file in enumerate(tqdm(list(lf_table.itertuples()))):
         logger.info(f"Loading {lfp_file.path.name}...")
         lfp = sglxr.load_trigger(
@@ -99,6 +101,16 @@ def do_experiment_probe(
             sync_project, sglx_subject, experiment, binfile=lfp_file.path
         )
         lfp = lfp.assign_coords({"time": t2t(lfp["time"].values)})
+
+        logger.info("Dropping redundant timestamps...")
+        keep = lfp["time"].values > max_t
+        max_t = lfp["time"].values.max()
+        if not keep.all():
+            logger.warning(
+                f"Dropping {np.sum(~keep)} samples from {lfp_file.path.name}"
+            )
+            lfp = lfp.isel({"time": keep})
+
         logger.info("Preprocessing...")
         lfp = xrsig.preprocess_neuropixels_ibl_style(lfp, bad_channels)
         lfp.name = "lfp"
