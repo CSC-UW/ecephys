@@ -4,7 +4,6 @@ import colorcet
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-from ecephys.npsig.utils import mean_subtract
 from IPython.display import display
 from ipywidgets import (
     BoundedFloatText,
@@ -18,6 +17,7 @@ from ipywidgets import (
 )
 from matplotlib.ticker import MaxNLocator
 
+from ecephys.npsig.utils import mean_subtract
 
 _colorblind = sns.color_palette("colorblind")
 _deep = sns.color_palette("deep")
@@ -120,7 +120,9 @@ def set_yticklabels_from_values(ylabels, ys, ax):
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
 
 
-def plot_spike_train(data, Tmax=None, ax=None, linewidth=0.1, linelengths=0.95, lineoffsets=1.0, **kwargs):
+def plot_spike_train(
+    data, Tmax=None, ax=None, linewidth=0.1, linelengths=0.95, lineoffsets=1.0, **kwargs
+):
     """Spike raster.
 
     Args:
@@ -183,7 +185,9 @@ def plot_psth_hist(psth_array, window, binsize, ylabel=None, ylim=None):
     return f, ax
 
 
-def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_label=None, ax=None):
+def plot_psth_heatmap(
+    psth_array, ylabels, window, binsize, clim=None, cbar_label=None, ax=None
+):
     """PSTH Heatmap.
 
     Args:
@@ -230,7 +234,9 @@ def plot_psth_heatmap(psth_array, ylabels, window, binsize, clim=None, cbar_labe
 
     # x ticks: Only 0, first and last value
     xtic_len = gcd(int(abs(window[0] * 1000)), int(window[1] * 1000))
-    xtic_labels = range(int(window[0] * 1000), int(window[1] * 1000) + xtic_len, xtic_len)
+    xtic_labels = range(
+        int(window[0] * 1000), int(window[1] * 1000) + xtic_len, xtic_len
+    )
     xtic_locs = [(j - (window[0] * 1000)) / (binsize * 1000) for j in xtic_labels]
     if 0 not in xtic_labels:
         xtic_labels.append(0)
@@ -420,12 +426,14 @@ def plot_hypnogram_overlay(
     """
     ax = check_ax(ax, figsize=figsize)
 
-    if (xlim in ["ax", None]) and (not ax is None):
+    if (xlim in ["ax", None]) and (ax is not None):
         xlim = ax.get_xlim()
     elif xlim == "hg":
         xlim = (hypnogram[t1_column].min(), hypnogram[t2_column].max())
     elif not isinstance(xlim, tuple):
-        raise ValueError("Invalid value for `xlim` kwarg. Expected 'ax', 'hg' or a tuple")
+        raise ValueError(
+            "Invalid value for `xlim` kwarg. Expected 'ax', 'hg' or a tuple"
+        )
 
     for i, bout in hypnogram.iterrows():
         # clip manually on xaxis so we can set clip_on=False for yaxis
@@ -493,6 +501,7 @@ def lfp_explorer(
     vspace=300,
     zero_mean=True,
     flip_dv=False,
+    tight_ylim=False,
 ):
     """Plot a static image of selected LFPs.
 
@@ -519,6 +528,8 @@ def lfp_explorer(
         Whether to zero-mean each channel before plotting
     flip_dv: bool
         Whether to flip the dorsal-ventral axis when plotting.
+    tight_ylim: bool
+        Whether to set the ylim to the range of the data.
     """
 
     ax.cla()
@@ -552,6 +563,8 @@ def lfp_explorer(
         linewidth=0.5,
     )
     ax.set_xlim([window_start, window_end])
+    if tight_ylim:
+        ax.set_ylim(sig_spaced.min(), sig_spaced.max())
     if chan_colors is not None:
         for idx, line in enumerate(ax.lines):
             line.set_color(chan_colors[idx + i_chan])
@@ -572,7 +585,9 @@ def interactive_lfp_explorer(time, lfps, chan_labels=None, figsize=(20, 8)):
     See `lfp_explorer`.
     """
     # Create interactive widgets for controlling plot parameters
-    window_length = FloatSlider(min=0.25, max=4.0, step=0.25, value=1.0, description="Secs")
+    window_length = FloatSlider(
+        min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
+    )
     window_start = FloatSlider(
         min=np.min(time),
         max=np.max(time),
@@ -587,9 +602,15 @@ def interactive_lfp_explorer(time, lfps, chan_labels=None, figsize=(20, 8)):
         value=np.min(time),
         description="Pos",
     )
-    jslink((window_start, "value"), (_window_start, "value"))  # Allow control from either widget for easy navigation
-    n_plot_chans = IntSlider(min=1, max=lfps.shape[1], step=1, value=16, description="nCh")
-    i_chan = IntSlider(min=0, max=(lfps.shape[1] - 1), step=1, value=1, description="Ch")
+    jslink(
+        (window_start, "value"), (_window_start, "value")
+    )  # Allow control from either widget for easy navigation
+    n_plot_chans = IntSlider(
+        min=1, max=lfps.shape[1], step=1, value=16, description="nCh"
+    )
+    i_chan = IntSlider(
+        min=0, max=(lfps.shape[1] - 1), step=1, value=1, description="Ch"
+    )
     vspace = IntSlider(min=0, max=100000, step=100, value=300, description="V Space")
     zero_mean = Checkbox(True, description="Zero-mean")
     flip_dv = Checkbox(False, description="D/V")
@@ -703,7 +724,9 @@ def interactive_colormesh_explorer(time, sig, y=None, figsize=(20, 8)):
     See `colormesh_explorer`.
     """
     # Create interactive widgets for controlling plot parameters
-    window_length = FloatSlider(min=0.25, max=4.0, step=0.25, value=1.0, description="Secs")
+    window_length = FloatSlider(
+        min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
+    )
     window_start = FloatSlider(
         min=np.min(time),
         max=np.max(time),
@@ -718,8 +741,12 @@ def interactive_colormesh_explorer(time, sig, y=None, figsize=(20, 8)):
         value=np.min(time),
         description="Pos",
     )
-    jslink((window_start, "value"), (_window_start, "value"))  # Allow control from either widget for easy navigation
-    n_y = IntSlider(min=1, max=sig.shape[1], step=1, value=sig.shape[1], description="nRows")
+    jslink(
+        (window_start, "value"), (_window_start, "value")
+    )  # Allow control from either widget for easy navigation
+    n_y = IntSlider(
+        min=1, max=sig.shape[1], step=1, value=sig.shape[1], description="nRows"
+    )
     i_y = IntSlider(min=0, max=(sig.shape[1] - 1), step=1, value=1, description="Row")
     zero_mean = Checkbox(False, description="Zero-mean")
     flip_ud = Checkbox(False, description="U/D")
