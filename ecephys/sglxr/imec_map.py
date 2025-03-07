@@ -4,8 +4,7 @@ import pathlib
 import numpy as np
 import pandas as pd
 
-from ecephys.sglxr.external import readSGLX
-from ecephys.sglxr.external import SGLXMetaToCoords
+from ecephys.sglxr.external import SGLXMetaToCoords, readSGLX
 
 SUBPACKAGE_DIRECTORY = pathlib.Path(__file__).resolve().parent
 
@@ -22,7 +21,9 @@ def _all_equal(iterator):
 
 def validate_probe_type(meta):
     if ("imDatPrb_type" not in meta) or (int(meta["imDatPrb_type"]) != 0):
-        raise NotImplementedError("This module has only been tested with Neuropixel 1.0 probes.")
+        raise NotImplementedError(
+            "This module has only been tested with Neuropixel 1.0 probes."
+        )
 
 
 def check_library(fname):
@@ -51,7 +52,7 @@ def parse_imroTbl(imroTbl_string):
     assert probe_type == 0, "Only Neuropixel 1.0 probes are supported."
     imro = pd.read_csv(
         io.StringIO("\n".join(channel_entries)),
-        delim_whitespace=True,
+        sep="\s+",
         names=["chan_id", "bank", "ref_id", "ap_gain", "lf_gain", "ap_highpass"],
     )
     imro["site"] = imro.bank.values * n_chans + imro.chan_id.values
@@ -144,7 +145,9 @@ def write_cmp(cmp, file):
         The file to write.
     """
     nAP, nLF, nSY = cmp.groupby("stream").count()["acq_order"][["AP", "LF", "SY"]]
-    lines = [f"{nAP},{nLF},{nSY}"] + [f"{row.label};{row.acq_order} {row.usr_order}" for row in cmp.itertuples()]
+    lines = [f"{nAP},{nLF},{nSY}"] + [
+        f"{row.label};{row.acq_order} {row.usr_order}" for row in cmp.itertuples()
+    ]
     with open(file, "w") as f:
         f.write("\n".join(lines))
 
@@ -166,7 +169,11 @@ def imro_to_depth_ordered_cmp(imro, base_to_tip=True):
         The channel map table, with the same format returned by `parse_snsChanMap` or `read_cmp_file`.
     """
     imro = imro.sort_values(["chan_id"])
-    label = pd.Series([f"AP{id}" for id in imro["chan_id"]] + [f"LF{id}" for id in imro["chan_id"]] + ["SY0"])
+    label = pd.Series(
+        [f"AP{id}" for id in imro["chan_id"]]
+        + [f"LF{id}" for id in imro["chan_id"]]
+        + ["SY0"]
+    )
     stream = label.str.extract(r"(\D+)").values.squeeze()
     chan_id = label.str.extract(r"(\d+)").astype(int).values.squeeze()
     acq_order = [i for i in range(len(label))]
@@ -179,7 +186,9 @@ def imro_to_depth_ordered_cmp(imro, base_to_tip=True):
         .index.values
     )
     # Use the AP channel ordering to order LF and SY channels.
-    usr_order = np.concatenate([y_order, y_order + len(imro), np.atleast_1d(len(imro) * 2)])
+    usr_order = np.concatenate(
+        [y_order, y_order + len(imro), np.atleast_1d(len(imro) * 2)]
+    )
     return pd.DataFrame(
         {
             "label": label.values,
@@ -258,7 +267,9 @@ class ImecMap:
     def get_stream(self, stream_type):
         """Get just the LFP or AP portion of the map."""
         if self._stream_type and (self._stream_type != stream_type):
-            raise ValueError(f"Cannot get {stream_type} for map of type {self._stream_type}")
+            raise ValueError(
+                f"Cannot get {stream_type} for map of type {self._stream_type}"
+            )
         return self.full[self.full["stream"] == stream_type]
 
     @property
