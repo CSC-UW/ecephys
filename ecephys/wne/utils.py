@@ -141,12 +141,18 @@ def open_lfps(
     lf_file = project.get_experiment_subject_file(experiment, subject, fname)
     lf = xr.open_dataarray(lf_file, engine="zarr", chunks=chunks, **xr_kwargs)
     lf = lf.drop_vars("datetime", errors="ignore")
-    # When loaded, attempting to access lf.chunksizes (or use fns that leverage chunking) will result in the following:
-    # ValueError: Object has inconsistent chunks along dimension time. This can be fixed by calling unify_chunks().
-    # This is because the datetime coordinate, despite being on the time dimension, has different chunksizes.
-    # It is unclear how this happened. It seems that when the file was first created, lf.chunk({'time': 'auto}) was applied separately to each coord on the time dim.
-    # As far as I can tell from inspecting lf.chunks, there are NOT inconsistent chunks along the time dimension of the data itself...
-    # "Unifying" chunks will allow you to procede, but produces unequal chunksizes when it tries to reconcile the data time chunks with the datetime chunks. Instead, we can do this:
+    # When loading old files, attempting to access lf.chunksizes
+    # (or use fns that leverage chunking) may result in the following:
+    # ValueError: Object has inconsistent chunks along dimension time.
+    # This is because when the file was first created, lf.chunk({'time': 'auto})
+    # was used, and chunk sizes were determined separately for each coord on the
+    # time dimension. There are not inconsistent chunks along the time dimension
+    # of the data itself.
+    # See: https://github.com/pydata/xarray/discussions/8037
+    # This has since been fixed upstream, so new files will not have this issue.
+    # Calling unify_chunks() will allow you to procede, but produces unequal
+    # chunksizes when it tries to reconcile the data time chunks with the datetime
+    # chunks. Instead, we can do this:
     if lf.chunks:
         try:
             lf.chunksizes
