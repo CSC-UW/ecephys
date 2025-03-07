@@ -449,7 +449,7 @@ def get_interval_complements(intervals, start_time, end_time):
 
 def hotfix_times(times: np.ndarray) -> bool:
     """Given an array of times that should be increasingly monotonically, find decreases and force the offending timestamps to no-change.
-    This is horribly inefficient. If you actually expect lots of hotfixes, do better."""
+    This is pretty cheap if there isn't hotfixing to do. If you actually expect lots of hotfixes, better to solve that problem upstream."""
     cum_n_lzd = 0
     n_lzd = -1
     n_iters = 0

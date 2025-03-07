@@ -126,8 +126,8 @@ def open_lfps(
     subject: str,
     experiment: str,
     probe: str,
-    hotfix_times=False,
-    drop_duplicate_times=False,
+    hotfix_times=False,  # This costs almost nothing if there is no hotfixing to do.
+    drop_duplicate_times=False,  # This is expensive no matter what. ~30s for 48h.
     chunks="auto",
     anatomy_proj: Project = None,
     fname_prefix: str = None,

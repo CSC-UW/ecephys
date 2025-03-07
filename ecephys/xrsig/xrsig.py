@@ -1,24 +1,19 @@
 import logging
 import os
-from typing import Optional
 
+import ibldsp.utils
 import kcsd
-import matplotlib.pyplot as plt
 import mne.filter
 import neuropixel
-from ibldsp import fourier
-from ibldsp import voltage
-import ibldsp.utils
 import numpy as np
 import pandas as pd
 import ssqueezepy as ssq
-from tqdm.auto import tqdm
 import xarray as xr
+from ibldsp import fourier, voltage
+from tqdm.auto import tqdm
 
 import ecephys.emg_from_lfp
-from ecephys import utils
-from ecephys import npsig
-from ecephys import dasig
+from ecephys import dasig, npsig, utils
 from ecephys.utils import dask_utils
 
 logger = logging.getLogger(__name__)
@@ -29,9 +24,9 @@ def validate_timeseries(
     timedim: str = "time",
     check_times: bool = False,
 ):
-    if not timedim in da.dims:
+    if timedim not in da.dims:
         raise AttributeError(f"Timeseries DataArray must have dimension ({timedim})")
-    if not "fs" in da.attrs:
+    if "fs" not in da.attrs:
         raise ValueError("Timeseries must have sampling rate attr `fs`")
     if check_times and not np.all(np.diff(da[timedim].values) >= 0):
         raise ValueError("Timeseries times must be monotonically increasing.")
@@ -45,14 +40,18 @@ def validate_2d_timeseries(
 ):
     validate_timeseries(da, timedim=timedim, check_times=check_times)
     if not da.dims == (timedim, sigdim):
-        raise AttributeError(f"Timeseries2D DataArray must have dimensions ({timedim}, {sigdim})")
+        raise AttributeError(
+            f"Timeseries2D DataArray must have dimensions ({timedim}, {sigdim})"
+        )
 
 
 def validate_laminar(da: xr.DataArray, sigdim: str = "channel", lamdim: str = "y"):
-    if not sigdim in da.dims:
-        raise AttributeError(f"Laminar DataArray must include a channel dimension.")
-    if not lamdim in da[sigdim].coords:
-        raise AttributeError(f"Laminar DataArray must have {lamdim} coordinate on {sigdim} dimension.")
+    if sigdim not in da.dims:
+        raise AttributeError("Laminar DataArray must include a channel dimension.")
+    if lamdim not in da[sigdim].coords:
+        raise AttributeError(
+            f"Laminar DataArray must have {lamdim} coordinate on {sigdim} dimension."
+        )
 
 
 def get_pitch(da: xr.DataArray) -> xr.DataArray:
@@ -80,7 +79,9 @@ def antialiasing_filter(da: xr.DataArray, q: int) -> xr.DataArray:
     validate_2d_timeseries(da)
     res = da.copy()
     if da.chunks is None:
-        res.values = npsig.antialiasing_filter(da.values, q, time_axis=da.get_axis_num("time"))
+        res.values = npsig.antialiasing_filter(
+            da.values, q, time_axis=da.get_axis_num("time")
+        )
     else:
         res.data = dasig.antialiasing_filter(
             res.data,
@@ -91,14 +92,16 @@ def antialiasing_filter(da: xr.DataArray, q: int) -> xr.DataArray:
     return res.__class__(res)
 
 
-def mne_filter(da: xr.DataArray, l_freq: float, h_freq: float, **kwargs) -> xr.DataArray:
+def mne_filter(
+    da: xr.DataArray, l_freq: float, h_freq: float, **kwargs
+) -> xr.DataArray:
     validate_2d_timeseries(da)
     res = da.copy()
     if da.chunks is None:
         original_dtype = res.dtype
-        res.values = mne.filter.filter_data(da.values.T.astype(np.float64), da.fs, l_freq, h_freq, **kwargs).T.astype(
-            original_dtype
-        )
+        res.values = mne.filter.filter_data(
+            da.values.T.astype(np.float64), da.fs, l_freq, h_freq, **kwargs
+        ).T.astype(original_dtype)
     else:
         res.data = dasig.mne_filter(res.data.T, res.fs, l_freq, h_freq, **kwargs).T
     return res.__class__(res)
@@ -113,23 +116,31 @@ def spatially_interpolate_timeseries(
     validate_laminar(da)
     do_interp = np.isin(da["channel"], interp_me)
     if not do_interp.any():
-        logger.debug("None of the requested signals are present in the data. Doing nothing.")
+        logger.debug(
+            "None of the requested signals are present in the data. Doing nothing."
+        )
         return
 
     # Get x coordinates if available, otherwise assume that channels are colinear
     if "x" in da["channel"].coords:
         x = da["x"].values
     else:
-        print("Data do not contain x coordinates on channel dimension. Assuming all electrodes are colinear.")
+        print(
+            "Data do not contain x coordinates on channel dimension. Assuming all electrodes are colinear."
+        )
         x = np.zeros_like(da["y"])
 
     if inplace:
         da = da.copy()
-    da.values = voltage.interpolate_bad_channels(da.values.T, do_interp.astype("int"), x=x, y=da["y"].values).T
+    da.values = voltage.interpolate_bad_channels(
+        da.values.T, do_interp.astype("int"), x=x, y=da["y"].values
+    ).T
     return da
 
 
-def dephase_neuropixels(pots: xr.DataArray, q: int = 1, inplace: bool = True) -> xr.DataArray:
+def dephase_neuropixels(
+    pots: xr.DataArray, q: int = 1, inplace: bool = True
+) -> xr.DataArray:
     validate_2d_timeseries(pots)
     hdr = neuropixel.trace_header(version=1)
     shifts = hdr["sample_shift"][pots["channel"].values] / q
@@ -148,7 +159,9 @@ def preprocess_neuropixels_ibl_style(
 ) -> xr.DataArray:
     validate_2d_timeseries(pots)
     validate_laminar(pots)
-    wg = ibldsp.utils.WindowGenerator(ns=pots["time"].size, nswin=chunk_size, overlap=chunk_overlap)
+    wg = ibldsp.utils.WindowGenerator(
+        ns=pots["time"].size, nswin=chunk_size, overlap=chunk_overlap
+    )
     segments = list()
     for first, last in tqdm(list(wg.firstlast)):
         seg = pots.isel(time=slice(first, last))
@@ -196,11 +209,13 @@ def synthetic_emg(pots: xr.DataArray, emg_kwargs: dict = None):
     validate_2d_timeseries(pots)
     defaults = get_synthetic_emg_defaults()
     emg_kwargs = defaults if emg_kwargs is None else defaults.update(emg_kwargs)
-    assert pots.fs > (
-        emg_kwargs["ws"][-1] * 2
-    ), "EMG computation will fail trying to filter above the Nyquest frequency"
+    assert pots.fs > (emg_kwargs["ws"][-1] * 2), (
+        "EMG computation will fail trying to filter above the Nyquest frequency"
+    )
 
-    emg_values = ecephys.emg_from_lfp.compute_emg(pots.values.T, pots.fs, **emg_kwargs).flatten()
+    emg_values = ecephys.emg_from_lfp.compute_emg(
+        pots.values.T, pots.fs, **emg_kwargs
+    ).flatten()
     emg_times = np.linspace(pots["time"].min(), pots["time"].max(), emg_values.size)
     emg = xr.DataArray(
         emg_values,
@@ -215,7 +230,9 @@ def synthetic_emg(pots: xr.DataArray, emg_kwargs: dict = None):
     return emg
 
 
-def kernel_current_source_density(pots: xr.DataArray, drop=slice(None), do_lcurve=False, **kcsd_kwargs) -> xr.DataArray:
+def kernel_current_source_density(
+    pots: xr.DataArray, drop=slice(None), do_lcurve=False, **kcsd_kwargs
+) -> xr.DataArray:
     """Compute 1D kernel current source density.
     If signal units are in uV, then CSD units are in nA/mm.
     Evaluates eagerly, non-parallel.
@@ -273,7 +290,9 @@ def kernel_current_source_density(pots: xr.DataArray, drop=slice(None), do_lcurv
     # Check and format result
     estm_locs = np.round(k.estm_x * umPerMm)
     mask = pots["y"].isin(estm_locs)
-    assert estm_locs.size == mask.sum(), "CSD returned estimates that do not match original signal positions exactly."
+    assert estm_locs.size == mask.sum(), (
+        "CSD returned estimates that do not match original signal positions exactly."
+    )
     csd = xr.zeros_like(pots.sel({"channel": mask}))
     csd.values = k.values("CSD").T
     csd.attrs = dict(kcsd=k, pitch_mm=pitch_mm, fs=pots.fs)
@@ -281,7 +300,9 @@ def kernel_current_source_density(pots: xr.DataArray, drop=slice(None), do_lcurv
     return csd
 
 
-def lazy_mapped_kernel_current_source_density(pots: xr.DataArray, **kcsd_kwargs) -> xr.DataArray:
+def lazy_mapped_kernel_current_source_density(
+    pots: xr.DataArray, **kcsd_kwargs
+) -> xr.DataArray:
     """
     Intended for lazy, chunked, parallelization across time.
     Sadly, you cannot get attrs generated in the workhorse function this way.
@@ -297,9 +318,15 @@ def lazy_mapped_kernel_current_source_density(pots: xr.DataArray, **kcsd_kwargs)
     """
     tmpl = pots.copy()  # Result will have same shape and dims as input
     tmpl.name = "csd"
-    tmpl.attrs = dict()  # Input attrs may not be relevant, so stop them from being copies to the output.
-    csd = pots.map_blocks(kernel_current_source_density, kwargs=kcsd_kwargs, template=tmpl)  # No attrs :'(
-    csd.encoding = dict()  # Prevent irrelevant pots encoding from carrying over and messing with to_zarr
+    tmpl.attrs = (
+        dict()
+    )  # Input attrs may not be relevant, so stop them from being copies to the output.
+    csd = pots.map_blocks(
+        kernel_current_source_density, kwargs=kcsd_kwargs, template=tmpl
+    )  # No attrs :'(
+    csd.encoding = (
+        dict()
+    )  # Prevent irrelevant pots encoding from carrying over and messing with to_zarr
     return csd
 
 
@@ -319,7 +346,9 @@ def get_segments_with_info(da: xr.DataArray, gap_tolerance: float = 0.001):
     return segments, segment_ts, segment_tlens, segment_tgaps
 
 
-def get_segments(da: xr.DataArray, gap_tolerance: float = 0.001) -> list[tuple[int, int]]:
+def get_segments(
+    da: xr.DataArray, gap_tolerance: float = 0.001
+) -> list[tuple[int, int]]:
     """Detect discontinuous segments of data that have been concatenated together.
 
     Parameters:
@@ -337,7 +366,9 @@ def get_segments(da: xr.DataArray, gap_tolerance: float = 0.001) -> list[tuple[i
     segments = [(i, j) for i, j in zip(segments[:-1], segments[1:])]
 
     segment_sizes = [da["time"].values[i:j].size for i, j in segments]
-    assert np.sum(segment_sizes) == da["time"].values.size, "Every sample in the data must be accounted for."
+    assert np.sum(segment_sizes) == da["time"].values.size, (
+        "Every sample in the data must be accounted for."
+    )
 
     return segments
 
@@ -357,7 +388,9 @@ def _stft_psd(da: xr.DataArray, **kwargs) -> xr.DataArray:
     validate_2d_timeseries(da)
     dt = np.diff(da["time"].values)
     assert np.all(dt >= 0), "The times must be increasing."
-    Sfs, stft_times, Sxx = ecephys.npsig.stft_psd(da.values.T, da.fs, t0=float(da["time"][0]), **kwargs)
+    Sfs, stft_times, Sxx = ecephys.npsig.stft_psd(
+        da.values.T, da.fs, t0=float(da["time"][0]), **kwargs
+    )
     return xr.DataArray(
         Sxx,
         dims=("channel", "frequency", "time"),
@@ -370,7 +403,9 @@ def _stft_psd(da: xr.DataArray, **kwargs) -> xr.DataArray:
     )
 
 
-def complex_stft(da: xr.DataArray, gap_tolerance: float = 0.001, **kwargs) -> xr.DataArray:
+def complex_stft(
+    da: xr.DataArray, gap_tolerance: float = 0.001, **kwargs
+) -> xr.DataArray:
     """Perform STFT, works on discontinuous segments of data that have been concatenated together."""
     validate_2d_timeseries(da)
     segments = get_segments(da, gap_tolerance=gap_tolerance)
@@ -387,7 +422,9 @@ def _complex_stft(da: xr.DataArray, **kwargs) -> xr.DataArray:
     validate_2d_timeseries(da)
     dt = np.diff(da["time"].values)
     assert np.all(dt >= 0), "The times must be increasing."
-    Sfs, stft_times, Sxx = ecephys.npsig.complex_stft(da.values.T, da.fs, t0=float(da["time"][0]), **kwargs)
+    Sfs, stft_times, Sxx = ecephys.npsig.complex_stft(
+        da.values.T, da.fs, t0=float(da["time"][0]), **kwargs
+    )
     return xr.DataArray(
         Sxx,
         dims=("channel", "frequency", "time"),
@@ -423,7 +460,10 @@ def iterate_timeseries_chunks(da: xr.DataArray):
     axis = da.get_axis_num("time")
     chunk_bounds = dask_utils.get_dask_chunk_bounds(da.data, axis=axis)
     n_chunks = len(chunk_bounds) - 1
-    return (da.isel({"time": slice(chunk_bounds[i], chunk_bounds[i + 1])}) for i in range(n_chunks))
+    return (
+        da.isel({"time": slice(chunk_bounds[i], chunk_bounds[i + 1])})
+        for i in range(n_chunks)
+    )
 
 
 def make_trialed(
@@ -438,10 +478,14 @@ def make_trialed(
     n_frames_pre = int(pre * da.fs)
     n_frames_post = int(post * da.fs)
     if event_frames is None:
-        in_da = (event_times >= da.time.values[0] + pre) & (event_times <= da.time.values[-1] - post)
+        in_da = (event_times >= da.time.values[0] + pre) & (
+            event_times <= da.time.values[-1] - post
+        )
         event_frames = np.searchsorted(da.time.values, event_times[in_da])
     else:
-        in_da = (event_frames >= n_frames_pre) & (event_frames <= da.time.size - n_frames_post)
+        in_da = (event_frames >= n_frames_pre) & (
+            event_frames <= da.time.size - n_frames_post
+        )
         event_frames = event_frames[in_da]
     event_times = da.time.values[event_frames]
 
@@ -456,11 +500,17 @@ def make_trialed(
             "end_frame": trial_end_frames.astype(int),
         }
     )
-    trialinfo = trialinfo[~(trialinfo < 0).any(axis=1)]  # Remove events whose window starts before the data
-    trialinfo = trialinfo[~(trialinfo >= da.time.size).any(axis=1)]  # Remove events whose window ends after the data
+    trialinfo = trialinfo[
+        ~(trialinfo < 0).any(axis=1)
+    ]  # Remove events whose window starts before the data
+    trialinfo = trialinfo[
+        ~(trialinfo >= da.time.size).any(axis=1)
+    ]  # Remove events whose window ends after the data
 
     num_trial_frames = n_frames_pre + n_frames_post
-    assert all(trialinfo["end_frame"] - trialinfo["start_frame"] == num_trial_frames), "Trials are uniform length."
+    assert all(trialinfo["end_frame"] - trialinfo["start_frame"] == num_trial_frames), (
+        "Trials are uniform length."
+    )
 
     # Reshape the LFP, adding an event dimension as the last dimension
     trials = []
@@ -558,11 +608,15 @@ def ssq_cwt(da: xr.DataArray, sigdim: str = "channel", parallel=True, **cwt_kwar
     return Tx, Wx
 
 
-def butter_bandpass(da: xr.DataArray, lowcut: float, highcut: float, order: int, plot: bool = False) -> xr.DataArray:
+def butter_bandpass(
+    da: xr.DataArray, lowcut: float, highcut: float, order: int, plot: bool = False
+) -> xr.DataArray:
     validate_2d_timeseries(da)
     res = da.copy()
     if da.chunks is None:
-        res.values = npsig.filt.butter_bandpass(res.values.T, lowcut, highcut, res.fs, order, plot).T
+        res.values = npsig.filt.butter_bandpass(
+            res.values.T, lowcut, highcut, res.fs, order, plot
+        ).T
     else:
         res.data = dasig.butter_bandpass(
             res.data,
@@ -576,7 +630,9 @@ def butter_bandpass(da: xr.DataArray, lowcut: float, highcut: float, order: int,
     return res.__class__(res)
 
 
-def moving_transform(da: xr.DataArray, window: float, step: float, method: str) -> xr.DataArray:
+def moving_transform(
+    da: xr.DataArray, window: float, step: float, method: str
+) -> xr.DataArray:
     validate_2d_timeseries(da)
     res = da.copy()
     if da.chunks is None:
@@ -594,20 +650,26 @@ def validate_3d_timeseries(
     check_times: bool = False,
 ):
     if not da.dims == (timedim, sigdim, evtdim):
-        raise AttributeError(f"Timeseries3D DataArray must have dimensions ({timedim}, {sigdim}, {evtdim})")
-    if not "fs" in da.attrs:
+        raise AttributeError(
+            f"Timeseries3D DataArray must have dimensions ({timedim}, {sigdim}, {evtdim})"
+        )
+    if "fs" not in da.attrs:
         raise ValueError("Timeseries2D must have sampling rate attr `fs`")
     if check_times and not np.all(np.diff(da[timedim].values) >= 0):
         raise ValueError("Timeseries2D times must be monotonically increasing.")
 
 
-def demean_trialed(da: xr.DataArray, mean_estimation_time=slice(None, None)) -> xr.DataArray:
+def demean_trialed(
+    da: xr.DataArray, mean_estimation_time=slice(None, None)
+) -> xr.DataArray:
     validate_3d_timeseries(da)
     baseline_means = da.sel(time=mean_estimation_time).mean(dim="time")
     return (da - baseline_means).assign_attrs(**da.attrs)
 
 
-def detrend_trialed(da: xr.DataArray, trend_estimation_time=slice(None, None)) -> xr.DataArray:
+def detrend_trialed(
+    da: xr.DataArray, trend_estimation_time=slice(None, None)
+) -> xr.DataArray:
     """For some reason, polyfit will segfault with large numbers of trials. It's not clear if this is a memory issue, or a numerical stability issue, or what."""
     prestim_lfps = da.sel(time=trend_estimation_time)
     print("Fitting detrend polynomial...")

@@ -1,18 +1,7 @@
-from ecephys.wne.sglx import utils as sglx_utils
-
-import pandas as pd
-import wisc_ecephys_tools as wet
-import numpy as np
-from offproj import core
 import dask.array
-import dask_image
-import dask_image.ndfilters
+import numpy as np
 import xarray as xr
 import zarr
-from ecephys import utils
-import dask.array
-import scipy.stats
-import xarray as xr
 
 
 def _get_increasing_segments_mask(times):
@@ -21,16 +10,19 @@ def _get_increasing_segments_mask(times):
     for gap_ix in gap_ixs:
         pre_gap_values = times[gap_ix]
         next_ix = np.where(times[gap_ix:] > pre_gap_values)[0][0]
-        keep[gap_ix+1:gap_ix+next_ix] = False
+        keep[gap_ix + 1 : gap_ix + next_ix] = False
     return keep
+
 
 def _hotfix_times(da):
     keep = _get_increasing_segments_mask(da.time.data)
     return da.sel(time=keep).copy()
 
+
+# TODO: This should really be called `open_xarray_for_detection`
 def load_processed_zarr_as_xarray(fpath):
     """Load SI-saved zarr as dask-based xarray for OFF detection.
-    
+
     NB: Non monotonously increasing timestamps are dismissed."""
 
     assert fpath.exists()
@@ -43,7 +35,7 @@ def load_processed_zarr_as_xarray(fpath):
             "channel": zg.properties["channel_name"],
             "y": ("channel", zg.properties["location"][:, 1]),
         },
-        attrs = {
+        attrs={
             "units": "AU",
             "fs": zg.attrs["sampling_frequency"],
         },
