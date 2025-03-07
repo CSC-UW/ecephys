@@ -52,7 +52,7 @@ def parse_imroTbl(imroTbl_string):
     assert probe_type == 0, "Only Neuropixel 1.0 probes are supported."
     imro = pd.read_csv(
         io.StringIO("\n".join(channel_entries)),
-        sep="\s+",
+        sep="\\s+",
         names=["chan_id", "bank", "ref_id", "ap_gain", "lf_gain", "ap_highpass"],
     )
     imro["site"] = imro.bank.values * n_chans + imro.chan_id.values
