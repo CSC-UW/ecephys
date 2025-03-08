@@ -199,7 +199,7 @@ def synthetic_emg(pots: xr.DataArray, emg_kwargs: dict = None):
     Parameters:
     -----------
     **emg_kwargs:
-        Keyword arguments passed to `emg_from_lfp.compute_emg()`
+        Keyword arguments passed to `emg_from_lfp.compute()`
 
     Returns:
     --------
@@ -213,7 +213,7 @@ def synthetic_emg(pots: xr.DataArray, emg_kwargs: dict = None):
         "EMG computation will fail trying to filter above the Nyquest frequency"
     )
 
-    emg_values = ecephys.emg_from_lfp.compute_emg(
+    emg_values = ecephys.emg_from_lfp.compute(
         pots.values.T, pots.fs, **emg_kwargs
     ).flatten()
     emg_times = np.linspace(pots["time"].min(), pots["time"].max(), emg_values.size)

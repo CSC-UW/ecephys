@@ -18,13 +18,11 @@ import itertools
 
 import numpy as np
 import scipy.signal
-from tqdm.auto import tqdm
 from scipy.stats import pearsonr
+from tqdm.auto import tqdm
 
 
-def compute_emg(
-    lfp, sf, target_sf, window_size, wp, ws, gpass=1, gstop=20, ftype="butter"
-):
+def compute(lfp, sf, target_sf, window_size, wp, ws, gpass=1, gstop=20, ftype="butter"):
     """Derive EMG from LFP.
 
     Compute av. correlation across channel pairs in sliding windows.
@@ -47,31 +45,18 @@ def compute_emg(
         f"Filtering LFP with wp={wp}, ws={ws}, gpass={gpass}, gstop={gstop},"
         f"filter type={ftype}"
     )
-    lfp_filt = iirfilt(lfp, wp, ws, gpass, gstop, ftype="butter", sf=sf)
+    lfp_filt = _iirfilt(lfp, wp, ws, gpass, gstop, ftype="butter", sf=sf)
     print("Computing EMG from filtered LFP...")
     print(
         f"target sf = {target_sf}, window size = {window_size}, LFP sf={sf},"
         f" LFP nchans = {lfp_filt.shape[0]}"
     )
-    emg_data = compute_av_corr(lfp_filt, sf, target_sf, window_size)
+    emg_data = _compute_av_corr(lfp_filt, sf, target_sf, window_size)
     print("Done!")
     return emg_data
 
 
-# def filter_data(data, bandpass, bandstop, sf):
-#     """Bandpass filter data along last dimension. """
-#
-#     Wp = np.array(bandpass) / (sf/2)
-#     Ws = np.array(bandstop) / (sf/2)
-#     Rp = 3
-#     Rs = 20
-#     [N, Wn] = scipy.signal.cheb2ord(Wp, Ws, Rp, Rs)
-#     [b2, a2] = scipy.signal.cheby2(N, Rs, Wn, 'pass')
-#
-#     return scipy.signal.filtfilt(b2, a2, data)
-
-
-def iirfilt(data, wp, ws, gpass, gstop, ftype="butter", sf=None):
+def _iirfilt(data, wp, ws, gpass, gstop, ftype="butter", sf=None):
     """Filter `data` along last dimension using an iir filter."""
 
     # Check input values to avoid https://github.com/scipy/scipy/issues/11559
@@ -100,7 +85,7 @@ def iirfilt(data, wp, ws, gpass, gstop, ftype="butter", sf=None):
     return scipy.signal.sosfilt(sos, data)
 
 
-def compute_av_corr(data, data_sf, target_sf, window_size):
+def _compute_av_corr(data, data_sf, target_sf, window_size):
     """Compute av. correlation across channel pairs in sliding windows.
 
     Args:
