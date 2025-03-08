@@ -15,7 +15,6 @@ def moving_transform(
     x: np.ndarray, fs: float, window: float, step: float, method: str
 ) -> np.ndarray:
     assert x.ndim == 2, "Data must be 2D."
-    time_axis = 0
     channel_axis = 1
 
     mrms = np.zeros_like(x)

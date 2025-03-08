@@ -1,11 +1,12 @@
-import pandas as pd
 import numpy as np
-from scipy.stats import zscore
+import pandas as pd
 from ripple_detection.core import (
     _extend_segment,
     segment_boolean_series,
 )
-from ..utils import zscore_to_value
+from scipy.stats import zscore
+
+import ecephys.utils
 
 
 def extend_detection_threshold_to_boundaries(
@@ -174,8 +175,10 @@ def detect_by_zscore(
     -------
     events : pandas DataFrame
     """
-    detection_threshold = zscore_to_value(data, detection_threshold_zscore)
-    boundary_threshold = zscore_to_value(data, boundary_threshold_zscore)
+    detection_threshold = ecephys.utils.zscore_to_value(
+        data, detection_threshold_zscore
+    )
+    boundary_threshold = ecephys.utils.zscore_to_value(data, boundary_threshold_zscore)
 
     events = detect_by_value(
         data,

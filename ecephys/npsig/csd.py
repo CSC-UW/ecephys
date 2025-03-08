@@ -32,7 +32,7 @@ def get_pitts_csd(trial_mean_lfp, spacing):
     # Need to pad lfp channels for Laplacian approx.
     padded_lfp = np.pad(trial_mean_lfp, pad_width=((1, 1), (0, 0)), mode="edge")
 
-    csd = (1 / (spacing ** 2)) * (
+    csd = (1 / (spacing**2)) * (
         padded_lfp[2:, :] - (2 * padded_lfp[1:-1, :]) + padded_lfp[:-2, :]
     )
 

@@ -1,8 +1,9 @@
+# Deprecated? Remove? 3/7/25
+# This file is fairly SGLX-specific, and should be marked as such
 import numpy as np
+import scipy.signal
 
-from scipy.signal import butter, filtfilt, medfilt
-
-from . import rms
+import ecephys.npsig
 
 
 def get_good_channels(
@@ -67,16 +68,18 @@ def get_good_channels(
         print("noise interval larger than total number of samples")
         end_index = num_samples
 
-    b, a = butter(3, [10 / (sample_rate / 2), 10000 / (sample_rate / 2)], btype="band")
+    b, a = scipy.signal.butter(
+        3, [10 / (sample_rate / 2), 10000 / (sample_rate / 2)], btype="band"
+    )
 
     D = data[start_index:end_index, :] * bit_volts
 
     D_filt = np.zeros(D.shape)
 
     for i in range(D.shape[1]):
-        D_filt[:, i] = filtfilt(b, a, D[:, i])
+        D_filt[:, i] = scipy.signal.filtfilt(b, a, D[:, i])
 
-    rms_values = np.apply_along_axis(rms, axis=0, arr=D_filt)
+    rms_values = np.apply_along_axis(ecephys.npsig.rms, axis=0, arr=D_filt)
 
     # Use only ap/lf channels
     rms_values_aplf = rms_values[ap_lf_chans]
@@ -90,13 +93,12 @@ def get_good_channels(
 
     # Find noise channels amongst non-ignored chans in sorted dataset
     keep_channels_sorted = np.array(
-        [i for i in range(len(rms_aplf_sorted))
-         if i not in ignored_channels_sorted]
+        [i for i in range(len(rms_aplf_sorted)) if i not in ignored_channels_sorted]
     )
     # Find rms values too far above surrounding values
     # Use only non-ignored channels
     rms_values_masked = rms_aplf_sorted[keep_channels_sorted]
-    medfilt_masked = medfilt(rms_values_masked, 11)
+    medfilt_masked = scipy.signal.medfilt(rms_values_masked, 11)
     above_median_masked = rms_values_masked - medfilt_masked
     noise_chan_masked = above_median_masked > noise_threshold
 
@@ -105,10 +107,12 @@ def get_good_channels(
 
     # broadcast into original shape (nchan,)
     good_chans_aplf_sorted = np.ones((len(ap_lf_chans),), dtype=bool)
-    good_chans_aplf_sorted[ignored_channels_sorted] = False  # originally ignored chans are masked
-    good_chans_aplf_sorted[
-        keep_channels_sorted[np.where(noise_chan_masked)[0]]
-    ] = False  # detected bad channels are masked
+    good_chans_aplf_sorted[ignored_channels_sorted] = (
+        False  # originally ignored chans are masked
+    )
+    good_chans_aplf_sorted[keep_channels_sorted[np.where(noise_chan_masked)[0]]] = (
+        False  # detected bad channels are masked
+    )
 
     # Revert the sort
     arg_chanmap = np.argsort(channel_map)

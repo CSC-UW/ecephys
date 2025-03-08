@@ -1,13 +1,15 @@
 import numpy as np
-from scipy.signal import cwt, morlet2
+import scipy.signal
 
-from ecephys.npsig.utils import get_perievent_time, get_perievent_data
+from .utils import get_perievent_data, get_perievent_time
 
 
 def get_perievent_cwtm(evt_sig, fs, freq, normalize=False):
     w = 6
     widths = w * fs / (2 * freq * np.pi)
-    cwtm = np.apply_along_axis(lambda sig: cwt(sig, morlet2, widths, w=w), 0, evt_sig)
+    cwtm = np.apply_along_axis(
+        lambda sig: scipy.signal.cwt(sig, scipy.signal.morlet2, widths, w=w), 0, evt_sig
+    )
     cwtm = np.mean(np.abs(cwtm), axis=2)  # Average across channels
 
     if normalize:
@@ -19,7 +21,6 @@ def get_perievent_cwtm(evt_sig, fs, freq, normalize=False):
 def get_avg_perievent_cwtm(
     sig, times, fs, event_times, freq, time_before, time_after, norm=True
 ):
-
     # Determine how many samples are in each perievent window, so we can pre-allocate
     # space for the return.
     n_expected_samples = np.int(time_before * fs) + np.int(time_after * fs)
