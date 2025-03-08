@@ -9,7 +9,7 @@ import xarray as xr
 import yasa
 
 import ecephys.hypnogram as hyp
-from ecephys import plot
+import ecephys.plot as eplt
 
 logger = logging.getLogger(__name__)
 
@@ -307,7 +307,7 @@ def examine_spindle(
         ax.set_title(None)
 
         if hg is not None:
-            plot.plot_hypnogram_overlay(hg, ax=ax)
+            eplt.plot_hypnogram_overlay(hg, ax=ax)
 
     if evt is not None:
         items = [f"{k}: {v}" for k, v in evt.items()]

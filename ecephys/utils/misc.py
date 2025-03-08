@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 _console = Console()
 
 
+# TODO: This should be replaced with real warnings.
 def warn(msg):
     _console.print(f"Warning: {msg}", style="bright_yellow")
 

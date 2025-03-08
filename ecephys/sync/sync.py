@@ -1,21 +1,20 @@
 import logging
 import warnings
-
 from difflib import SequenceMatcher
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy import stats
-from sklearn.linear_model import LinearRegression
 import tdt
+from sklearn.linear_model import LinearRegression
 
-from ecephys import utils
 import ecephys.sglx
+import ecephys.utils
 from ecephys.sglx.external import readSGLX
 
 logger = logging.getLogger(__name__)
 
-# TODO: System-specific packages should be in system-specific repos (e.g. tdt_xarray, sglxarray, acute, etc.)
+# TODO: System-specific (e.g. tdt, sglx) or platform-specific (e.g. acute) functions should be in their respective packages/subpackages.
 
 
 def plot_pulses(onset_times, offset_times, nPulsesToPlot=20):
@@ -203,15 +202,15 @@ def fit_random_pulse_times(
         print(f"{sysY_name} times lag {sysX_name} times -- Backward shift selected")
         return model_b
     else:
-        utils.warn(
+        ecephys.utils.warn(
             "Unexpected: Backward and forward fits are equivalent. Are signals already very close to aligned?"
         )
-        assert (
-            model_f.intercept_ == model_b.intercept_
-        ), "Forward and backward fits have different intercepts."
-        assert (
-            model_f.coef_[0] == model_b.coef_[0]
-        ), "Forward and backward fits have different slopes."
+        assert model_f.intercept_ == model_b.intercept_, (
+            "Forward and backward fits have different intercepts."
+        )
+        assert model_f.coef_[0] == model_b.coef_[0], (
+            "Forward and backward fits have different slopes."
+        )
         return model_f
 
 
@@ -337,13 +336,13 @@ def _check_pulse_widths(
 
 def _match_edges(less_edges, more_edges, atol=0.01):
     """Find the edges in `more_edges` that are closest to the edges in `less_edges`."""
-    assert len(more_edges) > len(
-        less_edges
-    ), "First argument must have more edges than second argument"
+    assert len(more_edges) > len(less_edges), (
+        "First argument must have more edges than second argument"
+    )
     matched_less_edges = []
     matched_more_edges = []
     for less_edge in less_edges:
-        ix = utils.find_nearest(more_edges, less_edge)
+        ix = ecephys.utils.find_nearest(more_edges, less_edge)
         if np.isclose(more_edges[ix], less_edge, atol=atol):
             matched_less_edges.append(less_edge)
             matched_more_edges.append(more_edges[ix])
@@ -466,7 +465,7 @@ def extract_ttl_edges_from_tdt(block_path, store_name):
     # Sometimes TDT calls the last offset Inf even when it was not the last sample.
     # Breaking their own convention... maddening
     if (store.onset.size == store.offset.size) and (store.offset[-1] == np.inf):
-        utils.warn(
+        ecephys.utils.warn(
             "TDT strongly suspected of messing up the last falling edge. Dropping final pulse."
         )
         store.onset = store.onset[:-1]
