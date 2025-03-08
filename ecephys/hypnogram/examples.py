@@ -1,8 +1,10 @@
 import os.path as op
 
+import ecephys.hypnogram as hyp
+
 from . import core
 
-data_path = op.join(core.__path__[0], "data")
+data_path = op.join(hyp.__path__[0], "data")
 # Load data like: op.join(data_path, 'mydatafile.dat')
 
 
