@@ -1,14 +1,15 @@
 import logging
-from ecephys import plot
-import scipy.signal
 
-from ecephys import hypnogram
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import scipy.fft
+import scipy.signal
 import xarray as xr
 import yasa
 
+import ecephys.hypnogram as hyp
+from ecephys import plot
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +22,14 @@ def get_relative_sigma_power(
     broadband_hi: float,
     interpolation_times: np.ndarray = None,
 ) -> xr.DataArray:
-    # TODO: Maybe modify if npsig.stft is updated
-    sigma = np.square(spgs.sel(frequency=slice(sigma_lo, sigma_hi))).sum(dim="frequency").T
-    broad = np.square(spgs.sel(frequency=slice(broadband_lo, broadband_hi))).sum(dim="frequency").T
+    sigma = (
+        np.square(spgs.sel(frequency=slice(sigma_lo, sigma_hi))).sum(dim="frequency").T
+    )
+    broad = (
+        np.square(spgs.sel(frequency=slice(broadband_lo, broadband_hi)))
+        .sum(dim="frequency")
+        .T
+    )
     rpow = sigma / broad
     if interpolation_times is not None:
         rpow = rpow.interp(
@@ -70,7 +76,9 @@ def get_decision_function(
     convolution_window_length_sec: float,
     fs: float,
 ):
-    idx_sum = np.sum((da > thresh).astype(float) for da, thresh in signal_threshold_tuples)
+    idx_sum = np.sum(
+        (da > thresh).astype(float) for da, thresh in signal_threshold_tuples
+    )
 
     w = int(convolution_window_length_sec * fs)
     idx_sum.data[:, 0] = np.convolve(idx_sum.data[:, 0], np.ones((w,)), mode="same") / w
@@ -92,10 +100,12 @@ def get_base_spindle_properties(
     """Return spindles and troughs with properties."""
     # We really don't need da...
     assert da.shape == da_sigma.shape, "da and da_sigma must have the same shape"
-    assert da.shape == decision_function.shape, "xrsig dataarray and decision function must have the same shape"
+    assert da.shape == decision_function.shape, (
+        "xrsig dataarray and decision function must have the same shape"
+    )
     sf = da.fs
     n_samples = da.time.size
-    nfast = scipy.fftpack.next_fast_len(n_samples)
+    nfast = scipy.fft.next_fast_len(n_samples)
     t0 = da.time.values[0]
     min_distance_msec = min_distance * 1000
 
@@ -110,7 +120,9 @@ def get_base_spindle_properties(
     trough_times = dict()
     ch_names = da.channel.values
     for i, ch in enumerate(ch_names):
-        where_sp = np.where(decision_function.sel(channel=ch).values > (decision_threshold))[0]
+        where_sp = np.where(
+            decision_function.sel(channel=ch).values > (decision_threshold)
+        )[0]
 
         # If no events are found, skip to next channel
         if not len(where_sp):
@@ -157,7 +169,9 @@ def get_base_spindle_properties(
         for j in np.arange(len(sp))[good_dur]:
             # Important: detrend the signal to avoid wrong PTP amplitude
             sp_x = np.arange(da_sigma.values.T[i, sp[j]].size, dtype=np.float64)
-            sp_det = yasa.numba._detrend(sp_x, da_sigma.values.T[i, sp[j]].astype(np.float64))
+            sp_det = yasa.numba._detrend(
+                sp_x, da_sigma.values.T[i, sp[j]].astype(np.float64)
+            )
             sp_amp[j] = np.ptp(sp_det)  # Peak-to-peak amplitude
             sp_rms[j] = yasa.numba._rms(sp_det)  # Root mean square
 
@@ -168,7 +182,9 @@ def get_base_spindle_properties(
             sp_freq[j] = np.median(sp_inst_freq[sp_inst_freq > 0])
 
             # Number of oscillations
-            peaks, peaks_params = scipy.signal.find_peaks(sp_det, distance=distance, prominence=(None, None))
+            peaks, peaks_params = scipy.signal.find_peaks(
+                sp_det, distance=distance, prominence=(None, None)
+            )
             sp_osc[j] = len(peaks)
 
             # Peak location & symmetry index
@@ -177,7 +193,9 @@ def get_base_spindle_properties(
             sp_pro[j] = da.time.values[sp[j][0] + pk]
             sp_sym[j] = pk / sp_det.size
 
-            troughs, trough_params = scipy.signal.find_peaks(-sp_det, distance=distance, prominence=(None, None))
+            troughs, trough_params = scipy.signal.find_peaks(
+                -sp_det, distance=distance, prominence=(None, None)
+            )
             troughs = troughs + sp[j][0]
             trough_times[ch].append(da.time.values[troughs])
 
@@ -218,7 +236,7 @@ def get_xrsig_thresholds(
     da: xr.DataArray,
     std_dev_threshold: float,
     artifacts: pd.DataFrame,
-    hg: hypnogram.FloatHypnogram,
+    hg: hyp.FloatHypnogram,
     reference_state: str = "NREM",
 ) -> xr.DataArray:
     """Get threshold from distribution across reference state."""
@@ -227,7 +245,10 @@ def get_xrsig_thresholds(
     for artifact in artifacts.itertuples():
         times_in_bout = (t >= artifact.start_time) & (t <= artifact.end_time)
         good_nrem[times_in_bout] = False
-    da_thresh = da.isel(time=good_nrem).mean(dim="time") + da.isel(time=good_nrem).std(dim="time") * std_dev_threshold
+    da_thresh = (
+        da.isel(time=good_nrem).mean(dim="time")
+        + da.isel(time=good_nrem).std(dim="time") * std_dev_threshold
+    )
     return da_thresh
 
 
@@ -258,7 +279,9 @@ def examine_spindle(
 
     neighboring_evts = spindles.loc[(spindles["Start"] > t1) & (spindles["End"] < t2)]
 
-    fig, axes = plt.subplots(len(signal_threshold_tuples), 1, figsize=(16, 8), sharex=True)
+    fig, axes = plt.subplots(
+        len(signal_threshold_tuples), 1, figsize=(16, 8), sharex=True
+    )
 
     for j, (sig, thresh) in enumerate(signal_threshold_tuples):
         ax = axes[j]

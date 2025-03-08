@@ -1,15 +1,13 @@
-import ecephys.spindles.common as common
 import logging
 
-from ecephys import hypnogram
-from ecephys import xrsig
 import numpy as np
 import pandas as pd
-import scipy.signal
-import scipy.fftpack
 import xarray as xr
-import yasa
 
+import ecephys.hypnogram as hyp
+import ecephys.xrsig as xrsig
+
+from . import common
 
 logger = logging.getLogger(__name__)
 
@@ -52,15 +50,19 @@ def select_best_lf_spindle_channel(
     smoothing: int = 5,
 ) -> xr.DataArray:
     lf_estm = lf.sel(time=slice(estm_start, estm_end))
-    spgs_estm = xrsig.stft(lf_estm)
-    rpow_estm = common.get_relative_sigma_power(spgs_estm, sigma_lo, sigma_hi, broadband_lo, broadband_hi)
-    rpow_profile = rpow_estm.mean(dim="time").rolling(channel=smoothing, center=True).median()
+    spgs_estm = xrsig.stft_psd(lf_estm)
+    rpow_estm = common.get_relative_sigma_power(
+        spgs_estm, sigma_lo, sigma_hi, broadband_lo, broadband_hi
+    )
+    rpow_profile = (
+        rpow_estm.mean(dim="time").rolling(channel=smoothing, center=True).median()
+    )
     best_channel = rpow_profile.channel[rpow_profile.argmax(dim="channel")]
     xrsig.plot_laminar_scalars_horizontal(rpow_profile, figsize=(32, 6))
     return best_channel
 
 
-def get_lf_spindle_properties(
+def _get_lf_spindle_properties(
     lf: xr.DataArray,
     lf_sigma: xr.DataArray,
     decision_function: xr.DataArray,
@@ -101,7 +103,7 @@ def get_lf_spindle_properties(
 def detect_single_channel_lf_spindles(
     lf_chan: xr.DataArray,
     params: dict,
-    hg: hypnogram.FloatHypnogram,
+    hg: hyp.FloatHypnogram,
     artifacts: pd.DataFrame,
 ) -> tuple[
     xr.DataArray,
@@ -137,11 +139,15 @@ def detect_single_channel_lf_spindles(
         params["broadband_hi"],
         lf_chan.time.values,
     ).rename("Relative Sigma Power")
-    mrms = common.get_single_channel_moving_transform(lf_sigma, "rms", params["mrms_window"], params["mrms_step"]).rename("Sigma RMS")
-    mrms_thresh = common.get_xrsig_thresholds(mrms, params["mrms_stds_threshold"], artifacts, hg, reference_state="NREM")
-    mcorr = common.get_single_channel_mcorr(lf_sigma, lf_broad, params["mcorr_window"], params["mcorr_step"]).rename(
-        "Sigma-Broadband LFP Correlation"
+    mrms = common.get_single_channel_moving_transform(
+        lf_sigma, "rms", params["mrms_window"], params["mrms_step"]
+    ).rename("Sigma RMS")
+    mrms_thresh = common.get_xrsig_thresholds(
+        mrms, params["mrms_stds_threshold"], artifacts, hg, reference_state="NREM"
     )
+    mcorr = common.get_single_channel_mcorr(
+        lf_sigma, lf_broad, params["mcorr_window"], params["mcorr_step"]
+    ).rename("Sigma-Broadband LFP Correlation")
 
     decision_function = common.get_decision_function(
         [
@@ -152,7 +158,7 @@ def detect_single_channel_lf_spindles(
         params["decision_function_convolution_window"],
         lf_chan.fs,
     ).rename("Decision Function")
-    spindles, troughs = get_lf_spindle_properties(
+    spindles, troughs = _get_lf_spindle_properties(
         lf_chan,
         lf_sigma,
         decision_function,
@@ -203,11 +209,11 @@ def examine_lf_spindle(
             (rpow, rpow_thresh),
             (mrms, mrms_thresh),
             (mcorr, mcorr_thresh),
-            (decision_function, decision_thresh), 
+            (decision_function, decision_thresh),
         ],
         troughs=troughs,
         plot_duration=plot_duration,
         i=i,
         t=t,
-        channel=channel
+        channel=channel,
     )
