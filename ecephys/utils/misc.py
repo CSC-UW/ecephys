@@ -18,16 +18,6 @@ def warn(msg):
     _console.print(f"Warning: {msg}", style="bright_yellow")
 
 
-# -------------------- Pattern utilities --------------------
-
-
-def if_none(x, default):
-    if x is None:
-        return x
-    else:
-        return default
-
-
 # -------------------- Stats & Math utilities --------------------
 
 
