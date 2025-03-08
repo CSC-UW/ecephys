@@ -18,17 +18,17 @@ from . import (
 )
 
 __all__ = [
-    "sharptrack",
     "emg_from_lfp",
     "hypnogram",
+    "npsig",
     "plot",
     "sglx",
     "sglxr",
-    "npsig",
-    "tdtxr",
+    "sharptrack",
     "sync",
+    "tdtxr",
     "units",
     "utils",
-    "xrsig",
     "wne",
+    "xrsig",
 ]

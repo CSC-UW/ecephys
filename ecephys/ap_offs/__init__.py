@@ -1,3 +1,8 @@
 from . import detect, plot, preprocess, utils
 
-__all__ = ["preprocess", "detect", "utils", "plot"]
+__all__ = [
+    "detect",
+    "plot",
+    "preprocess",
+    "utils",
+]

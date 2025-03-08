@@ -16,18 +16,18 @@ from .core import (
 )
 
 __all__ = [
-    "Hypnogram",
-    "FloatHypnogram",
+    "clean",
+    "condense",
     "DatetimeHypnogram",
     "examples",
+    "ffill_gaps",
+    "fill_gaps",
+    "FloatHypnogram",
+    "get_gaps",
     "get_separated_wake_hypnogram",
+    "Hypnogram",
     "reconcile_hypnograms",
     "remove_subsumed",
-    "condense",
-    "trim_overlap",
-    "get_gaps",
-    "fill_gaps",
-    "ffill_gaps",
     "trim_hypnogram",
-    "clean",
+    "trim_overlap",
 ]
