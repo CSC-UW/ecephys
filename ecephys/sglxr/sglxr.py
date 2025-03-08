@@ -1,30 +1,31 @@
 import datetime
 import logging
+import numbers
 import pathlib
 from typing import Optional
 
 import dask
 import dask.array as da
 import numpy as np
-import xarray as xr
 import pandas as pd
-import numbers
 import pandas.core.tools.times
+import xarray as xr
 from pandas.api.types import (
     is_datetime64_any_dtype,
     is_timedelta64_dtype,
 )
 
-from ecephys.sglxr import ImecMap
-from ecephys.sglxr.external import readSGLX
-
+from .external import readSGLX
+from .imec_map import ImecMap
 
 logger = logging.getLogger(__name__)
 
 
 def validate_probe_type(meta: dict):
     if ("imDatPrb_type" not in meta) or (int(meta["imDatPrb_type"]) != 0):
-        raise NotImplementedError("This module has only been tested with Neuropixel 1.0 probes.")
+        raise NotImplementedError(
+            "This module has only been tested with Neuropixel 1.0 probes."
+        )
 
 
 def _find_nearest(array: np.ndarray, value, tie_select="first") -> int:
@@ -50,7 +51,9 @@ def _time_to_micros(time_obj: datetime.time) -> float:
     return 1_000_000 * seconds + time_obj.microsecond
 
 
-def _get_first_and_last_samples(meta: dict, firstSample: int = 0, lastSample: int = np.Inf) -> tuple[int, int]:
+def _get_first_and_last_samples(
+    meta: dict, firstSample: int = 0, lastSample: int = np.Inf
+) -> tuple[int, int]:
     """Take requested start/end sample numbers, and
     return the closest actual start/end sample numbers."""
     # Calculate file's start and end samples
@@ -88,7 +91,9 @@ def _get_timestamps(
     return t0 + time, dt0 + timedelta, fs
 
 
-def get_timestamps(bin_path: pathlib.Path, **kwargs) -> tuple[np.ndarray, pd.DatetimeIndex, float]:
+def get_timestamps(
+    bin_path: pathlib.Path, **kwargs
+) -> tuple[np.ndarray, pd.DatetimeIndex, float]:
     return _get_timestamps(readSGLX.readMeta(pathlib.Path(bin_path)), **kwargs)
 
 
@@ -115,12 +120,18 @@ def _to_seconds_from_file_start(x, meta: dict, **kwargs) -> float:
         raise ValueError(f"Could not convert {x} to time.")
 
 
-def _memmap_and_load_chunk(binpath: pathlib.Path, nChan: int, nFileSamp: int, sl: slice) -> np.ndarray:
-    data = np.memmap(binpath, mode="r", shape=(nChan, nFileSamp), dtype="int16", offset=0, order="F")
+def _memmap_and_load_chunk(
+    binpath: pathlib.Path, nChan: int, nFileSamp: int, sl: slice
+) -> np.ndarray:
+    data = np.memmap(
+        binpath, mode="r", shape=(nChan, nFileSamp), dtype="int16", offset=0, order="F"
+    )
     return data[:, sl]
 
 
-def memmap_dask_array(binpath: pathlib.Path, meta: dict, blocksize: int = 250000) -> da.Array:
+def memmap_dask_array(
+    binpath: pathlib.Path, meta: dict, blocksize: int = 250000
+) -> da.Array:
     """Returns a dask array backed by a memory map of the binary file.
     Shape is channels x time, chunked along the time dimension.
     If blocksize is -1, the entire file is loaded into a single chunk.
@@ -277,7 +288,9 @@ def open_trigger(
     selectData = rawData[channels, firstSamp : lastSamp + 1]
 
     # apply gain correction and convert to uV
-    assert meta["typeThis"] == "imec", "This function only supports loading of analog IMEC data."
+    assert meta["typeThis"] == "imec", (
+        "This function only supports loading of analog IMEC data."
+    )
     sig = _convert_to_uv(selectData, channels, meta)
     sig_units = "uV"
 

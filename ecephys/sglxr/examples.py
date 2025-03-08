@@ -1,5 +1,6 @@
-from ecephys import sglxr
 from pathlib import Path
+
+from . import sglxr
 
 SUBPACKAGE_DIRECTORY = Path(__file__).resolve().parent
 DATA_DIRECTORY = SUBPACKAGE_DIRECTORY / "data"

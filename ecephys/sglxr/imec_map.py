@@ -4,7 +4,7 @@ import pathlib
 import numpy as np
 import pandas as pd
 
-from ecephys.sglxr.external import SGLXMetaToCoords, readSGLX
+from .external import SGLXMetaToCoords, readSGLX
 
 SUBPACKAGE_DIRECTORY = pathlib.Path(__file__).resolve().parent
 
