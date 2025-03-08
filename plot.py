@@ -17,10 +17,9 @@ from ipywidgets import (
 )
 from matplotlib.ticker import MaxNLocator
 
-from ecephys.npsig.utils import mean_subtract
+import ecephys.npsig.utils
 
 _colorblind = sns.color_palette("colorblind")
-_deep = sns.color_palette("deep")
 _dark = sns.color_palette("dark")
 _muted = sns.color_palette("muted")
 _pastel = sns.color_palette("muted")
@@ -209,7 +208,7 @@ def plot_psth_heatmap(
 
     # Draw the heatmap
     # xvalues = np.arange(window[0], window[1], binsize)
-    hm = sns.heatmap(
+    sns.heatmap(
         psth_array,
         cmap=cmap,
         vmin=vmin,
@@ -548,7 +547,7 @@ def lfp_explorer(
     time = time[selected_samples]
 
     if zero_mean:
-        lfps = mean_subtract(lfps)
+        lfps = ecephys.npsig.utils.mean_subtract(lfps)
 
     lfp_centers = -np.full(lfps.shape, np.arange(n_plot_chans) * vspace)
     if flip_dv:
@@ -707,7 +706,7 @@ def colormesh_explorer(
     y = y[i_y : i_y + n_y]
 
     if zero_mean:
-        sig = mean_subtract(sig)
+        sig = ecephys.npsig.utils.mean_subtract(sig)
 
     ax.pcolormesh(time, y, sig.T, shading="gouraud")
     ax.set_xlim([window_start, window_end])
