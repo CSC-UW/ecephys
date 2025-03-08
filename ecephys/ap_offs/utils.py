@@ -19,8 +19,7 @@ def _hotfix_times(da):
     return da.sel(time=keep).copy()
 
 
-# TODO: This should really be called `open_xarray_for_detection`
-def load_processed_zarr_as_xarray(fpath):
+def open_processed_zarr_as_xarray(fpath):
     """Load SI-saved zarr as dask-based xarray for OFF detection.
 
     NB: Non monotonously increasing timestamps are dismissed."""
