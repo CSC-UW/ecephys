@@ -14,7 +14,7 @@ from tqdm.auto import tqdm
 
 import ecephys.emg_from_lfp
 from ecephys import dasig, npsig, utils
-from ecephys.utils import dask_utils
+from ecephys.ecephys.utils import dask
 
 logger = logging.getLogger(__name__)
 
@@ -449,7 +449,7 @@ def naive_rechunk(da: xr.DataArray) -> xr.DataArray:
 def get_timeseries_chunk(da: xr.DataArray, chunk_index: int) -> xr.DataArray:
     validate_2d_timeseries(da)
     axis = da.get_axis_num("time")
-    chunk_bounds = dask_utils.get_dask_chunk_bounds(da.data, axis=axis)
+    chunk_bounds = dask.get_dask_chunk_bounds(da.data, axis=axis)
     start_frame = chunk_bounds[chunk_index]
     end_frame = chunk_bounds[chunk_index + 1]
     return da.isel({"time": slice(start_frame, end_frame)})
@@ -458,7 +458,7 @@ def get_timeseries_chunk(da: xr.DataArray, chunk_index: int) -> xr.DataArray:
 def iterate_timeseries_chunks(da: xr.DataArray):
     validate_2d_timeseries(da)
     axis = da.get_axis_num("time")
-    chunk_bounds = dask_utils.get_dask_chunk_bounds(da.data, axis=axis)
+    chunk_bounds = dask.get_dask_chunk_bounds(da.data, axis=axis)
     n_chunks = len(chunk_bounds) - 1
     return (
         da.isel({"time": slice(chunk_bounds[i], chunk_bounds[i + 1])})

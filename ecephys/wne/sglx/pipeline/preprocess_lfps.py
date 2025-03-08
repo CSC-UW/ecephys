@@ -114,7 +114,7 @@ def do_experiment_probe(
         logger.info("Preprocessing...")
         lfp = xrsig.preprocess_neuropixels_ibl_style(lfp, bad_channels)
         lfp.name = "lfp"
-        lfp.attrs = ecephys.utils.drop_unserializeable(lfp.attrs)
+        lfp.attrs = ecephys.utils.misc.drop_unjsonable(lfp.attrs)
 
         logger.info(f"Saving to: {zarr_file}")
         if i == 0:

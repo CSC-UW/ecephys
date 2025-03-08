@@ -2,6 +2,7 @@ __version__ = "0.0.1"  # TODO: Use importlib to get this properly from pyproject
 # The version string is needed by Spikeinterface when serializing and deserializing extractor objects from this library during multiprocessing.
 
 from . import (
+    ap_offs,
     emg_from_lfp,
     hypnogram,
     npsig,
@@ -18,6 +19,7 @@ from . import (
 )
 
 __all__ = [
+    "ap_offs",
     "emg_from_lfp",
     "hypnogram",
     "npsig",

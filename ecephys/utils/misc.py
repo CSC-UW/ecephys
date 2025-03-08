@@ -120,17 +120,24 @@ def item_intersection(l):
     return reduce(lambda x, y: dict(x.items() & y.items()), l)
 
 
+def drop_unjsonable(d):
+    def _is_jsonable(x):
+        try:
+            json.dumps(x)
+            return True
+        except (TypeError, OverflowError):
+            return False
+
+    if _is_jsonable(d):
+        return d
+    elif isinstance(d, dict):
+        return {k: drop_unjsonable(v) for k, v in d.items()}
+    else:
+        print(f"Dropping unserializable object: {d}")
+        return ""
+
+
 # -------------------- Array utilities --------------------
-
-
-# Get rid of this
-def nrows(x):
-    return x.shape[0]
-
-
-# Get rid of this
-def ncols(x):
-    return x.shape[1]
 
 
 def kway_mergesort(arrays: list[np.ndarray], indices=False):

@@ -21,6 +21,7 @@ from spikeinterface.qualitymetrics.misc_metrics import compute_amplitude_cutoffs
 from tqdm import tqdm
 
 import ecephys.utils
+import ecephys.wne.siutils as siutils
 from ecephys import hypnogram
 from ecephys.wne import Project, constants
 from ecephys.wne.sglx.pipeline import sorting_pipeline
@@ -318,7 +319,7 @@ class SpikeInterfacePostprocessingPipeline:
         if state is None:
             return rec
 
-        return ecephys.utils.siutils.cut_and_combine_si_extractors(
+        return siutils.cut_and_combine_si_extractors(
             rec,
             self._hypnogram[self._hypnogram["state"] == state].copy(),
             combine="concatenate",
@@ -340,7 +341,7 @@ class SpikeInterfacePostprocessingPipeline:
         if state is None:
             return sorting
 
-        return ecephys.utils.siutils.cut_and_combine_si_extractors(
+        return siutils.cut_and_combine_si_extractors(
             sorting,
             self._hypnogram[self._hypnogram["state"] == state],
             combine="concatenate",
@@ -699,6 +700,21 @@ class SpikeInterfacePostprocessingPipeline:
         )
 
 
+def _get_edges_start_end_samples_df(state_vector):
+    """Return df with `state`, `start_frame`, `end_frame` cols from array of states."""
+    edges = np.where(state_vector[1:] != state_vector[0:-1])
+    left_edges = np.insert(edges, 0, -1) + 1
+    right_edges = np.append(edges, len(state_vector) - 1) + 1
+    df = pd.DataFrame(
+        {
+            "state": np.array(state_vector)[left_edges.astype(int)],
+            "start_frame": left_edges,
+            "end_frame": right_edges,
+        }
+    )
+    return df
+
+
 def load_hypnogram_for_si_slicing(
     wneHypnoProject: Project,
     sglxSortingProject: SGLXProject,
@@ -800,9 +816,7 @@ def load_hypnogram_for_si_slicing(
     decimated_frame_states = np.concatenate(segment_decimated_frame_states_list)
 
     # df with start_frame, end_frame columns, still in decimated indices
-    decimated_frame_hypno = ecephys.utils.get_edges_start_end_samples_df(
-        decimated_frame_states
-    )
+    decimated_frame_hypno = _get_edges_start_end_samples_df(decimated_frame_states)
 
     # df with start_frame, end_frame columns, in original indices
     frame_hypno = decimated_frame_hypno.copy()

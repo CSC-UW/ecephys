@@ -4,6 +4,8 @@ from typing import Callable, Optional
 import numpy as np
 import pandas as pd
 import spikeinterface as si
+import spikeinterface.extractors as se
+from spikeinterface.core import waveform_tools
 
 import ecephys.utils
 from ecephys.wne.project import Project
@@ -182,3 +184,58 @@ def load_postprocessing_hypnogram_for_slicing(
         return df.drop(columns=["start_time", "end_time", "duration"])
 
     return df
+
+
+def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
+    assert {"start_frame", "end_frame", "state"}.issubset(epochs_df)
+    assert len(epochs_df.state.unique()) == 1
+
+    if not isinstance(si_object, (se.BaseSorting, se.BaseRecording)):
+        raise ValueError(
+            "Unrecognized datatype for si_object. "
+            "Expected spikeinterface BaseSorting or BaseRecording."
+        )
+
+    frame_slice_kwargs = {}
+    if isinstance(si_object, se.BaseSorting):
+        # Disable redundant check_spike_frames in Sorting.frame_slice
+        assert si_object.has_recording()
+        if waveform_tools.has_exceeding_spikes(si_object._recording, si_object):
+            raise ValueError(
+                "The sorting object has spikes exceeding the recording duration. You have to remove those spikes "
+                "with the `spikeinterface.curation.remove_excess_spikes()` function"
+            )
+        frame_slice_kwargs = {"check_spike_frames": False}
+
+    si_segments = []
+    for epoch in epochs_df.itertuples():
+        si_segments.append(
+            si_object.frame_slice(
+                start_frame=epoch.start_frame,
+                end_frame=epoch.end_frame,
+                **frame_slice_kwargs,
+            )
+        )
+
+    if combine == "concatenate":
+        if isinstance(si_object, se.BaseSorting):
+            rec = si.concatenate_sortings(si_segments)
+        elif isinstance(si_object, se.BaseRecording):
+            rec = si.concatenate_recordings(si_segments)
+
+    elif combine == "append":
+        raise NotImplementedError
+
+    else:
+        assert False
+
+    # Apply to time vector if there's any (not handled by SI)
+    if si_object.has_time_vector():
+        raw_times = si_object.get_times()
+        times = []
+        for epoch in epochs_df.itertuples():
+            times += list(raw_times[epoch.start_frame : epoch.end_frame])
+        times = np.array(times)
+        rec.set_times(times)
+
+    return rec

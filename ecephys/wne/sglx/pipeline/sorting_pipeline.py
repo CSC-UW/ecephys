@@ -426,7 +426,7 @@ class SpikeInterfaceSortingPipeline:
     def get_kilosort_binary_recording_extractor(self) -> si.BinaryRecordingExtractor:
         if self._kilosort_binary_recording_extractor is None:
             self._kilosort_binary_recording_extractor = (
-                ecephys.utils.siutils.load_kilosort_bin_as_si_recording(
+                _load_kilosort_bin_as_si_recording(
                     self.sorter_output_dir,
                     fname=self.preprocessed_bin_path.name,
                     si_probe=self.preprocessed_probe,
@@ -503,3 +503,41 @@ class SpikeInterfaceSortingPipeline:
             options_source=(main_output_dir / OPTS_FNAME),
             exclusions_source=(main_output_dir / EXCLUSIONS_FNAME),
         )
+
+
+def _load_kilosort_bin_as_si_recording(
+    ks_output_dir,
+    fname="temp_wh.dat",
+    si_probe=None,
+):
+    ks_output_dir = Path(ks_output_dir)
+    recording_path = ks_output_dir / fname
+    if not recording_path.exists():
+        raise ValueError(
+            f"Could not find bin file used for sorting at {recording_path}"
+        )
+
+    # Get recording.dat info from params.py
+    d = {}
+    with open(ks_output_dir / "params.py") as f:
+        for line in f.readlines():
+            (key, val) = line.rstrip("\n").split(" = ")
+            d[key] = val
+    d["sample_rate"] = float(d["sample_rate"])
+    d["n_channels_dat"] = int(d["n_channels_dat"])
+    d["dtype"] = str(d["dtype"].strip("'"))
+    d["hp_filtered"] = bool(d["hp_filtered"])
+
+    rec = se.BinaryRecordingExtractor(
+        file_paths=recording_path,
+        sampling_frequency=d["sample_rate"],
+        num_chan=d["n_channels_dat"],
+        dtype=d["dtype"],
+        is_filtered=d["hp_filtered"],
+    )
+    assert d["hp_filtered"]
+
+    if si_probe is not None:
+        rec = rec.set_probe(si_probe)
+
+    return rec

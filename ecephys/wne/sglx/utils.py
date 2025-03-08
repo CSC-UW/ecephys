@@ -129,6 +129,22 @@ def load_sglx_inclusions_and_artifacts(
     return inclusions, artifacts
 
 
+def _get_gaps(
+    df,
+    t1_colname: str = "start_time",
+    t2_colname: str = "end_time",
+    min_gap_duration_sec: float = 0,
+):
+    gaps = pd.DataFrame(
+        {
+            t1_colname: df.iloc[:-1][t2_colname].values,
+            t2_colname: df.iloc[1:][t1_colname].values,
+        }
+    )
+    gaps["duration"] = gaps[t2_colname] - gaps[t1_colname]
+    return gaps[gaps["duration"] > min_gap_duration_sec]
+
+
 # SUS: This function's name does not appear to describe what it does: return all the NoData and/or artifactual periods from a probe.
 def load_bouts_to_reconcile_as_hypnogram(
     project: SGLXProject,
@@ -180,7 +196,7 @@ def load_bouts_to_reconcile_as_hypnogram(
 
     # Infer "NoData" hypnogram from inclusions
     # 1-sample imprecision
-    no_data = ecephys.utils.get_gaps(
+    no_data = _get_gaps(
         inclusions,
         t1_colname="start_time",
         t2_colname="end_time",

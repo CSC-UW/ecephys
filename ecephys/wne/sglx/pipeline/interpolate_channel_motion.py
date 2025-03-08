@@ -3,6 +3,8 @@ import shutil
 import matplotlib.pyplot as plt
 import numpy as np
 import probeinterface as pi
+import scipy.interpolate
+import xarray as xr
 
 import ecephys.utils
 from ecephys.wne.sglx.project import SGLXProject
@@ -64,6 +66,93 @@ def _prepare_motion_directory(
         shutil.copy(src, tgt)
 
 
+def _interpolate_motion_per_channel(
+    channel_depths,
+    sampling_rate,
+    si_motion,
+    si_spatial_bins,
+    si_temporal_bins,
+    sample2time,
+) -> xr.DataArray:
+    """
+    Interpolate motion at each channel location and temporal bin.
+
+    Parameters
+    ----------
+    channel_depths: np.array 1D
+        Array-like of channel depths (y-axis location).
+    sampling_rate: float
+    si_motion: np.array 2D
+        As returned by spikeinterface.estimate_motion
+        motion.shape[0] equal temporal_bins.shape[0]
+        motion.shape[1] equal 1 when "rigid" motion equal temporal_bins.shape[0] when "non-rigid"
+    si_temporal_bins: np.array
+        As returned by spikeinterface.estimate_motion
+        Temporal bins in second (sorting time base)
+    si_spatial_bins: np.array
+        As returned by spikeinterface.estimate_motion
+        Bins for non-rigid motion. If spatial_bins.sahpe[0] == 1 then rigid motion is used.
+    sample2time: func
+        As returned by SGLXProject.get_sample2time
+
+    Returns
+    -------
+    channel_motion: xarray.DataArray
+        da with dimensions "depth" and "time" dims & coordinates, and "sample_index" extra
+        coordinates
+    """
+    temporal_bins = np.asarray(si_temporal_bins)
+    spatial_bins = np.asarray(si_spatial_bins)
+    channel_depths = np.asarray(channel_depths)
+    if spatial_bins.shape[0] == 1:
+        # same motion for all channels
+        # No need to interpolate
+        assert si_motion.shape[1] == 1
+        channel_motions = np.tile(
+            si_motion[:, 0],
+            (len(channel_depths), 1),
+        )
+    else:
+        channel_motions = np.empty((len(channel_depths), len(temporal_bins)))
+        for bin_ind, _ in enumerate(temporal_bins):
+            # non rigid : interpolation channel motion for this temporal bin
+            f = scipy.interpolate.interp1d(
+                spatial_bins,
+                si_motion[bin_ind, :],
+                kind="linear",
+                axis=0,
+                bounds_error=False,
+                fill_value="extrapolate",
+            )
+            channel_motions[:, bin_ind] = f(channel_depths)
+    sample_index = (temporal_bins * sampling_rate).astype(int)
+    dims = ["depth", "time"]
+    coords = {
+        "depth": channel_depths,
+        "sample_index": ("time", sample_index),
+    }
+    if sample2time is not None:
+        try:
+            times = sample2time(sample_index)
+        except AssertionError:
+            # Last temporal bin is beyond end of recording
+            coords["sample_index"] = ("time", sample_index[:-1])
+            channel_motions = channel_motions[:, :-1]
+            times = sample2time(sample_index[:-1])
+        coords["time"] = times
+    return xr.DataArray(
+        channel_motions,
+        dims=dims,
+        coords=coords,
+        name="channel_motion",
+        attrs=[
+            ("depth", "um"),
+            ("sample_index", "None"),
+            ("time", "secs (sample2time)"),
+        ],
+    )
+
+
 def _save_channel_motion(
     project: SGLXProject,
     experiment: str,
@@ -110,7 +199,7 @@ def _save_channel_motion(
         sorting=sorting,
     )
 
-    channel_motion = ecephys.utils.siutils.interpolate_motion_per_channel(
+    channel_motion = _interpolate_motion_per_channel(
         channel_depths,
         sampling_rate,
         motion,
