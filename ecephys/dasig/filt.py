@@ -1,6 +1,6 @@
 import dask.array as da
-import numpy as np
 import mne.filter
+import numpy as np
 import scipy.signal
 
 from ecephys import npsig
@@ -48,12 +48,12 @@ def antialiasing_filter(
     time_axis: int = -1,
 ) -> da.Array:
     result_type = data.dtype
-    assert (result_type == np.float64) or (
-        result_type == np.float32
-    ), "Data must be float64 or float32."
-    assert (
-        q < 13
-    ), "It is recommended to call `decimate` multiple times for downsampling factors higher than 13. See scipy.signal.decimate docs."
+    assert (result_type == np.float64) or (result_type == np.float32), (
+        "Data must be float64 or float32."
+    )
+    assert q < 13, (
+        "It is recommended to call `decimate` multiple times for downsampling factors higher than 13. See scipy.signal.decimate docs."
+    )
     n = 8
     sos = scipy.signal.cheby1(n, 0.05, 0.8 / q, output="sos")
     sos = np.asarray(sos, dtype=result_type)
@@ -107,7 +107,7 @@ def mne_filter(
     time_axis = 1
 
     original_dtype = data.dtype
-    if not original_dtype in (np.float32, np.float64):
+    if original_dtype not in (np.float32, np.float64):
         raise ValueError("Data must be float32 or float64.")
     iir_params, method = mne.filter._check_method(method, iir_params)
     filt = mne.filter.create_filter(
