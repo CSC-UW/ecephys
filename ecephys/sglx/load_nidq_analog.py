@@ -1,21 +1,26 @@
+from pathlib import Path
+
 import numpy as np
 import xarray as xr
-from ecephys.sglxr.sglxr import (
-    _to_seconds_from_file_start,
-    _get_first_and_last_samples,
-    _get_timestamps,
-)
-from pathlib import Path
+
+# TODO: This should be satisfied by sglx.external
 from ecephys.sglxr.external.readSGLX import (
     ChannelCountsNI,
-    readMeta,
+    GainCorrectNI,
     SampRate,
     makeMemMapRaw,
-    GainCorrectNI,
+    readMeta,
+)
+
+# TODO: sglxr should not be a dependency of sglx
+from ecephys.sglxr.sglxr import (
+    _get_first_and_last_samples,
+    _get_timestamps,
+    _to_seconds_from_file_start,
 )
 
 
-def is_channel_XA(meta, channel):
+def _is_channel_XA(meta, channel):
     MN, MA, XA, DW = ChannelCountsNI(meta)
     return (channel >= (MN + MA)) and (channel < XA)
 
@@ -41,12 +46,12 @@ def load_nidq_analog(bin_path, channels, start_time=0, end_time=np.Inf):
     selectData = rawData[channels, firstSamp : lastSamp + 1]
 
     # Apply gain correction and convert to V
-    assert (
-        meta["typeThis"] == "nidq"
-    ), "This function only supports loading of analog NIDQ data."
-    assert all(
-        is_channel_XA(meta, ch) for ch in channels
-    ), "This function only supports loading of analog NIDQ data."
+    assert meta["typeThis"] == "nidq", (
+        "This function only supports loading of analog NIDQ data."
+    )
+    assert all(_is_channel_XA(meta, ch) for ch in channels), (
+        "This function only supports loading of analog NIDQ data."
+    )
     sig = 1e3 * GainCorrectNI(selectData, channels, meta)
     sig_units = "mV"
 

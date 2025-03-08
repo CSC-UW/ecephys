@@ -20,8 +20,10 @@ the 'meta' dictionary will make your data handling
 much easier!
 
 """
-import numpy as np
+
 from pathlib import Path
+
+import numpy as np
 
 
 # Parse ini file returning a dictionary whose keys are the metadata

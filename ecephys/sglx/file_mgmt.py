@@ -34,17 +34,18 @@ No functions in this file should require non-core packages, a config, or
 depend on any organization schema beyond that of official SpikeGLX tools.
 """
 
-import re
 import ast
 import logging
 import pathlib
+import re
 from itertools import chain
 
 # Non-core imports
 import numpy as np
 import pandas as pd
 from pandas.api.types import CategoricalDtype
-from .external.readSGLX import readMeta
+
+from .external import readSGLX
 
 logger = logging.getLogger(__name__)
 
@@ -366,7 +367,7 @@ def _try_casting(df, col, cast_to, fill_value):
 def read_metadata(files):
     """Takes a list of pathlib.Path
     See https://billkarsh.github.io/SpikeGLX/Sgl_help/Metadata_30.html"""
-    meta_dict = [readMeta(f) for f in files]
+    meta_dict = [readSGLX.readMeta(f) for f in files]
     df = pd.DataFrame(meta_dict)
 
     metadata_is_missing = df.isna().all(

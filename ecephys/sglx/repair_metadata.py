@@ -1,28 +1,27 @@
-# -*- coding: utf-8 -*-
 """
 Repair SGLX metadata_3B2 file following SGLX crash.
 
 Usage:
 
 ```python
-repair_meta(binpath, dry_run=True)
+repair_metadata(binpath, dry_run=True)
 ```
 """
 
-import re
 import hashlib
+import re
 import shutil
-import sys
 import warnings
-
 from pathlib import Path
 
 
-__author__ = "Tom Bugnon <tombugnon@hotmail.com>"
-__license__ = "Public Domain, 2021"
-
-
-def repair_meta(binpath, dry_run=True, backup_original_meta=True, ignore_SHA1=False, preview_metadata=True):
+def repair_metadata(
+    binpath,
+    dry_run=True,
+    backup_original_meta=True,
+    ignore_SHA1=False,
+    preview_metadata=True,
+):
     """Add missing fields to SGLX metadata 3B2 files following SGLX crash.
 
     The following fields may be missing from file following SGLX crash:
@@ -53,7 +52,7 @@ def repair_meta(binpath, dry_run=True, backup_original_meta=True, ignore_SHA1=Fa
     binpath = Path(binpath)
     metaName = binpath.stem + ".meta"
     metaPath = Path(binpath.parent / metaName)
-    meta = readMeta_noparse(metaPath)
+    meta = _readMeta_noparse(metaPath)
 
     # fileSizeBytes
     print("Check `fileSizeBytes` field.")
@@ -75,13 +74,13 @@ def repair_meta(binpath, dry_run=True, backup_original_meta=True, ignore_SHA1=Fa
                 " again to trim the raw data (destructive operation)"
             )
         else:
-            trim_bin_file(binpath, nChan, bytesPerSamp=2)
+            _trim_bin_file(binpath, nChan, bytesPerSamp=2)
             fileSizeBytes = binpath.stat().st_size
     assert fileSizeBytes / 2 % nChan == 0
 
     # fileTimeSecs
     print("Check `fileTimeSecs` field.")
-    sRate = SampRate(meta)
+    sRate = _SampRate(meta)
     nFileSamp = int(fileSizeBytes / (2 * nChan))  # /2 because int16
     if "fileTimeSecs" not in meta:
         meta["fileTimeSecs"] = str(nFileSamp / sRate)
@@ -90,25 +89,27 @@ def repair_meta(binpath, dry_run=True, backup_original_meta=True, ignore_SHA1=Fa
 
     # 'firstSample'
     print("Check `firstSample` field.")
-    derived_firstSample = derive_first_sample(metaPath)
+    derived_firstSample = _derive_first_sample(metaPath)
     if "firstSample" not in meta:
         if derived_firstSample is not None:
             print(f"Derived missing `firstSample` value: {derived_firstSample}")
             meta["firstSample"] = str(derived_firstSample)
-    assert derived_firstSample is None or int(meta["firstSample"]) == derived_firstSample
+    assert (
+        derived_firstSample is None or int(meta["firstSample"]) == derived_firstSample
+    )
 
     # SHA1 hash
     if not ignore_SHA1:
         print("Check `fileSHA1` field.", end=" ", flush=True)
         if "fileSHA1" not in meta:
             print("Missing `fileSHA1` field. Computing... ", end="", flush=True)
-            fileSHA1 = get_sha1_hexdigest(binpath).upper()
+            fileSHA1 = _get_sha1_hexdigest(binpath).upper()
             print(f"SHA1 hash = {fileSHA1}")
             meta["fileSHA1"] = fileSHA1
         else:
-            print(f"Checking SHA1 hash integrity...", end=" ", flush=True)
-            assert get_sha1_hexdigest(binpath).upper() == meta["fileSHA1"]
-            print(f"Ok!")
+            print("Checking SHA1 hash integrity...", end=" ", flush=True)
+            assert _get_sha1_hexdigest(binpath).upper() == meta["fileSHA1"]
+            print("Ok!")
     else:
         print("Ignoring SHA1 hash integrity.")
 
@@ -140,12 +141,10 @@ def repair_meta(binpath, dry_run=True, backup_original_meta=True, ignore_SHA1=Fa
         f.write(metadata_string)
 
 
-def get_sha1_hexdigest(binpath):
-
+def _get_sha1_hexdigest(binpath):
     BUF_SIZE = 32768  # Read file in 32kb chunks
     sha1 = hashlib.sha1()
     with open(binpath, "rb") as f:
-
         while True:
             data = f.read(BUF_SIZE)
             if not data:
@@ -154,16 +153,18 @@ def get_sha1_hexdigest(binpath):
         return sha1.hexdigest()
 
 
-def derive_first_sample(metapath):
+def _derive_first_sample(metapath):
     """Derive the first sample of a trigger metadata from previous trigger."""
 
-    previous_metapath = previous_trigger_metapath(metapath)
+    previous_metapath = _previous_trigger_metapath(metapath)
     if not previous_metapath.exists():
-        warnings.warn("Could not find previous trigger meta file. Ignoring `firstSample`" " field")
+        warnings.warn(
+            "Could not find previous trigger meta file. Ignoring `firstSample` field"
+        )
         return None
 
     # Previous file endSample
-    meta = readMeta_noparse(previous_metapath)
+    meta = _readMeta_noparse(previous_metapath)
     nChan = int(meta["nSavedChans"])
     nFileSamp = int(int(meta["fileSizeBytes"]) / (2 * nChan))
     startSample = int(meta["firstSample"])
@@ -171,8 +172,7 @@ def derive_first_sample(metapath):
     return startSample + nFileSamp
 
 
-def previous_trigger_metapath(metapath):
-
+def _previous_trigger_metapath(metapath):
     # Derive previous trigger's meta path
     match = re.match(
         r"\A(.*)_g([0-9]+)_t(.*).imec([0-9]+)(.*).meta\Z",
@@ -191,11 +191,11 @@ def previous_trigger_metapath(metapath):
     return Path(previous_metapath)
 
 
-def trim_bin_file(binpath, nChan, bytesPerSamp):
+def _trim_bin_file(binpath, nChan, bytesPerSamp):
     assert False  # TODO
 
 
-def readMeta_noparse(metaPath):
+def _readMeta_noparse(metaPath):
     """Read metadata
 
     No key and value parsing (unlike the original SGLX ReadMeta func)."""
@@ -214,7 +214,7 @@ def readMeta_noparse(metaPath):
     return metaDict
 
 
-def SampRate(meta):
+def _SampRate(meta):
     if meta["typeThis"] == "imec":
         srate = float(meta["imSampRate"])
     else:
