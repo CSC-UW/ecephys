@@ -18,18 +18,6 @@ def warn(msg):
     _console.print(f"Warning: {msg}", style="bright_yellow")
 
 
-# -------------------- Filesystem utilities --------------------
-
-
-# Avoid PermissionError with shutil.copytree on NAS smb share
-# TODO: Move to wisc-specific
-def system_copy(src, dst):
-    """Copy using `cp -r src dst` system call."""
-    import subprocess
-
-    subprocess.call(["cp", "-r", str(src), str(dst)])
-
-
 # -------------------- Pattern utilities --------------------
 
 
