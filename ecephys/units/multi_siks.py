@@ -7,7 +7,8 @@ from tqdm import tqdm
 
 import ecephys.utils
 
-from . import SpikeInterfaceKilosortSorting, cluster_trains, dtypes
+from . import cluster_trains, dtypes
+from .siks_sorting import SpikeInterfaceKilosortSorting
 
 
 class MultiSIKS:
