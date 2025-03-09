@@ -23,7 +23,8 @@ from tqdm import tqdm
 import ecephys.utils
 import ecephys.wne.siutils as siutils
 from ecephys import hypnogram
-from ecephys.wne import Project, constants
+from ecephys.wne import constants as wne_constants
+from ecephys.wne.project import Project
 from ecephys.wne.sglx.project import SGLXProject
 from ecephys.wne.sglx.subject import SGLXSubject
 
@@ -135,10 +136,12 @@ class SpikeInterfacePostprocessingPipeline:
         #   (1) wneProject
         #   (2) A custom location of your choosing
         if options_source == "wneProject":
+            # This was "ecephys.wne.constants.PREPROCESSING_PIPELINE_PARAMS_FNAME", but a variable of that name has never existed.
+            # Older versions of the core pointed to SORTING_PIPELINE_PARAMS, so that is my best guess for what this should be.
             self._opts_src = sglxProject.get_experiment_subject_file(
                 experiment,
                 sglxSubject.name,
-                constants.PREPROCESSING_PIPELINE_PARAMS_FNAME,
+                wne_constants.Files.SORTING_PIPELINE_PARAMS,
             )
         else:
             self._opts_src = Path(options_source)
