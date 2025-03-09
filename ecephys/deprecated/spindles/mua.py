@@ -1,13 +1,16 @@
 import logging
 
+import elephant.statistics
+import neo
 import numpy as np
 import pandas as pd
+import quantities
 import xarray as xr
+from elephant import kernels
 
 import ecephys.hypnogram as hyp
 import ecephys.xrsig as xrsig
-from ecephys.units import elephantutils
-from ecephys.units.dtypes import SpikeTrain_Secs
+from ecephys.units import dtypes
 
 from . import common
 
@@ -73,7 +76,7 @@ def _get_mu_spindle_properties(
 
 
 def detect_mu_spindles_from_spiketrain(
-    spiketrain_sec: SpikeTrain_Secs,
+    spiketrain_sec: dtypes.SpikeTrain_Secs,
     params: dict,
     hg: hyp.FloatHypnogram,
     artifacts: pd.DataFrame = None,
@@ -91,7 +94,7 @@ def detect_mu_spindles_from_spiketrain(
     if artifacts is None:
         artifacts = pd.DataFrame()
 
-    mu = elephantutils.compute_instantaneous_rate_xrsig(
+    mu = _compute_instantaneous_rate_xrsig(
         spiketrain_sec,
         params["instantaneous_rate_sfreq_hz"],
         params["instantaneous_rate_gaussian_sigma_msec"],
@@ -210,4 +213,58 @@ def examine_mu_spindle(
         t=t,
         channel=channel,
         hg=hg,
+    )
+
+
+def _convert_to_neo_spiketrain(
+    spike_train_sec: dtypes.SpikeTrain_Secs,
+    t_start_sec=None,
+    t_stop_sec=None,
+):
+    if t_start_sec is None:
+        t_start_sec = np.min(spike_train_sec)
+    if t_stop_sec is None:
+        t_stop_sec = np.max(spike_train_sec)
+
+    sec = quantities.s
+    return neo.SpikeTrain(
+        spike_train_sec, t_start=t_start_sec * sec, t_stop=t_stop_sec * sec, units=sec
+    )
+
+
+def _compute_instantaneous_rate_xrsig(
+    spiketrain_sec: dtypes.SpikeTrain_Secs,
+    sampling_frequency_hz: float = 300,
+    gaussian_sigma_msec: float = None,
+    t_start_sec: float = None,
+    t_stop_sec: float = None,
+    channel_name: str = "mua",
+) -> xr.DataArray:
+    """Elephant-style instantaneous rate with gaussian kernel."""
+    if gaussian_sigma_msec is None:
+        kernel = "auto"
+    else:
+        kernel = kernels.GaussianKernel(
+            sigma=gaussian_sigma_msec * quantities.ms,
+        )
+
+    neotrain = _convert_to_neo_spiketrain(
+        spiketrain_sec,
+        t_start_sec=min(t_start_sec, np.min(spiketrain_sec)),
+        t_stop_sec=max(t_stop_sec, np.max(spiketrain_sec)),
+    )
+
+    res = elephant.statistics.instantaneous_rate(
+        neotrain, (1 / sampling_frequency_hz) * quantities.s, kernel=kernel
+    )
+
+    return xr.DataArray(
+        res.magnitude,
+        dims=["time", "channel"],
+        coords={
+            "channel": [channel_name],
+            "time": res.times.magnitude,
+        },
+        name="Instantaneous rate (Hz)",
+        attrs={"fs": sampling_frequency_hz},
     )

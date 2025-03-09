@@ -1,13 +1,31 @@
-from ecephys.units.dtypes import *
-from ecephys.units import utils
-from ecephys.units import siutils
-from ecephys.units.cluster_trains import *
-from ecephys.units.correlograms import *
-from ecephys.units.peths import (
-    get_peths_from_trains,
-    get_peths_from_trains_alt,
-    get_peths_from_spike_vector,
+from . import dtypes
+from .cluster_trains import convert_cluster_trains_to_spike_vector
+from .correlograms import (
+    add_cluster_properties_to_correlograms,
+    compute_autocorrelograms,
+    compute_autocorrelograms_by_hypnogram_state,
+    compute_intrapopulation_correlograms,
+    compute_intrapopulation_correlograms_by_hypnogram_state,
+    get_trains_by_state,
+    make_bins,
 )
-from ecephys.units.siks_sorting import SpikeInterfaceKilosortSorting
-from ecephys.units.multi_siks import MultiSIKS
-from ecephys.units import ephyviewerutils
+from .multi_siks import MultiSIKS
+from .peths import get_peths_from_trains
+from .siks_sorting import SpikeInterfaceKilosortSorting
+from .siutils import refine_clusters
+
+__all__ = [
+    "MultiSIKS",
+    "SpikeInterfaceKilosortSorting",
+    "add_cluster_properties_to_correlograms",
+    "compute_autocorrelograms",
+    "compute_autocorrelograms_by_hypnogram_state",
+    "compute_intrapopulation_correlograms",
+    "compute_intrapopulation_correlograms_by_hypnogram_state",
+    "convert_cluster_trains_to_spike_vector",
+    "dtypes",
+    "get_peths_from_trains",
+    "get_trains_by_state",
+    "make_bins",
+    "refine_clusters",
+]

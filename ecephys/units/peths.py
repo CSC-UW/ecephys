@@ -47,7 +47,7 @@ def get_peths_from_trains(
     numba_trains = numba.typed.Dict.empty(numba.types.int64, numba.types.float64[:])
     for numba_id, train_id in enumerate(train_ids):
         numba_trains[numba_id] = trains[train_id]
-    binned_spikes, tscale, numba_ids = bin_spiketrains_numba(
+    binned_spikes, tscale, numba_ids = _bin_spiketrains_numba(
         numba_trains, event_times, pre_time, post_time, bin_size
     )
 
@@ -64,17 +64,17 @@ def get_peths_from_trains(
         },
     )
 
-    if not (event_labels is None):
+    if event_labels is not None:
         peths = peths.assign_coords({"event_type": ("event", event_labels)})
 
     if (train_keys == "cluster_id") and (property_frame is not None):
-        peths = add_cluster_properties_to_peths(peths, property_frame, property_names)
+        peths = _add_cluster_properties_to_peths(peths, property_frame, property_names)
 
     return peths
 
 
 @numba.njit(parallel=True, nogil=True, cache=True)
-def bin_spiketrains_numba(numba_trains, event_times, pre_time, post_time, bin_size):
+def _bin_spiketrains_numba(numba_trains, event_times, pre_time, post_time, bin_size):
     n_bins_pre = int(np.ceil(pre_time / bin_size))
     n_bins_post = int(np.ceil(post_time / bin_size))
     n_bins = n_bins_pre + n_bins_post
@@ -105,7 +105,7 @@ def bin_spiketrains_numba(numba_trains, event_times, pre_time, post_time, bin_si
     return binned_spikes, tscale, train_ids
 
 
-def add_cluster_properties_to_peths(
+def _add_cluster_properties_to_peths(
     peths: xr.DataArray,
     property_frame: pd.DataFrame,
     property_names: Optional[list[str]] = None,
@@ -132,7 +132,7 @@ def add_cluster_properties_to_peths(
 ################
 
 
-def get_peths_from_trains_alt(
+def _get_peths_from_trains_alt(
     trains: dtypes.ClusterTrains_Secs,
     event_times: np.ndarray,
     event_labels: Optional[np.ndarray] = None,
@@ -158,7 +158,7 @@ def get_peths_from_trains_alt(
     )
 
     for i, id in enumerate(cluster_ids):
-        binned_spikes[i], tscale = bin_single_spiketrain_numba(
+        binned_spikes[i], tscale = _bin_single_spiketrain_numba(
             trains[id], event_times, pre_time, post_time, bin_size
         )
         # binned_spikes[i], tscale = singlecell.bin_spikes(trains[id], event_times, pre_time, post_time, bin_size)
@@ -176,11 +176,11 @@ def get_peths_from_trains_alt(
         },
     )
 
-    if not (event_labels is None):
+    if event_labels is not None:
         peths = peths.assign_coords({"event_type": ("event", event_labels)})
 
-    if not (property_frame is None):
-        peths = add_cluster_properties_to_peths(peths, property_frame, property_names)
+    if property_frame is not None:
+        peths = _add_cluster_properties_to_peths(peths, property_frame, property_names)
 
     return peths
 
@@ -191,7 +191,7 @@ def get_peths_from_trains_alt(
     nogil=True,
     cache=True,
 )
-def bin_single_spiketrain_numba(
+def _bin_single_spiketrain_numba(
     spike_times, event_times, pre_time, post_time, bin_size
 ):
     """Based on brainbox.singlecell.bin_spikes, but using numba to speed up the loop.
@@ -223,7 +223,7 @@ def bin_single_spiketrain_numba(
     return binned_spikes, tscale
 
 
-def get_peths_from_spike_vector(
+def _get_peths_from_spike_vector(
     spike_times: dtypes.SpikeTrain_Secs,
     spike_cluster_ixs: dtypes.ClusterIXs,
     cluster_ids: dtypes.ClusterIDs,
@@ -243,7 +243,7 @@ def get_peths_from_spike_vector(
     spike_times, spike_cluster_ixs, cluster_ids = units.convert_cluster_trains_to_spike_vector(trains)
     peths = get_peths_from_spike_vector(spike_times, spike_cluster_ixs, cluster_ids, event_times)
     """
-    binned_spikes, tscale = bin_spike_vector_numba(
+    binned_spikes, tscale = _bin_spike_vector_numba(
         spike_times,
         spike_cluster_ixs,
         cluster_ids,
@@ -266,11 +266,11 @@ def get_peths_from_spike_vector(
         },
     )
 
-    if not (event_labels is None):
+    if event_labels is not None:
         peths = peths.assign_coords({"event_type": ("event", event_labels)})
 
-    if not (property_frame is None):
-        peths = add_cluster_properties_to_peths(peths, property_frame, property_names)
+    if property_frame is not None:
+        peths = _add_cluster_properties_to_peths(peths, property_frame, property_names)
 
     return peths
 
@@ -290,7 +290,7 @@ def get_peths_from_spike_vector(
     cache=True,
     parallel=True,
 )
-def bin_spike_vector_numba(
+def _bin_spike_vector_numba(
     spike_times,
     spike_cluster_ixs,
     cluster_ids,

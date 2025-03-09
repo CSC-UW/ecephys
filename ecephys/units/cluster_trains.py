@@ -1,6 +1,6 @@
 import numpy as np
 
-from ecephys import utils
+import ecephys.utils
 from ecephys.units import dtypes
 
 
@@ -18,7 +18,7 @@ def convert_cluster_trains_to_spike_vector(
     # Allocate output arrays
     cluster_ids = np.asarray(list(trains.keys()))
     dtypes = [trains[id].dtype for id in cluster_ids]
-    assert utils.all_equal(dtypes), "All input arrays must have the same dtype"
+    assert ecephys.utils.all_equal(dtypes), "All input arrays must have the same dtype"
     dtype = dtypes[0]
     n = np.sum([cluster_spikes.size for cluster_spikes in trains.values()])
     spike_times = np.zeros(n, dtype=dtype)  # Holds time of each spike

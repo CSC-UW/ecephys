@@ -9,7 +9,7 @@ import pandas as pd
 import ecephys.utils
 from ecephys import hypnogram, units
 from ecephys.sglx import file_mgmt
-from ecephys.wne import constants
+from ecephys.wne import constants, siutils
 from ecephys.wne import utils as wne_utils
 from ecephys.wne.project import Project
 from ecephys.wne.sglx import sessions
@@ -359,8 +359,8 @@ def load_singleprobe_sorting(
         warnings.warn(
             "Could not find anatomy file at: {anatomy_file}. Using dummy structure table"
         )
-        structs = units.siutils.get_dummy_structure_table(lo=-np.Inf, hi=np.Inf)
-    extractor = units.siutils.add_anatomy_properties_to_extractor(extractor, structs)
+        structs = siutils.get_dummy_structure_table(lo=-np.Inf, hi=np.Inf)
+    extractor = siutils.add_anatomy_properties_to_extractor(extractor, structs)
 
     return units.SpikeInterfaceKilosortSorting(extractor, sample2time)
 

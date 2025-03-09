@@ -239,3 +239,49 @@ def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
         rec.set_times(times)
 
     return rec
+
+
+def add_anatomy_properties_to_extractor(
+    extractor: se.KiloSortSortingExtractor, structs: pd.DataFrame
+) -> se.KiloSortSortingExtractor:
+    """
+    Add a `structure` and `acronym` properties to each cluster indicating its anatomical region.
+
+    Parameters
+    ===========
+    structure: The long structure name
+    acronym: Abbreviated structure name
+    hi: Upper boundary of the structure, in the same coordinates as the SI extractor's depth property
+    lo: Lower boundary of the structure, in the same coordinates as the SI extractor's depth property
+
+    Example structure table, as an HTSV file:
+        structure	acronym	thickness	hi	lo
+        Olfactory area / Basal forebrain / Dorsia tenia tecta	DTT	1192.4538258575196	1192.4538258575196	0.0
+        Medial orbital cortex	MO	889.287598944591	2081.7414248021105	1192.4538258575196
+        Prelimbic cortex / A32D + A32V	PreL	2506.174142480211	4587.915567282322	2081.7414248021105
+        Secondary motor cortex	M2	2021.108179419525	6609.023746701847	4587.915567282322
+        Out of brain	OOB	1050.9762532981529	7659.999999999999	6609.023746701847
+    """
+
+    depths = extractor.get_property("depth")
+    structures = np.empty(depths.shape, dtype=object)
+    acronyms = np.empty(depths.shape, dtype=object)
+    for structure in structs.itertuples():
+        lo = structure.lo
+        hi = structure.hi
+        mask = (depths >= lo) & (depths <= hi)
+        structures[np.where(mask)] = structure.structure
+        acronyms[np.where(mask)] = structure.acronym
+
+    structures[pd.isnull(structures)] = "???"
+    acronyms[pd.isnull(acronyms)] = "???"
+    extractor.set_property("structure", structures)
+    extractor.set_property("acronym", acronyms)
+    extractor.set_annotation("structure_table", structs)
+    return extractor
+
+
+def get_dummy_structure_table(lo, hi):
+    return pd.DataFrame(
+        [{"structure": "Full probe", "acronym": "All", "lo": lo, "hi": hi}]
+    )

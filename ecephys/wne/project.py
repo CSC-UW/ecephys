@@ -344,6 +344,7 @@ class Project:
             hg = hg.replace_states(constants.SIMPLIFIED_STATES)
         return hg
 
+    # TODO: This should not be a method, and it should not be here.
     def load_offs_df(
         self,
         experiment: str,

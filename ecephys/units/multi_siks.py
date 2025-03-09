@@ -1,14 +1,13 @@
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from tqdm import tqdm
 
-from ecephys.units import cluster_trains
-from ecephys.units import dtypes
-from ecephys.units import SpikeInterfaceKilosortSorting
 import ecephys.utils
+
+from . import SpikeInterfaceKilosortSorting, cluster_trains, dtypes
 
 
 class MultiSIKS:

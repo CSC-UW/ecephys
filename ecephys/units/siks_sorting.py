@@ -1,6 +1,6 @@
 import logging
-from typing import Callable, Optional, Union, Any
 import warnings
+from typing import Any, Callable, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,12 +12,11 @@ import spikeinterface as si
 import spikeinterface.extractors as se
 from tqdm import tqdm
 
-from ecephys import hypnogram
+import ecephys.hypnogram as hyp
 import ecephys.plot
-from ecephys.units import cluster_trains
-from ecephys.units import dtypes
-from ecephys.units import siutils
 import ecephys.utils
+
+from . import cluster_trains, dtypes, siutils
 
 try:
     import on_off_detection
@@ -102,7 +101,11 @@ class SpikeInterfaceKilosortSorting:
     ):
         """Refine clusters, and conveniently wrap the result, so that the user doesn't have to."""
         new_obj = siutils.refine_clusters(
-            self.si_obj, simple_filters, callable_filters, include_nans, verbose=verbose,
+            self.si_obj,
+            simple_filters,
+            callable_filters,
+            include_nans,
+            verbose=verbose,
         )
         return self.__class__(
             new_obj,
@@ -121,11 +124,16 @@ class SpikeInterfaceKilosortSorting:
 
     def select_structures(self, tgt_structure_acronyms: list[str], verbose=True):
         """Select clusters belonging to desired structures, and update `self.struct` accordingly."""
-        all_structure_acronyms = [s for s in self.si_obj.get_annotation("structure_table")["acronym"].unique()]
+        all_structure_acronyms = [
+            s for s in self.si_obj.get_annotation("structure_table")["acronym"].unique()
+        ]
         if tgt_structure_acronyms is None:
             tgt_structure_acronyms = all_structure_acronyms
         new_obj = siutils.refine_clusters(
-            self.si_obj, {"acronym": set(tgt_structure_acronyms)}, include_nans=False, verbose=verbose
+            self.si_obj,
+            {"acronym": set(tgt_structure_acronyms)},
+            include_nans=False,
+            verbose=verbose,
         )
         return self.__class__(
             new_obj,
@@ -149,7 +157,7 @@ class SpikeInterfaceKilosortSorting:
         Beware: Even if only a small time range of data are requested, the whole-recording spike train will be loaded and cached, before returning the data of interest.
         """
         # First, check the cache, and update it if needed.
-        if not (cluster_id in self._cache):
+        if cluster_id not in self._cache:
             self._cache[cluster_id] = self.si_obj.get_unit_spike_train(
                 cluster_id, return_times=False
             )  # Always cache samples, never times.
@@ -270,7 +278,7 @@ class SpikeInterfaceKilosortSorting:
     # TODO: Move elsewhere, since this is not a wrapper around SI core functionality
     def run_off_detection(
         self,
-        hg: hypnogram.FloatHypnogram,
+        hg: hyp.FloatHypnogram,
         tgt_states=None,
         split_by_state=True,
         on_off_method="hmmem",
@@ -323,9 +331,9 @@ class SpikeInterfaceKilosortSorting:
                 "Please install `on_off_detection` package from https://github.com/csc-uw/on_off_detection"
             )
         if not spatial_detection:
-            assert (
-                spatial_params is None
-            ), f"Set `spatial_params=None` if `spatial_detection` is False."
+            assert spatial_params is None, (
+                "Set `spatial_params=None` if `spatial_detection` is False."
+            )
 
         print(
             f"Running ON/OFF detection. Cutting/concatenating the following hypnogram states: {tgt_states}"
@@ -345,9 +353,9 @@ class SpikeInterfaceKilosortSorting:
         all_allowed_states = [s for s in hg.state.unique() if s != "NoData"]
         if tgt_states is None:
             tgt_states = all_allowed_states
-        assert all(
-            [s in all_allowed_states for s in tgt_states]
-        ), f"Invalid value in `tgt_states={tgt_states}`. Available states: {all_allowed_states}"
+        assert all([s in all_allowed_states for s in tgt_states]), (
+            f"Invalid value in `tgt_states={tgt_states}`. Available states: {all_allowed_states}"
+        )
         mask = hg.state.isin(tgt_states)
         # Remove epochs starting/ending before/after start/end of recording (avoid spurious OFF)
         first_spike_t = min([min(t) for t in all_trains.values()])
