@@ -7,7 +7,7 @@ import pandas as pd
 import spikeinterface.postprocessing.correlograms
 import xarray as xr
 
-import ecephys.hypnogram as hyp
+from ecephys import hypnogram as hyp
 
 from . import cluster_trains, dtypes
 

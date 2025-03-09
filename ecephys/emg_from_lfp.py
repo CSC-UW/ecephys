@@ -18,7 +18,7 @@ import itertools
 
 import numpy as np
 import scipy.signal
-from scipy.stats import pearsonr
+import scipy.stats
 from tqdm.auto import tqdm
 
 
@@ -130,7 +130,7 @@ def _compute_av_corr(data, data_sf, target_sf, window_size):
             win_start_i = max(0, int(win_center_samp - window_n_samps / 2))
             win_end_i = min(n_samps, int(win_center_samp + window_n_samps / 2))
             # Add correlation for pair to total
-            corr_data[0, s] += pearsonr(
+            corr_data[0, s] += scipy.stats.pearsonr(
                 data[i, win_start_i : win_end_i + 1],
                 data[j, win_start_i : win_end_i + 1],
             )[0]

@@ -1,13 +1,13 @@
+import functools
 import itertools as it
 import json
 import logging
 import pathlib
 from collections.abc import Iterable
-from functools import reduce
 
 import numpy as np
+import scipy.stats
 from rich.console import Console
-from scipy.stats import median_abs_deviation
 
 logger = logging.getLogger(__name__)
 _console = Console()
@@ -27,13 +27,13 @@ def next_power_of_2(x):
 
 
 def discard_outliers(x, n_mad=6):
-    mad = median_abs_deviation(x)
+    mad = scipy.stats.median_abs_deviation(x)
     threshold = np.median(x) + n_mad * mad
     return x[x <= threshold]
 
 
 def replace_outliers(x, n_mad=6, fill_value=np.nan):
-    mad = median_abs_deviation(x)
+    mad = scipy.stats.median_abs_deviation(x)
     threshold = np.median(x) + n_mad * mad
     x[x > threshold] = fill_value
     return x
@@ -42,7 +42,7 @@ def replace_outliers(x, n_mad=6, fill_value=np.nan):
 def clip_outliers(x, method="mad", n_devs=6):
     if method == "mad":
         center = np.median(x)
-        dev = median_abs_deviation(x)
+        dev = scipy.stats.median_abs_deviation(x)
     elif method == "std":
         center = np.mean(x)
         dev = np.std(x)
@@ -117,7 +117,7 @@ def item_intersection(l):
     item_intersection([foo, bar, baz])
     >> {'b': 2}
     """
-    return reduce(lambda x, y: dict(x.items() & y.items()), l)
+    return functools.reduce(lambda x, y: dict(x.items() & y.items()), l)
 
 
 def drop_unjsonable(d):

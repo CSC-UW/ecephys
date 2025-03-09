@@ -12,11 +12,9 @@ import xarray as xr
 from ibldsp import fourier, voltage
 from tqdm.auto import tqdm
 
-import ecephys.dasig as dasig
-import ecephys.emg_from_lfp as emg_from_lfp
-import ecephys.npsig as npsig
 import ecephys.utils
 import ecephys.utils.dask as dask_utils
+from ecephys import dasig, emg_from_lfp, npsig
 
 logger = logging.getLogger(__name__)
 

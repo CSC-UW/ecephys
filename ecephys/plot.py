@@ -17,7 +17,7 @@ from ipywidgets import (
 )
 from matplotlib.ticker import MaxNLocator
 
-import ecephys.npsig.utils
+from ecephys import npsig
 
 _colorblind = sns.color_palette("colorblind")
 _dark = sns.color_palette("dark")
@@ -547,7 +547,7 @@ def lfp_explorer(
     time = time[selected_samples]
 
     if zero_mean:
-        lfps = ecephys.npsig.utils.mean_subtract(lfps)
+        lfps = npsig.utils.mean_subtract(lfps)
 
     lfp_centers = -np.full(lfps.shape, np.arange(n_plot_chans) * vspace)
     if flip_dv:
@@ -706,7 +706,7 @@ def colormesh_explorer(
     y = y[i_y : i_y + n_y]
 
     if zero_mean:
-        sig = ecephys.npsig.utils.mean_subtract(sig)
+        sig = npsig.utils.mean_subtract(sig)
 
     ax.pcolormesh(time, y, sig.T, shading="gouraud")
     ax.set_xlim([window_start, window_end])

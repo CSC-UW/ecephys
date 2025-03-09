@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
-import ecephys.plot as eplt
+from ecephys import plot as eplt
 
 from . import core
 

@@ -2,15 +2,11 @@ import warnings
 
 import kcsd
 import numpy as np
-
-from spikeinterface.core.core_tools import define_function_from_class
-from spikeinterface.preprocessing.basepreprocessor import (
-    BasePreprocessor,
-    BasePreprocessorSegment,
-)
+from spikeinterface.core import core_tools
+from spikeinterface.preprocessing import basepreprocessor as si_bpp
 
 
-class KCSD1DRecording(BasePreprocessor):
+class KCSD1DRecording(si_bpp.BasePreprocessor):
     """
     Perform 1D Kernel Current Source Density
 
@@ -63,7 +59,7 @@ class KCSD1DRecording(BasePreprocessor):
             new_channel_ids = recording.get_channel_ids()
         else:
             new_channel_ids = y_kcsd
-        BasePreprocessor.__init__(
+        si_bpp.BasePreprocessor.__init__(
             self, recording, channel_ids=new_channel_ids, dtype=k.values("CSD").dtype
         )
 
@@ -83,9 +79,9 @@ class KCSD1DRecording(BasePreprocessor):
         self._kwargs = dict(recording=recording, kcsd_kwargs=kcsd_kwargs)
 
 
-class KCSD1DRecordingSegment(BasePreprocessorSegment):
+class KCSD1DRecordingSegment(si_bpp.BasePreprocessorSegment):
     def __init__(self, parent_recording_segment, y_mm, kcsd_kwargs):
-        BasePreprocessorSegment.__init__(self, parent_recording_segment)
+        si_bpp.BasePreprocessorSegment.__init__(self, parent_recording_segment)
         self.y_mm = y_mm
         self.kcsd_kwargs = kcsd_kwargs
 
@@ -107,4 +103,6 @@ class KCSD1DRecordingSegment(BasePreprocessorSegment):
 
 
 # function for API
-whiten = define_function_from_class(source_class=KCSD1DRecording, name="kcsd1d")
+whiten = core_tools.define_function_from_class(
+    source_class=KCSD1DRecording, name="kcsd1d"
+)
