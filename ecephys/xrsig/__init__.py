@@ -1,4 +1,4 @@
-from . import dsp, ephyviewer, senzai, si_extractor
+from . import ephyviewer, senzai, si_extractor
 from .core import (
     antialiasing_filter,
     assign_laminar_coordinate,
@@ -53,7 +53,6 @@ __all__ = [
     "demean_trialed",
     "dephase_neuropixels",
     "detrend_trialed",
-    "dsp",
     "ephyviewer",
     "get_boundary_ilocs",
     "get_channel_indices",

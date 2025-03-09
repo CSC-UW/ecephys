@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal
 import ssqueezepy as ssq
@@ -167,3 +168,23 @@ def cwt(
     )
     freqs = freqs[::-1]
     return Wx, freqs, scales
+
+
+def _visualize_cwt_scale_selection(
+    N: int, wavelet: str, scaletype: str, preset: str, nv: int, downsample: int
+):
+    M = ssq.utils.p2up(N)[0]
+    wavelet = ssq.Wavelet(wavelet, N=M)
+    min_scale, max_scale = ssq.utils.cwt_scalebounds(wavelet, N=N, preset=preset)
+    scales = ssq.utils.make_scales(
+        N,
+        min_scale,
+        max_scale,
+        nv=nv,
+        scaletype=scaletype,
+        wavelet=wavelet,
+        downsample=downsample,
+    )
+
+    plt.figure(figsize=(22, 6))
+    wavelet.viz("filterbank", scales=scales)
