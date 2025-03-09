@@ -21,6 +21,7 @@ class SGLXProject(Project):
     def __repr__(self):
         return f"sglxProject: {self.name}, {self.dir}"
 
+    # TODO: Questionable whether this should be a method.
     def load_segments_table(
         self,
         subject: str,
@@ -75,6 +76,7 @@ class SGLXProject(Project):
 
         return segments[segments["type"] == "keep"]
 
+    # TODO: Questionable whether this should be a method.
     def get_sample2time(
         self,
         subject: str,

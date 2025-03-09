@@ -16,8 +16,9 @@ from pandas.testing import assert_frame_equal
 import ecephys.utils
 from ecephys.wne import constants
 from ecephys.wne.project import Project
-from ecephys.wne.sglx.pipeline import preprocess_si_rec
 from ecephys.wne.sglx.subject import SGLXSubject
+
+from . import preprocess_si_rec
 
 # TODO: Be consistent about using logger vs print
 logger = logging.getLogger(__name__)

@@ -5,36 +5,40 @@ import pandas as pd
 import xarray as xr
 
 import ecephys.utils
-from ecephys import hypnogram, xrsig
-from ecephys.wne import constants
-from ecephys.wne.constants import FileExtensions as Exts
-from ecephys.wne.constants import Files
-from ecephys.wne.project import Project
-from ecephys.wne.subject import Subject
+from ecephys import hypnogram as hyp
+from ecephys import xrsig
+
+from . import constants
+from .constants import FileExtensions as Exts
+from .constants import Files
+from .project import Project
+from .subject import Subject
 
 logger = logging.getLogger(__name__)
 
 
 def float_hypnogram_to_datetime(
-    subj: Subject, experiment: str, hyp: hypnogram.FloatHypnogram, hyp_prb: str
-) -> hypnogram.DatetimeHypnogram:
+    subj: Subject, experiment: str, hyp: hyp.FloatHypnogram, hyp_prb: str
+) -> hyp.DatetimeHypnogram:
     df = hyp._df.copy()
     df["start_time"] = subj.t2dt(experiment, hyp_prb, df["start_time"])
     df["end_time"] = subj.t2dt(experiment, hyp_prb, df["end_time"])
     df["duration"] = df["end_time"] - df["start_time"]
-    return hypnogram.DatetimeHypnogram(df)
+    return hyp.DatetimeHypnogram(df)
 
 
 def datetime_hypnogram_to_float(
-    subj: Subject, experiment: str, hyp: hypnogram.DatetimeHypnogram, hyp_prb: str
-) -> hypnogram.FloatHypnogram:
+    subj: Subject, experiment: str, hyp: hyp.DatetimeHypnogram, hyp_prb: str
+) -> hyp.FloatHypnogram:
     df = hyp._df.copy()
     df["start_time"] = subj.dt2t(experiment, hyp_prb, df["start_time"])
     df["end_time"] = subj.dt2t(experiment, hyp_prb, df["end_time"])
     df["duration"] = df["end_time"] - df["start_time"]
-    return hypnogram.FloatHypnogram(df)
+    return hyp.FloatHypnogram(df)
 
 
+# TODO: This seems SLGX-specific, since it uses f"{probe}.{stream}.{Files.ARTIFACTS}".
+# And, it is only used in sglx.utils.load_sglx_inclusions_and_artifacts(). Move it there?
 def load_consolidated_artifacts(
     project: Project,
     experiment: str,
@@ -62,12 +66,13 @@ def load_consolidated_artifacts(
 
 
 # TODO: This whole function appears to be an unnecessary duplication of ecephys.wne.projects.Project.load_float_hypnogram()
+# Of the two, this is the one that is used, but which should be preferred? Probably this one.
 def load_raw_float_hypnogram(
     project: Project,
     experiment: str,
     subject: str,
     simplify: bool = True,
-) -> hypnogram.FloatHypnogram:
+) -> hyp.FloatHypnogram:
     """Load FloatHypnogram from consolidated hypnogram.htsv project file.
 
     Important: This hypnogram might not be adequate for all use, as it does
@@ -76,28 +81,16 @@ def load_raw_float_hypnogram(
     using ecephys.wne.sglx.utils.load_reconciled_float_hypnogram instead.
     """
     f = project.get_experiment_subject_file(experiment, subject, Files.HYPNOGRAM)
-    hg = hypnogram.FloatHypnogram.from_htsv(f)
+    hg = hyp.FloatHypnogram.from_htsv(f)
     if simplify:
         hg = hg.replace_states(constants.SIMPLIFIED_STATES)
         # TODO: This clean() should not be necessary. It is already done in ecephys.wne.sglx.pipeline.consoldate_visbrain_hypnograms.do_experiment_probe().
         # Although, it will change NaNs to NoData. Is that expected downstream somewhere?
-        hg = hypnogram.FloatHypnogram.clean(hg._df)
+        hg = hyp.FloatHypnogram.clean(hg._df)
     return hg
 
 
-def load_raw_datetime_hypnogram(
-    project: Project,
-    experiment: str,
-    subject: str,
-    simplify: bool = True,
-) -> hypnogram.DatetimeHypnogram:
-    hg = load_raw_float_hypnogram(project, experiment, subject, simplify)
-    params = project.load_experiment_subject_params(experiment, subject.name)
-    return float_hypnogram_to_datetime(
-        subject, experiment, hg, params["hypnogram_probe"]
-    )
-
-
+# TODO: This seems like it belongs in wisc_ecephys_tools
 def load_ephyviewer_hypnogram_edits(
     project: Project,
     experiment: str,
@@ -108,17 +101,17 @@ def load_ephyviewer_hypnogram_edits(
         experiment, subject, Files.HYPNOGRAM_EPHYVIEWER_EDITS
     )
     if not f.exists():
-        return hypnogram.FloatHypnogram(
+        return hyp.FloatHypnogram(
             pd.DataFrame([], columns=["state", "start_time", "end_time", "duration"])
         )
 
     df = pd.read_csv(f, sep=",")
     df = df.rename({"time": "start_time", "label": "state"}, axis=1)
     df["end_time"] = df["start_time"] + df["duration"]
-    hg = hypnogram.FloatHypnogram(df)
+    hg = hyp.FloatHypnogram(df)
     if simplify:
         hg = hg.replace_states(constants.SIMPLIFIED_STATES)
-    return hypnogram.FloatHypnogram(hypnogram.condense(hg._df, 0.1))
+    return hyp.FloatHypnogram(hyp.condense(hg._df, 0.1))
 
 
 def open_lfps(

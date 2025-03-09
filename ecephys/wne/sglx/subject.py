@@ -8,8 +8,8 @@ import pandas as pd
 import spikeinterface as si
 import spikeinterface.extractors as se
 
-from ecephys import utils
 from ecephys.sglx import file_mgmt
+from ecephys.utils import pandas as pd_utils
 from ecephys.wne.sglx import experiments, sessions
 from ecephys.wne.subject import Subject
 
@@ -144,6 +144,7 @@ class SGLXSubject(Subject):
 
         return [get_subalias_datetimes(sa) for sa in subaliases]
 
+    # TODO: This should not be a method, and it should not be here.
     def get_si_recording(
         self,
         experiment: str,
@@ -349,7 +350,7 @@ def segment_experiment_frame_for_spikeinterface(
         )
 
         # Do the actual splitting of the entire file around the exclusions
-        file_segments = utils.reconcile_labeled_intervals(
+        file_segments = pd_utils.reconcile_labeled_intervals(
             exclusions.loc[
                 mask, ["withinFileStartFrame", "withinFileEndFrame", "type"]
             ],

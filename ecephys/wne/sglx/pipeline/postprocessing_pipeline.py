@@ -8,6 +8,8 @@ import deepdiff
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pandas.api.types
+import pandas.testing
 import seaborn as sns
 import spikeinterface.full as si
 import spikeinterface.postprocessing as sp
@@ -15,18 +17,17 @@ import spikeinterface.qualitymetrics as sq
 import spikeinterface.widgets as sw
 import yaml
 from horology import Timing
-from pandas.api.types import is_numeric_dtype
-from pandas.testing import assert_frame_equal
-from spikeinterface.qualitymetrics.misc_metrics import compute_amplitude_cutoffs
+from spikeinterface.qualitymetrics import misc_metrics
 from tqdm import tqdm
 
 import ecephys.utils
 import ecephys.wne.siutils as siutils
 from ecephys import hypnogram
 from ecephys.wne import Project, constants
-from ecephys.wne.sglx.pipeline import sorting_pipeline
 from ecephys.wne.sglx.project import SGLXProject
 from ecephys.wne.sglx.subject import SGLXSubject
+
+from . import sorting_pipeline
 
 # TODO: Be consistent about using logger vs print
 logger = logging.getLogger(__name__)
@@ -204,7 +205,9 @@ class SpikeInterfacePostprocessingPipeline:
         if prior_hypno_path.exists():
             prior_hypno = ecephys.utils.read_htsv(prior_hypno_path)
             try:
-                assert_frame_equal(prior_hypno, self._hypnogram, check_dtype=False)
+                pandas.testing.assert_frame_equal(
+                    prior_hypno, self._hypnogram, check_dtype=False
+                )
             except AssertionError as e:
                 raise ValueError(
                     f"New hypnogram doesn't match previously used hypnogram file at {prior_hypno_path}:\n"
@@ -447,7 +450,7 @@ class SpikeInterfacePostprocessingPipeline:
             kilosort_spike_amplitudes = _load_kilosort_amplitudes_by_cluster(
                 we, self._sorting_pipeline.sorter_output_dir
             )
-            amplitude_cutoff_res = compute_amplitude_cutoffs(
+            amplitude_cutoff_res = misc_metrics.compute_amplitude_cutoffs(
                 we,
                 spike_amplitudes=kilosort_spike_amplitudes,
                 **amplitude_cutoff_opts,
@@ -586,7 +589,7 @@ class SpikeInterfacePostprocessingPipeline:
 
         print("Plot metrics distribution")
         for name in tqdm(select_cols):
-            if not is_numeric_dtype(metrics[name]):
+            if not pandas.api.types.is_numeric_dtype(metrics[name]):
                 continue
             if metrics[name].isna().all():
                 continue

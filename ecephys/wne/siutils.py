@@ -8,8 +8,9 @@ import spikeinterface.extractors as se
 from spikeinterface.core import waveform_tools
 
 import ecephys.utils
-from ecephys.wne.project import Project
-from ecephys.wne.subject import Subject
+
+from .project import Project
+from .subject import Subject
 
 required_metric_thresholds = MappingProxyType(
     {

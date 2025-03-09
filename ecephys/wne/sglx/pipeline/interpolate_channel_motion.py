@@ -216,13 +216,14 @@ def _save_channel_motion(
     plt.close()
 
 
+# TODO: This seems like it could have a better name. Maybe `do_probe()` or `interpolate_probe_motion()`?
 def do_sorting(
     project: SGLXProject,
     experiment: str,
     alias: str,
     sglx_subject: SGLXSubject,
     probe: str,
-    sorting: str = "sorting",
+    sorting: str = "sorting",  # TODO: ???
 ):
     _prepare_motion_directory(
         project,

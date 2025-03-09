@@ -1,3 +1,4 @@
+# TODO: This file should probably be broken into separate modules.
 import itertools
 import logging
 import pathlib
@@ -7,14 +8,16 @@ import numpy as np
 import pandas as pd
 
 import ecephys.utils
-from ecephys import hypnogram, units
+from ecephys import hypnogram as hyp
+from ecephys import units
 from ecephys.sglx import file_mgmt
 from ecephys.wne import constants, siutils
 from ecephys.wne import utils as wne_utils
 from ecephys.wne.project import Project
-from ecephys.wne.sglx import sessions
-from ecephys.wne.sglx.project import SGLXProject
-from ecephys.wne.sglx.subject import SGLXSubject
+
+from . import sessions
+from .project import SGLXProject
+from .subject import SGLXSubject
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +62,8 @@ def get_sglx_file_counterparts(
     return ecephys.utils.remove_duplicates(counterparts)
 
 
+# TODO: This function needs to be differentiated from load_sglx_inclusions_and_artifacts.
+# When would you use this one, and when would you use the other?
 def load_sorting_inclusions_and_artifacts(
     t2t,
     project,
@@ -92,6 +97,8 @@ def load_sorting_inclusions_and_artifacts(
     return inclusions, artifacts
 
 
+# TODO: This function needs to be differentiated from load_sorting_inclusions_and_artifacts.
+# When would you use this one, and when would you use the other?
 def load_sglx_inclusions_and_artifacts(
     t2t,
     project,
@@ -155,7 +162,7 @@ def load_bouts_to_reconcile_as_hypnogram(
     alias: str = "full",
     sorting: str = "sorting",
     min_bout_duration_sec=MIN_BOUT_DURATION_SEC,
-) -> hypnogram.FloatHypnogram:
+) -> hyp.FloatHypnogram:
     if source in ["sorting", "ap"]:
         stream = "ap"
     elif source == "lf":
@@ -202,15 +209,15 @@ def load_bouts_to_reconcile_as_hypnogram(
         t2_colname="end_time",
     )
     no_data["state"] = "NoData"
-    no_data_hg = hypnogram.FloatHypnogram(no_data)
+    no_data_hg = hyp.FloatHypnogram(no_data)
 
     # Get "artifacts" hypnogram: "type" column now becomes "state"
     artifacts = artifacts.rename(columns={"type": "state"})
     artifacts["duration"] = artifacts["end_time"] - artifacts["start_time"]
-    artifacts_hg = hypnogram.FloatHypnogram(artifacts)
+    artifacts_hg = hyp.FloatHypnogram(artifacts)
 
     # Reconcile NoData & artifacts
-    return hypnogram.FloatHypnogram(
+    return hyp.FloatHypnogram(
         no_data_hg.reconcile(artifacts_hg, how="other")
         .keep_longer(min_bout_duration_sec)
         .reset_index(drop=True)
@@ -227,7 +234,7 @@ def load_reconciled_float_hypnogram(
     simplify: bool = True,
     alias="full",
     sorting="sorting",
-) -> hypnogram.FloatHypnogram:
+) -> hyp.FloatHypnogram:
     """Load FloatHypnogram reconciled with LF/AP/sorting artifacts & NoData.
 
     Favor using this function, rather than load_raw_float_hypnogram, for
@@ -302,7 +309,7 @@ def load_reconciled_float_hypnogram(
             how="other",
         )
 
-    return hypnogram.FloatHypnogram.clean(hg.reset_index(drop=True))
+    return hyp.FloatHypnogram.clean(hg.reset_index(drop=True))
 
 
 def load_singleprobe_sorting(

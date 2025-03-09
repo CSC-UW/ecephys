@@ -26,20 +26,20 @@ project_directory: /path/to/other_project
 
 import json
 import logging
-import pickle
 from pathlib import Path
 from typing import Optional, Union
 
-import numpy as np
 import pandas as pd
 import spikeinterface.extractors as se
 import yaml
 
 import ecephys.sglx
 import ecephys.utils
-from ecephys import hypnogram, sharptrack, sync
-from ecephys.wne import constants
-from ecephys.wne.constants import Files
+from ecephys import hypnogram as hyp
+from ecephys import sharptrack
+
+from . import constants
+from .constants import Files
 
 Pathlike = Union[Path, str]
 
@@ -157,6 +157,7 @@ class Project:
         opts = self.load_experiment_subject_json(experiment, subject, Files.EXP_PARAMS)
         return list(opts["probes"].keys())
 
+    # TODO: This should not be a method, and it should not be here.
     def get_kilosort_extractor(
         self,
         subject: str,
@@ -279,6 +280,7 @@ class Project:
 
         return extractor
 
+    # TODO: This should not be a method, and it should not be here.
     def get_sharptrack(
         self, subject: str, experiment: str, probe: str
     ) -> sharptrack.SHARPTrack:
@@ -292,54 +294,15 @@ class Project:
         file = self.get_experiment_subject_file(experiment, subject, fname)
         return sharptrack.SHARPTrack(file)
 
-    # TODO: Likely deprecated. Remove.
-    def remap_probe_times(
-        self,
-        subject: str,
-        experiment: str,
-        fromProbe: str,
-        times: np.ndarray,
-        toProbe: str = "imec0",
-    ) -> np.ndarray:
-        """Remap a vector of probe times to the canonical experiment timebase, using a subject's precomputed sync models.
-
-        Parameters:
-        ===========
-        subject: str
-        experiment: str
-        fromProbe: str
-            The probe whose times need remapping.
-        times: (nTimes,)
-            A vector of times to renamp
-        toProbe: str
-            The probe whose timebase defines the experiment's canonical time. Always imec0.
-
-        Returns:
-        ========
-        newTimes: (nTimes,)
-        """
-        if fromProbe == toProbe:
-            return times
-
-        sync_models_file = self.get_experiment_subject_file(
-            experiment, subject, "sync_models.pickle"
-        )
-        assert sync_models_file.is_file(), "Sync models file not found."
-        with open(sync_models_file, "rb") as f:
-            sync_models = pickle.load(f)
-
-        assert "prb2prb" in sync_models, "Probe-to-probe sync models not found in file."
-        model = sync_models["prb2prb"][fromProbe][toProbe]
-        return sync.remap_times(times, model)
-
+    # TODO: This should not be a method, and it should not be here.
     def load_float_hypnogram(
         self,
         experiment: str,
         subject: str,
         simplify: bool = True,
-    ) -> hypnogram.FloatHypnogram:
+    ) -> hyp.FloatHypnogram:
         f = self.get_experiment_subject_file(experiment, subject, Files.HYPNOGRAM)
-        hg = hypnogram.FloatHypnogram.from_htsv(f)
+        hg = hyp.FloatHypnogram.from_htsv(f)
         if simplify:
             hg = hg.replace_states(constants.SIMPLIFIED_STATES)
         return hg
