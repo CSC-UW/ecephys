@@ -1,15 +1,16 @@
 import pathlib
 
 import numpy as np
-from spikeinterface.core import BaseRecording, BaseRecordingSegment
-from spikeinterface.core.core_tools import define_function_from_class
+import spikeinterface as si
+import spikeinterface.core.core_tools as si_core_tools
 import xarray as xr
 
-from ecephys import utils
-from ecephys import xrsig
+import ecephys.utils
+
+from . import core
 
 
-class XrsigZarrExtractor(BaseRecording):
+class XrsigZarrExtractor(si.BaseRecording):
     def __init__(
         self,
         path: str,  # Not pathlib.Path, so that object can be created from serialization dict during multiprocessing
@@ -34,18 +35,18 @@ class XrsigZarrExtractor(BaseRecording):
                     "Xarray claims that chunk sizes are inconsistent. Rechunking using encoding['preferred chunks']..."
                 )
                 dat = dat.chunk(dat.encoding["preferred_chunks"])
-        utils.hotfix_times(dat.time.values)
+        ecephys.utils.hotfix_times(dat.time.values)
         dat = dat.drop_duplicates(dim="time", keep="first")
         # Timestamps should really be computed once, and added as a kwarg, so that they get propgated and not recomputed.
         # Example: https://github.com/SpikeInterface/spikeinterface/blob/main/src/spikeinterface/preprocessing/whiten.py#L47-L90
 
-        BaseRecording.__init__(
+        si.BaseRecording.__init__(
             self,
             channel_ids=dat.channel.values,
             sampling_frequency=dat.fs,
             dtype=dat.dtype,
         )
-        for i, (start_frame, end_frame) in enumerate(xrsig.get_segments(dat)):
+        for i, (start_frame, end_frame) in enumerate(core.get_segments(dat)):
             seg_dat = dat.isel(time=slice(start_frame, end_frame))
             self.add_recording_segment(XrsigZarrRecordingSegment(seg_dat, seg_dat.fs))
             self.set_times(seg_dat.time.values, segment_index=i)
@@ -63,9 +64,9 @@ class XrsigZarrExtractor(BaseRecording):
         self._kwargs = {"path": str(path.absolute())}
 
 
-class XrsigZarrRecordingSegment(BaseRecordingSegment):
+class XrsigZarrRecordingSegment(si.BaseRecordingSegment):
     def __init__(self, da: xr.DataArray, sampling_frequency: float):
-        BaseRecordingSegment.__init__(self, sampling_frequency=sampling_frequency)
+        si.BaseRecordingSegment.__init__(self, sampling_frequency=sampling_frequency)
         self._da = da
 
     def get_num_samples(self):
@@ -79,6 +80,6 @@ class XrsigZarrRecordingSegment(BaseRecordingSegment):
         # SI TODO: Document return shape (n_samples, n_traces)
 
 
-read_wne_xr_zarr = define_function_from_class(
+read_wne_xr_zarr = si_core_tools.define_function_from_class(
     source_class=XrsigZarrExtractor, name="read_xrsig_zarr"
 )

@@ -3,6 +3,7 @@ __version__ = "0.0.1"  # TODO: Use importlib to get this properly from pyproject
 
 from . import (
     ap_offs,
+    dasig,
     emg_from_lfp,
     hypnogram,
     npsig,
@@ -20,6 +21,7 @@ from . import (
 
 __all__ = [
     "ap_offs",
+    "dasig",
     "emg_from_lfp",
     "hypnogram",
     "npsig",

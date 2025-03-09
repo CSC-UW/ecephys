@@ -1,12 +1,12 @@
-import sklearn
+import colorcet as cc
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import xarray as xr
-import colorcet as cc
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import scipy.cluster.hierarchy as sch
+import seaborn as sns
+import sklearn
+import xarray as xr
 
 
 def fit_principal_components(lf, n_components=10, thresh=0.95, verbose=True):

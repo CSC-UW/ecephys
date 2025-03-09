@@ -12,9 +12,11 @@ import xarray as xr
 from ibldsp import fourier, voltage
 from tqdm.auto import tqdm
 
-import ecephys.emg_from_lfp
-from ecephys import dasig, npsig, utils
-from ecephys.ecephys.utils import dask
+import ecephys.dasig as dasig
+import ecephys.emg_from_lfp as emg_from_lfp
+import ecephys.npsig as npsig
+import ecephys.utils
+import ecephys.utils.dask as dask_utils
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +60,9 @@ def get_pitch(da: xr.DataArray) -> xr.DataArray:
     """Get the vertical spacing between electrode sites, in microns"""
     validate_laminar(da)
     vals = np.diff(np.unique(da["y"].values))
-    assert utils.all_equal(vals), f"Electrode pitch is not uniform. Pitches:\n {vals}"
+    assert ecephys.utils.all_equal(vals), (
+        f"Electrode pitch is not uniform. Pitches:\n {vals}"
+    )
     return np.absolute(vals[0])
 
 
@@ -213,9 +217,7 @@ def synthetic_emg(pots: xr.DataArray, emg_kwargs: dict = None):
         "EMG computation will fail trying to filter above the Nyquest frequency"
     )
 
-    emg_values = ecephys.emg_from_lfp.compute(
-        pots.values.T, pots.fs, **emg_kwargs
-    ).flatten()
+    emg_values = emg_from_lfp.compute(pots.values.T, pots.fs, **emg_kwargs).flatten()
     emg_times = np.linspace(pots["time"].min(), pots["time"].max(), emg_values.size)
     emg = xr.DataArray(
         emg_values,
@@ -330,22 +332,6 @@ def lazy_mapped_kernel_current_source_density(
     return csd
 
 
-def get_segments_with_info(da: xr.DataArray, gap_tolerance: float = 0.001):
-    segments = get_segments(da, gap_tolerance)
-    segment_tvecs = [da["time"].isel(time=slice(i, j)) for i, j in segments]
-    segment_tlens = [float(times[-1]) - float(times[0]) for times in segment_tvecs]
-    segment_ts = [(float(times[0]), float(times[-1])) for times in segment_tvecs]
-    segment_tgaps = [
-        next_seg_start - curr_seg_end
-        for (curr_seg_start, curr_seg_end), (
-            next_seg_start,
-            next_seg_end,
-        ) in utils.pairwise(segment_ts)
-    ]
-
-    return segments, segment_ts, segment_tlens, segment_tgaps
-
-
 def get_segments(
     da: xr.DataArray, gap_tolerance: float = 0.001
 ) -> list[tuple[int, int]]:
@@ -388,7 +374,7 @@ def _stft_psd(da: xr.DataArray, **kwargs) -> xr.DataArray:
     validate_2d_timeseries(da)
     dt = np.diff(da["time"].values)
     assert np.all(dt >= 0), "The times must be increasing."
-    Sfs, stft_times, Sxx = ecephys.npsig.stft_psd(
+    Sfs, stft_times, Sxx = npsig.stft_psd(
         da.values.T, da.fs, t0=float(da["time"][0]), **kwargs
     )
     return xr.DataArray(
@@ -422,7 +408,7 @@ def _complex_stft(da: xr.DataArray, **kwargs) -> xr.DataArray:
     validate_2d_timeseries(da)
     dt = np.diff(da["time"].values)
     assert np.all(dt >= 0), "The times must be increasing."
-    Sfs, stft_times, Sxx = ecephys.npsig.complex_stft(
+    Sfs, stft_times, Sxx = npsig.complex_stft(
         da.values.T, da.fs, t0=float(da["time"][0]), **kwargs
     )
     return xr.DataArray(
@@ -441,7 +427,9 @@ def naive_rechunk(da: xr.DataArray) -> xr.DataArray:
     validate_2d_timeseries(da)
     chunkaxis = da.get_axis_num("time")
     chunks = da.chunks[chunkaxis]
-    assert utils.all_equal(chunks[:-1]), "All but last chunk must be the same size"
+    assert ecephys.utils.all_equal(chunks[:-1]), (
+        "All but last chunk must be the same size"
+    )
     chunksize = chunks[0]
     return da.chunk(chunks={"time": chunksize})
 
@@ -449,7 +437,7 @@ def naive_rechunk(da: xr.DataArray) -> xr.DataArray:
 def get_timeseries_chunk(da: xr.DataArray, chunk_index: int) -> xr.DataArray:
     validate_2d_timeseries(da)
     axis = da.get_axis_num("time")
-    chunk_bounds = dask.get_dask_chunk_bounds(da.data, axis=axis)
+    chunk_bounds = dask_utils.get_dask_chunk_bounds(da.data, axis=axis)
     start_frame = chunk_bounds[chunk_index]
     end_frame = chunk_bounds[chunk_index + 1]
     return da.isel({"time": slice(start_frame, end_frame)})
@@ -458,7 +446,7 @@ def get_timeseries_chunk(da: xr.DataArray, chunk_index: int) -> xr.DataArray:
 def iterate_timeseries_chunks(da: xr.DataArray):
     validate_2d_timeseries(da)
     axis = da.get_axis_num("time")
-    chunk_bounds = dask.get_dask_chunk_bounds(da.data, axis=axis)
+    chunk_bounds = dask_utils.get_dask_chunk_bounds(da.data, axis=axis)
     n_chunks = len(chunk_bounds) - 1
     return (
         da.isel({"time": slice(chunk_bounds[i], chunk_bounds[i + 1])})

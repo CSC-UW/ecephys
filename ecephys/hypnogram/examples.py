@@ -1,18 +1,16 @@
-import os.path as op
-
-import ecephys.hypnogram as hyp
+from pathlib import Path
 
 from . import core
 
-data_path = op.join(hyp.__path__[0], "data")
-# Load data like: op.join(data_path, 'mydatafile.dat')
+SUBPACKAGE_DIRECTORY = Path(__file__).resolve().parent
+DATA_DIRECTORY = SUBPACKAGE_DIRECTORY / "data"
 
 
 def float_hypnogram():
-    p = op.join(data_path, "visbrain_hypnogram.txt")
-    return core.load_visbrain_hypnogram(p)
+    p = DATA_DIRECTORY / "visbrain_hypnogram.txt"
+    return core.FloatHypnogram.from_visbrain(p)
 
 
 def datetime_hypnogram():
-    p = op.join(data_path, "datetime_hypnogram.tsv")
-    return core.load_datetime_hypnogram(p)
+    p = DATA_DIRECTORY / "datetime_hypnogram.tsv"
+    return core.DatetimeHypnogram.from_htsv(p)

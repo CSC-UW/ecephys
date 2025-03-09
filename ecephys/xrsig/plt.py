@@ -2,8 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
-from ecephys import plot as eplt
-from ecephys import xrsig
+import ecephys.plot as eplt
+
+from . import core
 
 
 def plot_laminar_scalars_vertical(
@@ -18,7 +19,7 @@ def plot_laminar_scalars_vertical(
 ):
     """Plot a depth profile of values.
     Requires 'y' coordinate on 'channel' dimension."""
-    xrsig.validate_laminar(da, sigdim, lamdim)
+    core.validate_laminar(da, sigdim, lamdim)
     da = da.sortby(lamdim)
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -45,7 +46,7 @@ def plot_laminar_scalars_horizontal(
 ):
     """Plot a depth profile of values.
     Requires 'y' coordinate on 'channel' dimension."""
-    xrsig.validate_laminar(da, sigdim, lamdim)
+    core.validate_laminar(da, sigdim, lamdim)
     da = da.sortby(lamdim)
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -73,7 +74,7 @@ def plot_laminar_image_vertical(
 ):
     """Plot a depth profile of values.
     Requires 'y' coordinate on 'channel' dimension."""
-    xrsig.validate_laminar(da, sigdim, lamdim)
+    core.validate_laminar(da, sigdim, lamdim)
     da = da.sortby(lamdim)
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -100,7 +101,7 @@ def plot_laminar_image_horizontal(
 ):
     """Plot a depth profile of values.
     Requires 'y' coordinate on 'channel' dimension."""
-    xrsig.validate_laminar(da, sigdim, lamdim)
+    core.validate_laminar(da, sigdim, lamdim)
     da = da.sortby(lamdim)
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -126,8 +127,8 @@ def plot_laminar_timeseries(
     tick_params=dict(axis="y", labelsize=8),
     **line_kwargs,
 ):
-    xrsig.validate_laminar(da, sigdim, lamdim)
-    xrsig.validate_2d_timeseries(da)
+    core.validate_laminar(da, sigdim, lamdim)
+    core.validate_2d_timeseries(da)
     da = da.sortby(lamdim)
     data = da - da.mean(dim="time")
     data = data * gain
@@ -179,7 +180,7 @@ def plot_traces(
     palette="glasbey_dark",
     **kwargs,
 ):
-    xrsig.validate_2d_timeseries(da)
+    core.validate_2d_timeseries(da)
     if isinstance(chan_labels, str) and chan_labels in da["channel"].coords:
         chan_labels = da[chan_labels].values
     if isinstance(chan_colors, str) and chan_colors in da["channel"].coords:

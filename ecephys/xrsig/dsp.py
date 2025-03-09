@@ -1,7 +1,8 @@
 import itertools
-import xarray as xr
-import ssqueezepy as ssq
+
 import matplotlib.pyplot as plt
+import ssqueezepy as ssq
+import xarray as xr
 from brainbox import lfp as bblfp
 from tqdm.auto import tqdm
 
