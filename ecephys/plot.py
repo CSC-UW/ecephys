@@ -501,6 +501,7 @@ def lfp_explorer(
     zero_mean=True,
     flip_dv=False,
     tight_ylim=False,
+    linewidth=0.5,
 ):
     """Plot a static image of selected LFPs.
 
@@ -559,7 +560,7 @@ def lfp_explorer(
         time,
         sig_spaced,
         color="black",
-        linewidth=0.5,
+        linewidth=linewidth,
     )
     ax.set_xlim([window_start, window_end])
     if tight_ylim:
