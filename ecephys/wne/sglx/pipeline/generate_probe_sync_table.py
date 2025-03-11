@@ -179,8 +179,8 @@ def _get_barcode_file_fit(
         warnings.warn(
             f"Not enough barcodes to sync {probe_binpath.name} with {imec0_binpath.name}. Will attempt to interpolate."
         )
-        slope = np.NaN
-        intercept = np.NaN
+        slope = np.nan
+        intercept = np.nan
     else:
         fit = sync.fit_barcode_times(
             probe_barcodes["time"].values,
@@ -208,8 +208,8 @@ def _get_square_pulse_file_fit(
         warnings.warn(
             f"Not enough TTLs to sync {probe_binpath.name} with {imec0_binpath.name}. Will attempt to interpolate."
         )
-        slope = np.NaN
-        intercept = np.NaN
+        slope = np.nan
+        intercept = np.nan
     else:
         fit = sync.fit_square_pulse_times(
             probe_ttls["rising"].values,
@@ -237,8 +237,8 @@ def _get_random_pulse_file_fit(
         warnings.warn(
             f"Not enough TTLs to sync {probe_binpath.name} with {imec0_binpath.name}. Will attempt to interpolate."
         )
-        slope = np.NaN
-        intercept = np.NaN
+        slope = np.nan
+        intercept = np.nan
     else:
         fit = sync.fit_random_pulse_times(
             probe_ttls["rising"].values,

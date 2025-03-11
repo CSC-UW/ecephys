@@ -30,7 +30,7 @@ def refine_clusters(
         For example, {"quality": {"good", "mua"}} will load only clusters marked as such after curation and QMs.
     include_nans: bool, default True
         For several properties/metrics (including the cluster "group"/"quality" possibly set during curation),
-        the value of the property may be np.NaN for some clusters. If True, we include those clusters (effectively
+        the value of the property may be np.nan for some clusters. If True, we include those clusters (effectively
         filtering based on a property only when this property has a valid value)
 
 

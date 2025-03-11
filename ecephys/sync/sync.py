@@ -655,7 +655,7 @@ def extract_barcodes_from_times(
             warnings.warn(
                 f"Problem extracting barcode {i}, t={t}. It is likely that previous & subsequent barcodes in this file are malformed, indicating a hardware issue."
             )
-            barcodes.append(np.NaN)
+            barcodes.append(np.nan)
         else:
             barcodes.append(barcode)
 

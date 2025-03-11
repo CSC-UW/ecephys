@@ -15,9 +15,9 @@ from .subject import Subject
 required_metric_thresholds = MappingProxyType(
     {
         "quality": {
-            "permissive": {"good", "mua", np.NaN},
-            "moderate": {"good", "mua", np.NaN},
-            "conservative": {"good", "mua", np.NaN},
+            "permissive": {"good", "mua", np.nan},
+            "moderate": {"good", "mua", np.nan},
+            "conservative": {"good", "mua", np.nan},
         },
         "firing_rate": {
             "permissive": (0.2, np.inf),
