@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Union
+from typing import Self, Union
 
 import deepdiff
 import pandas as pd
@@ -456,7 +456,7 @@ class SpikeInterfaceSortingPipeline:
 
     @classmethod
     def load_from_folder(
-        cls,
+        cls: Self,
         wneProject: Project,
         wneSubject: SGLXSubject,
         experiment: str,
@@ -465,7 +465,7 @@ class SpikeInterfaceSortingPipeline:
         basename: str,
         rerun_existing: bool = False,
         n_jobs: int = 1,
-    ):
+    ) -> Self:
         """Instantiate a pipeline object from previous run."""
 
         main_output_dir = get_main_output_dir(
@@ -490,6 +490,10 @@ class SpikeInterfaceSortingPipeline:
         ):
             raise FileNotFoundError(
                 f"Could not find all required files in {main_output_dir}"
+            )
+        else:
+            print(
+                f"Found all required files. Loading pipeline object from {main_output_dir}"
             )
 
         return SpikeInterfaceSortingPipeline(
