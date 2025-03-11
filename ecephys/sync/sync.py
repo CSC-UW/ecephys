@@ -457,7 +457,7 @@ def get_falling_edges_from_tdt(offset_times):
     Offsets are the first samples where a value is low after being high.
     If the last sample is high, the last offset is Inf. Consistent with TDT convention.
     """
-    return offset_times[np.where(offset_times < np.Inf)]
+    return offset_times[np.where(offset_times < np.inf)]
 
 
 def extract_ttl_edges_from_tdt(block_path, store_name):

@@ -20,9 +20,9 @@ required_metric_thresholds = MappingProxyType(
             "conservative": {"good", "mua", np.NaN},
         },
         "firing_rate": {
-            "permissive": (0.2, np.Inf),
-            "moderate": (0.5, np.Inf),
-            "conservative": (0.5, np.Inf),
+            "permissive": (0.2, np.inf),
+            "moderate": (0.5, np.inf),
+            "conservative": (0.5, np.inf),
         },
     }
 )
@@ -40,9 +40,9 @@ isolation_metric_thresholds = MappingProxyType(
             "conservative": (0.0, 0.1),
         },
         "nn_isolation": {
-            "permissive": (0.7, np.Inf),
-            "moderate": (0.8, np.Inf),
-            "conservative": (0.9, np.Inf),
+            "permissive": (0.7, np.inf),
+            "moderate": (0.8, np.inf),
+            "conservative": (0.9, np.inf),
         },
     }
 )
@@ -60,9 +60,9 @@ false_negative_metric_thresholds = MappingProxyType(
 presence_metric_thresholds = MappingProxyType(
     {
         "presence_ratio": {
-            "permissive": (0.8, np.Inf),
-            "moderate": (0.9, np.Inf),
-            "conservative": (0.9, np.Inf),
+            "permissive": (0.8, np.inf),
+            "moderate": (0.9, np.inf),
+            "conservative": (0.9, np.inf),
         }
     }
 )

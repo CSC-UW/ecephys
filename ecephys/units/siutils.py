@@ -26,7 +26,7 @@ def refine_clusters(
         Values are either 2-item tuples or sets.
         Tuples specify a range of allowable values for non-categorical numeric properties.
         Sets specify allowable values for categorical properties.
-        For example, {"n_spikes": (2, np.Inf)} will load only clusters with 2 or more spikes.
+        For example, {"n_spikes": (2, np.inf)} will load only clusters with 2 or more spikes.
         For example, {"quality": {"good", "mua"}} will load only clusters marked as such after curation and QMs.
     include_nans: bool, default True
         For several properties/metrics (including the cluster "group"/"quality" possibly set during curation),

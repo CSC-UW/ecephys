@@ -46,7 +46,7 @@ def select_best_lf_spindle_channel(
     sigma_lo: float,
     sigma_hi: float,
     broadband_lo: float = 0.0,
-    broadband_hi: float = np.Inf,
+    broadband_hi: float = np.inf,
     smoothing: int = 5,
 ) -> xr.DataArray:
     lf_estm = lf.sel(time=slice(estm_start, estm_end))

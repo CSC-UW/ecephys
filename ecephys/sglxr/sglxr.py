@@ -52,7 +52,7 @@ def _time_to_micros(time_obj: datetime.time) -> float:
 
 
 def _get_first_and_last_samples(
-    meta: dict, firstSample: int = 0, lastSample: int = np.Inf
+    meta: dict, firstSample: int = 0, lastSample: int = np.inf
 ) -> tuple[int, int]:
     """Take requested start/end sample numbers, and
     return the closest actual start/end sample numbers."""
@@ -71,7 +71,7 @@ def _get_first_and_last_samples(
 def _get_timestamps(
     meta: dict,
     firstSample: int = 0,
-    lastSample: int = np.Inf,
+    lastSample: int = np.inf,
     t0: float = 0.0,
     dt0="fileCreateTime",
 ) -> tuple[np.ndarray, pd.DatetimeIndex, float]:
@@ -192,7 +192,7 @@ def open_trigger(
     bin_path: pathlib.Path,
     channels: list[int] = None,
     start_time: float = 0,
-    end_time: float = np.Inf,
+    end_time: float = np.inf,
     t0: float = 0.0,
     dt0: Optional[datetime.datetime] = None,
     blocksize: Optional[int] = None,
@@ -223,7 +223,7 @@ def open_trigger(
         End time of the data to load.
         - The behavior is the same as for `start_time`, but if  the value provided works out
             to be greater than the actual file end time, the actual file end time will be used.
-        - Default: np.Inf, a.k.a. the end of the file.
+        - Default: np.inf, a.k.a. the end of the file.
     t0: float (optional)
         Force the first timestamp in the file (not necessarily the loaded data) to this value.
         Default: 0.0
@@ -317,7 +317,7 @@ def load_trigger(
     bin_path: pathlib.Path,
     channels: list[int] = None,
     start_time: float = 0,
-    end_time: float = np.Inf,
+    end_time: float = np.inf,
     t0: float = 0.0,
     dt0: Optional[datetime.datetime] = None,
     blocksize: Optional[int] = None,

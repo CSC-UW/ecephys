@@ -366,7 +366,7 @@ def load_singleprobe_sorting(
         warnings.warn(
             "Could not find anatomy file at: {anatomy_file}. Using dummy structure table"
         )
-        structs = siutils.get_dummy_structure_table(lo=-np.Inf, hi=np.Inf)
+        structs = siutils.get_dummy_structure_table(lo=-np.inf, hi=np.inf)
     extractor = siutils.add_anatomy_properties_to_extractor(extractor, structs)
 
     return units.SpikeInterfaceKilosortSorting(extractor, sample2time)

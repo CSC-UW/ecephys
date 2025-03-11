@@ -15,7 +15,7 @@ def _is_channel_XA(meta, channel):
     return (channel >= (MN + MA)) and (channel < XA)
 
 
-def load_nidq_analog(bin_path, channels, start_time=0, end_time=np.Inf):
+def load_nidq_analog(bin_path, channels, start_time=0, end_time=np.inf):
     # Read and validate the metadata
     bin_path = Path(bin_path)
     meta = readSGLX.readMeta(bin_path)
