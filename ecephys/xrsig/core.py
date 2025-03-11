@@ -168,7 +168,7 @@ def preprocess_neuropixels_ibl_style(
     for first, last in tqdm(list(wg.firstlast)):
         seg = pots.isel(time=slice(first, last))
         seg = decimate_timeseries(seg, q=downsample_factor)
-        seg = dephase_neuropixels(seg)  # Shouldn't q be passed again here?
+        seg = dephase_neuropixels(seg, q=downsample_factor)
         seg = spatially_interpolate_timeseries(seg, bad_chans)
         first_valid = 0 if first == 0 else int(wg.overlap / 2 / downsample_factor)
         last_valid = (
