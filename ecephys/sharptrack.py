@@ -1,6 +1,6 @@
-import pandas as pd
 import mat73
-from bg_atlasapi.bg_atlas import BrainGlobeAtlas
+import pandas as pd
+from brainglobe_atlasapi import BrainGlobeAtlas
 
 
 def _brainglobe_rgb_to_matplotlib_rgba(rgb, alpha):
