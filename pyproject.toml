@@ -18,14 +18,12 @@ classifiers = [
 ]
 
 dependencies = [
-    "bg-atlasapi",
-    "chardet",
+    "brainglobe-atlasapi",
+    "chardet", # TODO: Is this really needed? Why? 
     "colorcet",
     "dask[complete]", # 2024.2.1 was the last dask relase supporting pandas < 2, but cannot be used with Python >= 3.11.9
-    "dask-image",
     "deepdiff",
     "docopt",
-    "elephant",
     # You may be able to get away with just the PyPI version of ephyviewer.
     # Its upstream appears abandoned. We might want to remove it as a dependency before imposes a version ceiling.
     "ephyviewer @ git+https://github.com/CSC-UW/ephyviewer.git", 
@@ -45,7 +43,6 @@ dependencies = [
     "PySide6", # For ephyviewer
     "PyYAML",
     "ripple-detection",
-    "scikit-image", 
     "scikit-learn",
     "scipy",
     "seaborn",
@@ -65,6 +62,9 @@ run-sorting = [
 load-sorting = [
     "spikeinterface"
 ]
+deprecated = [
+    "elephant", # Used by MUA spindle detection
+] # Needed to run code in ecephys.deprecated
 
 [dependency-groups]
 dev = [
