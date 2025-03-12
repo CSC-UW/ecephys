@@ -21,7 +21,6 @@ class Files(StrEnum):
     AP_SYNC = "prb_sync.ap.htsv"
     LF_SYNC = "prb_sync.lf.htsv"
     EXP_PARAMS = "experiment_params.json"
-    SORTING_PIPELINE_PARAMS = "sorting_pipeline_params.yaml"
     EMG = "emg.nc"
     ARTIFACTS = "artifacts.htsv"
     HYPNOGRAM = "hypnogram.htsv"

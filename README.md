@@ -3,17 +3,28 @@ Python tools for extracellular electrophysiology at the Wisconsin Institute for 
 
 ## Installation
 
-### Requirements:
-*Updated 2/21/2025.*
+Unfortuantely, this package cannot be published to PyPI, because it depends on packages not themselves available on PyPI. 
+I suggest cloning and installing with `uv`. 
 
-Confirmed to work with Python 3.12.7 and 3.13.2. 
+## Development
 
-You need to use the `CSC-UW` fork of `spikeinterface`. The specific branch you need depends on your intent. For running spike sorting, use `wisc/sorting`. For everything else, use `wisc/dev`. If you are using `uv` as a package/environment manager (highly recommended), this should be handled for you when you install `ecephys[run-sorting]` or `ecephys[load-sorting]`.
-If you are spike sorting, you probably also want `pytorch` for spikeinterface's drift correction.
+For an editable install into an environment managed from a sibling directory, you may want to add the following to that environment's `pyproject.toml`:
 
-### Apologies
+```
+[tool.uv]
+override-dependencies = [
+  "ecephys @ file:///${PROJECT_ROOT}/../ecephys",
+]
 
-Unfortuantely, this package cannot be published to PyPI so long as its dependencies include git URLs (e.g. our spikeinterface fork)
-The parts of `ecephys` that are tied to our fork because of reliance on the old API need to be factored out into their own package. Then, hopefully updated and brought back in. Otherwise, they will block the package from being able to use the latest spikeinterface indefinitely.
+[tool.uv.sources]
+ecephys = { path = "../ecephys", editable = true }
+```
 
-Also, we desparately need to update from `pandas` `1.x` to `2.x` and/or `polars` (WIP).
+If you are using VSCode or Cursor, it never hurts to add the following to `.vscode/settings.json`:
+```
+    "python.analysis.extraPaths": [
+        "./ecephys"
+    ],
+```
+
+

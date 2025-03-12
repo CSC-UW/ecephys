@@ -22,12 +22,9 @@ dependencies = [
     "chardet", # TODO: Is this really needed? Why? 
     "colorcet",
     "dask[complete]", # 2024.2.1 was the last dask relase supporting pandas < 2, but cannot be used with Python >= 3.11.9
-    "deepdiff",
-    "docopt",
     # You may be able to get away with just the PyPI version of ephyviewer.
     # Its upstream appears abandoned. We might want to remove it as a dependency before imposes a version ceiling.
     "ephyviewer @ git+https://github.com/CSC-UW/ephyviewer.git", 
-    "horology",
     "ibl-neuropixel",
     "ipykernel",
     "ipympl",
@@ -56,12 +53,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-run-sorting = [
-    "spikeinterface"
-]
-load-sorting = [
-    "spikeinterface"
-]
 deprecated = [
     "elephant", # Used by MUA spindle detection
 ] # Needed to run code in ecephys.deprecated
@@ -77,9 +68,3 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["ecephys"]
-
-[tool.uv.sources]
-spikeinterface = [
-  { git = "https://github.com/CSC-UW/spikeinterface.git", branch = "wisc/sorting", extra = "run-sorting" },
-  { git = "https://github.com/CSC-UW/spikeinterface.git", branch = "wisc/dev", extra = "load-sorting" },
-]

@@ -8,10 +8,7 @@ from . import (
     generate_tdt_sync_table,
     get_scoring_signals,
     interpolate_channel_motion,
-    postprocessing_pipeline,  # TODO: Rename.
     preprocess_lfps,
-    preprocess_si_rec,
-    sorting_pipeline,  # TODO: Rename.
     utils,
 )
 
@@ -25,9 +22,6 @@ __all__ = [
     "generate_tdt_sync_table",
     "get_scoring_signals",
     "interpolate_channel_motion",
-    "postprocessing_pipeline",
     "preprocess_lfps",
-    "preprocess_si_rec",
-    "sorting_pipeline",
     "utils",
 ]
