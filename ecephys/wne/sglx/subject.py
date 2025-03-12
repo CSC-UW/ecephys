@@ -8,6 +8,7 @@ import pandas as pd
 import spikeinterface as si
 import spikeinterface.extractors as se
 
+from ecephys import wne
 from ecephys.sglx import file_mgmt
 from ecephys.utils import pandas as pd_utils
 from ecephys.wne.sglx import experiments, sessions
@@ -152,15 +153,8 @@ class SGLXSubject(Subject):
         stream: str,
         probe: str,
         combine: str = "concatenate",
-        exclusions: pd.DataFrame = pd.DataFrame(
-            {
-                "fname": [],
-                "withinFileStartTime": [],
-                "withinFileEndTime": [],
-                "type": [],
-            }
-        ),
-        sampling_frequency_max_diff: Optional[float] = 0,  # TODO: Should this be 1e-6?
+        exclusions: Optional[pd.DataFrame] = None,
+        sampling_frequency_max_diff: Optional[float] = 1e-6,
     ) -> tuple[si.BaseRecording, pd.DataFrame]:
         """Combine the one or more recordings comprising an experiment or alias into a single SI recording object.
 
@@ -197,6 +191,8 @@ class SGLXSubject(Subject):
             experiment, alias=alias, stream=stream, ftype="bin", probe=probe
         )
         # Split the experiment frame around the exclusions, using precise sample indices.
+        if exclusions is None:
+            exclusions = wne.utils.get_dummy_artifacts_table()
         segments = segment_experiment_frame_for_spikeinterface(ftab, exclusions)
 
         # Take the good segments one by one, create an recording object for each, and save these all in a list
