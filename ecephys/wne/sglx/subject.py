@@ -5,12 +5,8 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-import spikeinterface as si
-import spikeinterface.extractors as se
 
-from ecephys import wne
 from ecephys.sglx import file_mgmt
-from ecephys.utils import pandas as pd_utils
 from ecephys.wne.sglx import experiments, sessions
 from ecephys.wne.subject import Subject
 
@@ -145,87 +141,6 @@ class SGLXSubject(Subject):
 
         return [get_subalias_datetimes(sa) for sa in subaliases]
 
-    # TODO: This should not be a method, and it should not be here.
-    def get_si_recording(
-        self,
-        experiment: str,
-        alias: str,
-        stream: str,
-        probe: str,
-        combine: str = "concatenate",
-        exclusions: Optional[pd.DataFrame] = None,
-        sampling_frequency_max_diff: Optional[float] = 1e-6,
-    ) -> tuple[si.BaseRecording, pd.DataFrame]:
-        """Combine the one or more recordings comprising an experiment or alias into a single SI recording object.
-
-        Parameters
-        ==========
-        combine: 'concatenate' or 'append'
-            If 'concatenate' (default), the returned recording object is one single monolothic segment.
-            This is the default behavior, because SI sorters currently only work on single-segment recordings.
-            If 'append', the returned recording object consists of multiple segments.
-            This might be useful for certain preprocessing, postprocessing operations, etc.
-        exclusions:
-            Specify which parts of the recording to drop. We slice such that the first and last samples
-            of each exclusion are NOT included in the returned recording.
-            fname: The name of the file (e.g. 3-2-2021_J_g0_t1.imec1.ap.bin)
-            withinFileStartTime: The start time of the data to drop, in seconds from the start of the file.
-            withinFileEndTime: The end time of the data to drop, in seconds from the start of the file.
-                If greater than the file duration, the excess time will be ignored, not dropped from the next file.
-            type: A label you can assign to keep track of why this data was excluded. As long as the value is not "keep", the data will be dropped.
-
-        Returns
-        =======
-        recording:
-            The combined SI recording object.
-        segments:
-            A dataframe where each row is a segment of data to keep, or drop, sorted in chronological order.
-                fname: The name of the file (e.g. 3-2-2021_J_g0_t1.imec1.ap.bin)
-                withinFileStartFrame: The first sample index of the segment, measured from the start of the file (0-indexed)
-                withinFileEndFrame: The final sample index of the segment, measured from the start of the file (0-indexed)
-                type: Either 'keep', in which case the segment was kept, or other, in which case the segment was dropped.
-                segmentDuration: Duration in sec of segment.
-        """
-        # Get the experiment frame. This should be for a single probe, and a single stream.
-        ftab = self.get_experiment_frame(
-            experiment, alias=alias, stream=stream, ftype="bin", probe=probe
-        )
-        # Split the experiment frame around the exclusions, using precise sample indices.
-        if exclusions is None:
-            exclusions = wne.utils.get_dummy_artifacts_table()
-        segments = segment_experiment_frame_for_spikeinterface(ftab, exclusions)
-
-        # Take the good segments one by one, create an recording object for each, and save these all in a list
-        good_segments = segments[segments["type"] == "keep"]
-        recordings = list()
-        for segment in good_segments.itertuples():
-            extractor = se.SpikeGLXRecordingExtractor(
-                segment.gate_dir, stream_id=f"{probe}.{stream}"
-            )
-            recording = extractor.select_segments(
-                [segment.gate_dir_trigger_file_idx]
-            ).frame_slice(
-                start_frame=segment.withinFileStartFrame,
-                end_frame=segment.withinFileEndFrame,
-            )
-            recordings.append(recording)
-
-        # Combine the good segments
-        if combine == "concatenate":
-            fn = si.concatenate_recordings
-        elif combine == "append":
-            fn = si.append_recordings
-        else:
-            raise ValueError(f"Got unexpected value for `combine`: {combine}")
-
-        recording = fn(
-            recordings, sampling_frequency_max_diff=sampling_frequency_max_diff
-        )
-
-        # We return both recording and segments together, rather than making the available separately,
-        # to ensure that you never get a segment table unless it is actually proven to produce a valid extractor object.
-        return recording, segments
-
     def get_tdt_block_path(self, experiment: str):
         return Path(self.doc["experiments"][experiment]["tdt_block_path"])
 
@@ -310,94 +225,3 @@ def _get_gate_dir_trigger_file_index(ftab: pd.DataFrame) -> pd.DataFrame:
     ftab["gate_dir_trigger_file_idx"] = ftab["gate_dir_trigger_file_idx"].astype(int)
 
     return ftab
-
-
-def segment_experiment_frame_for_spikeinterface(
-    ftab: pd.DataFrame, exclusions: pd.DataFrame
-) -> pd.DataFrame:
-    """Split an experiment frame for a single probe, steam, and filetype around a set of periods to exclude.
-    For details, see `get_si_recording()`.
-    """
-    EXCLUSION_COLS = ["withinFileStartTime", "withinFileEndTime", "fname"]
-    assert all([c in exclusions.columns for c in EXCLUSION_COLS]), (
-        f"Invalid columns for exclusions. Expected: `{EXCLUSION_COLS}`"
-    )
-    segments = list()
-    # For each file in the experiment, split it if necessary.
-    # If not, just create a segment that is the entire file.
-    for file in ftab.itertuples():
-        ns = file.nFileSamp
-        fname = file.path.name
-        mask = (
-            exclusions["fname"] == fname
-        )  # Get the exclusions pertaining to this file.
-
-        # For the exclusions pertaining to this file, convert their definition in seconds to precise sample indices,
-        # and clip these estimates so that sample indices don't extend beyond the ends of the file.
-        exclusions.loc[mask, "withinFileStartFrame"] = (
-            (exclusions.loc[mask, "withinFileStartTime"] * file.imSampRate)
-            .astype(int)
-            .clip(0, ns)
-        )
-        exclusions.loc[mask, "withinFileEndFrame"] = (
-            (exclusions.loc[mask, "withinFileEndTime"] * file.imSampRate)
-            .astype(int)
-            .clip(0, ns)
-        )
-
-        # Do the actual splitting of the entire file around the exclusions
-        file_segments = pd_utils.reconcile_labeled_intervals(
-            exclusions.loc[
-                mask, ["withinFileStartFrame", "withinFileEndFrame", "type"]
-            ],
-            pd.DataFrame(
-                {
-                    "withinFileStartFrame": [0],
-                    "withinFileEndFrame": [ns],
-                    "type": "keep",
-                }
-            ),
-            "withinFileStartFrame",
-            "withinFileEndFrame",
-        ).drop(columns="delta")
-        file_segments["fname"] = fname
-
-        # The function above considers intervals to be open-ended, so that (a, b) and (b, c) are considered NON-overlapping
-        # (as for usual python slicing)
-        # This means that up to this point the end sample of an exclusion will be part of the next (kept) segment.
-        # In order to be conservative, we correct each bad segment followed by a good segment to include its last sample.
-        # For example, if (a, b) and (b, c) are bad segment, and (c, d) is a good segment, the new segments will be (a, b+1), (b+1, c), (c+1, d).
-        keep = file_segments["type"] == "keep"
-        frames_to_shift = np.intersect1d(
-            file_segments[~keep]["withinFileEndFrame"].values,
-            file_segments["withinFileStartFrame"].values,
-        )  # End of each bad segment followed by another segment (excludes the last one)
-        i = file_segments["withinFileEndFrame"].isin(frames_to_shift)
-        j = file_segments["withinFileStartFrame"].isin(frames_to_shift)
-        file_segments.loc[i, "withinFileEndFrame"] += 1
-        file_segments.loc[j, "withinFileStartFrame"] += 1
-
-        # Do some sanity checks, ensuring that every sample in the file is accounted for.
-        assert file_segments["withinFileStartFrame"].min() == 0, (
-            "Something went wrong when splitting file around exclusions."
-        )
-        assert file_segments["withinFileEndFrame"].max() == (ns), (
-            "Something went wrong when splitting file around exclusions."
-        )
-        segments.append(file_segments)
-        assert (
-            file_segments["withinFileEndFrame"] - file_segments["withinFileStartFrame"]
-        ).sum() == ns, "Something went wrong when splitting file around exclusions."
-
-    # Return the segments, adding metadata about the files that they come from, for convenience.
-    segments = pd.concat(segments, ignore_index=True).astype(
-        {"withinFileStartFrame": int, "withinFileEndFrame": int}
-    )
-    ftab["fname"] = ftab["path"].apply(lambda x: x.name)
-
-    stab = segments.merge(ftab, on="fname")
-
-    stab["nSegmentSamp"] = stab["withinFileEndFrame"] - stab["withinFileStartFrame"]
-    stab["segmentDuration"] = stab["nSegmentSamp"].div(stab["imSampRate"])
-
-    return stab

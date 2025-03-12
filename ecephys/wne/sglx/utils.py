@@ -406,12 +406,12 @@ def load_multiprobe_sorting(
     )
 
 
-# Is this deprecated? What's the difference with SGLXProject.get_sample2time?
 def get_experiment_sample2time(
     experiment_sync_table: pd.DataFrame, experiment_probe_ftable: pd.DataFrame
 ) -> Callable[[np.ndarray], np.ndarray]:
     """Get a function that maps samples in the original recording to the canonical timebase.
     WARNING: This is not appropriate for use with recordings where pieces have been excised and the bookkeeping has not been done to keep track of the excisions.
+    If you want a more sophisticated function that can handle excised data, use wne.sglx.siutils.get_sample2time().
     """
     assert len(experiment_probe_ftable["probe"].unique()) == 1, "Only one probe allowed"
     cum_samples_by_end = experiment_probe_ftable["nFileSamp"].cumsum()
