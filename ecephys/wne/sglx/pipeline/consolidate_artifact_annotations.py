@@ -42,7 +42,7 @@ def do_experiment_probe_stream(
     outfile = data_project.get_experiment_subject_file(
         experiment,
         sglx_subject.name,
-        f"{probe}.{stream}.{constants.ARTIFACTS_FNAME}",
+        f"{probe}.{stream}.{constants.Files.ARTIFACTS}",
     )
     common_cols = ["withinFileStartTime", "withinFileEndTime", "type"]
     if outfile.exists():
@@ -61,7 +61,7 @@ def do_experiment_probe_stream(
             data_project,
             sglx_subject.name,
             [bin_file.path],
-            constants.ARTIFACTS_EXT,
+            constants.FileExtensions.ARTIFACTS,
         )
         if artifacts_file.is_file():
             trig_df = pd.read_csv(artifacts_file)
