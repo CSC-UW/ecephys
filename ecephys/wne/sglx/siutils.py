@@ -9,7 +9,8 @@ import tqdm
 
 import ecephys.utils
 from ecephys import wne
-from ecephys.wne.sglx import SGLXProject, SGLXSubject
+from ecephys.wne.sglx.project import SGLXProject
+from ecephys.wne.sglx.subject import SGLXSubject
 
 logger = logging.getLogger(__name__)
 
