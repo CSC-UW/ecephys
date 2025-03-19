@@ -166,7 +166,6 @@ def get_recording(
     good_segments = segments[segments["type"] == "keep"]
     recordings = list()
     for segment in good_segments.itertuples():
-        print(segment.gate_dir)
         extractor = se.SpikeGLXRecordingExtractor(
             segment.gate_dir, stream_id=f"{probe}.{stream}"
         )
