@@ -193,6 +193,10 @@ class SGLXSubjectLibrary:
 
 # TODO: Remove as soon as SpikeInterface adds this functionality.
 # 1/30/2023 Tom says It is still necessary, because although the relevant GitHub issues seem to have been closed, the API has not changed.
+# To me, it looks like "gate_dir_trigger_file_idx" is same or similar to "seg_index" from neo.rawio.SpikeGLXRawIO.scan_files.
+# Indeed, this function does basically get the segment index into an extractor created later, and could even be named
+# add_si_segment_indices(). I think what we should do, in order to get rid of this function, is to use the neo header in
+# the SI extractor to add the segment indices to a ftab, rather than trying to anticipate them.
 def _get_gate_dir_trigger_file_index(ftab: pd.DataFrame) -> pd.DataFrame:
     """Get index of trigger file relative to all files of same stream/prb/gate_folder.
 
@@ -203,8 +207,10 @@ def _get_gate_dir_trigger_file_index(ftab: pd.DataFrame) -> pd.DataFrame:
     subselecting segments of interest (ie trigger files) after instantiation.
     See https://github.com/SpikeInterface/spikeinterface/issues/628#issuecomment-1130232542
 
-    """
-    ftab["gate_dir"] = ftab.apply(lambda row: row["path"].parent, axis=1)
+    """  # This actually seems like a more appropriate issue: https://github.com/NeuralEnsemble/python-neo/pull/1125#issuecomment-1148930135
+    ftab["gate_dir"] = ftab.apply(
+        lambda row: row["path"].parent, axis=1
+    )  # TODO: This is WRONG! This yields the probe directory, not the gate directory.
     for gate_dir, prb, stream, ftype in it.product(
         ftab.gate_dir.unique(),
         ftab.probe.unique(),

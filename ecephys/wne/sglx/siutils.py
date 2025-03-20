@@ -21,10 +21,12 @@ logger = logging.getLogger(__name__)
 MIN_BOUT_DURATION_SEC = 0.1  # SUS: Why is this a module level constant? Why is it not just a pre-defined parameter? Why not a WNE constant?
 
 
+# TODO: This should be renamed to _split_experiment_frame_for_spikeinterface() to avoid confusion with the `segments` property of a SpikeInterface recording.
 def _segment_experiment_frame_for_spikeinterface(
     subject_ftab: pd.DataFrame, exclusions: pd.DataFrame
 ) -> pd.DataFrame:
     """Split an experiment frame for a single subject, probe, stream, and filetype around a set of periods to exclude.
+    These segments do NOT correspond to the `segments` property of a SpikeInterface recording. Sorry.
     For details, see `get_si_recording()`.
     """
     EXCLUSION_COLS = ["withinFileStartTime", "withinFileEndTime", "fname"]
@@ -153,6 +155,10 @@ def get_recording(
             type: Either 'keep', in which case the segment was kept, or other, in which case the segment was dropped.
             segmentDuration: Duration in sec of segment.
     """
+    # TODO: Instead of anticipating SI segment indices and adding them to the ftab at the start,
+    # we should use the neo header in the SI extractor to add the segment indices to an ftab,
+    # or to our segments table, which is confusingly NOT a table of SI segments.
+    #
     # Get the experiment frame. This should be for a single probe, and a single stream.
     ftab = subject.get_experiment_frame(
         experiment, alias=alias, stream=stream, ftype="bin", probe=probe
@@ -160,7 +166,9 @@ def get_recording(
     # Split the experiment frame around the exclusions, using precise sample indices.
     if exclusions is None:
         exclusions = wne.utils.get_dummy_artifacts_table()
-    segments = _segment_experiment_frame_for_spikeinterface(ftab, exclusions)
+    segments = _segment_experiment_frame_for_spikeinterface(
+        ftab, exclusions
+    )  # These are NOT the segments of a SpikeInterface recording!
 
     # Take the good segments one by one, create an recording object for each, and save these all in a list
     good_segments = segments[segments["type"] == "keep"]
