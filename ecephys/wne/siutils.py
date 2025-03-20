@@ -187,7 +187,13 @@ def load_postprocessing_hypnogram_for_slicing(
     return df
 
 
+# TODO: Remove unused combine parameter,
+# and maybe rename to slice_extractor_and_concatenate_segments.
+# TODO: This is very slow. ~15m. Why?
 def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
+    """Slices a single extractor (that probably represents a whole recording)
+    into pieces (e.g., artifact-free epochs, or epochs belonging to a
+    condition of interest), and recombines them together."""
     assert {"start_frame", "end_frame", "state"}.issubset(epochs_df)
     assert len(epochs_df.state.unique()) == 1
 
@@ -231,13 +237,14 @@ def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
         assert False
 
     # Apply to time vector if there's any (not handled by SI)
+    # TODO: "not handled by SI": I wouldn't be so sure. A lot has changed.
     if si_object.has_time_vector():
         raw_times = si_object.get_times()
         times = []
         for epoch in epochs_df.itertuples():
             times += list(raw_times[epoch.start_frame : epoch.end_frame])
         times = np.array(times)
-        rec.set_times(times)
+        rec.set_times(times, with_warning=False)
 
     return rec
 
