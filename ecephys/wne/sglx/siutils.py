@@ -175,8 +175,8 @@ def get_recording(
     recordings = list()
     for segment in good_segments.itertuples():
         extractor = se.SpikeGLXRecordingExtractor(
-            segment.gate_dir, stream_id=f"{probe}.{stream}"
-        )
+            segment.gate_dir.parent, stream_id=f"{probe}.{stream}"
+        )  # segment.gate_dir.parent is the actual gate directory.
         recording = extractor.select_segments(
             [segment.gate_dir_trigger_file_idx]
         ).frame_slice(
