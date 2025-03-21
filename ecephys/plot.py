@@ -119,31 +119,6 @@ def set_yticklabels_from_values(ylabels, ys, ax):
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
 
 
-def plot_spike_train(
-    data, Tmax=None, ax=None, linewidth=0.1, linelengths=0.95, lineoffsets=1.0, **kwargs
-):
-    """Spike raster.
-
-    Args:
-        data (array-like or list of array-like)
-    """
-    if ax is None:
-        f, ax = plt.subplots()
-
-    ax.eventplot(
-        data,
-        colors="black",
-        linewidth=linewidth,
-        linelengths=linelengths,
-        lineoffsets=lineoffsets,
-        **kwargs,
-    )
-    ax.set_xlim(left=0)
-    if Tmax is not None:
-        ax.set_xlim(right=Tmax)
-    return ax
-
-
 def plot_psth_hist(psth_array, window, binsize, ylabel=None, ylim=None):
     f, ax = plt.subplots()
     sns.despine(f)
