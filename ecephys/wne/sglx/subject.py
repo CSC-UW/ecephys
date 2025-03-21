@@ -197,6 +197,7 @@ class SGLXSubjectLibrary:
 # Indeed, this function does basically get the segment index into an extractor created later, and could even be named
 # add_si_segment_indices(). I think what we should do, in order to get rid of this function, is to use the neo header in
 # the SI extractor to add the segment indices to a ftab, rather than trying to anticipate them.
+# TODO: This should be called _get_probe_dir_trigger_file_index
 def _get_gate_dir_trigger_file_index(ftab: pd.DataFrame) -> pd.DataFrame:
     """Get index of trigger file relative to all files of same stream/prb/gate_folder.
 
