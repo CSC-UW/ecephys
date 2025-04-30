@@ -78,6 +78,8 @@ def decimate_timeseries(da: xr.DataArray, q: int) -> xr.DataArray:
 
 
 def antialiasing_filter(da: xr.DataArray, q: int) -> xr.DataArray:
+    """This function is lazy and works on chunked data, but your chunks have to be long
+    enough to accomodate the impulse response of the filter."""
     validate_2d_timeseries(da)
     res = da.copy()
     if da.chunks is None:
