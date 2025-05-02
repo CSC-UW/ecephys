@@ -33,11 +33,8 @@ import pandas as pd
 import spikeinterface.extractors as se
 import yaml
 
-import ecephys.sglx
-import ecephys.utils
 from ecephys import sharptrack
 
-from . import constants
 from .constants import Files
 
 Pathlike = Union[Path, str]
@@ -287,28 +284,6 @@ class Project:
         fname = opts["probes"][probe]["SHARP-Track"]
         file = self.get_experiment_subject_file(experiment, subject, fname)
         return sharptrack.SHARPTrack(file)
-
-    # TODO: This should not be a method, and it should not be here.
-    def load_offs_df(
-        self,
-        experiment: str,
-        subject: str,
-        probe: str,
-        off_fname_suffix: str = constants.DF_OFF_FNAME_SUFFIX,
-    ):
-        """Load and aggregate off files across structures.
-
-        Loads and aggregate all files of the form
-        `<probe>.<acronym>.<off_fname_suffix>` in the `offs` subdirectory
-        of the project's experiment_subject_directory.
-        """
-        off_dir = self.get_experiment_subject_directory(experiment, subject) / "offs"
-
-        structure_offs = []
-        for f in off_dir.glob(f"{probe}.*{off_fname_suffix}"):
-            structure_offs.append(ecephys.utils.read_htsv(f))
-
-        return pd.concat(structure_offs).reset_index(drop=True)
 
 
 class ProjectLibrary:

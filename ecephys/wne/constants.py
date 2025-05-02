@@ -34,11 +34,6 @@ class Files(StrEnum):
 
 SYNC_FNAME_MAP = {"ap": Files.AP_SYNC, "lf": Files.LF_SYNC}
 
-# TODO: This should not be in this module.
-# Full fname is f"{prb}.{acronym}.{OFF_FNAME_SUFFIX}""
-DF_OFF_FNAME_SUFFIX = "global_offs_bystate_conservative_0.05.htsv"
-
-
 #  TODO: The following are not constants, and should be elsewhere.
 SIMPLIFIED_ARTIFACTS = {
     "unlabeled": "Artifact",
