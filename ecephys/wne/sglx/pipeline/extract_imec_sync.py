@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 
 import ecephys.utils
 from ecephys import sync
-from ecephys.wne import constants
+from ecephys.wne.constants import FileExtensions
 from ecephys.wne.sglx import utils
 from ecephys.wne.sglx.project import SGLXProject
 from ecephys.wne.sglx.subject import SGLXSubject
@@ -18,7 +18,7 @@ def extract_barcodes_from_saved_ttls(
     sglx_project: SGLXProject, sglx_subject: SGLXSubject, binfile: Path
 ):
     [ttl_file] = utils.get_sglx_file_counterparts(
-        sglx_project, sglx_subject.name, [binfile], constants.TTL_EXT
+        sglx_project, sglx_subject.name, [binfile], FileExtensions.TTL
     )
     ttls = ecephys.utils.read_htsv(ttl_file)
     times, values = sync.extract_barcodes_from_times(
@@ -26,7 +26,7 @@ def extract_barcodes_from_saved_ttls(
     )
     barcodes = pd.DataFrame({"time": times, "value": values})
     [barcode_file] = utils.get_sglx_file_counterparts(
-        sglx_project, sglx_subject.name, [binfile], constants.BARCODE_EXT
+        sglx_project, sglx_subject.name, [binfile], FileExtensions.BARCODE
     )
     ecephys.utils.write_htsv(barcodes, barcode_file)
 
@@ -37,7 +37,7 @@ def save_sglx_imec_ttls(
     rising, falling = sync.extract_ttl_edges_from_sglx_imec(binfile)
     ttls = pd.DataFrame({"rising": rising, "falling": falling})
     [htsvFile] = utils.get_sglx_file_counterparts(
-        wne_project, sglx_subject.name, [binfile], constants.TTL_EXT
+        wne_project, sglx_subject.name, [binfile], FileExtensions.TTL
     )
     ecephys.utils.write_htsv(ttls, htsvFile)
 

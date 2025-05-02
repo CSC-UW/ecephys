@@ -4,7 +4,7 @@ import pandas as pd
 from tqdm.auto import tqdm
 
 from ecephys import hypnogram
-from ecephys.wne import constants
+from ecephys.wne.constants import FileExtensions, Files
 from ecephys.wne.sglx import utils
 from ecephys.wne.sglx.project import SGLXProject
 from ecephys.wne.sglx.subject import SGLXSubject
@@ -27,7 +27,7 @@ def do_experiment_probe(
             data_project,
             sglx_subject.name,
             [lfp_file.path],
-            constants.VISBRAIN_EXT,
+            FileExtensions.VISBRAIN,
             remove_stream=True,
         )
         if visbrain_hypnogram_file.is_file():
@@ -60,6 +60,6 @@ def do_experiment_probe(
         )
         hg = hypnogram.FloatHypnogram.clean(hg)
         consolidated_hypnogram_file = data_project.get_experiment_subject_file(
-            experiment, sglx_subject.name, f"{probe}.{constants.HYPNOGRAM_FNAME}"
+            experiment, sglx_subject.name, f"{probe}.{Files.HYPNOGRAM}"
         )
         hg.write_htsv(consolidated_hypnogram_file)

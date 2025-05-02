@@ -7,6 +7,7 @@ from tqdm.auto import tqdm
 
 import ecephys.utils
 from ecephys import sglxr, xrsig
+from ecephys.wne.constants import FileExtensions
 from ecephys.wne.sglx import utils as sglx_utils
 from ecephys.wne.sglx.project import SGLXProject
 from ecephys.wne.sglx.subject import SGLXSubject
@@ -86,7 +87,7 @@ def do_experiment_probe(
     opts = opts_project.load_experiment_subject_params(experiment, sglx_subject.name)
     bad_channels = opts["probes"][probe]["badChannels"]
     zarr_file = dest_project.get_experiment_subject_file(
-        experiment, sglx_subject.name, f"{probe}.lf.zarr"
+        experiment, sglx_subject.name, f"{probe}.{FileExtensions.LFP}"
     )
     lf_table = sglx_subject.get_lfp_bin_table(experiment, probe=probe)
     max_t = float("-inf")  # Maximum timestamp encounted so far

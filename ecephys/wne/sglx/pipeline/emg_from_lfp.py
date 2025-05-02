@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 
 import ecephys.utils
 from ecephys import sglxr, xrsig
-from ecephys.wne import constants
+from ecephys.wne.constants import FileExtensions, Files
 from ecephys.wne.sglx import utils
 from ecephys.wne.sglx.pipeline import utils as pipeline_utils
 from ecephys.wne.sglx.project import SGLXProject
@@ -29,7 +29,7 @@ def do_experiment_probe(
 
     for lfp_file in tqdm(list(lfp_table.itertuples())):
         [emg_file] = utils.get_sglx_file_counterparts(
-            dest_project, sglx_subject.name, [lfp_file.path], constants.EMG_EXT
+            dest_project, sglx_subject.name, [lfp_file.path], FileExtensions.EMG
         )
         lfp = sglxr.load_trigger(
             lfp_file.path,
@@ -48,6 +48,6 @@ def do_experiment_probe(
         sglx_subject,
         experiment,
         probe,
-        constants.EMG_EXT,
-        constants.EMG_FNAME,
+        FileExtensions.EMG,
+        Files.EMG,
     )

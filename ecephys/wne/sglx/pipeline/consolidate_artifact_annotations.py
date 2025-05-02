@@ -4,7 +4,7 @@ import pandas as pd
 from tqdm.auto import tqdm
 
 import ecephys.utils
-from ecephys.wne import constants
+from ecephys.wne.constants import FileExtensions, Files
 from ecephys.wne.sglx import utils
 from ecephys.wne.sglx.project import SGLXProject
 from ecephys.wne.sglx.subject import SGLXSubject
@@ -38,11 +38,11 @@ def do_experiment_probe_stream(
         experiment, stream=stream, ftype="bin", probe=probe
     )
 
-    # Preexisting experiment-lvel artifacts
+    # Preexisting experiment-level artifacts
     outfile = data_project.get_experiment_subject_file(
         experiment,
         sglx_subject.name,
-        f"{probe}.{stream}.{constants.Files.ARTIFACTS}",
+        f"{probe}.{stream}.{Files.ARTIFACTS}",
     )
     common_cols = ["withinFileStartTime", "withinFileEndTime", "type"]
     if outfile.exists():
@@ -61,7 +61,7 @@ def do_experiment_probe_stream(
             data_project,
             sglx_subject.name,
             [bin_file.path],
-            constants.FileExtensions.ARTIFACTS,
+            FileExtensions.ARTIFACTS,
         )
         if artifacts_file.is_file():
             trig_df = pd.read_csv(artifacts_file)

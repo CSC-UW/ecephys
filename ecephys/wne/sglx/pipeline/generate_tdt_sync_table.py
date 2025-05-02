@@ -3,7 +3,7 @@ import pandas as pd
 
 import ecephys.utils
 from ecephys import sync
-from ecephys.wne import constants
+from ecephys.wne.constants import Files
 from ecephys.wne.sglx import utils
 from ecephys.wne.sglx.project import SGLXProject
 from ecephys.wne.sglx.subject import SGLXSubject
@@ -16,7 +16,7 @@ def get_sync_table(
     stream: str = "ap",
 ) -> pd.DataFrame:
     opts = sglx_project.load_experiment_subject_json(
-        experiment, sglx_subject.name, constants.EXP_PARAMS_FNAME
+        experiment, sglx_subject.name, Files.EXP_PARAMS
     )
     if opts["imSyncType"] != "barcode":
         raise NotImplementedError("Sync table generation only implemented for barcodes")

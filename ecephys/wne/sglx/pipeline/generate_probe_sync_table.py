@@ -6,7 +6,7 @@ import pandas as pd
 
 import ecephys.utils
 from ecephys import sync
-from ecephys.wne import constants
+from ecephys.wne.constants import FileExtensions
 from ecephys.wne.sglx import utils
 from ecephys.wne.sglx.project import SGLXProject
 from ecephys.wne.sglx.subject import SGLXSubject
@@ -124,7 +124,7 @@ def _load_ttls(
     project: SGLXProject, sglx_subject: SGLXSubject, binpath: pathlib.Path
 ) -> pd.DataFrame:
     [syncfile] = utils.get_sglx_file_counterparts(
-        project, sglx_subject.name, [binpath], constants.TTL_EXT
+        project, sglx_subject.name, [binpath], FileExtensions.TTL
     )
     return ecephys.utils.read_htsv(syncfile)
 
@@ -133,7 +133,7 @@ def _load_barcodes(
     project: SGLXProject, sglx_subject: SGLXSubject, binpath: pathlib.Path
 ) -> pd.DataFrame:
     [syncfile] = utils.get_sglx_file_counterparts(
-        project, sglx_subject.name, [binpath], constants.BARCODE_EXT
+        project, sglx_subject.name, [binpath], FileExtensions.BARCODE
     )
     return utils.read_htsv(syncfile)
 

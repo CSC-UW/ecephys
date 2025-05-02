@@ -7,8 +7,8 @@ import xarray as xr
 from pyedflib import highlevel as edf
 
 import ecephys.utils
-from ecephys.wne import constants
 from ecephys.wne import utils as wne_utils
+from ecephys.wne.constants import VISBRAIN_FS, Files
 from ecephys.wne.sglx.project import SGLXProject
 from ecephys.wne.sglx.subject import SGLXSubject
 
@@ -140,7 +140,7 @@ def do_experiment(
     ]
     ...
     """
-    target_fs = int(constants.VISBRAIN_FS)
+    target_fs = int(VISBRAIN_FS)
 
     # Load the scoring signals
     scoring_signals = opts_project.load_experiment_subject_params(
@@ -162,26 +162,26 @@ def do_experiment(
     lfp_rs = xr.concat([prepare_lfp(lfp, new_times) for lfp in lfps], dim="signal")
     lfp_rs.to_zarr(
         data_project.get_experiment_subject_file(
-            experiment, sglx_subject.name, constants.SCORING_LFP
+            experiment, sglx_subject.name, Files.SCORING_LFP
         ),
         mode="w",
     )
 
     # Do the same for EMGs
     emg_file = data_project.get_experiment_subject_file(
-        experiment, sglx_subject.name, constants.EMG_FNAME
+        experiment, sglx_subject.name, Files.EMG
     )
     emg = xr.open_dataarray(emg_file)
     emg_rs = prepare_emg(emg, target_fs)  # 1m for 48h
     emg_rs.to_zarr(
         data_project.get_experiment_subject_file(
-            experiment, sglx_subject.name, constants.SCORING_EMG
+            experiment, sglx_subject.name, Files.SCORING_EMG
         ),
         mode="w",
     )
 
     if write_bdf:
         bdf_file = data_project.get_experiment_subject_file(
-            experiment, sglx_subject.name, constants.SCORING_BDF
+            experiment, sglx_subject.name, Files.SCORING_BDF
         )
         write_edf_for_visbrain(lfp_rs, emg_rs, bdf_file)
