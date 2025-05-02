@@ -190,3 +190,30 @@ def get_time_synchronizer(
     return get_time2time(
         experiment_sync_table, experiment_probe_ftable, binfile, extrapolate
     )
+
+
+def load_consolidated_artifacts(
+    project: SGLXProject,
+    experiment: str,
+    subject: str,
+    probe: str,
+    stream: str,
+    simplify: bool = True,
+):
+    """All times are already in the canonical timebase."""
+    artifacts_path = project.get_experiment_subject_file(
+        experiment,
+        subject,
+        f"{probe}.{stream}.{constants.Files.ARTIFACTS}",
+    )
+    if artifacts_path.exists():
+        artifacts = ecephys.utils.read_htsv(artifacts_path).loc[
+            :, ["start_time", "end_time", "type"]
+        ]
+    else:
+        artifacts = pd.DataFrame([], columns=["start_time", "end_time", "type"])
+
+    if simplify:
+        return artifacts.replace(constants.SIMPLIFIED_ARTIFACTS)
+
+    return artifacts

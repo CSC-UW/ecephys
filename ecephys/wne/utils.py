@@ -37,41 +37,17 @@ def datetime_hypnogram_to_float(
     return hyp.FloatHypnogram(df)
 
 
-# TODO: This seems SLGX-specific, since it uses f"{probe}.{stream}.{Files.ARTIFACTS}".
-def load_consolidated_artifacts(
-    project: Project,
-    experiment: str,
-    subject: str,
-    probe: str,
-    stream: str,
-    simplify: bool = True,
-):
-    artifacts_path = project.get_experiment_subject_file(
-        experiment,
-        subject,
-        f"{probe}.{stream}.{Files.ARTIFACTS}",
-    )
-    if artifacts_path.exists():
-        artifacts = ecephys.utils.read_htsv(artifacts_path).loc[
-            :, ["start_time", "end_time", "type"]
-        ]
-    else:
-        artifacts = pd.DataFrame([], columns=["start_time", "end_time", "type"])
-
-    if simplify:
-        return artifacts.replace(constants.SIMPLIFIED_ARTIFACTS)
-
-    return artifacts
-
-
 def load_consolidated_hypnogram(
     project: Project,
     experiment: str,
     subject: str,
     probe: str,
     simplify: bool = True,
+    clean: bool = True,
 ) -> hyp.FloatHypnogram:
-    """Load FloatHypnogram from consolidated hypnogram.htsv project file.
+    """Load FloatHypnogram from consolidated {probe}.hypnogram.htsv project file.
+    All times are already in the canonical timebase.
+    Cleaning has already been performed, but might need to be done again if simplying states.
 
     Important: This hypnogram might not be adequate for all use, as it does
     not necessarily account some excluded, missing or artifactual data
@@ -84,6 +60,8 @@ def load_consolidated_hypnogram(
     hg = hyp.FloatHypnogram.from_htsv(f)
     if simplify:
         hg = hg.replace_states(constants.SIMPLIFIED_STATES)
+        if clean:
+            hg = hyp.FloatHypnogram.clean(hg._df)
     return hg
 
 
