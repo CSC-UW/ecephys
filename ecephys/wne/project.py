@@ -35,7 +35,6 @@ import yaml
 
 import ecephys.sglx
 import ecephys.utils
-from ecephys import hypnogram as hyp
 from ecephys import sharptrack
 
 from . import constants
@@ -85,11 +84,6 @@ class Project:
 
     def get_experiment_subject_directory(self, experiment: str, subject: str) -> Path:
         return self.get_experiment_directory(experiment) / subject
-
-    def get_alias_subject_directory(
-        self, experiment: str, alias: str, subject: str
-    ) -> Path:
-        return self.get_alias_directory(experiment, alias) / subject
 
     def get_alias_subject_directory(
         self, experiment: str, alias: str, subject: str
@@ -293,19 +287,6 @@ class Project:
         fname = opts["probes"][probe]["SHARP-Track"]
         file = self.get_experiment_subject_file(experiment, subject, fname)
         return sharptrack.SHARPTrack(file)
-
-    # TODO: This should not be a method, and it should not be here.
-    def load_float_hypnogram(
-        self,
-        experiment: str,
-        subject: str,
-        simplify: bool = True,
-    ) -> hyp.FloatHypnogram:
-        f = self.get_experiment_subject_file(experiment, subject, Files.HYPNOGRAM)
-        hg = hyp.FloatHypnogram.from_htsv(f)
-        if simplify:
-            hg = hg.replace_states(constants.SIMPLIFIED_STATES)
-        return hg
 
     # TODO: This should not be a method, and it should not be here.
     def load_offs_df(
