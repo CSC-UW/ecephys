@@ -79,6 +79,9 @@ def load_raw_float_hypnogram(
     not necessarily account some excluded, missing or artifactual data
     from LF-band artifacts, AP-band artifacts, or sorting exclusions.  Consider
     using ecephys.wne.sglx.utils.load_reconciled_float_hypnogram instead.
+
+    # TODO: Retire the notion of a single hypnogram that applies to all probes, streams,
+    # and structures. This is the era of local sleep.
     """
     f = project.get_experiment_subject_file(experiment, subject, Files.HYPNOGRAM)
     hg = hyp.FloatHypnogram.from_htsv(f)

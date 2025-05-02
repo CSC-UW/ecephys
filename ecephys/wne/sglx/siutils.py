@@ -202,8 +202,9 @@ def get_recording(
     return recording, segments
 
 
-# TODO: Consider making this a method on wne.Project, or at least a function in wne.siutils.
+# TODO: Consider making this a method on wne.Project, or at least a function in wne.sorting
 # Although, I don't really like the idea that it uses the alias. But the existing data could be moved to eliminate the alias.
+# TODO: This seems more like a sorting utility than a SI utility.
 def get_sorting_directory(
     project: SGLXProject,
     subject: str,
@@ -218,6 +219,7 @@ def get_sorting_directory(
     )
 
 
+# TODO: This seems more like a sorting utility than a SI utility.
 def get_sorting_file(
     project: SGLXProject,
     subject: str,
@@ -391,6 +393,11 @@ def get_sample2time_from_sorting(
 
 # TODO: This function needs to be differentiated from load_sglx_inclusions_and_artifacts.
 # When would you use this one, and when would you use the other?
+# It seems like this one should be used when a sorting already exists, whereas the other
+# is used to create a sorting.
+# TODO: This function does NOT actually return inclusions and artifacts separately.
+# Why both with the second dummy return? Really all we are doing is loading the segments
+# table, concerting to times, and then filtering to keep only the segments of type "keep".
 def load_sorting_inclusions_and_artifacts(
     t2t: Callable,
     project: SGLXProject,
@@ -441,6 +448,7 @@ def _get_gaps(
     return gaps[gaps["duration"] > min_gap_duration_sec]
 
 
+# TODO: This seems more like a sorting utility, or a wisc_ecephys_tools hypnogram utility, than a SI utility.
 # SUS: This function's name does not appear to describe what it does: return all the NoData and/or artifactual periods from a probe.
 def load_bouts_to_reconcile_as_hypnogram(
     project: SGLXProject,
@@ -513,13 +521,36 @@ def load_bouts_to_reconcile_as_hypnogram(
     )
 
 
+# TODO: This should be in wisc_ecephys_tools, since it uses the ephyviewer edits.
+# TODO: There does need to be a function somewhere in wne that reconciles a consoldiated
+# visbrain hypnogram with consolidated artifacts.
+# TODO: The sources argument dictates the sources of the NoData and artifacts.
+# The current options are "sorting", "ap", and "lf", but are misleading and ambiguous.
+# For example, "lf" will pull NoData from the SGLX filetable for each specified probe,
+# and artifacts from the project's consoldiated artifact files for each specified probe.
+# So these are really separate sources.
+# TODO: "sorting" is unable to distinguish between NoData and artifacts, because
+# it is not possible to tell from the sorting segments table whether a segment was
+# NoData or artifactual, I think? And so artifactual periods will be labled as nodata.
+# One result of this is that the order of `sources` actually matters, because the last
+# source can determine if a period is marked as NoData or artifactual.
+# TODO: What if "sorting" is specified, but not all probes have a sorting?
+# Or, what if an artifact file is not found for a probe-stream combination?
+# TODO:
+# Maybe:
+# - `include_lf_sglx_filetable_nodata=True`
+# - `include_lf_consolidated_artifacts=True`
+# - `include_ap_sglx_filetable_nodata=True`
+# - `include_ap_consolidated_artifacts=True`
+# - `include_sorting_nodata=True`
+# - `include_ephyviewer_edits=True`
 def load_reconciled_float_hypnogram(
     project: SGLXProject,
     experiment: str,
     sglx_subject: SGLXSubject,
     probes: list[str],
-    sources: list[str],
-    reconcile_ephyviewer_edits: bool = True,
+    sources: list[str],  #
+    reconcile_ephyviewer_edits: bool = True,  # TODO: Why is this optional, when it is literally in the function's name?
     simplify: bool = True,
     alias="full",
     sorting="sorting",
@@ -528,7 +559,7 @@ def load_reconciled_float_hypnogram(
 
     Favor using this function, rather than load_raw_float_hypnogram, for
     actual analyses! It ensures that :
-        - the probes' actual NoData bouts and
+        - the probes' actual NoData bouts and # TODO: Actual as opposed to...? Where does the alleged discrepancy come from?
         - the probes' artifacts
         - Manual edits made post-hoc in ephyviewer
     are incorporated
@@ -538,7 +569,8 @@ def load_reconciled_float_hypnogram(
         - SGLX files and artifacts may vary across streams/probes
         - Some bouts may have been excluded from a sorting # TODO: Why?
 
-    # If probes and sources are not passed (e.g. empty lists), this function effectively is just for loading the ephyviewer edits and/or cleaning.
+    If probes and sources are not passed (e.g. empty lists), this function effectively
+    is just for loading the ephyviewer edits and/or cleaning.
 
     Parameters:
     ===========
@@ -584,6 +616,7 @@ def load_reconciled_float_hypnogram(
     # Only keep bouts that are artifact-free and have data on EVERY probe. The "most conservative" hypnogram, if you will.
     # Any period covered by this hypnogram is guaranteed to be artifact-free and have data on every probe.
     # SUS: If either sources or probes is an empty list, this for-loop will be bypassed entirely. Is that intended?
+    # Almost certainly not. Both sources and probes should be required non-empty.
     for source, probe in itertools.product(sources, probes):
         hg = hg.reconcile(
             load_bouts_to_reconcile_as_hypnogram(

@@ -58,6 +58,7 @@ def get_sglx_file_counterparts(
 
 # TODO: This function needs to be differentiated from load_sorting_inclusions_and_artifacts.
 # When would you use this one, and when would you use the other?
+# Maybe load_probe_stream_inclusions_and_artifacts would be a better name?
 def load_sglx_inclusions_and_artifacts(
     t2t: Callable,
     project: SGLXProject,
