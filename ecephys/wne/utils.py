@@ -38,7 +38,6 @@ def datetime_hypnogram_to_float(
 
 
 # TODO: This seems SLGX-specific, since it uses f"{probe}.{stream}.{Files.ARTIFACTS}".
-# And, it is only used in sglx.utils.load_sglx_inclusions_and_artifacts(). Move it there?
 def load_consolidated_artifacts(
     project: Project,
     experiment: str,
@@ -65,8 +64,8 @@ def load_consolidated_artifacts(
     return artifacts
 
 
-# TODO: This whole function appears to be an unnecessary duplication of ecephys.wne.projects.Project.load_float_hypnogram()
-# Of the two, this is the one that is used, but which should be preferred? Probably this one.
+# TODO: Retire the notion of a single hypnogram that applies to all probes, streams,
+# and structures. This is the era of local sleep.
 def load_raw_float_hypnogram(
     project: Project,
     experiment: str,
@@ -78,10 +77,7 @@ def load_raw_float_hypnogram(
     Important: This hypnogram might not be adequate for all use, as it does
     not necessarily account some excluded, missing or artifactual data
     from LF-band artifacts, AP-band artifacts, or sorting exclusions.  Consider
-    using ecephys.wne.sglx.utils.load_reconciled_float_hypnogram instead.
-
-    # TODO: Retire the notion of a single hypnogram that applies to all probes, streams,
-    # and structures. This is the era of local sleep.
+    using wisc_ecephys_tools.scoring.load_hypnogram instead.
     """
     f = project.get_experiment_subject_file(experiment, subject, Files.HYPNOGRAM)
     hg = hyp.FloatHypnogram.from_htsv(f)
@@ -91,30 +87,6 @@ def load_raw_float_hypnogram(
         # Although, it will change NaNs to NoData. Is that expected downstream somewhere?
         hg = hyp.FloatHypnogram.clean(hg._df)
     return hg
-
-
-# TODO: This seems like it belongs in wisc_ecephys_tools
-def load_ephyviewer_hypnogram_edits(
-    project: Project,
-    experiment: str,
-    subject: str,
-    simplify: bool = True,
-) -> pd.DataFrame:
-    f = project.get_experiment_subject_file(
-        experiment, subject, Files.HYPNOGRAM_EPHYVIEWER_EDITS
-    )
-    if not f.exists():
-        return hyp.FloatHypnogram(
-            pd.DataFrame([], columns=["state", "start_time", "end_time", "duration"])
-        )
-
-    df = pd.read_csv(f, sep=",")
-    df = df.rename({"time": "start_time", "label": "state"}, axis=1)
-    df["end_time"] = df["start_time"] + df["duration"]
-    hg = hyp.FloatHypnogram(df)
-    if simplify:
-        hg = hg.replace_states(constants.SIMPLIFIED_STATES)
-    return hyp.FloatHypnogram(hyp.condense(hg._df, 0.1))
 
 
 def open_lfps(

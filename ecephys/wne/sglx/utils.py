@@ -9,7 +9,6 @@ import pandas as pd
 import ecephys.utils
 from ecephys.sglx import file_mgmt
 from ecephys.wne import constants
-from ecephys.wne import utils as wne_utils
 
 from . import sessions
 from .project import SGLXProject
@@ -54,46 +53,6 @@ def get_sglx_file_counterparts(
         for p in counterparts
     ]
     return ecephys.utils.remove_duplicates(counterparts)
-
-
-# TODO: This function needs to be differentiated from load_sorting_inclusions_and_artifacts.
-# When would you use this one, and when would you use the other?
-# Maybe load_probe_stream_inclusions_and_artifacts would be a better name?
-def load_sglx_inclusions_and_artifacts(
-    t2t: Callable,
-    project: SGLXProject,
-    sglx_subject: SGLXSubject,
-    experiment: str,
-    probe: str,
-    alias: str,
-    stream: str,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    if alias != "full":
-        raise NotImplementedError("Restrict artifacts to alias")
-
-    # Inclusions are available SGLX files
-    # Need conversion from probetimebase
-    ftable = sglx_subject.get_experiment_frame(
-        experiment,
-        alias,
-        probe=probe,
-        stream=stream,
-        ftype="bin",
-    )
-    inclusions = pd.DataFrame(
-        {
-            "start_time": t2t(ftable["expmtPrbAcqFirstTime"]),
-            "end_time": t2t(ftable["expmtPrbAcqLastTime"]),
-        }
-    )
-
-    # Incorporate project-wide artifacts
-    # Those are already in common-time base, no need for conversion
-    artifacts = wne_utils.load_consolidated_artifacts(
-        project, experiment, sglx_subject.name, probe, stream, simplify=True
-    )
-
-    return inclusions, artifacts
 
 
 def get_experiment_sample2time(

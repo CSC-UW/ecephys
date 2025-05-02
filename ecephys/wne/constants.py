@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Final, Tuple
+from typing import Final
 
 # Visbrain will automatically resample everything to 100Hz, so just nip it in the bud.
 VISBRAIN_FS: Final = 100
@@ -24,7 +24,6 @@ class Files(StrEnum):
     EMG = "emg.nc"
     ARTIFACTS = "artifacts.htsv"
     HYPNOGRAM = "hypnogram.htsv"
-    HYPNOGRAM_EPHYVIEWER_EDITS = "hypnogram_ephyviewer_edits.csv"
     DATETIME_HYPNOGRAM = "hypnogram_datetime.htsv"
     HIPPOCAMPAL_SUBREGIONS = "hippocampal_subregions.json"  # TODO: Not general. Remove to project-specific repositories.
     SCORING_LFP = "scoring_lfp.zarr"
@@ -65,15 +64,3 @@ SIMPLIFIED_STATES = {
     "Transition-to-REM": "Other",  # TODO: Possibly equivalent to IS
     "Wake-Good": "Wake",
 }
-
-EPHYVIEWER_STATE_ORDER: Final[Tuple[str, ...]] = tuple(
-    [
-        "Wake",
-        "NREM",
-        "REM",
-        "IS",
-        "MA",
-        "Artifact",
-        "Other",
-    ]
-)
