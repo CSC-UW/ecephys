@@ -64,12 +64,11 @@ def load_consolidated_artifacts(
     return artifacts
 
 
-# TODO: Retire the notion of a single hypnogram that applies to all probes, streams,
-# and structures. This is the era of local sleep.
-def load_raw_float_hypnogram(
+def load_consolidated_hypnogram(
     project: Project,
     experiment: str,
     subject: str,
+    probe: str,
     simplify: bool = True,
 ) -> hyp.FloatHypnogram:
     """Load FloatHypnogram from consolidated hypnogram.htsv project file.
@@ -79,13 +78,12 @@ def load_raw_float_hypnogram(
     from LF-band artifacts, AP-band artifacts, or sorting exclusions.  Consider
     using wisc_ecephys_tools.scoring.load_hypnogram instead.
     """
-    f = project.get_experiment_subject_file(experiment, subject, Files.HYPNOGRAM)
+    f = project.get_experiment_subject_file(
+        experiment, subject, f"{probe}.{Files.HYPNOGRAM}"
+    )
     hg = hyp.FloatHypnogram.from_htsv(f)
     if simplify:
         hg = hg.replace_states(constants.SIMPLIFIED_STATES)
-        # TODO: This clean() should not be necessary. It is already done in ecephys.wne.sglx.pipeline.consoldate_visbrain_hypnograms.do_experiment_probe().
-        # Although, it will change NaNs to NoData. Is that expected downstream somewhere?
-        hg = hyp.FloatHypnogram.clean(hg._df)
     return hg
 
 
