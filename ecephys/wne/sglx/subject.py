@@ -109,6 +109,7 @@ class SGLXSubject(Subject):
     def get_experiment_data_times(
         self, experiment: str, probe: str, as_datetimes=False
     ) -> tuple:
+        """CAUTION: None of these times have been synchronized into the canonical timebase!"""
         df = self.get_experiment_frame(experiment, probe=probe)
         if as_datetimes:
             return (
@@ -119,10 +120,12 @@ class SGLXSubject(Subject):
             return (df["expmtPrbAcqFirstTime"].min(), df["expmtPrbAcqLastTime"].max())
 
     def t2dt(self, experiment: str, probe: str, t):
+        """CAUTION: None of these times have been synchronized into the canonical timebase!"""
         dt0, _ = self.get_experiment_data_times(experiment, probe, as_datetimes=True)
         return pd.to_timedelta(t, "s") + dt0
 
     def dt2t(self, experiment: str, probe: str, dt):
+        """CAUTION: None of these times have been synchronized into the canonical timebase!"""
         dt0, _ = self.get_experiment_data_times(experiment, probe, as_datetimes=True)
         return (dt - np.datetime64(dt0)) / pd.to_timedelta("1s")
 
