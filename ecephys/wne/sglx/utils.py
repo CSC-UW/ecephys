@@ -200,7 +200,10 @@ def load_consolidated_artifacts(
     stream: str,
     simplify: bool = True,
 ):
-    """All times are already in the canonical timebase."""
+    """
+    All times are already in the canonical timebase. No sync/conversion is needed.
+    If a consolidated artifact file does not exist, an empty table is returned.
+    """
     artifacts_path = project.get_experiment_subject_file(
         experiment,
         subject,
