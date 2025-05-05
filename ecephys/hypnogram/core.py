@@ -14,6 +14,7 @@ from pandas.core.dtypes.common import (
 import ecephys.utils
 
 
+# TODO: Implement equality check. Currently you must use hg1._df == hg2._df.
 class Hypnogram:
     def __init__(self, df):
         self._df = df
