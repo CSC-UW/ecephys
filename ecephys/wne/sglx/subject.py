@@ -183,8 +183,16 @@ class SGLXSubjectLibrary:
         ).reset_index(level=0)
         return self.cache
 
-    # TODO: This would be better written as an HTSV or PQT, with datatypes assigned during loading.
-    # We compress the pickle using GZIP because we exceeded GitHub's filesize limit. This is a bad system.
+    # TODO: This would be better written as PQT, with complex datatypes like pathlib.Path
+    # assigned during loading, or just as-needed.
+    # We compress the pickle using GZIP because we exceeded GitHub's filesize limit.
+    # Using pkl.gz: 1.3MB, Using pqt: 632KB. Using CSV: 21MB.
+    # `path`, `fileName`, `imRoFile` are currently PosixPath objects, but could be str.
+    # `fileCreateTime` is currently a datetime64[ns], but could be a string. It only has
+    # second precision (if that), so there is no need to keep it as a datetime[ns].
+    # Boolean datatypes with missing values are currently being read as object. Polars
+    # would handle missing values for booleans better.
+    # There is also no need to actually load/keep most of the columns.
     def write_cache(self):
         if self.cache is None:
             self.refresh_cache()
@@ -192,6 +200,90 @@ class SGLXSubjectLibrary:
 
     def read_cache(self):
         return pd.read_pickle(self.cachefile, compression="gzip")
+
+    def get_subject_experiment_probe_tuples(
+        self,
+        subject_filter: callable = None,
+        experiment_filter: callable = None,
+        expand_probes: bool = False,
+    ) -> list[tuple[str, str, tuple[str, ...]]]:
+        """Get a list of (subject, experiment, probes) tuples for all experiments.
+
+        Args:
+            subject_filter: Optional callable that takes a subject name string and returns True
+                if the subject should be included in the result.
+            experiment_filter: Optional callable that takes an experiment name string and returns True
+                if the experiment should be included in the result.
+            expand_probes: If True, expand the probes into separate tuples.
+                ('CNPIX4-Doppio', 'novel_objects_deprivation', ('imec0', 'imec1'))
+                becomes
+                [('CNPIX4-Doppio', 'novel_objects_deprivation', 'imec0'),
+                 ('CNPIX4-Doppio', 'novel_objects_deprivation', 'imec1')]
+
+        Returns:
+            List of tuples, each containing:
+                - subject name (str)
+                - experiment name (str)
+                - tuple of probe names (tuple[str, ...])
+        """
+        lst = []
+        all_subjects = self.cache["subject"].unique()
+        all_subjects = _sort_strings_by_integer(all_subjects)
+        for subject in all_subjects:
+            if subject_filter is not None and not subject_filter(subject):
+                continue
+            sub = self.get_subject(subject)
+            exps = sub.get_experiment_names()
+            exps = _sort_strings_by_integer(exps)
+            for exp in exps:
+                if experiment_filter is not None and not experiment_filter(exp):
+                    continue
+                try:
+                    prbs = sub.get_experiment_probes(exp)
+                    prbs = _sort_strings_by_integer(prbs)
+                    lst.append((subject, exp, tuple(prbs)))
+                except Exception as e:
+                    print(f"Error getting experiment probes for {subject} {exp}: {e}")
+                    lst.append((subject, exp, tuple()))
+                    continue
+
+        if expand_probes:
+            expanded = []
+            for subject, exp, probes in lst:
+                for probe in probes:
+                    expanded.append((subject, exp, probe))
+            return expanded
+        else:
+            return lst
+
+
+def _sort_strings_by_integer(strings: list[str]) -> list[str]:
+    """Sort strings by any integers they contain, with non-integer strings last.
+
+    Examples:
+        >>> _sort_strings_by_integer_suffix(["b", "a1", "a2", "c"])
+        ["a1", "a2", "b", "c"]
+        >>> _sort_strings_by_integer_suffix(["imec5", "imec3", "imec", "amec"])
+        ["imec3", "imec5", "amec", "imec"]
+    """
+    # Split into strings with and without integers
+    with_int = []
+    without_int = []
+    for s in strings:
+        digits = "".join(c for c in s if c.isdigit())
+        if digits:
+            with_int.append((s, int(digits)))
+        else:
+            without_int.append(s)
+
+    # Sort strings with integers by their integer value
+    with_int.sort(key=lambda x: x[1])
+
+    # Sort strings without integers normally
+    without_int.sort()
+
+    # Combine the results
+    return [x[0] for x in with_int] + without_int
 
 
 # TODO: Remove as soon as SpikeInterface adds this functionality.
