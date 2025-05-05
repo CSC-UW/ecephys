@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 import pandas as pd
 from tqdm.auto import tqdm
@@ -19,7 +20,7 @@ def do_experiment_probe(
     sync_project: SGLXProject,
     data_project: SGLXProject,
     alias: str = "full",
-):
+) -> Optional[hypnogram.FloatHypnogram]:
     visbrain_hypnograms = list()
     lfp_table = sglx_subject.get_lfp_bin_table(experiment, probe=probe, alias=alias)
     for lfp_file in tqdm(list(lfp_table.itertuples())):
@@ -63,3 +64,6 @@ def do_experiment_probe(
             experiment, sglx_subject.name, f"{probe}.{Files.HYPNOGRAM}"
         )
         hg.write_htsv(consolidated_hypnogram_file)
+        return hg
+    else:
+        return None

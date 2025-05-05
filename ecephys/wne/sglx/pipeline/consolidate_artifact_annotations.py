@@ -1,4 +1,5 @@
 import logging
+from typing import Optional, Tuple
 
 import pandas as pd
 from tqdm.auto import tqdm
@@ -19,7 +20,7 @@ def do_experiment_probe_stream(
     sglx_subject: SGLXSubject,
     data_project: SGLXProject,
     sync_project: SGLXProject,
-):
+) -> Optional[pd.DataFrame]:
     """
     Consolidate per-trigger-file artifacts.
 
@@ -108,6 +109,25 @@ def do_experiment_probe_stream(
     if artifacts:
         df = pd.concat(artifacts, ignore_index=True).sort_values(by="start_time")
         ecephys.utils.write_htsv(df, outfile)
+        return df
+    else:
+        return None
+
+
+def do_experiment_probe(
+    experiment: str,
+    probe: str,
+    sglx_subject: SGLXSubject,
+    data_project: SGLXProject,
+    sync_project: SGLXProject,
+) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
+    ap = do_experiment_probe_stream(
+        experiment, probe, "ap", sglx_subject, data_project, sync_project
+    )
+    lf = do_experiment_probe_stream(
+        experiment, probe, "lf", sglx_subject, data_project, sync_project
+    )
+    return ap, lf
 
 
 def do_experiment(
@@ -118,7 +138,4 @@ def do_experiment(
 ):
     probes = sglx_subject.get_experiment_probes(experiment)
     for probe in probes:
-        for stream in ["ap", "lf"]:
-            do_experiment_probe_stream(
-                experiment, probe, stream, sglx_subject, data_project, sync_project
-            )
+        do_experiment_probe(experiment, probe, sglx_subject, data_project, sync_project)
