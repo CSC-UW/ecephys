@@ -87,7 +87,7 @@ def do_experiment_probe(
     opts = opts_project.load_experiment_subject_params(experiment, sglx_subject.name)
     bad_channels = opts["probes"][probe]["badChannels"]
     zarr_file = dest_project.get_experiment_subject_file(
-        experiment, sglx_subject.name, f"{probe}.{FileExtensions.LFP}"
+        experiment, sglx_subject.name, f"{probe}{FileExtensions.LFP}"
     )
     lf_table = sglx_subject.get_lfp_bin_table(experiment, probe=probe)
     max_t = float("-inf")  # Maximum timestamp encounted so far
