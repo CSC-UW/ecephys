@@ -241,6 +241,10 @@ class Hypnogram:
     def covers_time(self) -> np.ndarray[bool]:
         raise NotImplementedError
 
+    def fill_gaps(self, longer_than: float, fill_value: str) -> Self:
+        """Fill gaps of a given duration with a given value."""
+        return self.__class__(fill_gaps(self._df, longer_than, fill_value))
+
 
 class FloatHypnogram(Hypnogram):
     def write_visbrain(self, path: Path | str):
@@ -345,6 +349,14 @@ class FloatHypnogram(Hypnogram):
             maximum_antistate_bout_duration,
             frac=frac,
         )
+
+    @classmethod
+    def get_consensus(
+        cls,
+        *hgs: Self,
+        fill_value: str = "None",
+    ) -> Self:
+        return cls(get_consensus(*[hg._df for hg in hgs], fill_value=fill_value))
 
     @classmethod
     def clean(cls, df: pd.DataFrame) -> Self:
@@ -953,3 +965,14 @@ def clean(df: pd.DataFrame, condenseTol, missingDataTol, zero) -> pd.DataFrame:
     df = fill_gaps(df, longerThan=missingDataTol, value="NoData")
     df = ffill_gaps(df, longerThan=zero)
     return condense(df, tolerance=condenseTol)
+
+
+def get_consensus(
+    *dfs: pd.DataFrame,
+    fill_value: str = "None",
+) -> pd.DataFrame:
+    """Get the consensus hypnogram between any number of hypnograms (DataFrames)."""
+    df = ecephys.utils.pandas.mutual_labeled_intervals(
+        *dfs, lo="start_time", hi="end_time", delta="duration", label="state"
+    )
+    return fill_gaps(df, longerThan=0, value=fill_value)
