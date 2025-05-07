@@ -135,12 +135,12 @@ def _load_barcodes(
     [syncfile] = utils.get_sglx_file_counterparts(
         project, sglx_subject.name, [binpath], FileExtensions.BARCODE
     )
-    return utils.read_htsv(syncfile)
+    return ecephys.utils.read_htsv(syncfile)
 
 
 def _get_session_sync_type(session_ftab: pd.DataFrame) -> str:
     imSyncType = session_ftab["imSyncType"].values
-    assert utils.all_equal(imSyncType), (
+    assert ecephys.utils.all_equal(imSyncType), (
         "Expected all session files to have the same sync type"
     )
     return imSyncType[0]
