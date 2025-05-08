@@ -430,6 +430,38 @@ def get_interval_complements(intervals, start_time, end_time):
     return complement
 
 
+# -------------------- String utilities --------------------
+
+
+def sort_strings_by_integer(strings: list[str]) -> list[str]:
+    """Sort strings by any integers they contain, with non-integer strings last.
+
+    Examples:
+        >>> _sort_strings_by_integer_suffix(["b", "a1", "a2", "c"])
+        ["a1", "a2", "b", "c"]
+        >>> _sort_strings_by_integer_suffix(["imec5", "imec3", "imec", "amec"])
+        ["imec3", "imec5", "amec", "imec"]
+    """
+    # Split into strings with and without integers
+    with_int = []
+    without_int = []
+    for s in strings:
+        digits = "".join(c for c in s if c.isdigit())
+        if digits:
+            with_int.append((s, int(digits)))
+        else:
+            without_int.append(s)
+
+    # Sort strings with integers by their integer value
+    with_int.sort(key=lambda x: x[1])
+
+    # Sort strings without integers normally
+    without_int.sort()
+
+    # Combine the results
+    return [x[0] for x in with_int] + without_int
+
+
 # -------------------- Miscellaneous --------------------
 
 

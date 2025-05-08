@@ -6,6 +6,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+from ecephys import utils
 from ecephys.sglx import file_mgmt
 from ecephys.wne.sglx import experiments, sessions
 from ecephys.wne.subject import Subject
@@ -228,19 +229,19 @@ class SGLXSubjectLibrary:
         """
         lst = []
         all_subjects = self.cache["subject"].unique()
-        all_subjects = _sort_strings_by_integer(all_subjects)
+        all_subjects = utils.misc.sort_strings_by_integer(all_subjects)
         for subject in all_subjects:
             if subject_filter is not None and not subject_filter(subject):
                 continue
             sub = self.get_subject(subject)
             exps = sub.get_experiment_names()
-            exps = _sort_strings_by_integer(exps)
+            exps = utils.misc.sort_strings_by_integer(exps)
             for exp in exps:
                 if experiment_filter is not None and not experiment_filter(exp):
                     continue
                 try:
                     prbs = sub.get_experiment_probes(exp)
-                    prbs = _sort_strings_by_integer(prbs)
+                    prbs = utils.misc.sort_strings_by_integer(prbs)
                     lst.append((subject, exp, tuple(prbs)))
                 except Exception as e:
                     print(f"Error getting experiment probes for {subject} {exp}: {e}")
@@ -255,35 +256,6 @@ class SGLXSubjectLibrary:
             return expanded
         else:
             return lst
-
-
-def _sort_strings_by_integer(strings: list[str]) -> list[str]:
-    """Sort strings by any integers they contain, with non-integer strings last.
-
-    Examples:
-        >>> _sort_strings_by_integer_suffix(["b", "a1", "a2", "c"])
-        ["a1", "a2", "b", "c"]
-        >>> _sort_strings_by_integer_suffix(["imec5", "imec3", "imec", "amec"])
-        ["imec3", "imec5", "amec", "imec"]
-    """
-    # Split into strings with and without integers
-    with_int = []
-    without_int = []
-    for s in strings:
-        digits = "".join(c for c in s if c.isdigit())
-        if digits:
-            with_int.append((s, int(digits)))
-        else:
-            without_int.append(s)
-
-    # Sort strings with integers by their integer value
-    with_int.sort(key=lambda x: x[1])
-
-    # Sort strings without integers normally
-    without_int.sort()
-
-    # Combine the results
-    return [x[0] for x in with_int] + without_int
 
 
 # TODO: Remove as soon as SpikeInterface adds this functionality.
