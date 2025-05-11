@@ -15,8 +15,11 @@ def butter_bandpass(
     time_axis=-1,
     plot: bool = True,
 ) -> da.Array:
-    b, a = npsig.get_butter_bandpass_coefs(lowcut, highcut, fs, order, plot=plot)
-    irlen = npsig.estimate_impulse_response_len(b, a, eps=1e-9)
+    sos = npsig.get_butter_bandpass_coefs(lowcut, highcut, fs, order, plot=plot)
+    b, a = scipy.signal.sos2tf(sos)
+    irlen = npsig.estimate_impulse_response_len(
+        b, a, eps=1e-9
+    )  # This is a pretty aggressive estimate.
     chunk_overlap = np.round(2 * irlen).astype(int)
     min_chunksize = 3 * chunk_overlap
 
@@ -33,7 +36,7 @@ def butter_bandpass(
     depth[time_axis] = chunk_overlap  # Key: Axis index, Value: axis depth
 
     def _filter(x):
-        return scipy.signal.filtfilt(b, a, x, axis=time_axis)
+        return scipy.signal.sosfiltfilt(sos, x, axis=time_axis)
 
     filtered = da.map_overlap(
         _filter, data, depth=depth, boundary="reflect", meta=data._meta

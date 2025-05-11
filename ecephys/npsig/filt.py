@@ -3,15 +3,14 @@ import numpy as np
 import scipy.signal
 
 
-def plot_butter_bandpass_properties(b, a, fs, order, xlim=None):
+def plot_butter_bandpass_properties(sos, fs, order, xlim=None):
     # Plot the frequency response for a few different orders.
     plt.figure()
     plt.clf()
-    w, h = scipy.signal.freqz(b, a, worN=2000)
-    plt.plot((fs * 0.5 / np.pi) * w, abs(h), label="order = %d" % order)
+    w, h = scipy.signal.sosfreqz(sos, worN=2000, fs=fs)
+    plt.plot(w, abs(h), label="order = %d" % order)
     if xlim is not None:
         plt.xlim(xlim)
-
     plt.plot([0, 0.5 * fs], [np.sqrt(0.5), np.sqrt(0.5)], "--", label="sqrt(0.5)")
     plt.xlabel("Frequency (Hz)")
     plt.ylabel("Gain")
@@ -23,19 +22,30 @@ def get_butter_bandpass_coefs(lowcut, highcut, fs, order, plot=True):
     nyq = 0.5 * fs
     low = lowcut / nyq
     high = highcut / nyq
-    b, a = scipy.signal.butter(order, [low, high], btype="band")
+    sos = scipy.signal.butter(order, [low, high], btype="band", output="sos")
     if plot:
         bw = highcut - lowcut
         plot_butter_bandpass_properties(
-            b, a, fs, order, xlim=(lowcut - bw, highcut + bw)
+            sos, fs, order, xlim=(lowcut - bw, highcut + bw)
         )
-    return b, a
+    return sos
 
 
 def butter_bandpass(data, lowcut, highcut, fs, order, plot=True):
-    b, a = get_butter_bandpass_coefs(lowcut, highcut, fs, order, plot)
-    y = scipy.signal.filtfilt(b, a, data)
+    """Attenuation by order:
+    order=1: 6dB/octave
+    order=2: 12dB/octave
+    order=3: 18dB/octave
+    order=4: 24dB/octave
+    order=5: 30dB/octave
+    order=6: 36dB/octave
 
+    Higher orders incur more computational cost (often negligible), increase potential
+    for ringing and smearing, and may be numerically unstable. But, of coruse, come with
+    narrower transition bands and better stopband attenuation.
+    """
+    sos = get_butter_bandpass_coefs(lowcut, highcut, fs, order, plot)
+    y = scipy.signal.sosfiltfilt(sos, data)
     return y
 
 
