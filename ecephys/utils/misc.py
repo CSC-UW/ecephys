@@ -27,25 +27,25 @@ def next_power_of_2(x):
 
 
 def discard_outliers(x, n_mad=6):
-    mad = scipy.stats.median_abs_deviation(x)
-    threshold = np.median(x) + n_mad * mad
+    mad = scipy.stats.median_abs_deviation(x, nan_policy="omit")
+    threshold = np.nanmedian(x) + n_mad * mad
     return x[x <= threshold]
 
 
 def replace_outliers(x, n_mad=6, fill_value=np.nan):
-    mad = scipy.stats.median_abs_deviation(x)
-    threshold = np.median(x) + n_mad * mad
+    mad = scipy.stats.median_abs_deviation(x, nan_policy="omit")
+    threshold = np.nanmedian(x) + n_mad * mad
     x[x > threshold] = fill_value
     return x
 
 
 def clip_outliers(x, method="mad", n_devs=6):
     if method == "mad":
-        center = np.median(x)
-        dev = scipy.stats.median_abs_deviation(x)
+        center = np.nanmedian(x)
+        dev = scipy.stats.median_abs_deviation(x, nan_policy="omit")
     elif method == "std":
-        center = np.mean(x)
-        dev = np.std(x)
+        center = np.nanmean(x)
+        dev = np.nanstd(x)
     else:
         raise ValueError(f"Unrecognized method: {dev}")
 
