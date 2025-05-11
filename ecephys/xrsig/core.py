@@ -618,6 +618,22 @@ def butter_bandpass(
     return res.__class__(res)
 
 
+def hilbert(da: xr.DataArray) -> xr.DataArray:
+    """
+    To get instantaneous power with dask:
+    da = butter_bandpass(da, lowcut, highcut, order)
+    da = hilbert(da)
+    da = dask.array.square(dask.array.abs(da))
+    """
+    validate_2d_timeseries(da)
+    res = da.copy()
+    if da.chunks is None:
+        res.values = npsig.hilbert(res.values)
+    else:
+        res.data = dasig.hilbert(res.data)
+    return res.__class__(res)
+
+
 def moving_transform(
     da: xr.DataArray, window: float, step: float, method: str
 ) -> xr.DataArray:

@@ -9,6 +9,7 @@ from .filt import (
 )
 from .signal import (
     decimate_timeseries,
+    hilbert,
     moving_transform,
 )
 from .tfr import (
@@ -42,6 +43,7 @@ __all__ = [
     "get_perievent_samples",
     "get_perievent_time",
     "get_pitts_csd",
+    "hilbert",
     "mean_subtract",
     "median_subtract",
     "moving_transform",

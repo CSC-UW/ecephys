@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.fftpack
 import scipy.signal
 import yasa
 
@@ -23,3 +24,16 @@ def moving_transform(
             x=x[:, i], sf=fs, window=window, step=step, method=method, interp=True
         )
     return mrms
+
+
+def hilbert(x: np.ndarray) -> np.ndarray:
+    """
+    Compute the analytic signal of `x` using the Hilbert transform.
+
+    x: (n_times, n_signals)
+    """
+    ns = x.shape[0]
+    nfast = scipy.fftpack.next_fast_len(ns)
+    # For unclear reasons, this is faster than not using the N= kwarg, or than forgoing
+    # transpose and using axis=0.
+    return scipy.signal.hilbert(x, N=nfast, axis=0)[:ns, :]

@@ -1,4 +1,5 @@
 from .filt import antialiasing_filter, butter_bandpass, mne_filter
+from .signal import hilbert
 from .utils import moving_transform, shift_blocks
 
 __all__ = [
@@ -7,4 +8,5 @@ __all__ = [
     "mne_filter",
     "moving_transform",
     "shift_blocks",
+    "hilbert",
 ]
