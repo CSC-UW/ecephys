@@ -74,6 +74,7 @@ def open_lfps(
     drop_duplicate_times=False,  # This is expensive no matter what. ~30s for 48h.
     chunks="auto",
     anatomy_proj: Project = None,
+    badchan_proj: Project = None,
     fname_prefix: str = None,
     **xr_kwargs,
 ):
@@ -126,6 +127,11 @@ def open_lfps(
             warnings.warn(
                 "Could not find anatomy file at: {anatomy_file}. Using dummy structure table"
             )
+
+    if badchan_proj is not None:
+        params = badchan_proj.load_experiment_subject_params(experiment, subject)
+        badchans = params["probes"][probe]["badChannels"]
+        lf = lf.drop_sel({"channel": badchans})
 
     return lf
 
