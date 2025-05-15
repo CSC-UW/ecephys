@@ -2,6 +2,7 @@ from . import ephyviewer, senzai, si_extractor
 from .core import (
     antialiasing_filter,
     assign_laminar_coordinate,
+    bipolar_reference,
     butter_bandpass,
     complex_stft,
     cwt,
@@ -47,6 +48,7 @@ __all__ = [
     "add_structure_boundaries_to_laminar_plot",
     "antialiasing_filter",
     "assign_laminar_coordinate",
+    "bipolar_reference",
     "butter_bandpass",
     "complex_stft",
     "cwt",

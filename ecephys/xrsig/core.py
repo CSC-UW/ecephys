@@ -66,15 +66,14 @@ def get_pitch(da: xr.DataArray) -> xr.DataArray:
 
 def decimate_timeseries(da: xr.DataArray, q: int) -> xr.DataArray:
     validate_2d_timeseries(da)
-    dat = npsig.decimate_timeseries(da, q=q)
-    res = xr.DataArray(
-        dat,
-        dims=da.dims,
-        coords={**da["time"][::q].coords, **da["channel"].coords},
-        attrs=da.attrs,
+    assert q < 13, (
+        "It is recommended to call `decimate_timeseries` multiple times for "
+        "downampling factors higher than 12. See scipy.signal.decimate docs."
     )
-    res.attrs["fs"] = da.fs / q
-    return res
+    da = antialiasing_filter(da, q)
+    da = da.isel(time=slice(None, None, q))
+    da.attrs["fs"] = da.fs / q
+    return da
 
 
 def antialiasing_filter(da: xr.DataArray, q: int) -> xr.DataArray:
@@ -686,3 +685,47 @@ def detrend_trialed(
 
 def get_channel_indices(da: xr.DataArray, channel_ids: np.ndarray) -> np.ndarray:
     return np.argwhere(da["channel"].isin(channel_ids).values).squeeze()
+
+
+def bipolar_reference(da: xr.DataArray, shift: int) -> xr.DataArray:
+    """Bipolar referencing.
+
+    Args:
+        da: The DataArray to bipolar reference.
+        shift: The number of channels to shift the DataArray by.
+            If your channels are index ordered from deeper to more superficial, a
+            positive shift will subtract the deeper channels from the more superficial
+            channels. In the result, `shift` deepest channels will be dropped.
+
+    Returns:
+        The bipolar referenced DataArray.
+        The coordinates along the channel dimension are retained, and correspond to the
+        channel that was rereferenced. E.g. "y" is the depth of each channel A in A - B.
+        New coordinates are added to the channel dimension, e.g. "ref_y" is the depth of
+        each channel B in A - B.
+
+    Examples:
+        >>> lfp_bi = bipolar_reference(lfp, shift=10)
+
+        To retain only signals for which both poles (A and B) are in the same structure:
+        >>> keep = lfp_bi["acronym"] == lfp_bi["ref_acronym"]
+        >>> lfp_bi = lfp_bi.isel({"channel": keep})
+
+        To get the separation of each pole:
+        >>> lfp_bi["y"] - lfp_bi["ref_y"]
+    """
+    validate_2d_timeseries(da)
+    bi = da - da.shift({"channel": shift})
+    bi = bi.isel(channel=slice(shift, None))
+    coords = [x for x in bi["channel"].coords.keys() if x != "channel"]
+    for coord in coords:
+        bi = bi.assign_coords(
+            {
+                f"ref_{coord}": (
+                    "channel",
+                    da[coord].shift({"channel": shift}).values[shift:],
+                )
+            }
+        )
+    bi.attrs["fs"] = da.fs
+    return bi
