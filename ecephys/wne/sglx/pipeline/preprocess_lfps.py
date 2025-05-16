@@ -21,7 +21,6 @@ def do_experiment(
     sync_project: SGLXProject,
     dest_project: SGLXProject,
     opts_project: SGLXProject,
-    chunk_duration: int = 300,  # Size of zarr chunks, in seconds
 ):
     lf_table = sglx_subject.get_lfp_bin_table(experiment)
     probes = lf_table["probe"].unique()
@@ -33,7 +32,6 @@ def do_experiment(
             sync_project,
             dest_project,
             opts_project,
-            chunk_duration,
         )
 
 
@@ -44,7 +42,6 @@ def do_experiment_probe(
     sync_project: SGLXProject,
     dest_project: SGLXProject,
     opts_project: SGLXProject,
-    chunk_duration: int = 300,  # Size of zarr chunks, in seconds
 ):
     """
     Parameters:
@@ -119,9 +116,8 @@ def do_experiment_probe(
 
         logger.info(f"Saving to: {zarr_file}")
         if i == 0:
-            lfp = lfp.chunk(
-                {"channel": lfp.channel.size, "time": int(lfp.fs * chunk_duration)}
-            )  # If you choose to use the 'auto' chunksize setting, be warned: Different coords on the same dimension can be chunked differently.
+            lfp = lfp.chunk({"channel": lfp.channel.size, "time": "auto"})
+            lfp = lfp.chunk(tuple(max(c) for c in lfp.chunks))  # Ensure uniform chunks
             lfp.to_zarr(zarr_file, encoding={"lfp": {"dtype": "float32"}}, mode="w")
         else:
             lfp.to_zarr(zarr_file, append_dim="time")
