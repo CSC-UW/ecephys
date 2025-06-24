@@ -15,6 +15,8 @@ class FileExtensions(StrEnum):
     LFP = ".lf.zarr"
     ARTIFACTS = ".artifacts.csv"
     VISBRAIN = ".hypnogram.txt"
+    STRUCTURES = ".structures.htsv"
+    HYPNOGRAM = ".hypnogram.htsv"
 
 
 class Files(StrEnum):
