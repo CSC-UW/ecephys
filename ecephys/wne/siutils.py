@@ -207,7 +207,7 @@ def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
     if isinstance(si_object, se.BaseSorting):
         # Disable redundant check_spike_frames in Sorting.frame_slice
         assert si_object.has_recording()
-        if waveform_tools.has_exceeding_spikes(si_object._recording, si_object):
+        if waveform_tools.has_exceeding_spikes(si_object, si_object._recording):
             raise ValueError(
                 "The sorting object has spikes exceeding the recording duration. You have to remove those spikes "
                 "with the `spikeinterface.curation.remove_excess_spikes()` function"
