@@ -1,8 +1,9 @@
-from math import gcd
+import math
 
 import colorcet
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import seaborn as sns
 from IPython.display import display
 from ipywidgets import (
@@ -142,7 +143,7 @@ def plot_psth_hist(psth_array, window, binsize, ylabel=None, ylim=None):
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
 
     # x ticks: Only 0, first and last value and muiltiple of gcd in between
-    xtic_len = gcd(abs(window[0]), window[1])
+    xtic_len = math.gcd(abs(window[0]), window[1])
     xtic_labels = range(window[0], window[1] + xtic_len, xtic_len)
     xtic_locs = [(j - window[0]) / binsize for j in xtic_labels]
     if 0 not in xtic_labels:
@@ -803,3 +804,68 @@ def color_by_category(arr: np.ndarray, palette="glasbey_dark") -> tuple[list, di
     arr_colored = [color_map[x] for x in arr]
 
     return arr_colored, color_map
+
+
+def jointplot(
+    df: pd.DataFrame,
+    x: str,
+    y: str,
+    jointplot_kwargs: dict,
+    log_x: bool = True,
+    log_y: bool = True,
+    xlim: tuple[float, float] | None = None,
+    ylim: tuple[float, float] | None = None,
+) -> sns.JointGrid:
+    """
+    Wraps seaborn.jointplot, but with more intelligent KDE marginals when axes
+    are log-scaled.
+    """
+    _df = df.copy()
+    if log_x:
+        _df[x] = np.log10(_df[x])
+    if log_y:
+        _df[y] = np.log10(_df[y])
+    g = sns.jointplot(_df, x=x, y=y, **jointplot_kwargs)
+    if xlim is not None:
+        if log_x:
+            xlim = np.log10(xlim)
+        g.ax_joint.set_xlim(xlim[0], xlim[1])
+    if ylim is not None:
+        if log_y:
+            ylim = np.log10(ylim)
+        g.ax_joint.set_ylim(ylim[0], ylim[1])
+
+    # Add log-spaced ticks and labels
+    if log_x:
+        x_min, x_max = g.ax_joint.get_xlim()
+        x_ticks = np.arange(np.ceil(x_min), np.floor(x_max) + 1)
+        x_labels = [f"$10^{{{int(tick)}}}$" if tick != 0 else "1" for tick in x_ticks]
+        g.ax_joint.set_xticks(x_ticks)
+        g.ax_joint.set_xticklabels(x_labels)
+
+        # Add minor ticks for x-axis
+        x_minor_ticks = []
+        for major_tick in x_ticks:
+            for i in range(2, 10):
+                minor_tick = major_tick + np.log10(i)
+                if x_min <= minor_tick <= x_max:
+                    x_minor_ticks.append(minor_tick)
+        g.ax_joint.set_xticks(x_minor_ticks, minor=True)
+
+    if log_y:
+        y_min, y_max = g.ax_joint.get_ylim()
+        y_ticks = np.arange(np.ceil(y_min), np.floor(y_max) + 1)
+        y_labels = [f"$10^{{{int(tick)}}}$" if tick != 0 else "1" for tick in y_ticks]
+        g.ax_joint.set_yticks(y_ticks)
+        g.ax_joint.set_yticklabels(y_labels)
+
+        # Add minor ticks for y-axis
+        y_minor_ticks = []
+        for major_tick in y_ticks:
+            for i in range(2, 10):
+                minor_tick = major_tick + np.log10(i)
+                if y_min <= minor_tick <= y_max:
+                    y_minor_ticks.append(minor_tick)
+        g.ax_joint.set_yticks(y_minor_ticks, minor=True)
+
+    return g
