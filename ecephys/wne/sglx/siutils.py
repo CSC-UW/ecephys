@@ -388,7 +388,7 @@ def get_sample2time_from_sorting(
 
 def load_singleprobe_sorting(
     sglxSortingProject: SGLXProject,
-    sglxSubject: SGLXSubject,
+    subject: str,
     experiment: str,
     probe: str,
     alias: str = "full",
@@ -405,7 +405,7 @@ def load_singleprobe_sorting(
     # Get function for converting SI samples to imec0 timebase
     sample2time = get_sample2time_from_sorting(
         sglxSortingProject,
-        sglxSubject.name,
+        subject,
         experiment,
         alias,
         probe,
@@ -415,7 +415,7 @@ def load_singleprobe_sorting(
 
     # Load extractor
     extractor = sglxSortingProject.get_kilosort_extractor(
-        sglxSubject.name,
+        subject,
         experiment,
         probe,
         alias=alias,
@@ -431,7 +431,7 @@ def load_singleprobe_sorting(
         wneAnatomyProject = sglxSortingProject
 
     anatomy_file = wneAnatomyProject.get_experiment_subject_file(
-        experiment, sglxSubject.name, f"{probe}.structures.htsv"
+        experiment, subject, f"{probe}.structures.htsv"
     )
     if anatomy_file.exists():
         structs = ecephys.utils.read_htsv(anatomy_file)
@@ -449,7 +449,7 @@ def load_singleprobe_sorting(
 
 def load_multiprobe_sorting(
     sglxSortingProject: SGLXProject,
-    sglxSubject: SGLXSubject,
+    subject: str,
     experiment: str,
     probes: list[str],
     alias: str = "full",
@@ -467,7 +467,7 @@ def load_multiprobe_sorting(
         {
             probe: load_singleprobe_sorting(
                 sglxSortingProject,
-                sglxSubject,
+                subject,
                 experiment,
                 probe=probe,
                 alias=alias,
