@@ -811,8 +811,8 @@ def jointplot(
     x: str,
     y: str,
     jointplot_kwargs: dict,
-    log_x: bool = True,
-    log_y: bool = True,
+    log_x: bool = False,
+    log_y: bool = False,
     xlim: tuple[float, float] | None = None,
     ylim: tuple[float, float] | None = None,
 ) -> sns.JointGrid:
