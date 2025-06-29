@@ -70,16 +70,42 @@ presence_metric_thresholds = MappingProxyType(
 )
 
 
+def _check_sorting_or_dataframe(obj: se.BaseSorting | pd.DataFrame) -> bool:
+    if not isinstance(obj, (se.BaseSorting, pd.DataFrame)):
+        raise ValueError(
+            f"Expected a SpikeInterface sorting or pandas DataFrame, got {type(obj)}"
+        )
+    return True
+
+
+def _create_mask(
+    obj: se.BaseSorting | pd.DataFrame, fill_value: bool = True
+) -> np.ndarray[bool]:
+    _check_sorting_or_dataframe(obj)
+    if isinstance(obj, se.BaseSorting):
+        return np.full_like(obj.get_unit_ids(), fill_value)
+    if isinstance(obj, pd.DataFrame):
+        return np.full(len(obj), fill_value)
+
+
+def _get_property(obj: se.BaseSorting | pd.DataFrame, property: str) -> np.ndarray:
+    _check_sorting_or_dataframe(obj)
+    if isinstance(obj, se.BaseSorting):
+        return obj.get_property(property)
+    if isinstance(obj, pd.DataFrame):
+        return obj.get(property)
+
+
 def _select_inviolate(
-    si_obj: si.BaseSorting,
+    obj: si.BaseSorting | pd.DataFrame,
     thresholds: dict,
     threshold_level: str,
     metrics: list[str] = ["isi_violations_ratio", "rp_contamination"],
     nan: float = 0.0,
 ) -> np.ndarray[bool]:
-    keep = np.zeros_like(si_obj.get_unit_ids())
+    keep = _create_mask(obj, False)
     for m in metrics:
-        v = si_obj.get_property(m)
+        v = _get_property(obj, m)
         v = np.nan_to_num(v, nan)
         lo, hi = thresholds[m][threshold_level]
         passing = np.logical_and(v >= lo, v <= hi)
@@ -88,11 +114,14 @@ def _select_inviolate(
 
 
 def _select_present(
-    si_obj: si.BaseSorting, thresholds: dict, threshold_level: str, nan: float = 1.0
+    obj: si.BaseSorting | pd.DataFrame,
+    thresholds: dict,
+    threshold_level: str,
+    nan: float = 1.0,
 ) -> np.ndarray[bool]:
-    keep = np.zeros_like(si_obj.get_unit_ids())
+    keep = _create_mask(obj, False)
     for m in ["presence_ratio_Wake", "presence_ratio_NREM", "presence_ratio_REM"]:
-        v = si_obj.get_property(m)
+        v = _get_property(obj, m)
         v = np.nan_to_num(v, nan)
         lo, hi = thresholds["presence_ratio"][threshold_level]
         passing = np.logical_and(v >= lo, v <= hi)
@@ -117,9 +146,9 @@ def get_quality_metric_filters(
 
     if isolation_threshold is not None:
 
-        def select_inviolate(si_obj):
+        def select_inviolate(obj):
             return _select_inviolate(
-                si_obj, isolation_metric_thresholds, isolation_threshold
+                obj, isolation_metric_thresholds, isolation_threshold
             )
 
         callable_filters.append(select_inviolate)
@@ -138,10 +167,8 @@ def get_quality_metric_filters(
 
     if presence_threshold is not None:
 
-        def select_present(si_obj):
-            return _select_present(
-                si_obj, presence_metric_thresholds, presence_threshold
-            )
+        def select_present(obj):
+            return _select_present(obj, presence_metric_thresholds, presence_threshold)
 
         callable_filters.append(select_present)
 
