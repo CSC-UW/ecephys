@@ -74,6 +74,7 @@ publication_colors = {
     "Art": _pub_nodata,
     "Artifact": _pub_nodata,
     "artifact": _pub_nodata,
+    "scrambling": _pub_nodata,
     "None": _pub_unscored,
     "Other": _pub_unscored,
     "NoData": _pub_nodata,
@@ -208,7 +209,7 @@ def plot_psth_heatmap(
     plt.yticks(rotation=0)
 
     # x ticks: Only 0, first and last value
-    xtic_len = gcd(int(abs(window[0] * 1000)), int(window[1] * 1000))
+    xtic_len = math.gcd(int(abs(window[0] * 1000)), int(window[1] * 1000))
     xtic_labels = range(
         int(window[0] * 1000), int(window[1] * 1000) + xtic_len, xtic_len
     )
