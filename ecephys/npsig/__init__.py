@@ -1,5 +1,6 @@
-from . import event_detection, event_locking
+from . import events
 from .csd import get_pitts_csd
+from .events import jitter_train
 from .filt import (
     antialiasing_filter,
     butter_bandpass,
@@ -35,8 +36,6 @@ __all__ = [
     "cwt",
     "decimate_timeseries",
     "estimate_impulse_response_len",
-    "event_detection",
-    "event_locking",
     "get_butter_bandpass_coefs",
     "get_n_fft",
     "get_perievent_data",
@@ -44,6 +43,7 @@ __all__ = [
     "get_perievent_time",
     "get_pitts_csd",
     "hilbert",
+    "jitter_train",
     "mean_subtract",
     "median_subtract",
     "moving_transform",
