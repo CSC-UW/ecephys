@@ -146,6 +146,48 @@ def _validate_cluster_autocorrelograms(da: dtypes.XArray):
 #####
 
 
+def compute_intrapopulation_correlograms_by_condition(
+    trains: dtypes.ClusterTrains_Secs,
+    hypnograms: dict[str, hyp.FloatHypnogram],
+    window_ms: float,
+    bin_ms: float,
+) -> xr.Dataset:
+    trains_by_condition = get_trains_by_condition(trains, hypnograms)
+    ccgs = []
+    for condition, condition_trains in trains_by_condition.items():
+        (
+            spike_times,
+            spike_cluster_ixs,
+            cluster_ids,
+        ) = cluster_trains.convert_cluster_trains_to_spike_vector(condition_trains)
+        ccgs.append(
+            compute_intrapopulation_correlograms(
+                spike_times,
+                spike_cluster_ixs,
+                cluster_ids,
+                window_ms,
+                bin_ms,
+            )
+            .assign_coords(condition=condition)
+            .expand_dims("condition")
+        )
+    ccgs = xr.concat(ccgs, dim="condition")
+    condition_durations = {
+        condition: hg["duration"].sum() for condition, hg in hypnograms.items()
+    }
+    return ccgs.assign_coords(
+        {
+            "condition_duration": (
+                "condition",
+                [
+                    condition_durations[condition]
+                    for condition in ccgs["condition"].values
+                ],
+            )
+        }
+    )
+
+
 def compute_intrapopulation_correlograms_by_hypnogram_state(
     trains: dtypes.ClusterTrains_Secs,
     hg: hyp.FloatHypnogram,
@@ -172,7 +214,16 @@ def compute_intrapopulation_correlograms_by_hypnogram_state(
             .assign_coords(state=state)
             .expand_dims("state")
         )
-    return xr.concat(ccgs, dim="state")
+    ccgs = xr.concat(ccgs, dim="state")
+    state_durations = hg.groupby("state")["duration"].sum()
+    return ccgs.assign_coords(
+        {
+            "state_duration": (
+                "state",
+                [state_durations.loc[state] for state in ccgs["state"].values],
+            )
+        }
+    )
 
 
 def compute_intrapopulation_correlograms(
@@ -333,6 +384,18 @@ def add_cluster_properties_to_correlograms(
 #####
 # Utility functions, used for both auto- and cross-correlograms
 #####
+
+
+def get_trains_by_condition(
+    trains: dtypes.ClusterTrains_Secs,
+    hypnograms: dict[str, hyp.FloatHypnogram],
+) -> dict[str, dtypes.ClusterTrains_Secs]:
+    trains_by_condition = {}
+    for condition, hg in hypnograms.items():
+        trains_by_condition[condition] = {
+            id: tr[hg.covers_time(tr)] for id, tr in trains.items()
+        }
+    return trains_by_condition
 
 
 def get_trains_by_state(

@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from ecephys.units import dtypes
+from ecephys import hypnogram
+from ecephys.units import binning, dtypes
 
 
 def get_peths_from_trains(
@@ -62,6 +63,7 @@ def get_peths_from_trains(
             "event": event_times,
             "time": tscale,
         },
+        attrs={"bin_size": bin_size},
     )
 
     if event_labels is not None:
@@ -73,6 +75,7 @@ def get_peths_from_trains(
     return peths
 
 
+# TODO: This should probably use and return an array of uint16, not float64.
 @numba.njit(parallel=True, nogil=True, cache=True)
 def _bin_spiketrains_numba(numba_trains, event_times, pre_time, post_time, bin_size):
     n_bins_pre = int(np.ceil(pre_time / bin_size))
@@ -127,9 +130,160 @@ def _add_cluster_properties_to_peths(
     return peths.assign_coords(coords)
 
 
+def get_peths_sem(
+    peths: xr.DataArray, variance_dim: str = "event", group_variance_by: str = None
+) -> xr.Dataset:
+    """
+    Get a standard error of the mean capturing variance across a chosen dimension for
+    peri-event time histograms.
+
+    Parameters
+    ----------
+    peths : xr.DataArray
+        The peri-event time histogram.
+    variance_dim : str, optional
+        The dimension to calculate variance across.
+    group_variance_by : str, optional
+        The coordinate to group variance by. For example, if `variance_dim == "event"`
+        and `group_variace_by == "state"`, the PETHs will be averaged across all events
+        within each state, and variance across events WITHIN each state will be
+        calculated.
+
+    Returns
+    -------
+    xr.Dataset
+        A dataset containing the SEM, mean, standard deviation, and number of events
+        for each group.
+    """
+    if group_variance_by is not None:
+        peths = peths.groupby(group_variance_by)
+    mean_ = peths.mean(dim=variance_dim)
+    std_ = peths.std(dim=variance_dim)
+    n_ = peths.count(dim=variance_dim)
+    sem_ = std_ / np.sqrt(n_)
+
+    return xr.Dataset(
+        {
+            "mean": mean_,
+            "std": std_,
+            "n": n_,
+            "sem": sem_,
+        }
+    )
+
+
+def zscore_peths_by_peri_event_window(peths: xr.DataArray) -> xr.DataArray:
+    """Z-score each individual PETH by its peri-event window. This is the preferred
+    method for Z-scoring PETHs, especially when you want to compare across states.
+
+    Parameters
+    ----------
+    peths : xr.DataArray
+        The peri-event time histograms.
+
+    Returns
+    -------
+    z_peths : xr.DataArray
+        The z-scored peri-event time histograms.
+    """
+    mean_ = peths.mean(dim="time")
+    std_ = peths.std(dim="time")
+    return (peths - mean_) / std_
+
+
 ################
 # Niche functions, you'll probably never use.
 ################
+
+
+def bin_trains_and_group_clusters(
+    cluster_trains: dict[str, np.ndarray],
+    bin_size: float,
+    group_clusters_by: str,
+    grp2clus_map: dict[str, list[str]],
+) -> xr.DataArray:
+    groups = list(grp2clus_map.keys())
+
+    bin_edges, t_min, t_max = binning.get_aligned_bins(cluster_trains, bin_size)
+    binned_group_rates = np.zeros((len(groups), len(bin_edges) - 1))
+    for i, (group, cluster_ids) in enumerate(grp2clus_map.items()):
+        binned_cluster_rates = np.zeros((len(cluster_ids), len(bin_edges) - 1))
+        for j, id in enumerate(cluster_ids):
+            binned, _ = binning.bin_train(cluster_trains[id], bin_size, t_min, t_max)
+            binned_cluster_rates[j, :] = binned
+        binned_group_rates[i, :] = np.sum(binned_cluster_rates, axis=0)
+    binned_group_rates = xr.DataArray(
+        binned_group_rates,
+        dims=[group_clusters_by, "time"],
+        coords={group_clusters_by: groups, "time": bin_edges[:-1]},
+    )
+    binned_group_rates.attrs["bin_size"] = bin_size
+    return binned_group_rates
+
+
+def zscore_peths_by_whole_recording_state_specific_mean_and_std(
+    evt_peths: xr.DataArray,
+    spike_trains: dict[str, np.ndarray],
+    bin_size: float,
+    grp2clus_map: dict[str, np.ndarray],
+    group_clusters_by: str,
+    hg: hypnogram.Hypnogram,
+) -> xr.DataArray:
+    """
+    Z-score peths by their whole-recording, state-specific mean and std.
+
+    Because even the within-state firing rate statistics are non-stationary, this does
+    not work as well as one might hope. It is better to z-score each event by the mean
+    and std firing rates in a peri-event window specific to each event. This function
+    is kept around as a reference, and to warn you against this method.
+
+    Parameters
+    ----------
+    evt_peths : xr.DataArray
+        The peths to z-score.
+    spike_trains : dict[str, np.ndarray]
+        The spike trains to use for z-scoring.
+    bin_size : float
+        The size of the time bins used for the peth.
+    grp2clus_map : dict[str, np.ndarray]
+        A dictionary mapping group names to cluster IDs.
+        Usually obtained by:
+        ```
+        grp2clus_map = (
+            mps.properties
+            .groupby("acronym")["cluster_id"]
+            .unique()
+            .to_dict()
+        )
+        ```
+    group_clusters_by : str
+        Group by the clusters by this property. Usually "acronym".
+    hg : ec.hypnogram.Hypnogram
+        The hypnogram that will be used to assign state labels to the binned spike trains.
+        Should be the same as the hypnogram used to compute the peths, ideally.
+
+    Returns
+    -------
+    z_peths : xr.DataArray
+        The z-scored peths.
+    """
+    # Bin whole-recording spike trains, and sum them within each group of clusters.
+    binned_acronym_rates = bin_trains_and_group_clusters(
+        spike_trains, bin_size, group_clusters_by, grp2clus_map
+    )
+    # Assign state labels to the binned spike trains.
+    binned_acronym_rates = binned_acronym_rates.assign_coords(
+        {"state": ("time", hg.get_states(binned_acronym_rates.time.values))}
+    )
+
+    # Compute state-specific mean and std of the binned spike trains.
+    mean_ = binned_acronym_rates.groupby("state").mean(dim="time")
+    std_ = binned_acronym_rates.groupby("state").std(dim="time")
+
+    # Z-score each event by it's whole-recording, state-specific mean and std
+    tmp_ = evt_peths.groupby(group_clusters_by).sum(dim="cluster_id")
+    tmp_ = tmp_ - mean_.sel(state=tmp_.state)
+    return tmp_ / std_.sel(state=tmp_.state)
 
 
 def _get_peths_from_trains_alt(
