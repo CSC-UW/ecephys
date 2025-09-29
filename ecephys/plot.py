@@ -6,16 +6,6 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from IPython.display import display
-from ipywidgets import (
-    BoundedFloatText,
-    Checkbox,
-    FloatSlider,
-    HBox,
-    IntSlider,
-    fixed,
-    interactive_output,
-    jslink,
-)
 from matplotlib.ticker import MaxNLocator
 
 from ecephys import npsig
@@ -561,39 +551,43 @@ def interactive_lfp_explorer(time, lfps, chan_labels=None, figsize=(20, 8)):
     ===========
     See `lfp_explorer`.
     """
+    import ipywidgets
+
     # Create interactive widgets for controlling plot parameters
-    window_length = FloatSlider(
+    window_length = ipywidgets.FloatSlider(
         min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
     )
-    window_start = FloatSlider(
+    window_start = ipywidgets.FloatSlider(
         min=np.min(time),
         max=np.max(time),
         step=0.1,
         value=np.min(time),
         description="Pos",
     )
-    _window_start = BoundedFloatText(
+    _window_start = ipywidgets.BoundedFloatText(
         min=np.min(time),
         max=np.max(time),
         step=0.1,
         value=np.min(time),
         description="Pos",
     )
-    jslink(
+    ipywidgets.jslink(
         (window_start, "value"), (_window_start, "value")
     )  # Allow control from either widget for easy navigation
-    n_plot_chans = IntSlider(
+    n_plot_chans = ipywidgets.IntSlider(
         min=1, max=lfps.shape[1], step=1, value=16, description="nCh"
     )
-    i_chan = IntSlider(
+    i_chan = ipywidgets.IntSlider(
         min=0, max=(lfps.shape[1] - 1), step=1, value=1, description="Ch"
     )
-    vspace = IntSlider(min=0, max=100000, step=100, value=300, description="V Space")
-    zero_mean = Checkbox(True, description="Zero-mean")
-    flip_dv = Checkbox(False, description="D/V")
+    vspace = ipywidgets.IntSlider(
+        min=0, max=100000, step=100, value=300, description="V Space"
+    )
+    zero_mean = ipywidgets.Checkbox(True, description="Zero-mean")
+    flip_dv = ipywidgets.Checkbox(False, description="D/V")
 
     # Lay control widgets out horizontally
-    ui = HBox(
+    ui = ipywidgets.HBox(
         [
             window_length,
             _window_start,
@@ -608,13 +602,13 @@ def interactive_lfp_explorer(time, lfps, chan_labels=None, figsize=(20, 8)):
 
     # Plot and display
     _, ax = plt.subplots(figsize=figsize)
-    out = interactive_output(
+    out = ipywidgets.interactive_output(
         lfp_explorer,
         {
-            "time": fixed(time),
-            "lfps": fixed(lfps),
-            "ax": fixed(ax),
-            "chan_labels": fixed(chan_labels),
+            "time": ipywidgets.fixed(time),
+            "lfps": ipywidgets.fixed(lfps),
+            "ax": ipywidgets.fixed(ax),
+            "chan_labels": ipywidgets.fixed(chan_labels),
             "window_length": window_length,
             "window_start": window_start,
             "n_plot_chans": n_plot_chans,
@@ -700,36 +694,40 @@ def interactive_colormesh_explorer(time, sig, y=None, figsize=(20, 8)):
     ===========
     See `colormesh_explorer`.
     """
+    import ipywidgets
+
     # Create interactive widgets for controlling plot parameters
-    window_length = FloatSlider(
+    window_length = ipywidgets.FloatSlider(
         min=0.25, max=4.0, step=0.25, value=1.0, description="Secs"
     )
-    window_start = FloatSlider(
+    window_start = ipywidgets.FloatSlider(
         min=np.min(time),
         max=np.max(time),
         step=0.1,
         value=np.min(time),
         description="Pos",
     )
-    _window_start = BoundedFloatText(
+    _window_start = ipywidgets.BoundedFloatText(
         min=np.min(time),
         max=np.max(time),
         step=0.1,
         value=np.min(time),
         description="Pos",
     )
-    jslink(
+    ipywidgets.jslink(
         (window_start, "value"), (_window_start, "value")
     )  # Allow control from either widget for easy navigation
-    n_y = IntSlider(
+    n_y = ipywidgets.IntSlider(
         min=1, max=sig.shape[1], step=1, value=sig.shape[1], description="nRows"
     )
-    i_y = IntSlider(min=0, max=(sig.shape[1] - 1), step=1, value=1, description="Row")
-    zero_mean = Checkbox(False, description="Zero-mean")
-    flip_ud = Checkbox(False, description="U/D")
+    i_y = ipywidgets.IntSlider(
+        min=0, max=(sig.shape[1] - 1), step=1, value=1, description="Row"
+    )
+    zero_mean = ipywidgets.Checkbox(False, description="Zero-mean")
+    flip_ud = ipywidgets.Checkbox(False, description="U/D")
 
     # Lay control widgets out horizontally
-    ui = HBox(
+    ui = ipywidgets.HBox(
         [
             window_length,
             _window_start,
@@ -743,13 +741,13 @@ def interactive_colormesh_explorer(time, sig, y=None, figsize=(20, 8)):
 
     # Plot and display
     _, ax = plt.subplots(figsize=figsize)
-    out = interactive_output(
+    out = ipywidgets.interactive_output(
         colormesh_explorer,
         {
-            "time": fixed(time),
-            "sig": fixed(sig),
-            "ax": fixed(ax),
-            "y": fixed(y),
+            "time": ipywidgets.fixed(time),
+            "sig": ipywidgets.fixed(sig),
+            "ax": ipywidgets.fixed(ax),
+            "y": ipywidgets.fixed(y),
             "window_length": window_length,
             "window_start": window_start,
             "n_y": n_y,
