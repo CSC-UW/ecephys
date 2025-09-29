@@ -1,4 +1,4 @@
-from . import ephyviewer, senzai, si_extractor
+from . import senzai, si_extractor
 from .core import (
     antialiasing_filter,
     assign_laminar_coordinate,
@@ -89,3 +89,20 @@ __all__ = [
     "validate_laminar",
     "validate_timeseries",
 ]
+
+
+# Lazy imports for expensive visualization modules
+_LAZY_IMPORTS = {
+    "ephyviewer": ".ephyviewer",
+}
+
+
+def __getattr__(name):
+    """Lazy import expensive modules only when accessed."""
+    if name in _LAZY_IMPORTS:
+        import importlib
+
+        module = importlib.import_module(_LAZY_IMPORTS[name], package=__package__)
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
