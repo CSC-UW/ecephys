@@ -1,8 +1,8 @@
 import dask.array as da
 import numpy as np
-import yasa
 
 from ecephys import npsig
+from ecephys.npsig import yasa_compat
 
 
 def shift_blocks(
@@ -39,7 +39,7 @@ def moving_transform(
     def _moving_transform(x: np.ndarray) -> np.ndarray:
         mrms = np.zeros_like(x)
         for i in range(x.shape[channel_axis]):
-            _, mrms[:, i] = yasa.moving_transform(
+            _, mrms[:, i] = yasa_compat.moving_transform(
                 x=x[:, i], sf=fs, window=window, step=step, method=method, interp=True
             )
         return mrms

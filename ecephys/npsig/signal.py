@@ -1,7 +1,8 @@
 import numpy as np
 import scipy.fftpack
 import scipy.signal
-import yasa
+
+from . import yasa_compat
 
 
 def decimate_timeseries(x: np.ndarray, q: int) -> np.ndarray:
@@ -20,7 +21,7 @@ def moving_transform(
 
     mrms = np.zeros_like(x)
     for i in range(x.shape[channel_axis]):
-        _, mrms[:, i] = yasa.moving_transform(
+        _, mrms[:, i] = yasa_compat.moving_transform(
             x=x[:, i], sf=fs, window=window, step=step, method=method, interp=True
         )
     return mrms
