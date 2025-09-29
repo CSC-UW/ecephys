@@ -365,7 +365,7 @@ def _try_casting(df, col, cast_to, fill_value):
     return df
 
 
-def read_metadata(files: list[Path]) -> pd.DataFrame:
+def read_metadata_as_pandas(files: list[Path]) -> pd.DataFrame:
     """Takes a list of filepaths, reads the metadata for each file, and returns a
     summary dataframe with types cast. Also adds a 'path' column to the dataframe,
     that contains the source filepath.
@@ -455,10 +455,11 @@ def filelist_to_frame(files):
     if not files:
         return pd.DataFrame()
 
-    meta_df = read_metadata(files)
+    meta_df = read_metadata_as_pandas(files)
     files_df = parse_sglx_fnames(files)
     df = meta_df.merge(files_df, on="path")
 
+    # TODO: Some of these are floats, but should be ints.
     # Create nFileSamp column, since it is so useful
     df["nFileSamp"] = df["fileSizeBytes"] / (2 * df["nSavedChans"])
     # Last sample, measured from the start of that probe's acquisition, in that probe's samplebase.
@@ -522,7 +523,9 @@ def get_semicontinuous_segments(df: pd.DataFrame, tol=100):
     segments = list()
     for acq in acqs:
         # Keep all metadata fields if their value is the same for every file in the segment
-        seg = acq.loc[:, acq.nunique() == 1].iloc[0].copy()
+        seg = (
+            acq.loc[:, acq.nunique() == 1].iloc[0].copy()
+        )  # If "acqApLfSy" or "snsApLfSy" are unhashable types (e.g. List instead of Tuple), this will error.
         # Number of samples written to disk in this semicontinuous block
         seg["nPrbAcqSamples"] = acq["nFileSamp"].sum()
         # First sample, measured from the start of this probe's acquisition, in this probe's samplebase.

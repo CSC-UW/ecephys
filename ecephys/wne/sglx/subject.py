@@ -5,9 +5,10 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import polars as pl
 
 from ecephys import utils
-from ecephys.sglx import file_mgmt
+from ecephys.sglx import file_mgmt, meta
 from ecephys.wne.sglx import experiments, sessions
 from ecephys.wne.subject import Subject
 
@@ -49,7 +50,11 @@ class SGLXSubject(Subject):
         return list(self.doc["experiments"].keys())
 
     def get_experiment_probes(self, experimentName) -> list[str]:
-        return list(self.get_experiment_frame(experimentName)["probe"].unique())
+        return list(
+            self.get_experiment_frame(experimentName, with_experiment_times=False)[
+                "probe"
+            ].unique()
+        )
 
     def get_experiment_session_ids(self, experimentName) -> list[str]:
         return self.doc["experiments"][experimentName]["recording_session_ids"]
@@ -58,6 +63,7 @@ class SGLXSubject(Subject):
         self,
         experiment: str,
         alias: Optional[str] = None,
+        with_experiment_times: bool = True,  # Slow, so allow opt-out.
         **kwargs,
     ) -> pd.DataFrame:
         """Get all SpikeGLX files matching selection criteria."""
@@ -70,7 +76,8 @@ class SGLXSubject(Subject):
                 f"No frame found for {self.name}: {experiment} with recording session IDs: {sessionIDs} \n"
                 "There is probably a problem with this subject's YAML file."
             )
-        frame = experiments.add_experiment_times(frame)
+        if with_experiment_times:
+            frame = experiments.add_experiment_times(frame)
         # This exists to get around limitations of SpikeInterface, so can hopefully be removed one day.
         frame = _get_gate_dir_trigger_file_index(frame)
 
@@ -152,9 +159,7 @@ class SGLXSubject(Subject):
 class SGLXSubjectLibrary:
     def __init__(self, libdir: Path):
         self.libdir = libdir
-        self.cachefile = (
-            self.libdir / "wne_sglx_cache.gz"
-        )  # TODO: Extension should be .pkl.gz
+        self.cachefile = self.libdir / "wne_sglx_cache.pqt"
         self.cache = self.read_cache() if self.cachefile.is_file() else None
 
     def get_subject_file(self, subjectName: str) -> Path:
@@ -184,23 +189,14 @@ class SGLXSubjectLibrary:
         ).reset_index(level=0)
         return self.cache
 
-    # TODO: This would be better written as PQT, with complex datatypes like pathlib.Path
-    # assigned during loading, or just as-needed.
-    # We compress the pickle using GZIP because we exceeded GitHub's filesize limit.
-    # Using pkl.gz: 1.3MB, Using pqt: 632KB. Using CSV: 21MB.
-    # `path`, `fileName`, `imRoFile` are currently PosixPath objects, but could be str.
-    # `fileCreateTime` is currently a datetime64[ns], but could be a string. It only has
-    # second precision (if that), so there is no need to keep it as a datetime[ns].
-    # Boolean datatypes with missing values are currently being read as object. Polars
-    # would handle missing values for booleans better.
-    # There is also no need to actually load/keep most of the columns.
     def write_cache(self):
         if self.cache is None:
             self.refresh_cache()
-        self.cache.to_pickle(self.cachefile, compression="gzip")
+        meta.pd2pl(self.cache).write_parquet(self.cachefile)
 
     def read_cache(self):
-        return pd.read_pickle(self.cachefile, compression="gzip")
+        df = pl.scan_parquet(self.cachefile).collect()
+        return meta.pl2pd(df)
 
     def get_subject_experiment_probe_tuples(
         self,
@@ -276,6 +272,7 @@ def _get_gate_dir_trigger_file_index(ftab: pd.DataFrame) -> pd.DataFrame:
     See https://github.com/SpikeInterface/spikeinterface/issues/628#issuecomment-1130232542
 
     """  # This actually seems like a more appropriate issue: https://github.com/NeuralEnsemble/python-neo/pull/1125#issuecomment-1148930135
+    ftab = ftab.copy()
     ftab["gate_dir"] = ftab.apply(
         lambda row: row["path"].parent, axis=1
     )  # TODO: This is WRONG! This yields the probe directory, not the gate directory.

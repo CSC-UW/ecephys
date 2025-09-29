@@ -1,7 +1,18 @@
+import ast
+from pathlib import Path
+
+import pandas as pd
 import polars as pl
+
+from ecephys.sglx.external import readSGLX
 
 
 def get_pandas_type_maps() -> dict:
+    """Get the most suitable pandas type for each metadata field.
+
+    Because of the way pandas handles missing values, many of these types may not be
+    respected. For example, pandas will cast int columns to float if they contain NaN.
+    """
     meta_types = dict()
     meta_types["always_present"] = {
         "appVersion": object,
@@ -158,3 +169,95 @@ def get_polars_type_maps() -> dict:
         "imSvyMaxBnk": pl.String,
     }
     return meta_types
+
+
+def read_metadata_as_polars(files: list[Path]) -> pl.DataFrame:
+    """
+    Takes a list of filepaths, reads the metadata for each file, and returns a
+    summary dataframe with types cast. Also adds a 'path' column to the dataframe,
+    that contains the source filepath.
+
+    The returned dataframe can be written to parquet without modification.
+
+    See https://billkarsh.github.io/SpikeGLX/Sgl_help/Metadata_30.html"""
+    meta_dict = [readSGLX.readMeta(f) for f in files]
+    df = pl.DataFrame(meta_dict)
+
+    metadata_is_missing = df.select(
+        pl.all_horizontal(pl.all().is_null())
+    ).to_series()  # Sometimes a file exists but is empty, and no metadata is found
+
+    df = df.with_columns(pl.Series("path", [str(f) for f in files]))
+    df = df.filter(~metadata_is_missing)  # Drop the empty files
+
+    if metadata_is_missing.any():  # Warn the user
+        missing_files = [
+            files[i] for i, is_missing in enumerate(metadata_is_missing) if is_missing
+        ]
+        for f in missing_files:
+            print(
+                f"No metadata found for {f}. SpikeGLX probably wrote an empty file. Dropping."
+            )
+
+    meta_types = get_polars_type_maps()
+    for group, types in meta_types.items():
+        missing = set(types) - set(df.columns)
+        if missing:
+            print(f"Metadata fields {missing} from group {group} not found.")
+            for field in missing:
+                types.pop(field, None)
+        for col, dtype in types.items():
+            if dtype == pl.Boolean:
+                df = df.with_columns(
+                    pl.col(col).replace_strict({"false": False, "true": True})
+                )
+            elif dtype == pl.List(pl.Int64):
+                df = df.with_columns(
+                    pl.col(col).map_elements(
+                        ast.literal_eval, return_dtype=pl.List(pl.Int64)
+                    )
+                )
+            else:
+                df = df.with_columns(pl.col(col).cast(dtype))
+
+    extra = (
+        set(df.columns)
+        - set.union(*(set(types) for group, types in meta_types.items()))
+        - set(["path"])
+    )
+    if extra:
+        print(f"Found unexpected metadata fields: {extra}")
+
+    return df
+
+
+def pd2pl(df: pd.DataFrame) -> pl.DataFrame:
+    """Convert a dataframe of SpikeGLX metadata (e.g., from read_metadata_as_pandas)
+    from pandas to polars. The result can be written to parquet without modification.
+    """
+    for col in ["path", "fileName", "imRoFile"]:
+        if col in df.columns:
+            df[col] = df[col].astype(str)
+    df = pl.from_pandas(df)
+    pl_types = get_polars_type_maps()
+    for group, types in pl_types.items():
+        for col, dtype in types.items():
+            if col in df.columns:
+                df = df.with_columns(pl.col(col).cast(dtype))
+    return df
+
+
+def pl2pd(df: pl.DataFrame) -> pd.DataFrame:
+    """Convert a dataframe of SpikeGLX metadata (e.g., from pl.scan_parquet)
+    from polars to pandas. The result can NOT be written to parquet, and does NOT
+    commute with pd2pl. This basically just exists to provide a backward compatible
+    layer.
+    """
+    df = df.to_pandas()
+    for col in ["path", "fileName", "imRoFile"]:
+        if col in df.columns:
+            df[col] = df[col].apply(Path)
+    for col in ["acqApLfSy", "snsApLfSy"]:
+        if col in df.columns:
+            df[col] = df[col].apply(tuple)
+    return df
