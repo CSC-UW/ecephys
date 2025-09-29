@@ -36,15 +36,16 @@ depend on any organization schema beyond that of official SpikeGLX tools.
 
 import ast
 import logging
-import pathlib
 import re
 from itertools import chain
+from pathlib import Path
 
 # Non-core imports
 import numpy as np
 import pandas as pd
 from pandas.api.types import CategoricalDtype
 
+from . import meta
 from .external import readSGLX
 
 logger = logging.getLogger(__name__)
@@ -364,8 +365,11 @@ def _try_casting(df, col, cast_to, fill_value):
     return df
 
 
-def read_metadata(files):
-    """Takes a list of pathlib.Path
+def read_metadata(files: list[Path]) -> pd.DataFrame:
+    """Takes a list of filepaths, reads the metadata for each file, and returns a
+    summary dataframe with types cast. Also adds a 'path' column to the dataframe,
+    that contains the source filepath.
+
     See https://billkarsh.github.io/SpikeGLX/Sgl_help/Metadata_30.html"""
     meta_dict = [readSGLX.readMeta(f) for f in files]
     df = pd.DataFrame(meta_dict)
@@ -381,80 +385,7 @@ def read_metadata(files):
                 f"No metadata found for {f}. SpikeGLX probably wrote an empty file. Dropping."
             )
 
-    meta_types = dict()
-    meta_types["always_present"] = {
-        "appVersion": object,
-        "fileCreateTime": "datetime64[ns]",
-        "fileName": object,
-        "fileSHA1": object,
-        "fileSizeBytes": int,
-        "fileTimeSecs": float,
-        "firstSample": int,
-        "gateMode": object,
-        "nSavedChans": int,
-        "snsSaveChanSubset": object,
-        "syncSourceIdx": int,
-        "syncSourcePeriod": float,
-        "trigMode": object,
-        "typeImEnabled": int,
-        "typeNiEnabled": int,
-        "typeThis": object,
-        "userNotes": object,
-        "snsShankMap": object,
-        "snsChanMap": object,
-        "path": object,
-    }
-    meta_types["if_using_imec"] = {
-        "acqApLfSy": object,
-        "imAiRangeMax": float,
-        "imAiRangeMin": float,
-        "imCalibrated": bool,
-        "imDatApi": object,
-        "imDatBs_fw": object,
-        "imDatBsc_fw": object,
-        "imDatBsc_hw": object,
-        "imDatBsc_pn": object,
-        "imDatBsc_sn": object,
-        "imDatFx_hw": object,
-        "imDatFx_pn": object,
-        "imDatFx_sn": object,
-        "imDatHs_fw": object,  # Not documented in SpikeGLX manual, but present.
-        "imDatHs_hw": object,
-        "imDatHs_pn": object,
-        "imDatHs_sn": object,
-        "imDatPrb_dock": int,
-        "imDatPrb_pn": object,
-        "imDatPrb_port": int,
-        "imDatPrb_slot": int,
-        "imDatPrb_sn": object,
-        "imDatPrb_type": int,
-        "imLEDEnable": bool,
-        "imRoFile": object,
-        "imSampRate": float,
-        "imTrgRising": bool,
-        "imTrgSource": int,
-        "snsApLfSy": object,
-        "syncImInputSlot": int,
-        "imroTbl": object,
-    }
-    meta_types["if_using_timed_trigger"] = {
-        "trgTimIsHInf": bool,
-        "trgTimIsNInf": bool,
-        "trgTimNH": float,
-        "trgTimTH": float,
-        "trgTimTL": float,
-        "trgTimTL0": float,
-    }
-    meta_types["maybe_present"] = {
-        "nDataDirs": int,
-        "rmt_USERTYPE": object,
-        "typeObEnabled": int,
-        "imIsSvyRun": bool,
-        "imMaxInt": int,
-        "imStdby": object,
-        "imSvyMaxBnk": object,
-    }
-
+    meta_types = meta.get_pandas_type_maps()
     for group, types in meta_types.items():
         missing = set(types) - set(df.columns)
         if missing:
@@ -476,8 +407,8 @@ def read_metadata(files):
 
     df["acqApLfSy"] = df["acqApLfSy"].apply(ast.literal_eval)
     df["snsApLfSy"] = df["snsApLfSy"].apply(ast.literal_eval)
-    df["fileName"] = df["fileName"].apply(pathlib.Path)
-    df["imRoFile"] = df["imRoFile"].apply(pathlib.Path)
+    df["fileName"] = df["fileName"].apply(Path)
+    df["imRoFile"] = df["imRoFile"].apply(Path)
 
     return df.sort_values("fileCreateTime", ascending=True).reset_index(drop=True)
 
