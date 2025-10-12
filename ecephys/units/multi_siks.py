@@ -1,4 +1,4 @@
-from typing import Callable, Optional
+from typing import Callable
 
 import numpy as np
 import numpy.typing as npt
@@ -93,8 +93,8 @@ class MultiSIKS:
 
     def refine_clusters(
         self,
-        simple_filters_by_probe: Optional[dict[str, dict]] = None,
-        callable_filters_by_probe: Optional[dict[str, list[Callable]]] = None,
+        simple_filters_by_probe: dict[str, dict] | None = None,
+        callable_filters_by_probe: dict[str, list[Callable]] | None = None,
         include_nans: bool = True,
     ):
         if simple_filters_by_probe is None:
@@ -141,9 +141,8 @@ class MultiSIKS:
     def get_trains_by_property(
         self,
         property_name: str = "acronym",
-        values: Optional[
-            npt.ArrayLike
-        ] = None,  # Filter trains, keeping only those with the indicated property values.
+        values: npt.ArrayLike
+        | None = None,  # Filter trains, keeping only those with the indicated property values.
         display_progress=True,
         **kwargs,
     ) -> dtypes.SpikeTrainDict:
