@@ -12,7 +12,7 @@ class SGLXProject(Project):
         Project.__init__(self, project_name, project_dir)
 
     def __repr__(self):
-        return f"sglxProject: {self.name}, {self.dir}"
+        return f"sglx_project: {self.name}, {self.dir}"
 
 
 class SGLXProjectLibrary(ProjectLibrary):

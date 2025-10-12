@@ -79,35 +79,35 @@ def gather_and_save_counterpart_netcdfs(
 
 
 def gather_alias_htsv(
-    wneProject: SGLXProject,
-    wneSubject: SGLXSubject,
+    wne_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
     alias: str,
     probe: str,
     ext: str,
 ) -> pd.DataFrame:
-    lfpTable = wneSubject.get_lfp_bin_table(experiment, alias, probe=probe)
+    lfpTable = wne_subject.get_lfp_bin_table(experiment, alias, probe=probe)
     htsvFiles = sglx_utils.get_sglx_file_counterparts(
-        wneProject, wneSubject.name, lfpTable.path.values, ext
+        wne_project, wne_subject.name, lfpTable.path.values, ext
     )
     dfs = [ecephys.utils.read_htsv(f) for f in htsvFiles if f.is_file()]
     return pd.concat(dfs).reset_index(drop=True)
 
 
 def gather_and_save_alias_htsv(
-    srcProject: SGLXProject,
-    wneSubject: SGLXSubject,
+    src_project: SGLXProject,
+    wne_subject: SGLXSubject,
     experiment: str,
     alias: str,
     probe: str,
     inExt: str,
     outFname: str,
-    destProject: Optional[SGLXProject] = None,
+    dest_project: Optional[SGLXProject] = None,
 ):
-    if destProject is None:
-        destProject = srcProject
-    df = gather_alias_htsv(srcProject, wneSubject, experiment, alias, probe, inExt)
-    savefile = destProject.get_alias_subject_file(
-        experiment, alias, wneSubject.name, outFname
+    if dest_project is None:
+        dest_project = src_project
+    df = gather_alias_htsv(src_project, wne_subject, experiment, alias, probe, inExt)
+    savefile = dest_project.get_alias_subject_file(
+        experiment, alias, wne_subject.name, outFname
     )
     ecephys.utils.write_htsv(df, savefile)

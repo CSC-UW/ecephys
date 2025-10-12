@@ -387,14 +387,14 @@ def get_sample2time_from_sorting(
 
 
 def load_singleprobe_sorting(
-    sglxSortingProject: SGLXProject,
+    sglx_sorting_project: SGLXProject,
     subject: str,
     experiment: str,
     probe: str,
     alias: str = "full",
     sorting: str = "sorting",
     postprocessing: str = "postpro",
-    wneAnatomyProject: Optional[SGLXProject] = None,
+    wne_anatomy_project: Optional[SGLXProject] = None,
     allow_no_sync_file=False,
 ) -> units.SpikeInterfaceKilosortSorting:
     if sorting is None:
@@ -404,7 +404,7 @@ def load_singleprobe_sorting(
 
     # Get function for converting SI samples to imec0 timebase
     sample2time = get_sample2time_from_sorting(
-        sglxSortingProject,
+        sglx_sorting_project,
         subject,
         experiment,
         alias,
@@ -414,7 +414,7 @@ def load_singleprobe_sorting(
     )
 
     # Load extractor
-    extractor = sglxSortingProject.get_kilosort_extractor(
+    extractor = sglx_sorting_project.get_kilosort_extractor(
         subject,
         experiment,
         probe,
@@ -427,10 +427,10 @@ def load_singleprobe_sorting(
     # extractor = units.si_ks_sorting.fix_isi_violations_ratio(extractor)
 
     # Add anatomy to the extractor, if available.
-    if wneAnatomyProject is None:
-        wneAnatomyProject = sglxSortingProject
+    if wne_anatomy_project is None:
+        wne_anatomy_project = sglx_sorting_project
 
-    anatomy_file = wneAnatomyProject.get_experiment_subject_file(
+    anatomy_file = wne_anatomy_project.get_experiment_subject_file(
         experiment, subject, f"{probe}.structures.htsv"
     )
     if anatomy_file.exists():
@@ -448,14 +448,14 @@ def load_singleprobe_sorting(
 
 
 def load_multiprobe_sorting(
-    sglxSortingProject: SGLXProject,
+    sglx_sorting_project: SGLXProject,
     subject: str,
     experiment: str,
     probes: list[str],
     alias: str = "full",
     sortings: dict[str, str] = None,
     postprocessings: dict[str, str] = None,
-    wneAnatomyProject: Optional[SGLXProject] = None,
+    wne_anatomy_project: Optional[SGLXProject] = None,
     allow_no_sync_file=False,
 ) -> units.MultiSIKS:
     if sortings is None:
@@ -466,14 +466,14 @@ def load_multiprobe_sorting(
     return units.MultiSIKS(
         {
             probe: load_singleprobe_sorting(
-                sglxSortingProject,
+                sglx_sorting_project,
                 subject,
                 experiment,
                 probe=probe,
                 alias=alias,
                 sorting=sortings[probe],
                 postprocessing=postprocessings[probe],
-                wneAnatomyProject=wneAnatomyProject,
+                wne_anatomy_project=wne_anatomy_project,
                 allow_no_sync_file=allow_no_sync_file,
             )
             for probe in probes
