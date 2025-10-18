@@ -78,6 +78,28 @@ on_off_colors = {
 }
 
 
+def get_rc_params():
+    """Return matplotlib rcParams dictionary for journal-friendly plots."""
+    return {
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Arial"],
+        "font.size": 6,
+        "axes.titlesize": 7,
+        "axes.labelsize": 6,
+        "xtick.labelsize": 6,
+        "ytick.labelsize": 6,
+        "legend.fontsize": 6,
+        "figure.titlesize": 7,
+        "figure.labelsize": 7,
+        "figure.dpi": 100,  # Not sure about this one
+        "figure.autolayout": True,  # not sure about this one
+        "savefig.dpi": 300,
+        "savefig.format": "pdf",
+        "pdf.fonttype": 42,
+        "svg.fonttype": "none",
+    }
+
+
 # This function is taken directly from neurodsp.plts.utils.
 # We previously could not use the neurodsp package, because a critical IBL library (now ibldsp) shadowed the name.
 def check_ax(ax, figsize=None):
