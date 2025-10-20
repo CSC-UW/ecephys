@@ -1,4 +1,5 @@
 import math
+from typing import Any
 
 import colorcet
 import matplotlib.pyplot as plt
@@ -78,19 +79,11 @@ on_off_colors = {
 }
 
 
-def get_rc_params():
+def get_rc_params(set_font_sizes: bool = False) -> dict[str, Any]:
     """Return matplotlib rcParams dictionary for journal-friendly plots."""
-    return {
+    d = {
         "font.family": "sans-serif",
         "font.sans-serif": ["Arial"],
-        "font.size": 6,
-        "axes.titlesize": 7,
-        "axes.labelsize": 6,
-        "xtick.labelsize": 6,
-        "ytick.labelsize": 6,
-        "legend.fontsize": 6,
-        "figure.titlesize": 7,
-        "figure.labelsize": 7,
         "figure.dpi": 100,  # Not sure about this one
         "figure.autolayout": True,  # not sure about this one
         "savefig.dpi": 300,
@@ -98,6 +91,21 @@ def get_rc_params():
         "pdf.fonttype": 42,
         "svg.fonttype": "none",
     }
+    if set_font_sizes:
+        d.update(
+            {
+                "font.size": 6,
+                "axes.titlesize": 7,
+                "axes.labelsize": 6,
+                "xtick.labelsize": 6,
+                "ytick.labelsize": 6,
+                "legend.fontsize": 6,
+                "figure.titlesize": 7,
+                "figure.labelsize": 7,
+            }
+        )
+
+    return d
 
 
 # This function is taken directly from neurodsp.plts.utils.
