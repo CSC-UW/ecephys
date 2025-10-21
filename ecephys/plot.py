@@ -88,6 +88,7 @@ def get_rc_params(set_font_sizes: bool = False) -> dict[str, Any]:
         "figure.autolayout": True,  # not sure about this one
         "savefig.dpi": 300,
         "savefig.format": "pdf",
+        "savefig.transparent": True,
         "pdf.fonttype": 42,
         "svg.fonttype": "none",
     }
