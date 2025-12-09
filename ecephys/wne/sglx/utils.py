@@ -322,3 +322,133 @@ def load_consolidated_artifacts(
         return artifacts.replace(constants.SIMPLIFIED_ARTIFACTS)
 
     return artifacts
+
+
+def create_slice_table_for_spikeinterface(
+    subject_ftab: pd.DataFrame, exclusions: pd.DataFrame
+) -> pd.DataFrame:
+    """Split an experiment frame for a single subject, probe, stream, and filetype
+    around a set of periods to excise/exclude. Though used to create a spikeinterface
+    ConcatenateSegmentRecording from FrameSliceRecordings, it is in principle
+    independent of spikeinterface.
+
+    Parameters
+    ==========
+    subject_ftab: pd.DataFrame
+        The experiment frame for a single subject, probe, stream, and filetype.
+        There will be 1 row per file.
+        The columns used are `path`, `nFileSamp`, and `imSampRate`.
+    exclusions: pd.DataFrame
+        Specify which parts of the recording to drop. We slice such that the first and
+        last samples of each exclusion are NOT included in the returned recording.
+        Required columns are `fname`, `withinFileStartTime`, `withinFileEndTime`.
+        A `type` column is expected, but not required.
+
+    Returns
+    =======
+    slice_table: pd.DataFrame
+        A slice table where each row is a slice of data to keep or drop, sorted in
+        chronological order. There may be multiple rows per file, if exclusions
+        were specified that split the file into multiple slices.
+
+    Notes
+    =====
+    Slices do NOT correspond to SpikeInterface segments.
+    The equivalence between SpikeInterface objects and our objects is, roughly:
+        - SI SpikeGLXRecordingExtractor <-> SGLX gate directory, with probe subdirectory
+          if folder-per-probe orgnization is used.
+        - SI Segment <-> A single binfile.
+        - SI FrameSliceRecording <-> An entry in the slice table.
+    """
+    # Check that the exclusions table has the required columns.
+    # TODO: The exclusion schema should be defined elsewhere, or more formally.
+    #       Note that it will differ slightly from the slice_table schema.
+    required_exclusion_cols = ["withinFileStartTime", "withinFileEndTime", "fname"]
+    assert all([c in exclusions.columns for c in required_exclusion_cols]), (
+        f"Exclusions require all of the following columns: `{required_exclusion_cols}`"
+    )
+
+    slices = list()
+
+    # For each file in the experiment, split it if necessary.
+    # If not, just create a slice that is the entire file.
+    for file in subject_ftab.itertuples():
+        # Get the exclusions pertaining to this file.
+        in_file = exclusions["fname"] == file.path.name
+
+        # For the exclusions pertaining to this file, convert their definition in
+        # seconds to precise sample indices, and clip these estimates so that sample
+        # indices don't extend beyond the ends of the file.
+        exclusions.loc[in_file, "withinFileStartFrame"] = (
+            (exclusions.loc[in_file, "withinFileStartTime"] * file.imSampRate)
+            .astype(int)
+            .clip(0, file.nFileSamp)
+        )
+        exclusions.loc[in_file, "withinFileEndFrame"] = (
+            (exclusions.loc[in_file, "withinFileEndTime"] * file.imSampRate)
+            .astype(int)
+            .clip(0, file.nFileSamp)
+        )
+
+        # Do the actual splitting of the entire file around the exclusions
+        whole_file_slice = pd.DataFrame(
+            {
+                "withinFileStartFrame": [0],
+                "withinFileEndFrame": [file.nFileSamp],
+                "type": "keep",
+            }
+        )  # Keep the whole file by default, if no exclusions exist.
+        file_exclusions = exclusions.loc[
+            in_file, ["withinFileStartFrame", "withinFileEndFrame", "type"]
+        ]
+        file_slices = ecephys.utils.pandas.reconcile_labeled_intervals(
+            file_exclusions,
+            whole_file_slice,
+            "withinFileStartFrame",
+            "withinFileEndFrame",
+        ).drop(columns="delta")
+        file_slices["fname"] = file.path.name
+
+        # `reconcile_labeled_intervals()` considers intervals to be open-ended, so that
+        # (a, b) and (b, c) are considered NON-overlapping (usual python slicing).
+        # This means that up to this point the end sample of an exclusion will be part
+        # of the next (kept) slice. In order to be conservative, we correct each bad
+        # slice followed by a good slice to include its last sample. For example,
+        # if (a, b) and (b, c) are bad slice, and (c, d) is a good slice, the new
+        # slices will be (a, b+1), (b+1, c), (c+1, d).
+        keep = file_slices["type"] == "keep"
+        frames_to_shift = np.intersect1d(
+            file_slices[~keep]["withinFileEndFrame"].values,
+            file_slices["withinFileStartFrame"].values,
+        )  # End of each bad slice followed by another slice (excludes the last one)
+        i = file_slices["withinFileEndFrame"].isin(frames_to_shift)
+        j = file_slices["withinFileStartFrame"].isin(frames_to_shift)
+        file_slices.loc[i, "withinFileEndFrame"] += 1
+        file_slices.loc[j, "withinFileStartFrame"] += 1
+
+        # Sanity checks, ensuring that every sample in the file is accounted for.
+        assert file_slices["withinFileStartFrame"].min() == 0, (
+            "Something went wrong when splitting file around exclusions."
+        )
+        assert file_slices["withinFileEndFrame"].max() == (file.nFileSamp), (
+            "Something went wrong when splitting file around exclusions."
+        )
+        assert (
+            file_slices["withinFileEndFrame"] - file_slices["withinFileStartFrame"]
+        ).sum() == file.nFileSamp, (
+            "Something went wrong when splitting file around exclusions."
+        )
+
+        # Checks passed, add these slices to the overall list.
+        slices.append(file_slices)
+
+    slice_table = pd.concat(slices, ignore_index=True).astype(
+        {"withinFileStartFrame": int, "withinFileEndFrame": int}
+    )
+
+    # Add file metadata to the slice table.
+    subject_ftab = subject_ftab.copy()  # Do not modify input dataframe in-place.
+    subject_ftab["fname"] = subject_ftab["path"].apply(lambda x: x.name)
+    slice_table = slice_table.merge(subject_ftab, on="fname")
+
+    return slice_table

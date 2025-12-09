@@ -1,3 +1,7 @@
+# TODO: These functions should probably be moved to the `legacy_npix_sorting_pipeline`
+# package.
+# TODO: Functions that load data from disk should rename any column with "segment" in
+# its name to "slice", to avoid confusion with SpikeInterface segments.
 import logging
 from pathlib import Path
 from typing import Callable, Optional
@@ -15,100 +19,21 @@ from ecephys.wne.sglx.subject import SGLXSubject
 logger = logging.getLogger(__name__)
 
 
-# TODO: This should be renamed to _split_experiment_frame_for_spikeinterface() to avoid confusion with the `segments` property of a SpikeInterface recording.
-def _segment_experiment_frame_for_spikeinterface(
+def _create_slice_table_for_spikeinterface(
     subject_ftab: pd.DataFrame, exclusions: pd.DataFrame
 ) -> pd.DataFrame:
-    """Split an experiment frame for a single subject, probe, stream, and filetype around a set of periods to exclude.
-    These segments do NOT correspond to the `segments` property of a SpikeInterface recording. Sorry.
-    For details, see `get_si_recording()`.
-    """
-    EXCLUSION_COLS = ["withinFileStartTime", "withinFileEndTime", "fname"]
-    assert all([c in exclusions.columns for c in EXCLUSION_COLS]), (
-        f"Invalid columns for exclusions. Expected: `{EXCLUSION_COLS}`"
-    )
-    segments = list()
-    # For each file in the experiment, split it if necessary.
-    # If not, just create a segment that is the entire file.
-    for file in subject_ftab.itertuples():
-        ns = file.nFileSamp
-        fname = file.path.name
-        mask = (
-            exclusions["fname"] == fname
-        )  # Get the exclusions pertaining to this file.
+    df = wne.sglx.utils.create_slice_table_for_spikeinterface(subject_ftab, exclusions)
 
-        # For the exclusions pertaining to this file, convert their definition in seconds to precise sample indices,
-        # and clip these estimates so that sample indices don't extend beyond the ends of the file.
-        exclusions.loc[mask, "withinFileStartFrame"] = (
-            (exclusions.loc[mask, "withinFileStartTime"] * file.imSampRate)
-            .astype(int)
-            .clip(0, ns)
-        )
-        exclusions.loc[mask, "withinFileEndFrame"] = (
-            (exclusions.loc[mask, "withinFileEndTime"] * file.imSampRate)
-            .astype(int)
-            .clip(0, ns)
-        )
+    # TODO: Remove, as these can (1) be derived later, and (2) get overwritten in
+    #       load_slice_table_from_sorting_folder().
+    df["nSegmentSamp"] = df["withinFileEndFrame"] - df["withinFileStartFrame"]
+    df["segmentDuration"] = df["nSegmentSamp"].div(df["imSampRate"])
 
-        # Do the actual splitting of the entire file around the exclusions
-        file_segments = ecephys.utils.pandas.reconcile_labeled_intervals(
-            exclusions.loc[
-                mask, ["withinFileStartFrame", "withinFileEndFrame", "type"]
-            ],
-            pd.DataFrame(
-                {
-                    "withinFileStartFrame": [0],
-                    "withinFileEndFrame": [ns],
-                    "type": "keep",
-                }
-            ),
-            "withinFileStartFrame",
-            "withinFileEndFrame",
-        ).drop(columns="delta")
-        file_segments["fname"] = fname
-
-        # The function above considers intervals to be open-ended, so that (a, b) and (b, c) are considered NON-overlapping
-        # (as for usual python slicing)
-        # This means that up to this point the end sample of an exclusion will be part of the next (kept) segment.
-        # In order to be conservative, we correct each bad segment followed by a good segment to include its last sample.
-        # For example, if (a, b) and (b, c) are bad segment, and (c, d) is a good segment, the new segments will be (a, b+1), (b+1, c), (c+1, d).
-        keep = file_segments["type"] == "keep"
-        frames_to_shift = np.intersect1d(
-            file_segments[~keep]["withinFileEndFrame"].values,
-            file_segments["withinFileStartFrame"].values,
-        )  # End of each bad segment followed by another segment (excludes the last one)
-        i = file_segments["withinFileEndFrame"].isin(frames_to_shift)
-        j = file_segments["withinFileStartFrame"].isin(frames_to_shift)
-        file_segments.loc[i, "withinFileEndFrame"] += 1
-        file_segments.loc[j, "withinFileStartFrame"] += 1
-
-        # Do some sanity checks, ensuring that every sample in the file is accounted for.
-        assert file_segments["withinFileStartFrame"].min() == 0, (
-            "Something went wrong when splitting file around exclusions."
-        )
-        assert file_segments["withinFileEndFrame"].max() == (ns), (
-            "Something went wrong when splitting file around exclusions."
-        )
-        segments.append(file_segments)
-        assert (
-            file_segments["withinFileEndFrame"] - file_segments["withinFileStartFrame"]
-        ).sum() == ns, "Something went wrong when splitting file around exclusions."
-
-    # Return the segments, adding metadata about the files that they come from, for convenience.
-    segments = pd.concat(segments, ignore_index=True).astype(
-        {"withinFileStartFrame": int, "withinFileEndFrame": int}
-    )
-    subject_ftab["fname"] = subject_ftab["path"].apply(lambda x: x.name)
-
-    stab = segments.merge(subject_ftab, on="fname")
-
-    stab["nSegmentSamp"] = stab["withinFileEndFrame"] - stab["withinFileStartFrame"]
-    stab["segmentDuration"] = stab["nSegmentSamp"].div(stab["imSampRate"])
-
-    return stab
+    return df
 
 
 # Was `SGLXProject.get_si_recording()`
+# TODO: I would make this a private function, to discourage its use.
 def get_recording(
     subject: SGLXSubject,
     experiment: str,
@@ -141,17 +66,17 @@ def get_recording(
     =======
     recording:
         The combined SI recording object.
-    segments:
-        A dataframe where each row is a segment of data to keep, or drop, sorted in chronological order.
+    exclusions:
+        A dataframe where each row is a slice of data to keep, or drop, sorted in chronological order.
             fname: The name of the file (e.g. 3-2-2021_J_g0_t1.imec1.ap.bin)
-            withinFileStartFrame: The first sample index of the segment, measured from the start of the file (0-indexed)
-            withinFileEndFrame: The final sample index of the segment, measured from the start of the file (0-indexed)
-            type: Either 'keep', in which case the segment was kept, or other, in which case the segment was dropped.
-            segmentDuration: Duration in sec of segment.
+            withinFileStartFrame: The first sample index of the slice, measured from the start of the file (0-indexed)
+            withinFileEndFrame: The final sample index of the slice, measured from the start of the file (0-indexed)
+            type: Either 'keep', in which case the slice was kept, or other, in which case the slice was dropped.
+            segmentDuration: Duration in sec of slice.
     """
     # TODO: Instead of anticipating SI segment indices and adding them to the ftab at the start,
     # we should use the neo header in the SI extractor to add the segment indices to an ftab,
-    # or to our segments table, which is confusingly NOT a table of SI segments.
+    # or to our slice table.
     #
     # Get the experiment frame. This should be for a single probe, and a single stream.
     ftab = subject.get_experiment_frame(
@@ -160,26 +85,25 @@ def get_recording(
     # Split the experiment frame around the exclusions, using precise sample indices.
     if exclusions is None:
         exclusions = wne.utils.get_dummy_artifacts_table()
-    segments = _segment_experiment_frame_for_spikeinterface(
+    slices = _create_slice_table_for_spikeinterface(
         ftab, exclusions
     )  # These are NOT the segments of a SpikeInterface recording!
 
-    # Take the good segments one by one, create an recording object for each, and save these all in a list
-    good_segments = segments[segments["type"] == "keep"]
+    # Take the good slices one by one, create an recording object for each, and save these all in a list
+    good_slices = slices[slices["type"] == "keep"]
     recordings = list()
-    for segment in good_segments.itertuples():
+    for slice_ in good_slices.itertuples():
         extractor = se.SpikeGLXRecordingExtractor(
-            segment.gate_dir.parent, stream_id=f"{probe}.{stream}"
-        )  # segment.gate_dir.parent is the actual gate directory.
+            slice_.gate_dir.parent, stream_id=f"{probe}.{stream}"
+        )  # slice_.gate_dir.parent is the actual gate directory.
         recording = extractor.select_segments(
-            [segment.gate_dir_trigger_file_idx]
+            [slice_.gate_dir_trigger_file_idx]
         ).frame_slice(
-            start_frame=segment.withinFileStartFrame,
-            end_frame=segment.withinFileEndFrame,
+            start_frame=slice_.withinFileStartFrame,
+            end_frame=slice_.withinFileEndFrame,
         )
         recordings.append(recording)
 
-    # Combine the good segments
     if combine == "concatenate":
         recording = si.concatenate_recordings(
             recordings, sampling_frequency_max_diff=sampling_frequency_max_diff
@@ -191,9 +115,9 @@ def get_recording(
     else:
         raise ValueError(f"Got unexpected value for `combine`: {combine}")
 
-    # We return both recording and segments together, rather than making the available separately,
-    # to ensure that you never get a segment table unless it is actually proven to produce a valid extractor object.
-    return recording, segments
+    # We return both recording and slices together, rather than making the available separately,
+    # to ensure that you never get a slice table unless it is actually proven to produce a valid extractor object.
+    return recording, slices
 
 
 # TODO: Consider making this a method on wne.Project, or at least a function in wne.sorting
@@ -227,57 +151,58 @@ def get_sorting_file(
     )
 
 
-def load_segments_table_from_sorting(
+def load_slice_table_from_sorting_folder(
     project: SGLXProject,
     subject: str,
     experiment: str,
     alias: str,
     probe: str,
     sorting: str,
-    return_all_segment_types: bool = False,  # If False, only return segments of type "keep"
+    return_excised_slices: bool = False,  # If False, only return slices of type "keep"
 ) -> pd.DataFrame:
-    """Load a sorting's segment file.
+    """Load a sorting's slice table from disk.
 
     Add a couple useful columns: `segmentExpmtPrbAcqFirstTime`, `segmentExpmtPrbAcqLastTime`
     """  # TODO: Useful for what?
-    segment_file = get_sorting_file(
+    slice_table_file = get_sorting_file(
         project, subject, experiment, alias, probe, sorting, "segments.htsv"
     )
-    if not segment_file.exists():
-        raise FileNotFoundError(f"Segment table not found at {segment_file}.")
+    if not slice_table_file.exists():
+        raise FileNotFoundError(f"Slice table not found at {slice_table_file}.")
 
-    segments = ecephys.utils.read_htsv(segment_file)
+    slice_table = ecephys.utils.read_htsv(slice_table_file)
 
-    segments["nSegmentSamp"] = (
-        segments["withinFileEndFrame"] - segments["withinFileStartFrame"]
-    )  # TODO: This column should already be present
-    segments["segmentDuration"] = (
-        segments["nSegmentSamp"].astype(float).div(segments["imSampRate"])
-    )  # TODO: This column should already be present
-    segments["segmentExpmtPrbAcqFirstTime"] = segments[
+    slice_table["nSegmentSamp"] = (
+        slice_table["withinFileEndFrame"] - slice_table["withinFileStartFrame"]
+    )  # TODO: This column should already be present. Also, what is it used for? Document in a schema.
+    slice_table["segmentDuration"] = (
+        slice_table["nSegmentSamp"].astype(float).div(slice_table["imSampRate"])
+    )  # TODO: This column should already be present. Also, what is it used for? Document in a schema.
+    slice_table["segmentExpmtPrbAcqFirstTime"] = slice_table[
         "expmtPrbAcqFirstTime"
-    ] + segments["withinFileStartFrame"].astype(float).div(segments["imSampRate"])
+    ] + slice_table["withinFileStartFrame"].astype(float).div(slice_table["imSampRate"])
     # For LastTime, we work backwards from expmtPrbAcqLastTime (rather than forward
     # from expmtPrbAcqFirstTime) to ensure that segmentExpmtPrbAcqLastTime <= expmtPrbAcqLastTime
     # This is not the case when working forward due to floating point errors
     # segments["segmentExpmtPrbAcqLastTime"] = (
     #     segments["segmentExpmtPrbAcqFirstTime"] + segments["segmentDuration"]
     # ) # Nope
-    segments["segmentExpmtPrbAcqLastTime"] = segments["expmtPrbAcqLastTime"] - (
-        segments["nFileSamp"] - segments["withinFileEndFrame"]
-    ).astype(float).div(segments["imSampRate"])
+    slice_table["segmentExpmtPrbAcqLastTime"] = slice_table["expmtPrbAcqLastTime"] - (
+        slice_table["nFileSamp"] - slice_table["withinFileEndFrame"]
+    ).astype(float).div(slice_table["imSampRate"])
 
     assert np.all(
-        segments["segmentExpmtPrbAcqFirstTime"] >= segments["expmtPrbAcqFirstTime"]
+        slice_table["segmentExpmtPrbAcqFirstTime"]
+        >= slice_table["expmtPrbAcqFirstTime"]
     )
     assert np.all(
-        segments["segmentExpmtPrbAcqLastTime"] <= segments["expmtPrbAcqLastTime"]
+        slice_table["segmentExpmtPrbAcqLastTime"] <= slice_table["expmtPrbAcqLastTime"]
     )
 
-    if return_all_segment_types:
-        return segments
+    if return_excised_slices:
+        return slice_table
 
-    return segments[segments["type"] == "keep"]
+    return slice_table[slice_table["type"] == "keep"]
 
 
 # This requires a segment table to have been created and saved to disk.
@@ -291,14 +216,14 @@ def get_sample2time_from_sorting(
     sorting: str,
     allow_no_sync_file: bool = False,
 ) -> Callable:
-    slice_table = load_segments_table_from_sorting(
+    slice_table = load_slice_table_from_sorting_folder(
         project,
         subject,
         experiment,
         alias,
         probe,
         sorting,
-        return_all_segment_types=False,
+        return_excised_slices=False,
     ).copy()
     return wne.sglx.utils.get_sample2time(
         project, subject, experiment, slice_table, allow_no_sync_file
