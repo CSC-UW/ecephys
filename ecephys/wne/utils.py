@@ -139,12 +139,12 @@ def open_lfps(
 def get_dummy_artifacts_table() -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "withinFileStartTime": [],
-            "withinFileEndTime": [],
-            "type": [],
-            "fname": [],
-            "start_time": [],
-            "end_time": [],
-            "duration": [],
+            "withinFileStartTime": pd.Series([], dtype="float64"),
+            "withinFileEndTime": pd.Series([], dtype="float64"),
+            "type": pd.Series([], dtype="object"),
+            "fname": pd.Series([], dtype="object"),
+            "start_time": pd.Series([], dtype="float64"),
+            "end_time": pd.Series([], dtype="float64"),
+            "duration": pd.Series([], dtype="float64"),
         }
     )
