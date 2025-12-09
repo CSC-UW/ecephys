@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import spikeinterface as si
 import spikeinterface.extractors as se
-import tqdm
 
 import ecephys.utils
 from ecephys import units, wne
@@ -199,7 +198,6 @@ def get_recording(
 
 # TODO: Consider making this a method on wne.Project, or at least a function in wne.sorting
 # Although, I don't really like the idea that it uses the alias. But the existing data could be moved to eliminate the alias.
-# TODO: This seems more like a sorting utility than a SI utility.
 def get_sorting_directory(
     project: SGLXProject,
     subject: str,
@@ -214,7 +212,6 @@ def get_sorting_directory(
     )
 
 
-# TODO: This seems more like a sorting utility than a SI utility.
 def get_sorting_file(
     project: SGLXProject,
     subject: str,
@@ -285,7 +282,6 @@ def load_segments_table_from_sorting(
 
 # This requires a segment table to have been created and saved to disk.
 # It is therefore not general, and is only intended to be used for sorting results.
-# TODO: There should be a get_sample2time() function that just takes a segment table directly.
 def get_sample2time_from_sorting(
     project: SGLXProject,
     subject: str,
@@ -294,29 +290,8 @@ def get_sample2time_from_sorting(
     probe: str,
     sorting: str,
     allow_no_sync_file: bool = False,
-    progress_bar: bool = False,  # Seems to have no impact on performance
 ) -> Callable:
-    """Converts sample indices from a SpikeInterface recording to seconds."""
-    # Load probe sync table.
-    probe_sync_file = project.get_experiment_subject_file(
-        experiment, subject, "prb_sync.ap.htsv"
-    )
-    if not probe_sync_file.exists():
-        if allow_no_sync_file:
-            logger.info(
-                f"Could not find sync table at {probe_sync_file}.\n"
-                f"`allow_no_sync_file` == True : Ignoring probe sync in sample2time"
-            )
-            sync_table = None
-        else:
-            raise FileNotFoundError(f"No sync file at {probe_sync_file}")
-    else:
-        sync_table = ecephys.utils.read_htsv(
-            probe_sync_file
-        )  # Used to map this probe's times to imec0.
-
-    # Load segment table
-    segments = load_segments_table_from_sorting(
+    slice_table = load_segments_table_from_sorting(
         project,
         subject,
         experiment,
@@ -324,66 +299,10 @@ def get_sample2time_from_sorting(
         probe,
         sorting,
         return_all_segment_types=False,
-    )  # Used to map SI sorting samples to this probe's times.
-
-    # Get all the good segments (aka the ones in the sorting), in chronological order.
-    # Compute which samples in the recording belong to each segment.
-    sorted_segments = segments[segments["type"] == "keep"].copy()
-    sorted_segments["nSegmentSamples"] = (
-        sorted_segments["withinFileEndFrame"] - sorted_segments["withinFileStartFrame"]
-    )  # N of sorted samples in each segment
-
-    cum_sorted_samples_by_end = sorted_segments[
-        "nSegmentSamples"
-    ].cumsum()  # N of sorted samples by the end of each segment
-    cum_sorted_samples_by_start = cum_sorted_samples_by_end.shift(
-        1, fill_value=0
-    )  # N of sorted samples by the start of each segment
-    sorted_segments["start_sample"] = (
-        cum_sorted_samples_by_start  # First sample index of concatenated recording belonging to each semgent
+    ).copy()
+    return wne.sglx.utils.get_sample2time(
+        project, subject, experiment, slice_table, allow_no_sync_file
     )
-    sorted_segments["end_sample"] = cum_sorted_samples_by_end
-    # TODO: Rename start_sample -> si_start_sample, and end_sample -> si_end_sample?
-
-    # Given a sample number in the SI recording, we can now figure out:
-    #   (1) the segment it came from
-    #   (2) the file that segment belongs to
-    #   (3) how to map that file's times into our canonical timebase.
-    # We make a function that does this for an arbitrary array of sample numbers in the SI object, so we can use it later as needed.
-    if sync_table is not None:
-        sync_table = sync_table.set_index("source")
-
-    def sample2time(s: np.ndarray, progress_bar: bool = progress_bar) -> np.ndarray:
-        s = s.astype("float")
-        t = np.empty(s.size, dtype="float")
-        t[:] = np.nan  # Check a posteriori if we covered all input samples
-        iterable = list(sorted_segments.itertuples())
-        if progress_bar:
-            iterable = tqdm.tqdm(iterable)
-        for seg in iterable:
-            mask = (s >= seg.start_sample) & (
-                s < seg.end_sample
-            )  # Mask samples belonging to this segment
-            t[mask] = (
-                (s[mask] - seg.start_sample) / seg.imSampRate
-                + seg.expmtPrbAcqFirstTime
-                + seg.withinFileStartFrame / seg.imSampRate
-            )  # Convert to number of seconds in this probe's (expmtPrbAcq) timebase
-            if sync_table is not None:
-                sync_entry = sync_table.loc[
-                    seg.fname
-                ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
-                t[mask] = (
-                    sync_entry.slope * t[mask] + sync_entry.intercept
-                )  # Sync to imec0 (expmtPrbAcq) timebase
-        assert not any(np.isnan(t)), (
-            "Some of the provided sample indices were not covered by segments \n"
-            "and therefore couldn't be converted to time"
-        )
-
-        return t
-
-    return sample2time
 
 
 def load_singleprobe_sorting(
