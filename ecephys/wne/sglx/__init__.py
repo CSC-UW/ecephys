@@ -1,4 +1,4 @@
-from . import experiments, legacy_sorting, pipeline, sessions, utils
+from . import experiments, legacy_sorting, pipeline, sessions, spikeinterface, utils
 from .project import SGLXProject, SGLXProjectLibrary
 from .subject import SGLXSubject, SGLXSubjectLibrary
 
@@ -10,6 +10,7 @@ __all__ = [
     "SGLXProjectLibrary",
     "SGLXSubject",
     "SGLXSubjectLibrary",
+    "spikeinterface",
     "legacy_sorting",
     "utils",
 ]
