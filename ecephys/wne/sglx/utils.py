@@ -3,6 +3,7 @@ import logging
 import pathlib
 from typing import Callable, Optional
 
+import numba
 import numpy as np
 import pandas as pd
 
@@ -53,155 +54,6 @@ def get_sglx_file_counterparts(
         for p in counterparts
     ]
     return ecephys.utils.remove_duplicates(counterparts)
-
-
-def _get_sample2time(
-    slice_table: pd.DataFrame, sync_table: pd.DataFrame | None = None
-) -> Callable:
-    """For a concatenated recording (e.g. a spikeinterface ConcatenateSegmentRecording)
-    built up from slices of other recordings, with possible excisions/exclusions
-    occuring before concatenation, get a function that converts sample indices from this
-    concatenated recording into synchronized times from the canonical timebase.
-
-    Parameters
-    ==========
-    slice_table:
-        A dataframe with columns 'fname', 'withinFileStartFrame', 'withinFileEndFrame',
-        'imSampRate', and 'expmtPrbAcqFirstTime', describing the slices that were
-        concatenated to form the recording. NO EXCISED SLICES SHOULD BE PRESENT!
-        Each row is a slice. There may be mutiple slices from the same file,
-        if excisions/exclusions were made. See Notes below for more info.
-    sync_table:
-        A dataframe with columns 'source', 'slope', and 'intercept', mapping times
-        from each source file to the canonical timebase. 'source' is a filename.
-
-    Returns
-    =======
-    sample2time:
-        A function that takes an array of sample indices from the concatenated recording,
-        and returns an array of times in seconds from the canonical timebase.
-
-    Notes
-    =====
-    In the case of no excisions/exclusions:
-      1. The `slice_table` is the `experiment_probe_ftable`.
-      2. `withinFileStartFrame` is always 0 for every slice.
-      3. `withinFileEndFrame` is always `nSliceSamples` / `nFileSamp`.
-    """
-    # Tom added a "type" column to the slice table, which I don't want to demand from
-    # users, but we can check for it and soft-warn if non-`keep` values are present.
-    if "type" in slice_table.columns and not all(slice_table["type"] == "keep"):
-        print("Warning: `slice_table` contains a `type` column with non-`keep` values.")
-
-    # Get the number of samples in each slice
-    slice_table["nSliceSamples"] = (
-        slice_table["withinFileEndFrame"] - slice_table["withinFileStartFrame"]
-    )
-    # Get the number of samples kept by the end of each slice
-    cum_samples_by_end = slice_table["nSliceSamples"].cumsum()
-    # Get the number of samples kept by the start of each slice
-    cum_samples_by_start = cum_samples_by_end.shift(1, fill_value=0)
-    # First sample index in concatenated recording belonging to each slice
-    slice_table["start_sample"] = cum_samples_by_start
-    # Last sample index in concatenated recording belonging to each slice
-    slice_table["end_sample"] = cum_samples_by_end
-
-    # Given a sample number in the SI recording, we can now figure out:
-    #   (1) the slice it came from
-    #   (2) the file that slice comes from
-    #   (3) how to map that file's times into our canonical timebase.
-    # We make a function that does this for an arbitrary array of sample numbers in the SI object, so we can use it later as needed.
-    if sync_table is not None:
-        sync_table = sync_table.set_index("source")
-
-    def sample2time(s: np.ndarray) -> np.ndarray:
-        s = s.astype("float")
-        t = np.empty(s.size, dtype="float")
-        t[:] = np.nan  # Check a posteriori if we covered all input samples
-        for slc in slice_table.itertuples():
-            mask = (s >= slc.start_sample) & (
-                s < slc.end_sample
-            )  # Mask samples belonging to this slice
-            t[mask] = (
-                (s[mask] - slc.start_sample) / slc.imSampRate
-                + slc.expmtPrbAcqFirstTime
-                + slc.withinFileStartFrame / slc.imSampRate
-            )  # Convert to number of seconds in this probe's (expmtPrbAcq) timebase
-            if sync_table is not None:
-                sync_entry = sync_table.loc[
-                    slc.fname
-                ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
-                t[mask] = (
-                    sync_entry.slope * t[mask] + sync_entry.intercept
-                )  # Sync to imec0 (expmtPrbAcq) timebase
-        assert not any(np.isnan(t)), (
-            "Some of the provided sample indices were not covered by slices \n"
-            "and therefore couldn't be converted to time"
-        )
-
-        return t
-
-    return sample2time
-
-
-def get_sample2time(
-    sync_project: SGLXProject,
-    subject: str,
-    experiment: str,
-    slice_table: pd.DataFrame,
-    allow_no_sync_file: bool = False,
-) -> Callable:
-    """For a concatenated recording (e.g. a spikeinterface ConcatenateSegmentRecording)
-    built up from slices of other recordings, with possible excisions/exclusions
-    occuring before concatenation, get a function that converts sample indices from this
-    concatenated recording into synchronized times from the canonical timebase.
-
-    Parameters
-    ==========
-    sync_project:
-        SGLXProject instance used to locate the sync file.
-    subject:
-        Subject name.
-    experiment:
-        Experiment name.
-    slice_table:
-        A dataframe with columns 'fname', 'withinFileStartFrame', 'withinFileEndFrame',
-        'imSampRate', and 'expmtPrbAcqFirstTime', describing the slices that were
-        concatenated to form the recording. NO EXCISED SLICES SHOULD BE PRESENT!
-        Each row is a slice. There may be mutiple slices from the same file,
-        if excisions/exclusions were made. See Notes below for more info.
-    allow_no_sync_file:
-        If True, proceed without synchronization if the sync file is not found.
-        If False, raise FileNotFoundError when sync file is missing.
-
-    Returns
-    =======
-    sample2time:
-        A function that takes an array of sample indices from the concatenated recording,
-        and returns an array of times in seconds from the canonical timebase.
-
-    Notes
-    =====
-    In the case of no excisions/exclusions:
-      1. The `slice_table` is the `experiment_probe_ftable`.
-      2. `withinFileStartFrame` is always 0 for every slice.
-      3. `withinFileEndFrame` is always `nSliceSamples` / `nFileSamp`.
-    """
-    sync_file = sync_project.get_experiment_subject_file(
-        experiment, subject, constants.Files.AP_SYNC
-    )
-    if not sync_file.exists():
-        print(f"Sync table not found at {sync_file}")
-        if allow_no_sync_file:
-            print("`allow_no_sync_file` == True : Ignoring probe sync in sample2time")
-            sync_table = None
-        else:
-            raise FileNotFoundError(f"No sync file at {sync_file}")
-    else:
-        sync_table = ecephys.utils.read_htsv(
-            sync_file
-        )  # Used to map this probe's times to imec0.
-    return _get_sample2time(slice_table, sync_table)
 
 
 def get_time2time(
@@ -325,7 +177,9 @@ def load_consolidated_artifacts(
 
 
 def create_slice_table_for_spikeinterface(
-    subject_ftab: pd.DataFrame, exclusions: pd.DataFrame
+    subject_ftab: pd.DataFrame,
+    exclusions: pd.DataFrame,
+    return_dropped_slices: bool = False,
 ) -> pd.DataFrame:
     """Split an experiment frame for a single subject, probe, stream, and filetype
     around a set of periods to excise/exclude. Though used to create a spikeinterface
@@ -343,6 +197,8 @@ def create_slice_table_for_spikeinterface(
         last samples of each exclusion are NOT included in the returned recording.
         Required columns are `fname`, `withinFileStartTime`, `withinFileEndTime`.
         A `type` column is expected, but not required.
+    return_dropped_slices: bool
+        If True, return all slices, including those to be dropped.
 
     Returns
     =======
@@ -350,6 +206,10 @@ def create_slice_table_for_spikeinterface(
         A slice table where each row is a slice of data to keep or drop, sorted in
         chronological order. There may be multiple rows per file, if exclusions
         were specified that split the file into multiple slices.
+        A `type` columns indicates whether the slice is to be kept or dropped. If kept,
+        the value will be "keep". If dropped, the value will be whatever was specified
+        in the `exclusions` table, or null if not specified.
+
 
     Notes
     =====
@@ -363,7 +223,12 @@ def create_slice_table_for_spikeinterface(
     # Check that the exclusions table has the required columns.
     # TODO: The exclusion schema should be defined elsewhere, or more formally.
     #       Note that it will differ slightly from the slice_table schema.
-    required_exclusion_cols = ["withinFileStartTime", "withinFileEndTime", "fname"]
+    required_exclusion_cols = [
+        "fname",
+        "withinFileStartTime",
+        "withinFileEndTime",
+        "type",
+    ]
     assert all([c in exclusions.columns for c in required_exclusion_cols]), (
         f"Exclusions require all of the following columns: `{required_exclusion_cols}`"
     )
@@ -445,10 +310,320 @@ def create_slice_table_for_spikeinterface(
     slice_table = pd.concat(slices, ignore_index=True).astype(
         {"withinFileStartFrame": int, "withinFileEndFrame": int}
     )
+    slice_table = slice_table.rename(columns={"type": "sliceType"})
 
     # Add file metadata to the slice table.
     subject_ftab = subject_ftab.copy()  # Do not modify input dataframe in-place.
     subject_ftab["fname"] = subject_ftab["path"].apply(lambda x: x.name)
     slice_table = slice_table.merge(subject_ftab, on="fname")
 
-    return slice_table
+    if return_dropped_slices:
+        return slice_table
+
+    return slice_table[slice_table["sliceType"] == "keep"].reset_index(drop=True)
+
+
+def add_sample2time_columns(
+    slice_table: pd.DataFrame, sync_table: pd.DataFrame | None = None
+) -> pd.DataFrame:
+    """Add columns to slice_table to support vectorized sample2time conversion.
+
+    Parameters
+    ==========
+    slice_table:
+        A dataframe with columns:
+        - 'fname'
+        - 'withinFileStartFrame'
+        - 'withinFileEndFrame'
+        - 'sliceType'
+        - 'imSampRate'
+        - 'expmtPrbAcqFirstTime'
+        ...describing the slices that were concatenated to form the recording.
+        NO EXCISED SLICES SHOULD BE PRESENT!
+        Each row is a slice. There may be mutiple slices from the same file,
+        if excisions/exclusions were made. In the case of no excisions/exclusions:
+        1. The `slice_table` is the `experiment_probe_ftable`.
+        2. `withinFileStartFrame` is always 0 for every slice.
+        3. `withinFileEndFrame` is always `nSliceSamples` / `nFileSamp`.
+        See `create_slice_table_for_spikeinterface()`.
+    sync_table:
+        A dataframe with columns 'source', 'slope', and 'intercept', mapping times
+        from each source file to the canonical timebase. 'source' is a filename.
+
+    Returns
+    =======
+    pd.DataFrame
+        Copy of input slice_table with additional columns:
+        - n_slice_samples: Number of samples in this slice.
+        - start_sample: Start sample index of this slice in the concatenated recording.
+        - end_sample: End sample index of this slice in the concatenated recording.
+        - time_offset: Unsynchronized start time of this slice.
+        - sync_slope: Slope for synchronizing this slice's time to the canonical timebase.
+        - sync_intercept: Intercept for synchronizing this slice's time to the canonical timebase.
+
+    Notes
+    =====
+    The basic idea here is that, given a sample number in a spliced/concatenated
+    recording, we can figure out:
+    1. The slice it came from.
+    2. The file that slice comes from.
+    3. How to map that file's times into our canonical timebase.
+
+    """
+    slices = slice_table.copy()  # Do not modify input dataframe in-place.
+    assert all(slices["sliceType"] == "keep"), (
+        "`slice_table` must not contain excised/excluded slices."
+    )
+
+    # Get the number of samples in each slice
+    slices["n_slice_samples"] = (
+        slices["withinFileEndFrame"] - slices["withinFileStartFrame"]
+    )
+
+    # Get the start and end sample indices of each slice in the concatenated recording
+    slices["end_sample"] = slices["n_slice_samples"].cumsum()
+    slices["start_sample"] = slices["end_sample"].shift(1, fill_value=0)
+
+    # Get the unsynchronized start time of each slice
+    slices["time_offset"] = (
+        slices["expmtPrbAcqFirstTime"]
+        + slices["withinFileStartFrame"] / slices["imSampRate"]
+    )
+
+    if sync_table is not None:
+        sync_table = sync_table.set_index("source")
+        slices["sync_slope"] = slices["fname"].map(sync_table["slope"])
+        slices["sync_intercept"] = slices["fname"].map(sync_table["intercept"])
+    else:
+        slices["sync_slope"] = 1.0
+        slices["sync_intercept"] = 0.0
+
+    return slices
+
+
+def _get_sample2time(slice_table: pd.DataFrame) -> Callable:
+    """For a concatenated recording (e.g. a spikeinterface ConcatenateSegmentRecording)
+    built up from slices of other recordings, with possible excisions/exclusions
+    occuring before concatenation, get a function that converts sample indices from this
+    concatenated recording into synchronized times from the canonical timebase.
+
+    Note that, this function makes sense *if you don't know the samples in advance*.
+    If you are precomputing all times for e.g. a set of slices, or a whole recording,
+    there are MUCH faster ways to do this, because you don't need to infer which slice
+    a sample came from! See slice_table2times().
+
+    Parameters
+    ==========
+    slice_table:
+        A dataframe with columns:
+        - start_sample
+        - end_sample
+        - imSampRate
+        - time_offset
+        - sync_slope
+        - sync_intercept
+        ...describing the slices that were concatenated to form the recording.
+        NO EXCISED SLICES SHOULD BE PRESENT!
+        Each row is a slice. There may be mutiple slices from the same file,
+        if excisions/exclusions were made. In the case of no excisions/exclusions:
+        1. The `slice_table` is the `experiment_probe_ftable`.
+        2. `withinFileStartFrame` is always 0 for every slice.
+        3. `withinFileEndFrame` is always `nSliceSamples` / `nFileSamp`.
+        See `create_slice_table_for_spikeinterface()` and `add_sample2time_columns()`.
+
+    Returns
+    =======
+    sample2time:
+        A function that takes a SORTED array of sample indices from the concatenated
+        recording, and returns an array of times in seconds from the canonical timebase.
+
+    Notes
+    =====
+
+    Implementation details matter a lot here. On the first run ("cold"), NumPy must:
+
+      1. Compile ufuncs - NumPy's universal functions (like >=, &, indexed assignment)
+         are lazily compiled/optimized on first use.
+      2. Allocate memory - Creating temporary boolean arrays (mask) of any serious size
+         repeatedly triggers OS-level memory allocation.
+      3. Page faults - The OS must map physical memory pages for newly allocated arrays.
+
+    After the first run ("hot"), the compiled code is cached, and the OS has already
+    mapped memory pages (or they're in cache), so subsequent runs are much faster.
+
+    This function could (used to) be implemented in such a way that it could take
+    unsorted sample indices, but the cost of this is so high on cold runs, and the
+    advantages so few, that it should not be done. The new implementaitons are at least
+    3-5x faster.
+    """
+    # Precompute small arrays.
+    # Indexing into these is faster than indexing into df[col].values, probably
+    # because of compiler optimizatons.
+    _start = slice_table["start_sample"].to_numpy()
+    _end = slice_table["end_sample"].to_numpy()
+    _dt = (1.0 / slice_table["imSampRate"]).to_numpy()
+    _t0 = slice_table["time_offset"].to_numpy()
+    _slope = slice_table["sync_slope"].to_numpy()
+    _intercept = slice_table["sync_intercept"].to_numpy()
+
+    def sample2time(s: np.ndarray) -> np.ndarray:
+        # Runtimes on discontinuous samples:
+        # 1e7 samples: ~0.4s (max 1.0s) whether hot or cold.
+        # 1e8 samples: ~4.2s (max 11.5s) whether hot or cold.
+        # 2e8 samples: ~8.1s whether hot or cold.
+        # 8e8 samples: ~40.s whether hot or cold.
+
+        # Find which slice each sample belongs to
+        idx = np.searchsorted(_end, s, side="right")  # Slice indices
+        return _slope[idx] * ((s - _start[idx]) * _dt[idx] + _t0[idx]) + _intercept[idx]
+
+    def _sample2time_memory_efficient(s: np.ndarray) -> np.ndarray:
+        # Runtimes on discontinuous samples:
+        # 1e7 samples: ~0.4-0.9s whether hot or cold.
+        # 1e8 samples: ~13s hot or cold (max 55.1s cold).
+        # 2e8 samples: ~9.0s whether hot or cold.
+        # 8e8 samples: ~36.0s whether hot or cold.
+        # Thus, this function may be faster and use less memory, though its performance
+        # seems more variable, and theoretically the other implementation should win.
+
+        # Find which slice each sample belongs to
+        idx = np.searchsorted(_end, s, side="right")  # Slice indices
+
+        # Compute in-place to avoid intermediate arrays
+        # t = slope * ((s - start) * dt + t0) + intercept
+        t = s - _start[idx]
+        t = t.astype(np.float64)  # In-place cast to float64
+        t *= _dt[idx]  # In-place multiply
+        t += _t0[idx]  # In-place add
+        t *= _slope[idx]  # In-place multiply
+        t += _intercept[idx]  # In-place add
+        return t
+
+    return sample2time
+
+
+def get_sample2time(
+    sync_project: SGLXProject,
+    subject: str,
+    experiment: str,
+    slice_table: pd.DataFrame,
+    allow_no_sync_file: bool = False,
+) -> Callable:
+    """For a concatenated recording (e.g. a spikeinterface ConcatenateSegmentRecording)
+    built up from slices of other recordings, with possible excisions/exclusions
+    occuring before concatenation, get a function that converts sample indices from this
+    concatenated recording into synchronized times from the canonical timebase.
+
+    Parameters
+    ==========
+    sync_project:
+        SGLXProject instance used to locate the sync file.
+    subject:
+        Subject name.
+    experiment:
+        Experiment name.
+    slice_table:
+        A dataframe with columns 'fname', 'withinFileStartFrame', 'withinFileEndFrame',
+        'imSampRate', and 'expmtPrbAcqFirstTime', describing the slices that were
+        concatenated to form the recording. NO EXCISED SLICES SHOULD BE PRESENT!
+        Each row is a slice. There may be mutiple slices from the same file,
+        if excisions/exclusions were made. See Notes below for more info.
+    allow_no_sync_file:
+        If True, proceed without synchronization if the sync file is not found.
+        If False, raise FileNotFoundError when sync file is missing.
+
+    Returns
+    =======
+    sample2time:
+        A function that takes an array of sample indices from the concatenated recording,
+        and returns an array of times in seconds from the canonical timebase.
+
+    Notes
+    =====
+    In the case of no excisions/exclusions:
+      1. The `slice_table` is the `experiment_probe_ftable`.
+      2. `withinFileStartFrame` is always 0 for every slice.
+      3. `withinFileEndFrame` is always `nSliceSamples` / `nFileSamp`.
+    """
+    sync_file = sync_project.get_experiment_subject_file(
+        experiment, subject, constants.Files.AP_SYNC
+    )
+    if not sync_file.exists():
+        print(f"Sync table not found at {sync_file}")
+        if allow_no_sync_file:
+            print("`allow_no_sync_file` == True : Ignoring probe sync in sample2time")
+            sync_table = None
+        else:
+            raise FileNotFoundError(f"No sync file at {sync_file}")
+    else:
+        sync_table = ecephys.utils.read_htsv(
+            sync_file
+        )  # Used to map this probe's times to imec0.
+    return _get_sample2time(slice_table, sync_table)
+
+
+@numba.njit(parallel=True)
+def _slice_table2times_kernel(start, ns, dt, t0, slope, intercept):
+    """Numba JIT kernel - parallel loop, minimal memory."""
+    n_samples = ns.sum()
+    t = np.empty(n_samples, dtype=np.float64)
+
+    for i in numba.prange(len(start)):
+        for j in range(ns[i]):
+            t[start[i] + j] = slope[i] * (t0[i] + j * dt[i]) + intercept[i]
+
+    return t
+
+
+def slice_table2times(slice_table: pd.DataFrame) -> np.ndarray:
+    """For a concatenated recording (e.g. a spikeinterface ConcatenateSegmentRecording)
+    built up from slices of other recordings, with possible excisions/exclusions
+    occuring before concatenation, get a function that converts the slice table into
+    the recording's synchronized times from the canonical timebase.
+
+    Parameters
+    ==========
+    slice_table:
+        A dataframe with columns:
+        - start_sample
+        - end_sample
+        - imSampRate
+        - time_offset
+        - sync_slope
+        - sync_intercept
+        ...describing the slices that were concatenated to form the recording.
+        NO EXCISED SLICES SHOULD BE PRESENT!
+        Each row is a slice. There may be mutiple slices from the same file,
+        if excisions/exclusions were made. In the case of no excisions/exclusions:
+        1. The `slice_table` is the `experiment_probe_ftable`.
+        2. `withinFileStartFrame` is always 0 for every slice.
+        3. `withinFileEndFrame` is always `nSliceSamples` / `nFileSamp`.
+        See `create_slice_table_for_spikeinterface()` and `add_sample2time_columns()`.
+
+    Returns
+    =======
+    np.ndarray
+        The timestamps for every sample covered by the slice table.
+
+    Notes
+    =====
+    This function can run in ~2.5s on >3 billion samples (~23 GB) with irregular gaps.
+
+    Testing indicates that it is ~3x faster than a numba-free approach that loops
+    over the slice table and computes each slice's time 1-by-1.
+
+    It is ~10x faster than the fully vectorized approach, probably because when arrays
+    get so large, the loop approach effectively implements chunking, and numpy may be
+    parellelizing the loop iterations under the hood.
+    """
+    _ns = slice_table["n_slice_samples"].to_numpy()
+    _dt = (1.0 / slice_table["imSampRate"]).to_numpy()
+    _t0 = slice_table["time_offset"].to_numpy()
+    _slope = slice_table["sync_slope"].to_numpy()
+    _intercept = slice_table["sync_intercept"].to_numpy()
+
+    # Compute relative start positions within output array
+    _end = np.cumsum(_ns)
+    _start = np.concatenate([[0], _end[:-1]])
+
+    return _slice_table2times_kernel(_start, _ns, _dt, _t0, _slope, _intercept)

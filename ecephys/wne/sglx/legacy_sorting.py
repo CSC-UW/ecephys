@@ -22,7 +22,12 @@ logger = logging.getLogger(__name__)
 def _create_slice_table_for_spikeinterface(
     subject_ftab: pd.DataFrame, exclusions: pd.DataFrame
 ) -> pd.DataFrame:
-    df = wne.sglx.utils.create_slice_table_for_spikeinterface(subject_ftab, exclusions)
+    df = wne.sglx.utils.create_slice_table_for_spikeinterface(
+        subject_ftab, exclusions, return_dropped_slices=True
+    )
+    df = df.rename(
+        columns={"sliceType": "type"}
+    )  # Rename back for legacy compatibility.
 
     # TODO: Remove, as these can (1) be derived later, and (2) get overwritten in
     #       load_slice_table_from_sorting_folder().
@@ -207,6 +212,7 @@ def load_slice_table_from_sorting_folder(
 
 # This requires a segment table to have been created and saved to disk.
 # It is therefore not general, and is only intended to be used for sorting results.
+# TODO: Use wne.sglx.utils.slice_table2times() instead.
 def get_sample2time_from_sorting(
     project: SGLXProject,
     subject: str,
@@ -216,6 +222,8 @@ def get_sample2time_from_sorting(
     sorting: str,
     allow_no_sync_file: bool = False,
 ) -> Callable:
+    print("Warning: This function can be dramatically accelerated with little effort.")
+    print("As soon as you trigger this, see code for details.")
     slice_table = load_slice_table_from_sorting_folder(
         project,
         subject,
