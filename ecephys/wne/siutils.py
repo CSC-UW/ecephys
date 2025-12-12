@@ -5,12 +5,6 @@ import numpy as np
 import pandas as pd
 import spikeinterface as si
 import spikeinterface.extractors as se
-from spikeinterface.core import waveform_tools
-
-import ecephys.utils
-
-from .project import Project
-from .subject import Subject
 
 required_metric_thresholds = MappingProxyType(
     {
@@ -173,109 +167,6 @@ def get_quality_metric_filters(
         callable_filters.append(select_present)
 
     return simple_filters, callable_filters
-
-
-def load_postprocessing_hypnogram_for_slicing(
-    sorting_project: Project,
-    subject: Subject,
-    experiment: str,
-    probe: str,
-    alias: str = "full",
-    sorting: str = "sorting",
-    postprocessing: str = "postpro",
-    drop_time_columns: bool = True,
-) -> pd.DataFrame:
-    """Load postprocessing hypnogram, which can be used with si.frame_slice
-
-    Important:
-    This is NOT adequate for use as regular hypnogram since the
-    start/end_time and duration fields do not account for gaps!
-    But the start_sample,end_sample columns can be used with
-    the si.frame_slice() methods.
-    However, this may be used as regular hypnogram after reconciliating with
-    exclusions.
-    """
-    f = (
-        sorting_project.get_alias_subject_directory(experiment, alias, subject.name)
-        / f"{sorting}.{probe}"
-        / postprocessing
-        / "hypnogram.htsv"
-    )
-
-    if not f.exists():
-        import warnings
-
-        warnings.warn("No `hypnogram.htsv` file in postpro dir. Returning None")
-        return None
-
-    df = ecephys.utils.read_htsv(f)
-    if drop_time_columns:
-        # Drop misleading start/end_time/duration columns
-        return df.drop(columns=["start_time", "end_time", "duration"])
-
-    return df
-
-
-# TODO: Remove unused combine parameter,
-# and maybe rename to slice_extractor_and_concatenate_segments.
-# TODO: This is very slow. ~15m. Why?
-def cut_and_combine_si_extractors(si_object, epochs_df, combine="concatenate"):
-    """Slices a single extractor (that probably represents a whole recording)
-    into pieces (e.g., artifact-free epochs, or epochs belonging to a
-    condition of interest), and recombines them together."""
-    assert {"start_frame", "end_frame", "state"}.issubset(epochs_df)
-    assert len(epochs_df.state.unique()) == 1
-
-    if not isinstance(si_object, (se.BaseSorting, se.BaseRecording)):
-        raise ValueError(
-            "Unrecognized datatype for si_object. "
-            "Expected spikeinterface BaseSorting or BaseRecording."
-        )
-
-    frame_slice_kwargs = {}
-    if isinstance(si_object, se.BaseSorting):
-        # Disable redundant check_spike_frames in Sorting.frame_slice
-        assert si_object.has_recording()
-        if waveform_tools.has_exceeding_spikes(si_object, si_object._recording):
-            raise ValueError(
-                "The sorting object has spikes exceeding the recording duration. You have to remove those spikes "
-                "with the `spikeinterface.curation.remove_excess_spikes()` function"
-            )
-        frame_slice_kwargs = {"check_spike_frames": False}
-
-    si_segments = []
-    for epoch in epochs_df.itertuples():
-        si_segments.append(
-            si_object.frame_slice(
-                start_frame=epoch.start_frame,
-                end_frame=epoch.end_frame,
-                **frame_slice_kwargs,
-            )
-        )
-
-    if combine == "concatenate":
-        if isinstance(si_object, se.BaseSorting):
-            rec = si.concatenate_sortings(si_segments)
-        elif isinstance(si_object, se.BaseRecording):
-            rec = si.concatenate_recordings(si_segments)
-
-    elif combine == "append":
-        raise NotImplementedError
-
-    else:
-        assert False
-
-    # Apply to time vector if there's any (not handled by SI)
-    # TODO: "not handled by SI": I wouldn't be so sure. A lot has changed.
-    if si_object.has_time_vector():
-        raw_times = si_object.get_times()
-        times = []
-        for epoch in epochs_df.itertuples():
-            times += list(raw_times[epoch.start_frame : epoch.end_frame])
-        times = np.array(times)
-        rec.set_times(times, with_warning=False)
-
-    return rec
 
 
 def add_anatomy_properties_to_extractor(
