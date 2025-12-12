@@ -38,7 +38,7 @@ def get_recording(
     experiment: str,
     probe: str,
     stream: str = "ap",
-) -> si.ConcatenateSegmentRecording:
+) -> tuple[si.ConcatenateSegmentRecording, pd.DataFrame]:
     """
     Create a SpikeInterface recording object from a possibly-discontinuous multi-file
     recoring, with artifacts dropped, and timestamps that accurately reflect all
