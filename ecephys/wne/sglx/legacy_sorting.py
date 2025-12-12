@@ -68,12 +68,15 @@ def load_slice_table_from_sorting_folder(
         raise FileNotFoundError(f"Slice table not found at {slice_table_file}.")
 
     slice_table = ecephys.utils.read_htsv(slice_table_file)
+    slice_table = slice_table.rename(
+        columns={"nSegmentSamp": "n_slice_samples", "type": "sliceType"}
+    )
 
-    slice_table["nSegmentSamp"] = (
+    slice_table["n_slice_samples"] = (
         slice_table["withinFileEndFrame"] - slice_table["withinFileStartFrame"]
     )  # TODO: This column should already be present. Also, what is it used for? Document in a schema.
     slice_table["segmentDuration"] = (
-        slice_table["nSegmentSamp"].astype(float).div(slice_table["imSampRate"])
+        slice_table["n_slice_samples"].astype(float).div(slice_table["imSampRate"])
     )  # TODO: This column should already be present. Also, what is it used for? Document in a schema.
     slice_table["segmentExpmtPrbAcqFirstTime"] = slice_table[
         "expmtPrbAcqFirstTime"
@@ -99,7 +102,7 @@ def load_slice_table_from_sorting_folder(
     if return_excised_slices:
         return slice_table
 
-    return slice_table[slice_table["type"] == "keep"]
+    return slice_table[slice_table["sliceType"] == "keep"]
 
 
 # This requires a segment table to have been created and saved to disk.
