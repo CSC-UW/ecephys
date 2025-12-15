@@ -64,8 +64,8 @@ presence_metric_thresholds = MappingProxyType(
 )
 
 
-def _check_sorting_or_dataframe(obj: se.BaseSorting | pd.DataFrame) -> bool:
-    if not isinstance(obj, (se.BaseSorting, pd.DataFrame)):
+def _check_sorting_or_dataframe(obj: si.BaseSorting | pd.DataFrame) -> bool:
+    if not isinstance(obj, (si.BaseSorting, pd.DataFrame)):
         raise ValueError(
             f"Expected a SpikeInterface sorting or pandas DataFrame, got {type(obj)}"
         )
@@ -73,18 +73,18 @@ def _check_sorting_or_dataframe(obj: se.BaseSorting | pd.DataFrame) -> bool:
 
 
 def _create_mask(
-    obj: se.BaseSorting | pd.DataFrame, fill_value: bool = True
+    obj: si.BaseSorting | pd.DataFrame, fill_value: bool = True
 ) -> np.ndarray[bool]:
     _check_sorting_or_dataframe(obj)
-    if isinstance(obj, se.BaseSorting):
+    if isinstance(obj, si.BaseSorting):
         return np.full_like(obj.get_unit_ids(), fill_value)
     if isinstance(obj, pd.DataFrame):
         return np.full(len(obj), fill_value)
 
 
-def _get_property(obj: se.BaseSorting | pd.DataFrame, property: str) -> np.ndarray:
+def _get_property(obj: si.BaseSorting | pd.DataFrame, property: str) -> np.ndarray:
     _check_sorting_or_dataframe(obj)
-    if isinstance(obj, se.BaseSorting):
+    if isinstance(obj, si.BaseSorting):
         return obj.get_property(property)
     if isinstance(obj, pd.DataFrame):
         return obj.get(property)

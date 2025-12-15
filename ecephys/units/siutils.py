@@ -88,7 +88,7 @@ def refine_clusters(
 
     Returns:
     ========
-    se.BaseSorting | pd.DataFrame
+    si.BaseSorting | pd.DataFrame
 
     Notes:
     ======
