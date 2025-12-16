@@ -19,12 +19,12 @@ classifiers = [
 
 dependencies = [
     "brainglobe-atlasapi",
-    "chardet", # TODO: Is this really needed? Why? 
     "colorcet",
-    "dask[complete]", # 2024.2.1 was the last dask relase supporting pandas < 2, but cannot be used with Python >= 3.11.9
-    # You may be able to get away with just the PyPI version of ephyviewer.
-    # Its upstream appears abandoned. We might want to remove it as a dependency before imposes a version ceiling.
-    "ephyviewer @ git+https://github.com/CSC-UW/ephyviewer.git", 
+    "dask[complete]", 
+    # We used to depend on our CSC-UW fork of ephyviewer to get some bug fixes and features:
+    # "ephyviewer @ git+https://github.com/CSC-UW/ephyviewer.git", 
+    # We will try to get away with the upstream:
+    "ephyviewer @ git+https://github.com/NeuralEnsemble/ephyviewer.git", 
     "ibl-neuropixel",
     "ipykernel",
     "ipympl",
@@ -34,7 +34,7 @@ dependencies = [
     "mat73",
     "matplotlib >= 3.7",
     "numpy",
-    "pandas", # 1.5.3 was the last pandas release before 2.0.0.
+    "pandas", 
     "pyEDFlib",
     "pyfftw",
     "PySide6", # For ephyviewer
@@ -45,7 +45,7 @@ dependencies = [
     "seaborn",
     "sortednp",
     "spikeinterface",
-    "ssqueezepy @ git+https://github.com/OverLordGoldDragon/ssqueezepy.git", # Until 0.6.6 is on PyPI
+    "ssqueezepy",
     "Statsmodels",
     "tdt",
     "xarray[complete]",
@@ -62,8 +62,8 @@ dev = [
 ]
 
 [build-system]
-requires = ["setuptools>=62.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.setuptools]
-packages = ["ecephys"]
+[tool.hatch.metadata]
+allow-direct-references = true
