@@ -1,10 +1,10 @@
 from pathlib import Path
 
 import pandas as pd
-import spikeinterface as si
 import spikeinterface.extractors as se
 
 import ecephys.utils
+import spikeinterface as si
 from ecephys import wne
 from ecephys.wne.sglx.project import SGLXProject
 from ecephys.wne.sglx.subject import SGLXSubject
@@ -121,7 +121,7 @@ def get_recording(
     sync_table = ecephys.utils.read_htsv(sync_file)
     slices = wne.sglx.utils.add_sample2time_columns(slices, sync_table)
     times = wne.sglx.utils.slice_table2times(slices)
-    recording.set_times(times)
+    recording.set_times(times, with_warning=False)
 
     # Annotate the recording with provenance information for each slice.
     annotations = slices[RECORDING_ANNOTATION_COLS.keys()].astype(
