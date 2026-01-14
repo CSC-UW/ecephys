@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
-import spikeinterface.extractors as se
+from spikeinterface.extractors.extractor_classes import SpikeGLXRecordingExtractor
 
 import ecephys.utils
 import spikeinterface as si
@@ -83,7 +83,7 @@ def get_recording(
     stream_id = f"{probe}.{stream}"
     for prb_dir in slices["gate_dir"].unique():
         gate_dir = prb_dir.parent  # The actual gate directory
-        extractor = se.SpikeGLXRecordingExtractor(gate_dir, stream_id=stream_id)
+        extractor = SpikeGLXRecordingExtractor(gate_dir, stream_id=stream_id)
         nseg = extractor.get_num_segments()
         for seg_idx in range(nseg):
             seg_info = extractor.neo_reader.signals_info_dict[(seg_idx, stream_id)]
@@ -103,7 +103,7 @@ def get_recording(
     for fslice in slices.itertuples():
         probe_dir = fslice.gate_dir  # Actually the probe directory
         gate_dir = probe_dir.parent  # The actual gate directory
-        extractor = se.SpikeGLXRecordingExtractor(gate_dir, stream_id=stream_id)
+        extractor = SpikeGLXRecordingExtractor(gate_dir, stream_id=stream_id)
         segment = extractor.select_segments([fslice.neo_segment_index])
         recording = segment.frame_slice(
             start_frame=fslice.withinFileStartFrame,

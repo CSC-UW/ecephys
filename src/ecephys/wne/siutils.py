@@ -3,8 +3,9 @@ from typing import Callable, Optional
 
 import numpy as np
 import pandas as pd
+from spikeinterface.extractors.extractor_classes import KiloSortSortingExtractor
+
 import spikeinterface as si
-import spikeinterface.extractors as se
 
 required_metric_thresholds = MappingProxyType(
     {
@@ -170,8 +171,8 @@ def get_quality_metric_filters(
 
 
 def add_anatomy_properties_to_extractor(
-    extractor: se.KiloSortSortingExtractor, structs: pd.DataFrame
-) -> se.KiloSortSortingExtractor:
+    extractor: KiloSortSortingExtractor, structs: pd.DataFrame
+) -> KiloSortSortingExtractor:
     """
     Add a `structure` and `acronym` properties to each cluster indicating its anatomical region.
 

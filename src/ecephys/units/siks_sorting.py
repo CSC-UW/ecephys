@@ -8,13 +8,13 @@ import numpy.typing as npt
 import pandas as pd
 import seaborn as sns
 import sklearn.metrics as skmetrics
-import spikeinterface as si
-import spikeinterface.extractors as se
+from spikeinterface.extractors.extractor_classes import KiloSortSortingExtractor
 from tqdm import tqdm
 
 import ecephys.hypnogram as hyp
 import ecephys.plot
 import ecephys.utils
+import spikeinterface as si
 
 from . import cluster_trains, dtypes, siutils
 
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 class SpikeInterfaceKilosortSorting:
     def __init__(
         self,
-        si_obj: Union[se.KiloSortSortingExtractor, si.UnitsSelectionSorting],
+        si_obj: Union[KiloSortSortingExtractor, si.UnitsSelectionSorting],
         sample2time: Optional[Callable] = None,
         cache: Optional[dtypes.ClusterTrains_Samples] = None,
     ):
@@ -41,14 +41,14 @@ class SpikeInterfaceKilosortSorting:
         Parameters:
         ===========
         si_obj:
-            For example, from se.KiloSortSortingExtractor(sorting_dir)
+            For example, from KiloSortSortingExtractor(sorting_dir)
         sample2time:
             Takes an array of spikeinterface sample numbers and maps them to timestamps. Ideally a vectorized function.
             If not provided, times will be according to the probe's sample clock (e.g. sample / fs)
         cache: ClusterTrains_Samples:
             Optionally initialize the spike train cache. We cache each cluster's whole-recording spike train (as sample indices, not seconds). This is used to improve raster plot performance.
         """
-        self.si_obj: se.KiloSortSortingExtractor = si_obj
+        self.si_obj: KiloSortSortingExtractor = si_obj
 
         # If no time mapping function is provided, just provide times according to this probe's sample clock.
         self._sample2time = sample2time

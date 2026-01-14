@@ -30,8 +30,8 @@ from pathlib import Path
 from typing import Optional, Union
 
 import pandas as pd
-import spikeinterface.extractors as se
 import yaml
+from spikeinterface.extractors.extractor_classes import KiloSortSortingExtractor
 
 from ecephys import sharptrack
 
@@ -157,7 +157,7 @@ class Project:
         alias: str = "full",
         sorting: str = "sorting",
         postprocessing: str = "postpro",
-    ) -> se.KiloSortSortingExtractor:
+    ) -> KiloSortSortingExtractor:
         """Load the contents of a Kilosort output directory. This takes ~20-25s per 100 clusters.
 
         We keep only a subset of the properties loaded by si.read_kilosort(), since some of those
