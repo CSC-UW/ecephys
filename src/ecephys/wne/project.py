@@ -27,15 +27,17 @@ project_directory: /path/to/other_project
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import pandas as pd
 import yaml
-from spikeinterface.extractors.extractor_classes import KiloSortSortingExtractor
-
-from ecephys import sharptrack
 
 from .constants import Files
+
+if TYPE_CHECKING:
+    from spikeinterface.extractors.extractor_classes import KiloSortSortingExtractor
+
+    from ecephys import sharptrack
 
 Pathlike = Union[Path, str]
 
@@ -157,7 +159,7 @@ class Project:
         alias: str = "full",
         sorting: str = "sorting",
         postprocessing: str = "postpro",
-    ) -> KiloSortSortingExtractor:
+    ) -> "KiloSortSortingExtractor":
         """Load the contents of a Kilosort output directory. This takes ~20-25s per 100 clusters.
 
         We keep only a subset of the properties loaded by si.read_kilosort(), since some of those
@@ -167,6 +169,7 @@ class Project:
         We then add as properties all the metrics from the postprocessing directory (originating from both
         from the "metrics"  and "waveform_metrics" spikeinterface extensions)
         """
+        import spikeinterface.extractors as se
 
         PROPERTIES_FROM_SORTING_DIR = [
             "Amplitude",
@@ -274,12 +277,14 @@ class Project:
     # TODO: This should not be a method, and it should not be here.
     def get_sharptrack(
         self, subject: str, experiment: str, probe: str
-    ) -> sharptrack.SHARPTrack:
+    ) -> "sharptrack.SHARPTrack":
         """Load SHARPTrack files.
 
         experiment_params.json should include a probes->`probe_name`->SHARP-Track->filename.mat field.
         filename.mat is then to be found in the same location as experiment_params.json (i.e.e the experiment-subject directory)
         """
+        from ecephys import sharptrack
+
         opts = self.load_experiment_subject_json(experiment, subject, Files.EXP_PARAMS)
         fname = opts["probes"][probe]["SHARP-Track"]
         file = self.get_experiment_subject_file(experiment, subject, fname)

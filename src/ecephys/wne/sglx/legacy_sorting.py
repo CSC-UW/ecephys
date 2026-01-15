@@ -2,16 +2,20 @@
 # package.
 # TODO: Functions that load data from disk should rename any column with "segment" in
 # its name to "slice", to avoid confusion with SpikeInterface segments.
+from __future__ import annotations
+
 import logging
 from pathlib import Path
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 import numpy as np
 import pandas as pd
 
 import ecephys.utils
-from ecephys import units, wne
 from ecephys.wne.sglx.project import SGLXProject
+
+if TYPE_CHECKING:
+    from ecephys import units
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +121,8 @@ def get_sample2time_from_sorting(
     sorting: str,
     allow_no_sync_file: bool = False,
 ) -> Callable:
+    from ecephys.wne.sglx import utils as sglx_utils
+
     print("Warning: This function can be dramatically accelerated with little effort.")
     print("As soon as you trigger this, see code for details.")
     slice_table = load_slice_table_from_sorting_folder(
@@ -128,7 +134,7 @@ def get_sample2time_from_sorting(
         sorting,
         return_excised_slices=False,
     ).copy()
-    return wne.sglx.utils.get_sample2time(
+    return sglx_utils.get_sample2time(
         project, subject, experiment, slice_table, allow_no_sync_file
     )
 
@@ -143,7 +149,10 @@ def load_singleprobe_sorting(
     postprocessing: str = "postpro",
     wne_anatomy_project: Optional[SGLXProject] = None,
     allow_no_sync_file=False,
-) -> units.SpikeInterfaceKilosortSorting:
+) -> "units.SpikeInterfaceKilosortSorting":
+    from ecephys import units
+    from ecephys.wne import siutils
+
     if sorting is None:
         sorting = "sorting"
     if postprocessing is None:
@@ -188,8 +197,8 @@ def load_singleprobe_sorting(
         warnings.warn(
             "Could not find anatomy file at: {anatomy_file}. Using dummy structure table"
         )
-        structs = wne.siutils.get_dummy_structure_table(lo=-np.inf, hi=np.inf)
-    extractor = wne.siutils.add_anatomy_properties_to_extractor(extractor, structs)
+        structs = siutils.get_dummy_structure_table(lo=-np.inf, hi=np.inf)
+    extractor = siutils.add_anatomy_properties_to_extractor(extractor, structs)
 
     return units.SpikeInterfaceKilosortSorting(extractor, sample2time)
 
@@ -204,7 +213,9 @@ def load_multiprobe_sorting(
     postprocessings: dict[str, str] = None,
     wne_anatomy_project: Optional[SGLXProject] = None,
     allow_no_sync_file=False,
-) -> units.MultiSIKS:
+) -> "units.MultiSIKS":
+    from ecephys import units
+
     if sortings is None:
         sortings = {prb: None for prb in probes}
     if postprocessings is None:

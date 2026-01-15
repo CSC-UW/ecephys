@@ -6,7 +6,6 @@ import xarray as xr
 
 import ecephys.utils
 from ecephys import hypnogram as hyp
-from ecephys import xrsig
 
 from . import constants
 from .constants import FileExtensions as Exts
@@ -119,6 +118,8 @@ def open_lfps(
             experiment, subject, f"{probe}.structures.htsv"
         )
         if anatomy_file.exists():
+            from ecephys import xrsig
+
             structs = ecephys.utils.read_htsv(anatomy_file)
             lf = xrsig.assign_laminar_coordinate(
                 lf, structs, sigdim="channel", lamdim="y"

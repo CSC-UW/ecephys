@@ -1,16 +1,18 @@
-from . import experiments, legacy_sorting, pipeline, sessions, spikeinterface, utils
+# Only import lightweight modules at package level.
+# Heavy modules must be imported directly to avoid slow import times:
+#   from ecephys.wne.sglx import spikeinterface
+#   from ecephys.wne.sglx import legacy_sorting
+#   from ecephys.wne.sglx import pipeline
+#   from ecephys.wne.sglx import utils
+from . import experiments, sessions
 from .project import SGLXProject, SGLXProjectLibrary
 from .subject import SGLXSubject, SGLXSubjectLibrary
 
 __all__ = [
     "experiments",
-    "pipeline",
     "sessions",
     "SGLXProject",
     "SGLXProjectLibrary",
     "SGLXSubject",
     "SGLXSubjectLibrary",
-    "spikeinterface",
-    "legacy_sorting",
-    "utils",
 ]

@@ -1,11 +1,12 @@
 from types import MappingProxyType
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import numpy as np
 import pandas as pd
-from spikeinterface.extractors.extractor_classes import KiloSortSortingExtractor
 
-import spikeinterface as si
+if TYPE_CHECKING:
+    import spikeinterface as si
+    from spikeinterface.extractors.extractor_classes import KiloSortSortingExtractor
 
 required_metric_thresholds = MappingProxyType(
     {
@@ -65,7 +66,13 @@ presence_metric_thresholds = MappingProxyType(
 )
 
 
-def _check_sorting_or_dataframe(obj: si.BaseSorting | pd.DataFrame) -> bool:
+# Type alias for sorting or dataframe - use string annotation to avoid runtime import
+SortingOrDataFrame = Union["si.BaseSorting", pd.DataFrame]
+
+
+def _check_sorting_or_dataframe(obj: SortingOrDataFrame) -> bool:
+    import spikeinterface as si
+
     if not isinstance(obj, (si.BaseSorting, pd.DataFrame)):
         raise ValueError(
             f"Expected a SpikeInterface sorting or pandas DataFrame, got {type(obj)}"
@@ -73,9 +80,9 @@ def _check_sorting_or_dataframe(obj: si.BaseSorting | pd.DataFrame) -> bool:
     return True
 
 
-def _create_mask(
-    obj: si.BaseSorting | pd.DataFrame, fill_value: bool = True
-) -> np.ndarray[bool]:
+def _create_mask(obj: SortingOrDataFrame, fill_value: bool = True) -> np.ndarray:
+    import spikeinterface as si
+
     _check_sorting_or_dataframe(obj)
     if isinstance(obj, si.BaseSorting):
         return np.full_like(obj.get_unit_ids(), fill_value)
@@ -83,7 +90,9 @@ def _create_mask(
         return np.full(len(obj), fill_value)
 
 
-def _get_property(obj: si.BaseSorting | pd.DataFrame, property: str) -> np.ndarray:
+def _get_property(obj: SortingOrDataFrame, property: str) -> np.ndarray:
+    import spikeinterface as si
+
     _check_sorting_or_dataframe(obj)
     if isinstance(obj, si.BaseSorting):
         return obj.get_property(property)
@@ -92,12 +101,12 @@ def _get_property(obj: si.BaseSorting | pd.DataFrame, property: str) -> np.ndarr
 
 
 def _select_inviolate(
-    obj: si.BaseSorting | pd.DataFrame,
+    obj: SortingOrDataFrame,
     thresholds: dict,
     threshold_level: str,
     metrics: list[str] = ["isi_violations_ratio", "rp_contamination"],
     nan: float = 0.0,
-) -> np.ndarray[bool]:
+) -> np.ndarray:
     keep = _create_mask(obj, False)
     for m in metrics:
         v = _get_property(obj, m)
@@ -109,11 +118,11 @@ def _select_inviolate(
 
 
 def _select_present(
-    obj: si.BaseSorting | pd.DataFrame,
+    obj: SortingOrDataFrame,
     thresholds: dict,
     threshold_level: str,
     nan: float = 1.0,
-) -> np.ndarray[bool]:
+) -> np.ndarray:
     keep = _create_mask(obj, False)
     for m in ["presence_ratio_Wake", "presence_ratio_NREM", "presence_ratio_REM"]:
         v = _get_property(obj, m)
@@ -171,8 +180,8 @@ def get_quality_metric_filters(
 
 
 def add_anatomy_properties_to_extractor(
-    extractor: KiloSortSortingExtractor, structs: pd.DataFrame
-) -> KiloSortSortingExtractor:
+    extractor: "KiloSortSortingExtractor", structs: pd.DataFrame
+) -> "KiloSortSortingExtractor":
     """
     Add a `structure` and `acronym` properties to each cluster indicating its anatomical region.
 

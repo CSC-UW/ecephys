@@ -1,13 +1,16 @@
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
-from spikeinterface.extractors.extractor_classes import SpikeGLXRecordingExtractor
 
 import ecephys.utils
-import spikeinterface as si
-from ecephys import wne
 from ecephys.wne.sglx.project import SGLXProject
 from ecephys.wne.sglx.subject import SGLXSubject
+
+if TYPE_CHECKING:
+    import spikeinterface as si
 
 # These are saved as annotations on the SpikeGLX recording object
 # There is one of these dicts per "slice" that was used to build the recording.
@@ -38,7 +41,7 @@ def get_recording(
     experiment: str,
     probe: str,
     stream: str = "ap",
-) -> tuple[si.ConcatenateSegmentRecording, pd.DataFrame]:
+) -> tuple["si.ConcatenateSegmentRecording", pd.DataFrame]:
     """
     Create a SpikeInterface recording object from a possibly-discontinuous multi-file
     recoring, with artifacts dropped, and timestamps that accurately reflect all
@@ -62,6 +65,11 @@ def get_recording(
     slices : pd.DataFrame
         The slice table used to build the recording. Only includes retained slices.
     """
+    import spikeinterface as si
+    from spikeinterface.extractors.extractor_classes import SpikeGLXRecordingExtractor
+
+    from ecephys import wne
+
     # Load artifacts, which will be dropped from the recording
     artifacts_file = project.get_experiment_subject_file(
         experiment,
