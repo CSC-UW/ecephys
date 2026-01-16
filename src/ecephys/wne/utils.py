@@ -118,12 +118,10 @@ def open_lfps(
             experiment, subject, f"{probe}.structures.htsv"
         )
         if anatomy_file.exists():
-            from ecephys import xrsig
+            from ecephys.xrsig.core import assign_laminar_coordinate
 
             structs = ecephys.utils.read_htsv(anatomy_file)
-            lf = xrsig.assign_laminar_coordinate(
-                lf, structs, sigdim="channel", lamdim="y"
-            )
+            lf = assign_laminar_coordinate(lf, structs, sigdim="channel", lamdim="y")
         else:
             warnings.warn(
                 "Could not find anatomy file at: {anatomy_file}. Using dummy structure table"
