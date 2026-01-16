@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 import ecephys.utils
+from ecephys.wne import constants
 from ecephys.wne.sglx.project import SGLXProject
 
 if TYPE_CHECKING:
@@ -111,7 +112,7 @@ def load_slice_table_from_sorting_folder(
 
 # This requires a segment table to have been created and saved to disk.
 # It is therefore not general, and is only intended to be used for sorting results.
-# TODO: Use wne.sglx.utils.slice_table2times() instead.
+# TODO: Create get_times_from_sorting() with wne.sglx.utils.slice_table2times().
 def get_sample2time_from_sorting(
     project: SGLXProject,
     subject: str,
@@ -123,8 +124,6 @@ def get_sample2time_from_sorting(
 ) -> Callable:
     from ecephys.wne.sglx import utils as sglx_utils
 
-    print("Warning: This function can be dramatically accelerated with little effort.")
-    print("As soon as you trigger this, see code for details.")
     slice_table = load_slice_table_from_sorting_folder(
         project,
         subject,
@@ -134,9 +133,23 @@ def get_sample2time_from_sorting(
         sorting,
         return_excised_slices=False,
     ).copy()
-    return sglx_utils.get_sample2time(
-        project, subject, experiment, slice_table, allow_no_sync_file
+
+    # Get sync table
+    sync_file = project.get_experiment_subject_file(
+        experiment, subject, constants.Files.AP_SYNC
     )
+    if not sync_file.exists():
+        print(f"Sync table not found at {sync_file}")
+        if allow_no_sync_file:
+            print("`allow_no_sync_file` == True : Ignoring probe sync")
+            sync_table = None
+        else:
+            raise FileNotFoundError(f"No sync file at {sync_file}")
+    else:
+        sync_table = ecephys.utils.read_htsv(sync_file)
+
+    slice_table = sglx_utils.add_sample2time_columns(slice_table, sync_table)
+    return sglx_utils.get_sample2time(slice_table)
 
 
 def load_singleprobe_sorting(
@@ -149,8 +162,8 @@ def load_singleprobe_sorting(
     postprocessing: str = "postpro",
     wne_anatomy_project: Optional[SGLXProject] = None,
     allow_no_sync_file=False,
-) -> "units.SpikeInterfaceKilosortSorting":
-    from ecephys import units
+) -> "ecephys.units.siks_sorting.SpikeInterfaceKilosortSorting":
+    from ecephys.units.siks_sorting import SpikeInterfaceKilosortSorting
     from ecephys.wne import siutils
 
     if sorting is None:
@@ -200,7 +213,7 @@ def load_singleprobe_sorting(
         structs = siutils.get_dummy_structure_table(lo=-np.inf, hi=np.inf)
     extractor = siutils.add_anatomy_properties_to_extractor(extractor, structs)
 
-    return units.SpikeInterfaceKilosortSorting(extractor, sample2time)
+    return SpikeInterfaceKilosortSorting(extractor, sample2time)
 
 
 def load_multiprobe_sorting(

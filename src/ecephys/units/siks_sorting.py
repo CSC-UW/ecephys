@@ -32,7 +32,7 @@ class SpikeInterfaceKilosortSorting:
     def __init__(
         self,
         si_obj: Union[KiloSortSortingExtractor, si.UnitsSelectionSorting],
-        sample2time: Optional[Callable] = None,
+        sample2time: Optional[Callable] = None,  # TODO: Take time vector directly?
         cache: Optional[dtypes.ClusterTrains_Samples] = None,
     ):
         """

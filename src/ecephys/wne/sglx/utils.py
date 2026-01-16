@@ -401,7 +401,7 @@ def add_sample2time_columns(
     return slices
 
 
-def _get_sample2time(slice_table: pd.DataFrame) -> Callable:
+def get_sample2time(slice_table: pd.DataFrame) -> Callable:
     """For a concatenated recording (e.g. a spikeinterface ConcatenateSegmentRecording)
     built up from slices of other recordings, with possible excisions/exclusions
     occuring before concatenation, get a function that converts sample indices from this
@@ -500,66 +500,6 @@ def _get_sample2time(slice_table: pd.DataFrame) -> Callable:
         return t
 
     return sample2time
-
-
-def get_sample2time(
-    sync_project: SGLXProject,
-    subject: str,
-    experiment: str,
-    slice_table: pd.DataFrame,
-    allow_no_sync_file: bool = False,
-) -> Callable:
-    """For a concatenated recording (e.g. a spikeinterface ConcatenateSegmentRecording)
-    built up from slices of other recordings, with possible excisions/exclusions
-    occuring before concatenation, get a function that converts sample indices from this
-    concatenated recording into synchronized times from the canonical timebase.
-
-    Parameters
-    ==========
-    sync_project:
-        SGLXProject instance used to locate the sync file.
-    subject:
-        Subject name.
-    experiment:
-        Experiment name.
-    slice_table:
-        A dataframe with columns 'fname', 'withinFileStartFrame', 'withinFileEndFrame',
-        'imSampRate', and 'expmtPrbAcqFirstTime', describing the slices that were
-        concatenated to form the recording. NO EXCISED SLICES SHOULD BE PRESENT!
-        Each row is a slice. There may be mutiple slices from the same file,
-        if excisions/exclusions were made. See Notes below for more info.
-    allow_no_sync_file:
-        If True, proceed without synchronization if the sync file is not found.
-        If False, raise FileNotFoundError when sync file is missing.
-
-    Returns
-    =======
-    sample2time:
-        A function that takes an array of sample indices from the concatenated recording,
-        and returns an array of times in seconds from the canonical timebase.
-
-    Notes
-    =====
-    In the case of no excisions/exclusions:
-      1. The `slice_table` is the `experiment_probe_ftable`.
-      2. `withinFileStartFrame` is always 0 for every slice.
-      3. `withinFileEndFrame` is always `nSliceSamples` / `nFileSamp`.
-    """
-    sync_file = sync_project.get_experiment_subject_file(
-        experiment, subject, constants.Files.AP_SYNC
-    )
-    if not sync_file.exists():
-        print(f"Sync table not found at {sync_file}")
-        if allow_no_sync_file:
-            print("`allow_no_sync_file` == True : Ignoring probe sync in sample2time")
-            sync_table = None
-        else:
-            raise FileNotFoundError(f"No sync file at {sync_file}")
-    else:
-        sync_table = ecephys.utils.read_htsv(
-            sync_file
-        )  # Used to map this probe's times to imec0.
-    return _get_sample2time(slice_table, sync_table)
 
 
 @numba.njit(parallel=True)
