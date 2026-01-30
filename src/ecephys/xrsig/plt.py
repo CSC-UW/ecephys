@@ -145,7 +145,7 @@ def plot_laminar_timeseries(
     ax.tick_params(**tick_params)
 
 
-def add_structure_boundaries_to_laminar_plot(
+def add_structure_borders_to_laminar_plot(
     da: xr.DataArray,
     ax: plt.Axes,
     sigdim: str = "channel",
