@@ -5,12 +5,10 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-import ecephys.utils
-from ecephys.wne.sglx.project import SGLXProject
-from ecephys.wne.sglx.subject import SGLXSubject
-
 if TYPE_CHECKING:
     import spikeinterface as si
+    from ecephys.wne.sglx.project import SGLXProject
+    from ecephys.wne.sglx.subject import SGLXSubject
 
 # These are saved as annotations on the SpikeGLX recording object
 # There is one of these dicts per "slice" that was used to build the recording.
@@ -65,27 +63,30 @@ def get_recording(
     slices : pd.DataFrame
         The slice table used to build the recording. Only includes retained slices.
     """
-    import spikeinterface as si
     from spikeinterface.extractors.extractor_classes import SpikeGLXRecordingExtractor
 
-    from ecephys import wne
+    import spikeinterface as si
+    from ecephys import utils as ece_utils
+    from ecephys.wne import Files as wne_files
+    from ecephys.wne import utils as wne_utils
+    from ecephys.wne.sglx import utils as sglx_utils
 
     # Load artifacts, which will be dropped from the recording
     artifacts_file = project.get_experiment_subject_file(
         experiment,
         subject.name,
-        f"{probe}.{stream}.{wne.Files.ARTIFACTS}",
+        f"{probe}.{stream}.{wne_files.ARTIFACTS}",
     )
-    artifacts = wne.utils.get_dummy_artifacts_table()
+    artifacts = wne_utils.get_dummy_artifacts_table()
     if artifacts_file.exists():
-        _artifacts = ecephys.utils.read_htsv(artifacts_file)
+        _artifacts = ece_utils.read_htsv(artifacts_file)
         artifacts = pd.concat([artifacts, _artifacts], ignore_index=True)
 
     # Figure out how each file needs to be sliced to drop artifacts
     ftab = subject.get_experiment_frame(
         experiment, alias="full", stream=stream, ftype="bin", probe=probe
     )
-    slices = wne.sglx.utils.create_slice_table_for_spikeinterface(ftab, artifacts)
+    slices = sglx_utils.create_slice_table_for_spikeinterface(ftab, artifacts)
 
     # Determine neo segment index for each slice. One neo segment may have >1 slice.
     stream_id = f"{probe}.{stream}"
@@ -124,11 +125,11 @@ def get_recording(
 
     # Compute synchronzied timestamps for the concatenated recording.
     sync_file = project.get_experiment_subject_file(
-        experiment, subject.name, wne.constants.Files.AP_SYNC
+        experiment, subject.name, wne_files.AP_SYNC
     )
-    sync_table = ecephys.utils.read_htsv(sync_file)
-    slices = wne.sglx.utils.add_sample2time_columns(slices, sync_table)
-    times = wne.sglx.utils.slice_table2times(slices)
+    sync_table = ece_utils.read_htsv(sync_file)
+    slices = sglx_utils.add_sample2time_columns(slices, sync_table)
+    times = sglx_utils.slice_table2times(slices)
     recording.set_times(times, with_warning=False)
 
     # Annotate the recording with provenance information for each slice.
