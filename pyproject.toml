@@ -58,7 +58,8 @@ deprecated = [
 
 [dependency-groups]
 dev = [
-    "ruff"
+    "pytest>=7.0.0",
+    "ruff",
 ]
 
 [build-system]
