@@ -126,7 +126,7 @@ def _add_cluster_properties_to_peths(
     property_names = (
         property_frame.columns if property_names is None else property_names
     )
-    coords = {col: ("cluster_id", property_frame[col].values) for col in property_names}
+    coords = {col: ("cluster_id", property_frame[col].to_numpy()) for col in property_names}
     return peths.assign_coords(coords)
 
 
