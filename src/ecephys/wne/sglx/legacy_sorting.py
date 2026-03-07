@@ -16,7 +16,7 @@ from ecephys.wne import constants
 from ecephys.wne.sglx.project import SGLXProject
 
 if TYPE_CHECKING:
-    from ecephys import units
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -226,15 +226,15 @@ def load_multiprobe_sorting(
     postprocessings: dict[str, str] = None,
     wne_anatomy_project: Optional[SGLXProject] = None,
     allow_no_sync_file=False,
-) -> "units.MultiSIKS":
-    from ecephys import units
+) -> "ecephys.units.multi_siks.MultiSIKS":
+    from ecephys.units.multi_siks import MultiSIKS
 
     if sortings is None:
         sortings = {prb: None for prb in probes}
     if postprocessings is None:
         postprocessings = {prb: None for prb in probes}
 
-    return units.MultiSIKS(
+    return MultiSIKS(
         {
             probe: load_singleprobe_sorting(
                 sglx_sorting_project,
