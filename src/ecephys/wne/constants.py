@@ -41,6 +41,7 @@ SIMPLIFIED_ARTIFACTS = {
     "artifact": "Artifact",
     "flat": "Artifact",
     "scrambled": "Artifact",
+    "scrambling": "Artifact",  # Appears in Alesandro imec0
 }  # "type" column in consolidated artifacts
 
 SIMPLIFIED_STATES = {
