@@ -1,6 +1,10 @@
 from enum import StrEnum
 from typing import Final
 
+import seaborn as sns
+
+_paired = sns.color_palette("Paired")
+
 # Visbrain will automatically resample everything to 100Hz, so just nip it in the bud.
 VISBRAIN_FS: Final = 100
 
@@ -66,4 +70,14 @@ SIMPLIFIED_STATES = {
     "Transition-to-NREM": "Other",
     "Transition-to-REM": "Other",  # TODO: Possibly equivalent to IS
     "Wake-Good": "Wake",
+}
+
+SIMPLIFIED_STATE_COLORS = {
+    "Wake": _paired[2],  # light green
+    "MA": _paired[10],  # cream yellow
+    "NREM": _paired[0],  # light blue
+    "IS": _paired[7],  # dark orange
+    "REM": _paired[6],  # light orange
+    "Other": _paired[11],  # brown
+    "Artifact": _paired[4],  # light red
 }
