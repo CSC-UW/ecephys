@@ -34,7 +34,8 @@ dependencies = [
     "mat73",
     "matplotlib >= 3.7",
     "numpy",
-    "pandas", 
+    "pandas",
+    "polars",
     "pyEDFlib",
     "pyfftw",
     "PySide6", # For ephyviewer

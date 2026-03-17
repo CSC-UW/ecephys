@@ -2,7 +2,6 @@ import ast
 from pathlib import Path
 
 import pandas as pd
-import polars as pl
 
 from ecephys.sglx.external import readSGLX
 
@@ -96,6 +95,8 @@ def get_polars_type_maps() -> dict:
       The different polars datetime types (ns, us, ms) only trade off precision vs. range,
       but all use the same space. We probably don't need to use ns, but why not?
     """
+    import polars as pl
+
     meta_types = dict()
     meta_types["always_present"] = {
         "appVersion": pl.String,
@@ -171,7 +172,7 @@ def get_polars_type_maps() -> dict:
     return meta_types
 
 
-def read_metadata_as_polars(files: list[Path]) -> pl.DataFrame:
+def read_metadata_as_polars(files: list[Path]):
     """
     Takes a list of filepaths, reads the metadata for each file, and returns a
     summary dataframe with types cast. Also adds a 'path' column to the dataframe,
@@ -180,6 +181,8 @@ def read_metadata_as_polars(files: list[Path]) -> pl.DataFrame:
     The returned dataframe can be written to parquet without modification.
 
     See https://billkarsh.github.io/SpikeGLX/Sgl_help/Metadata_30.html"""
+    import polars as pl
+
     meta_dict = [readSGLX.readMeta(f) for f in files]
     df = pl.DataFrame(meta_dict)
 
@@ -231,10 +234,12 @@ def read_metadata_as_polars(files: list[Path]) -> pl.DataFrame:
     return df
 
 
-def pd2pl(df: pd.DataFrame) -> pl.DataFrame:
+def pd2pl(df: pd.DataFrame):
     """Convert a dataframe of SpikeGLX metadata (e.g., from read_metadata_as_pandas)
     from pandas to polars. The result can be written to parquet without modification.
     """
+    import polars as pl
+
     for col in ["path", "fileName", "imRoFile"]:
         if col in df.columns:
             df[col] = df[col].astype(str)
@@ -247,7 +252,7 @@ def pd2pl(df: pd.DataFrame) -> pl.DataFrame:
     return df
 
 
-def pl2pd(df: pl.DataFrame) -> pd.DataFrame:
+def pl2pd(df) -> pd.DataFrame:
     """Convert a dataframe of SpikeGLX metadata (e.g., from pl.scan_parquet)
     from polars to pandas. The result can NOT be written to parquet, and does NOT
     commute with pd2pl. This basically just exists to provide a backward compatible
