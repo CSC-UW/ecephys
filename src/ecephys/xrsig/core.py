@@ -328,6 +328,8 @@ def lazy_mapped_kernel_current_source_density(
     csd.encoding = (
         dict()
     )  # Prevent irrelevant pots encoding from carrying over and messing with to_zarr
+    if "fs" in pots.attrs:
+        csd.attrs["fs"] = pots.attrs["fs"]
     return csd
 
 
