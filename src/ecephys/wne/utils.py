@@ -71,7 +71,7 @@ def open_lfps(
     probe: str,
     hotfix_times=False,  # This costs almost nothing if there is no hotfixing to do.
     drop_duplicate_times=False,  # This is expensive no matter what. ~30s for 48h.
-    chunks="auto",  # To force user-set chunks, use `chunks={}`
+    chunks={},  # Use zarr chunks by default.
     anatomy_proj: Project = None,
     badchan_proj: Project = None,
     fname_prefix: str = None,
