@@ -1,16 +1,9 @@
 import logging
 import os
 
-import ibldsp.utils
-import kcsd
-import mne.filter
-import neuropixel
 import numpy as np
 import pandas as pd
-import ssqueezepy as ssq
 import xarray as xr
-from ibldsp import fourier, voltage
-from tqdm.auto import tqdm
 
 import ecephys.utils
 import ecephys.utils.dask as dask_utils
@@ -98,6 +91,8 @@ def antialiasing_filter(da: xr.DataArray, q: int) -> xr.DataArray:
 def mne_filter(
     da: xr.DataArray, l_freq: float, h_freq: float, **kwargs
 ) -> xr.DataArray:
+    import mne.filter
+
     validate_2d_timeseries(da)
     res = da.copy()
     if da.chunks is None:
@@ -115,6 +110,8 @@ def spatially_interpolate_timeseries(
     interp_me: list,  # The channels that should be interpolated
     inplace: bool = True,
 ) -> xr.DataArray:
+    from ibldsp import voltage
+
     validate_2d_timeseries(da)
     validate_laminar(da)
     do_interp = np.isin(da["channel"], interp_me)
@@ -144,6 +141,9 @@ def spatially_interpolate_timeseries(
 def dephase_neuropixels(
     pots: xr.DataArray, q: int = 1, inplace: bool = True
 ) -> xr.DataArray:
+    from ibldsp import fourier
+    import neuropixel
+
     validate_2d_timeseries(pots)
     hdr = neuropixel.trace_header(version=1)
     shifts = hdr["sample_shift"][pots["channel"].values] / q
@@ -160,6 +160,9 @@ def preprocess_neuropixels_ibl_style(
     chunk_size: int = 2**16,
     chunk_overlap: int = 2**10,
 ) -> xr.DataArray:
+    import ibldsp.utils
+    from tqdm.auto import tqdm
+
     validate_2d_timeseries(pots)
     validate_laminar(pots)
     wg = ibldsp.utils.WindowGenerator(
@@ -258,6 +261,8 @@ def kernel_current_source_density(
         exactly to electrode positions, a `channel` coordinate on the `pos` dimension
         will give corresponding channels for each estimate.
     """
+    import kcsd
+
     validate_2d_timeseries(pots)
     validate_laminar(pots)
     umPerMm = 1000
@@ -562,6 +567,8 @@ def ssq_cwt(da: xr.DataArray, sigdim: str = "channel", parallel=True, **cwt_kwar
     SSQ CWT may be unstable at low frequencies (<20Hz) when data length is limited.
     Memory footprint is much higher than for plain CWT, plus does differentiation.
     """
+    import ssqueezepy as ssq
+
     validate_2d_timeseries(da, sigdim=sigdim)
     if parallel:
         os.environ["SSQ_PARALLEL"] = "1"

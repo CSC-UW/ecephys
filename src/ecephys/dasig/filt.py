@@ -1,5 +1,4 @@
 import dask.array as da
-import mne.filter
 import numpy as np
 import scipy.signal
 
@@ -102,6 +101,8 @@ def mne_filter(
     fir_design="firwin",
     pad="reflect_limited",  # This is in addition to dask padding. We cannot easily disable MNE's padding, unfortunately, so it is redunant (extra safe!), but the cost is minimal as long as your chunks are large enough.
 ) -> da.Array:
+    import mne.filter
+
     # Fix options that are incomaptible with dask.
     picks = None
     n_jobs = 1

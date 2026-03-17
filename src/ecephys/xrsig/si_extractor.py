@@ -7,7 +7,6 @@ import xarray as xr
 
 import ecephys.utils
 
-from . import core
 
 
 class XrsigZarrExtractor(si.BaseRecording):
@@ -46,6 +45,8 @@ class XrsigZarrExtractor(si.BaseRecording):
             sampling_frequency=dat.fs,
             dtype=dat.dtype,
         )
+        from . import core  # Lazy import: core.py has heavy deps (mne, kcsd, etc.)
+
         for i, (start_frame, end_frame) in enumerate(core.get_segments(dat)):
             seg_dat = dat.isel(time=slice(start_frame, end_frame))
             self.add_recording_segment(XrsigZarrRecordingSegment(seg_dat, seg_dat.fs))
