@@ -57,15 +57,47 @@ def get_pitch(da: xr.DataArray) -> xr.DataArray:
     return np.absolute(vals[0])
 
 
+def _decompose_decimation_factor(
+    q: int, max_stage: int = 12
+) -> list[int]:
+    """Break *q* into a list of factors each <= *max_stage*.
+
+    For example ``_decompose_decimation_factor(50)`` returns ``[10, 5]``.
+    Raises ``ValueError`` if *q* has a prime factor larger than *max_stage*.
+    """
+    if q <= max_stage:
+        return [q]
+    stages: list[int] = []
+    remaining = q
+    while remaining > max_stage:
+        for f in range(max_stage, 1, -1):
+            if remaining % f == 0:
+                stages.append(f)
+                remaining //= f
+                break
+        else:
+            raise ValueError(
+                f"Cannot decompose decimation factor {q} into stages "
+                f"<= {max_stage}: remaining factor {remaining} is prime."
+            )
+    if remaining > 1:
+        stages.append(remaining)
+    return stages
+
+
 def decimate_timeseries(da: xr.DataArray, q: int) -> xr.DataArray:
+    """Decimate a 2-D timeseries by factor *q*.
+
+    For *q* > 12 the decimation is automatically split into multiple
+    stages with per-stage factors <= 12, following the
+    ``scipy.signal.decimate`` recommendation.
+    """
     validate_2d_timeseries(da)
-    assert q < 13, (
-        "It is recommended to call `decimate_timeseries` multiple times for "
-        "downampling factors higher than 12. See scipy.signal.decimate docs."
-    )
-    da = antialiasing_filter(da, q)
-    da = da.isel(time=slice(None, None, q))
-    da.attrs["fs"] = da.fs / q
+    stages = _decompose_decimation_factor(q)
+    for stage_q in stages:
+        da = antialiasing_filter(da, stage_q)
+        da = da.isel(time=slice(None, None, stage_q))
+        da.attrs["fs"] = da.fs / stage_q
     return da
 
 
@@ -141,8 +173,8 @@ def spatially_interpolate_timeseries(
 def dephase_neuropixels(
     pots: xr.DataArray, q: int = 1, inplace: bool = True
 ) -> xr.DataArray:
-    from ibldsp import fourier
     import neuropixel
+    from ibldsp import fourier
 
     validate_2d_timeseries(pots)
     hdr = neuropixel.trace_header(version=1)
@@ -235,7 +267,11 @@ def synthetic_emg(pots: xr.DataArray, emg_kwargs: dict = None):
 
 
 def kernel_current_source_density(
-    pots: xr.DataArray, drop=slice(None), do_lcurve=False, **kcsd_kwargs
+    pots: xr.DataArray,
+    drop=slice(None),
+    do_lcurve=False,
+    lcurve_kwargs: dict = None,
+    **kcsd_kwargs,
 ) -> xr.DataArray:
     """Compute 1D kernel current source density.
     If signal units are in uV, then CSD units are in nA/mm.
@@ -291,7 +327,7 @@ def kernel_current_source_density(
     )
     if do_lcurve:
         print("Performing L-Curve parameter estimation...")
-        k.L_curve()
+        k.L_curve(**(lcurve_kwargs if lcurve_kwargs is not None else dict()))
 
     # Check and format result
     estm_locs = np.round(k.estm_x * umPerMm)
@@ -307,7 +343,7 @@ def kernel_current_source_density(
 
 
 def lazy_mapped_kernel_current_source_density(
-    pots: xr.DataArray, **kcsd_kwargs
+    pots: xr.DataArray, **kwargs
 ) -> xr.DataArray:
     """
     Intended for lazy, chunked, parallelization across time.
@@ -328,7 +364,7 @@ def lazy_mapped_kernel_current_source_density(
         dict()
     )  # Input attrs may not be relevant, so stop them from being copies to the output.
     csd = pots.map_blocks(
-        kernel_current_source_density, kwargs=kcsd_kwargs, template=tmpl
+        kernel_current_source_density, kwargs=kwargs, template=tmpl
     )  # No attrs :'(
     csd.encoding = (
         dict()
@@ -656,12 +692,12 @@ def moving_transform(
 
 def validate_3d_timeseries(
     da: xr.DataArray,
-    timedim: str = "time",
-    sigdim: str = "channel",
     evtdim: str = "event",
+    sigdim: str = "channel",
+    timedim: str = "time",
     check_times: bool = False,
 ):
-    if not da.dims == (timedim, sigdim, evtdim):
+    if not da.dims == (evtdim, sigdim, timedim):
         raise AttributeError(
             f"Timeseries3D DataArray must have dimensions ({timedim}, {sigdim}, {evtdim})"
         )
