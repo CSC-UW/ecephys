@@ -10,6 +10,81 @@ if TYPE_CHECKING:
     from ecephys.wne.sglx.project import SGLXProject
     from ecephys.wne.sglx.subject import SGLXSubject
 
+
+def _apply_neo_spikeglx_filename_patch():
+    """Monkey-patch neo's ``extract_stream_info`` to handle SpikeGLX metadata
+    files whose ``fileName`` field contains spaces.
+
+    Problem
+    -------
+    Neo 0.14.4's ``SpikeGLXRawIO._parse_header()`` calls ``scan_files()``
+    which calls ``extract_stream_info()`` for every ``.meta`` file it finds.
+    ``extract_stream_info`` reads the ``fileName`` key from the metadata to
+    obtain the original recording path, then passes its stem to
+    ``parse_spikeglx_fname()`` to extract ``gate_num`` and ``trigger_num``.
+
+    For CNPIX7-Giuseppe, the metadata ``fileName`` still contains the
+    *original* Windows recording path, which has spaces and dots::
+
+        fileName=F:/CNPIX7/12.12.2020 BL 24hs_g0/.../12.12.2020 BL 24hs_g0_t0.imec0.ap.bin
+
+    The files on disk were renamed to use dashes and underscores::
+
+        12-12-2020_BL_24hs_g0_t0.imec0.ap.bin
+
+    All of neo's ``parse_spikeglx_fname`` regex patterns use ``\\S+`` (one or
+    more non-whitespace characters) for the run-name token. Because the
+    original filename has spaces, none of the standard patterns match, and the
+    parser falls through to a generic fallback that returns
+    ``gate_num=None, trigger_num=None``.
+
+    ``_add_segment_order`` then maps *every* ``(None, None)`` tuple to
+    ``seg_index=0``, so all trigger files in the gate directory collide on
+    the same ``(seg_index, stream_name)`` key, raising::
+
+        KeyError: "key (0, 'imec0.ap') is already in the signals_info_dict"
+
+    Fix
+    ---
+    This patch wraps ``extract_stream_info`` so that when the metadata
+    ``fileName`` fails to produce valid ``gate_num``/``trigger_num`` values,
+    it retries parsing using the *actual* on-disk filename (``meta_file``),
+    which has been renamed to a well-formed SpikeGLX name that neo can parse.
+
+    Neo is installed from PyPI (not a local fork), so a monkey-patch is
+    necessary. The patch is idempotent (safe to call multiple times) and
+    only activates for files where the metadata ``fileName`` cannot be parsed
+    — subjects with well-formed metadata are completely unaffected.
+    """
+    import neo.rawio.spikeglxrawio as sglx_rawio
+
+    original_fn = sglx_rawio.extract_stream_info
+    if getattr(original_fn, "_patched_for_filename_spaces", False):
+        return  # Already applied.
+
+    def _patched_extract_stream_info(meta_file, meta):
+        info = original_fn(meta_file, meta)
+        if info["gate_num"] is None or info["trigger_num"] is None:
+            # The metadata fileName couldn't be parsed. Try the actual
+            # on-disk filename, which may have been renamed to a parseable
+            # SpikeGLX name.
+            disk_fname = Path(meta_file).stem  # e.g. "..._g0_t0.imec0.ap"
+            try:
+                _, gate_num, trigger_num, _, _ = sglx_rawio.parse_spikeglx_fname(
+                    disk_fname
+                )
+            except ValueError:
+                return info  # On-disk name also unparseable; nothing we can do.
+            if gate_num is not None:
+                info["gate_num"] = gate_num
+            if trigger_num is not None:
+                info["trigger_num"] = trigger_num
+        return info
+
+    _patched_extract_stream_info._patched_for_filename_spaces = True
+    sglx_rawio.extract_stream_info = _patched_extract_stream_info
+
+
 # These are saved as annotations on the SpikeGLX recording object
 # There is one of these dicts per "slice" that was used to build the recording.
 RECORDING_ANNOTATION_COLS = {
@@ -63,6 +138,8 @@ def get_recording(
     slices : pd.DataFrame
         The slice table used to build the recording. Only includes retained slices.
     """
+    _apply_neo_spikeglx_filename_patch()
+
     from spikeinterface.extractors.extractor_classes import SpikeGLXRecordingExtractor
 
     import spikeinterface as si
