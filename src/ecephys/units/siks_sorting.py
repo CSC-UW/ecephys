@@ -156,6 +156,14 @@ class SpikeInterfaceKilosortSorting:
         """Thin wrapper around SpikeInterface's get_unit_spike_train(), to add caching behavior.
         Beware: Even if only a small time range of data are requested, the whole-recording spike train will be loaded and cached, before returning the data of interest.
         """
+        # TODO: URGENT! When this was written, the SI behavior was very different. SI
+        # offered no cache. Now SI does offer a cache, and in fact it is enabled by
+        # by default, so this effectively just double-caches. HOWEVER, it is not as
+        # simply as disabling this cache, because SI's caches the ENTIRE SORTING SPIKE
+        # VECTOR, which is huge, slow, and not the train. It does this even if you just
+        # request a single unit's spike train! So, it may actually make sense to disable
+        # the SI cache and keep this one.
+
         # First, check the cache, and update it if needed.
         if cluster_id not in self._cache:
             self._cache[cluster_id] = self.si_obj.get_unit_spike_train(
