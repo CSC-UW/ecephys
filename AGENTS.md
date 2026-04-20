@@ -83,4 +83,4 @@ proj.get_experiment_subject_directory("novel_objects_deprivation", "CNPIX12-Sant
 
 - Root `AGENTS.md` — workspace overview, code style, recording discoveries
 - `wisc_ecephys_tools/AGENTS.md` — WISC-specific infrastructure built on ecephys
-- `gfys_workspace/docs/DATA_ORGANIZATION.md` — data hierarchy details
+- `gfys_workspace/docs/DATA.md` — data hierarchy details
