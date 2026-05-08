@@ -109,8 +109,8 @@ def _select_inviolate(
 ) -> np.ndarray:
     keep = _create_mask(obj, False)
     for m in metrics:
-        v = _get_property(obj, m)
-        v = np.nan_to_num(v, nan)
+        v = np.array(_get_property(obj, m), dtype=float)
+        v = np.nan_to_num(v, nan=nan)
         lo, hi = thresholds[m][threshold_level]
         passing = np.logical_and(v >= lo, v <= hi)
         keep = keep | passing
@@ -125,8 +125,8 @@ def _select_present(
 ) -> np.ndarray:
     keep = _create_mask(obj, False)
     for m in ["presence_ratio_Wake", "presence_ratio_NREM", "presence_ratio_REM"]:
-        v = _get_property(obj, m)
-        v = np.nan_to_num(v, nan)
+        v = np.array(_get_property(obj, m), dtype=float)
+        v = np.nan_to_num(v, nan=nan)
         lo, hi = thresholds["presence_ratio"][threshold_level]
         passing = np.logical_and(v >= lo, v <= hi)
         keep = keep | passing
