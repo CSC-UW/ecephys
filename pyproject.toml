@@ -33,6 +33,7 @@ dependencies = [
     "kcsd @ git+https://github.com/CSC-UW/kCSD-python.git", # Until upstream/PyPI use scipy.integrate.simpson.
     "mat73",
     "matplotlib >= 3.7",
+    "numba >= 0.60", # JIT kernel for emg_from_lfp sliding-window correlation
     "numpy",
     "pandas",
     "polars",

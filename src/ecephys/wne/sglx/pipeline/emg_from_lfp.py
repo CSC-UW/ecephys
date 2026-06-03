@@ -40,7 +40,9 @@ def do_experiment_probe(
             sync_project, sglx_subject, experiment, binfile=lfp_file.path
         )
         lfp = lfp.assign_coords({"time": t2t(lfp["time"].values)})
-        emg = xrsig.synthetic_emg(lfp)
+        # The scoring pipeline consumes a single EMG DataArray; keep the exact
+        # per-window estimator (synthetic_emg now defaults to method="both").
+        emg = xrsig.synthetic_emg(lfp, emg_kwargs={"method": "per_window"})
         ecephys.utils.save_xarray_to_netcdf(emg, emg_file)
 
     pipeline_utils.gather_and_save_counterpart_netcdfs(

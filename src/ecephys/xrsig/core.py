@@ -226,44 +226,67 @@ def get_synthetic_emg_defaults() -> dict:
         gpass=1,
         gstop=60,
         ftype="butter",
+        method="both",
     )
+
+
+#: Per-method `units` attribute for the returned EMG.
+_EMG_UNITS = {"per_window": "corr", "global": "corr (amplitude-weighted)"}
 
 
 def synthetic_emg(pots: xr.DataArray, emg_kwargs: dict = None):
     """Estimate the EMG from LFP signals, using the `emg_from_lfp` subpackage.
 
-    Parameters used for the computation are stored as attributes on the returned DataArray.
+    Parameters used for the computation are stored as attributes on the result.
 
     Parameters:
     -----------
-    **emg_kwargs:
-        Keyword arguments passed to `emg_from_lfp.compute()`
+    emg_kwargs:
+        Keyword arguments passed to `emg_from_lfp.compute()`, overriding
+        `get_synthetic_emg_defaults()`. `method` selects the estimator(s):
+        "per_window" (exact per-window correlation), "global" (faster
+        amplitude-weighted approximation; see emg_from_lfp._compute_global_corr),
+        or "both" (default). "both" shares the band-pass filter, so it costs only
+        marginally more than a single method.
 
     Returns:
     --------
-    DataArray:
-        EMG with time dimension and timedelta, datetime coords.
+    For a single `method`: a `DataArray` with a `time` dimension. For
+    `method="both"`: a `Dataset` with one variable per method (`per_window`,
+    `global`) sharing the `time` coordinate. Computation parameters are stored as
+    attributes.
     """
     validate_2d_timeseries(pots)
     defaults = get_synthetic_emg_defaults()
-    emg_kwargs = defaults if emg_kwargs is None else defaults.update(emg_kwargs)
+    emg_kwargs = defaults if emg_kwargs is None else {**defaults, **emg_kwargs}
     assert pots.fs > (emg_kwargs["ws"][-1] * 2), (
         "EMG computation will fail trying to filter above the Nyquest frequency"
     )
 
-    emg_values = emg_from_lfp.compute(pots.values.T, pots.fs, **emg_kwargs).flatten()
-    emg_times = np.linspace(pots["time"].min(), pots["time"].max(), emg_values.size)
-    emg = xr.DataArray(
-        emg_values,
-        dims="time",
-        coords={
-            "time": emg_times,
-        },
-        attrs={"units": "corr"},
-    )
-    for key, val in emg_kwargs.items():
-        emg.attrs[key] = emg_kwargs[key]
-    return emg
+    res = emg_from_lfp.compute(pots.values.T, pots.fs, **emg_kwargs)
+
+    def _times(n):
+        return np.linspace(
+            float(pots["time"].min()), float(pots["time"].max()), n
+        )
+
+    if isinstance(res, dict):  # method="both"
+        out = xr.Dataset(
+            {m: ("time", arr.flatten()) for m, arr in res.items()},
+            coords={"time": _times(next(iter(res.values())).size)},
+        )
+        for m in res:
+            out[m].attrs["units"] = _EMG_UNITS[m]
+    else:
+        vals = res.flatten()
+        out = xr.DataArray(
+            vals,
+            dims="time",
+            coords={"time": _times(vals.size)},
+            attrs={"units": _EMG_UNITS.get(emg_kwargs["method"], "corr")},
+        )
+    out.attrs.update(emg_kwargs)
+    return out
 
 
 def kernel_current_source_density(
