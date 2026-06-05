@@ -5,9 +5,11 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+import emg_from_lfp
+
 import ecephys.utils
 import ecephys.utils.dask as dask_utils
-from ecephys import dasig, emg_from_lfp, npsig
+from ecephys import dasig, npsig
 
 logger = logging.getLogger(__name__)
 
@@ -218,16 +220,11 @@ def preprocess_neuropixels_ibl_style(
 
 
 def get_synthetic_emg_defaults() -> dict:
-    return dict(
-        target_sf=20,
-        window_size=25.0,
-        wp=[300, 600],
-        ws=[275, 625],
-        gpass=1,
-        gstop=60,
-        ftype="butter",
-        method="both",
-    )
+    # Single source of truth lives in the standalone `emg_from_lfp` package.
+    # Use lists for wp/ws so they round-trip cleanly as xarray/netCDF attrs.
+    d = dict(emg_from_lfp.DEFAULTS)
+    d["wp"], d["ws"] = list(d["wp"]), list(d["ws"])
+    return d
 
 
 #: Per-method `units` attribute for the returned EMG.
@@ -259,10 +256,8 @@ def synthetic_emg(pots: xr.DataArray, emg_kwargs: dict = None):
     validate_2d_timeseries(pots)
     defaults = get_synthetic_emg_defaults()
     emg_kwargs = defaults if emg_kwargs is None else {**defaults, **emg_kwargs}
-    assert pots.fs > (emg_kwargs["ws"][-1] * 2), (
-        "EMG computation will fail trying to filter above the Nyquest frequency"
-    )
-
+    # `emg_from_lfp.compute` validates the sampling rate against the filter band
+    # (Nyquist) and raises an informative error if it is too low.
     res = emg_from_lfp.compute(pots.values.T, pots.fs, **emg_kwargs)
 
     def _times(n):

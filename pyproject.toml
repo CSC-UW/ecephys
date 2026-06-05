@@ -20,9 +20,10 @@ classifiers = [
 dependencies = [
     "brainglobe-atlasapi",
     "colorcet",
-    "dask[complete]", 
+    "dask[complete]",
+    "emg_from_lfp @ git+https://github.com/CSC-UW/emg_from_lfp.git@main", 
     # This offers the TraceImageViewer needed for displaying CSDs, plus a few bugfixes from Tom:
-    "ephyviewer @ git+https://github.com/CSC-UW/ephyviewer.git", 
+    "ephyviewer @ git+https://github.com/CSC-UW/ephyviewer.git",
     # You can try to get away with the upstream, but TraceImageViewer is still not merged:
     # "ephyviewer @ git+https://github.com/NeuralEnsemble/ephyviewer.git", 
     "ibl-neuropixel",
@@ -33,7 +34,7 @@ dependencies = [
     "kcsd @ git+https://github.com/CSC-UW/kCSD-python.git", # Until upstream/PyPI use scipy.integrate.simpson.
     "mat73",
     "matplotlib >= 3.7",
-    "numba >= 0.60", # JIT kernel for emg_from_lfp sliding-window correlation
+    "numba >= 0.60", # JIT kernels: units.correlograms, units.peths, npsig.yasa_compat, wne.sglx.utils
     "numpy",
     "pandas",
     "polars",
