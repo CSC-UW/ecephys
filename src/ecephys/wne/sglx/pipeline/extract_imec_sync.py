@@ -14,6 +14,7 @@ from ecephys.wne.sglx.subject import SGLXSubject
 logger = logging.getLogger(__name__)
 
 
+# TODO: These functions should have overwrite guards
 def extract_barcodes_from_saved_ttls(
     sglx_project: SGLXProject, sglx_subject: SGLXSubject, binfile: Path
 ):
