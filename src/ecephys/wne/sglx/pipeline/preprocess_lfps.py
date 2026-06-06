@@ -92,7 +92,7 @@ def do_experiment_probe(
         logger.info(f"Loading {lfp_file.path.name}...")
         lfp = sglxr.load_trigger(
             lfp_file.path,
-            t0=lfp_file.expmtPrbAcqFirstTime,
+            t0=sglx_utils.require_acq_time(lfp_file),
         )
         logger.info("Converting to canonical timebase...")
         t2t = sglx_utils.get_time_synchronizer(

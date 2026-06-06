@@ -98,10 +98,9 @@ def do_experiment_probe_stream(
         t2t = utils.get_time_synchronizer(
             sync_project, sglx_subject, experiment, binfile=bin_file.path
         )
-        df["start_time"] = t2t(
-            df["withinFileStartTime"] + bin_file.expmtPrbAcqFirstTime
-        )
-        df["end_time"] = t2t(df["withinFileEndTime"] + bin_file.expmtPrbAcqFirstTime)
+        acq_t0 = utils.require_acq_time(bin_file)
+        df["start_time"] = t2t(df["withinFileStartTime"] + acq_t0)
+        df["end_time"] = t2t(df["withinFileEndTime"] + acq_t0)
         df["duration"] = df["end_time"] - df["start_time"]
 
         artifacts.append(df)

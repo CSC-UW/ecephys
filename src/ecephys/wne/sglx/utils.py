@@ -18,6 +18,36 @@ from .subject import SGLXSubject
 logger = logging.getLogger(__name__)
 
 
+class UnfinalizedRecordingError(ValueError):
+    """Raised when an absolute (acquisition-clock) time is required but unknown.
+
+    Occurs for an un-finalized SpikeGLX recording whose .meta lost `firstSample`
+    (see ``ecephys.sglx.repair_metadata``): its ``expmtPrbAcqFirstTime`` is NaN, so
+    within-file times cannot be placed on the experiment-acquisition (or canonical)
+    timebase. Within-file analysis is still possible; absolute/synced times are not.
+    """
+
+
+def require_acq_time(file_row) -> float:
+    """Return ``expmtPrbAcqFirstTime`` for a file row, or raise if it is unknown.
+
+    Use in place of ``file_row.expmtPrbAcqFirstTime`` wherever an absolute time is
+    needed, so an un-finalized recording fails loudly with an actionable message
+    instead of silently producing NaN-stamped outputs. Pure pass-through (returns
+    the value unchanged) when the offset is known.
+    """
+    t0 = file_row.expmtPrbAcqFirstTime
+    if pd.isna(t0):
+        name = getattr(getattr(file_row, "path", None), "name", file_row)
+        raise UnfinalizedRecordingError(
+            f"{name}: acquisition offset (expmtPrbAcqFirstTime) is unknown -- this "
+            "recording's .meta lost `firstSample` (un-finalized/crashed). Cannot place "
+            "times on the experiment-acquisition or canonical timebase. Re-finalize "
+            "the meta (ecephys.sglx.repair_metadata) or exclude this session."
+        )
+    return t0
+
+
 def get_sglx_file_counterparts(
     project: SGLXProject,
     subject: str,
@@ -79,6 +109,22 @@ def get_time2time(
         # If we don't know the binfile a-priori, our time-to-time function has to infer it.
         # WARNING: Because of file overlap, this method of assigning times to files is imperfect! Use per-file sync for maximum precision!
         def experiment_time2time(t1):
+            # An un-finalized recording has NaN expmt windows, so the range mask
+            # below can't place times in it. If it is the ONLY file for this probe
+            # there is nothing to disambiguate -- every time maps to it, and the
+            # unknown offset is irrelevant (slope/intercept absorb it).
+            if experiment_probe_ftable["expmtPrbAcqFirstTime"].isna().any():
+                if len(experiment_probe_ftable) == 1:
+                    sync_entry = experiment_sync_table.loc[
+                        experiment_probe_ftable.iloc[0].path.name
+                    ]
+                    return sync_entry.slope * t1 + sync_entry.intercept
+                raise UnfinalizedRecordingError(
+                    "Cannot infer per-file membership: this probe mixes files with "
+                    "and without a known acquisition window (NaN expmtPrbAcqFirstTime). "
+                    "Pass an explicit `binfile=` for per-file sync, or exclude the "
+                    "un-finalized session."
+                )
             t2 = np.full_like(t1, fill_value=np.nan)
             for file in experiment_probe_ftable.itertuples():
                 mask = (t1 >= file.expmtPrbAcqFirstTime) & (
@@ -374,6 +420,17 @@ def add_sample2time_columns(
     assert all(slices["sliceType"] == "keep"), (
         "`slice_table` must not contain excised/excluded slices."
     )
+
+    # Absolute (acquisition-clock) offsets are required to build sample->time
+    # columns. An un-finalized recording (lost `firstSample`) has NaN offsets, so
+    # fail loudly rather than emit NaN-stamped times.
+    if slices["expmtPrbAcqFirstTime"].isna().any():
+        bad = sorted(slices.loc[slices["expmtPrbAcqFirstTime"].isna(), "fname"].unique())
+        raise UnfinalizedRecordingError(
+            f"Cannot build sample->time columns: {bad} have unknown acquisition "
+            "offsets (un-finalized recording). Re-finalize their metas "
+            "(ecephys.sglx.repair_metadata) or exclude the session."
+        )
 
     # Get the number of samples in each slice
     slices["n_slice_samples"] = (

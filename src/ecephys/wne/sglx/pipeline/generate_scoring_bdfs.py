@@ -40,7 +40,9 @@ def do_experiment_probe(
             sync_project, sglx_subject, experiment, binfile=lfp_file.path
         )
         (t1, t2) = t2t(
-            np.asarray([lfp_file.expmtPrbAcqFirstTime, lfp_file.expmtPrbAcqLastTime])
+            np.asarray(
+                [utils.require_acq_time(lfp_file), lfp_file.expmtPrbAcqLastTime]
+            )
         )
         lfp_segment = lfp.sel(time=slice(t1, t2))
         emg_segment = emg.sel(time=slice(t1, t2))

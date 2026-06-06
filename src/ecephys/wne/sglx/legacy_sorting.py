@@ -83,6 +83,14 @@ def load_slice_table_from_sorting_folder(
     slice_table["segmentDuration"] = (
         slice_table["n_slice_samples"].astype(float).div(slice_table["imSampRate"])
     )  # TODO: This column should already be present. Also, what is it used for? Document in a schema.
+    if slice_table["expmtPrbAcqFirstTime"].isna().any():
+        from ecephys.wne.sglx.utils import UnfinalizedRecordingError
+
+        raise UnfinalizedRecordingError(
+            "legacy_sorting: slice_table has unknown acquisition offsets (NaN "
+            "expmtPrbAcqFirstTime) from an un-finalized recording; re-finalize the "
+            "metas (ecephys.sglx.repair_metadata) or exclude the session."
+        )
     slice_table["segmentExpmtPrbAcqFirstTime"] = slice_table[
         "expmtPrbAcqFirstTime"
     ] + slice_table["withinFileStartFrame"].astype(float).div(slice_table["imSampRate"])

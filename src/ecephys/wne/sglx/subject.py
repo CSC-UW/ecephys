@@ -119,6 +119,11 @@ class SGLXSubject(Subject):
     ) -> tuple:
         """CAUTION: None of these times have been synchronized into the canonical timebase!"""
         df = self.get_experiment_frame(experiment, probe=probe)
+        if df["expmtPrbAcqFirstTime"].isna().all():
+            logger.warning(
+                f"{self.name}/{experiment}/{probe}: acquisition times are unknown "
+                "(un-finalized recording lost `firstSample`); returning NaN/NaT."
+            )
         if as_datetimes:
             return (
                 df["expmtPrbAcqFirstDatetime"].min(),

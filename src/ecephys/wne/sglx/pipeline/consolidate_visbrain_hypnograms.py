@@ -40,11 +40,12 @@ def do_experiment_probe(
             t2t = utils.get_time_synchronizer(
                 sync_project, sglx_subject, experiment, binfile=lfp_file.path
             )
+            acq_t0 = utils.require_acq_time(lfp_file)
             visbrain_hypnogram["start_time"] = t2t(
-                visbrain_hypnogram["start_time"] + lfp_file.expmtPrbAcqFirstTime
+                visbrain_hypnogram["start_time"] + acq_t0
             )
             visbrain_hypnogram["end_time"] = t2t(
-                visbrain_hypnogram["end_time"] + lfp_file.expmtPrbAcqFirstTime
+                visbrain_hypnogram["end_time"] + acq_t0
             )
             visbrain_hypnogram["duration"] = (
                 visbrain_hypnogram["end_time"] - visbrain_hypnogram["start_time"]

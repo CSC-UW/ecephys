@@ -43,7 +43,7 @@ def get_sync_table(
         )
         barcode_values.append(good_binfile_barcodes)
         imec_barcode_times.append(
-            binfile_barcodes["time"].values[binfile_slice] + f.expmtPrbAcqFirstTime
+            binfile_barcodes["time"].values[binfile_slice] + utils.require_acq_time(f)
         )
         tdt_barcode_times.append(block_barcode_times[block_slice])
 

@@ -459,6 +459,17 @@ def filelist_to_frame(files):
     files_df = parse_sglx_fnames(files)
     df = meta_df.merge(files_df, on="path")
 
+    # An un-finalized recording (SpikeGLX crash) can lose `firstSample` from its
+    # .meta entirely. For a first-trigger file it is genuinely unrecoverable (the
+    # acquisition-counter offset is written only at clean file close and is not
+    # constant -- see ecephys.sglx.repair_metadata). Mark it NaN so the file still
+    # loads, with valid nFileSamp/fileDuration, instead of raising KeyError. Absolute
+    # sample/time columns (lastSample, firstTime, lastTime) then propagate NaN.
+    # (`fileSizeBytes`/`fileTimeSecs` ARE recoverable and are repaired on disk via
+    # repair_metadata; they are required below and are not defaulted here.)
+    if "firstSample" not in df.columns:
+        df["firstSample"] = np.nan
+
     # TODO: Some of these are floats, but should be ints.
     # Create nFileSamp column, since it is so useful
     df["nFileSamp"] = df["fileSizeBytes"] / (2 * df["nSavedChans"])

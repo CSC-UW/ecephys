@@ -34,7 +34,7 @@ def do_experiment_probe(
         lfp = sglxr.load_trigger(
             lfp_file.path,
             opts["probes"][lfp_file.probe]["emgFromLfpChans"],
-            t0=lfp_file.expmtPrbAcqFirstTime,
+            t0=utils.require_acq_time(lfp_file),
         )
         t2t = utils.get_time_synchronizer(
             sync_project, sglx_subject, experiment, binfile=lfp_file.path
