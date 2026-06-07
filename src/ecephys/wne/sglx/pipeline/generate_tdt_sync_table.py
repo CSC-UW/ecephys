@@ -3,6 +3,7 @@ import pandas as pd
 
 import ecephys.utils
 from ecephys import sync
+from ecephys.sglx.file_mgmt import resolve_reference_probe
 from ecephys.wne.constants import Files
 from ecephys.wne.sglx import utils
 from ecephys.wne.sglx.project import SGLXProject
@@ -23,15 +24,19 @@ def get_sync_table(
 
     syncStore = opts["tdt"]["barcode_store"]
 
-    imec_barcode_times = []
+    reference_barcode_times = []
     tdt_barcode_times = []
     barcode_values = []
 
     block_barcode_times, block_barcode_values = sync.get_tdt_barcodes(
         sglx_subject.get_tdt_block_path(experiment), syncStore
     )
+    probes = sglx_subject.get_experiment_frame(
+        experiment, stream=stream, ftype="bin", with_experiment_times=False
+    )["probe"].unique()
+    reference_probe = resolve_reference_probe(probes)
     ftab = sglx_subject.get_experiment_frame(
-        experiment, stream=stream, ftype="bin", probe="imec0"
+        experiment, stream=stream, ftype="bin", probe=reference_probe
     )
     for f in ftab.itertuples():
         [barcode_file] = utils.get_sglx_file_counterparts(
@@ -42,22 +47,25 @@ def get_sync_table(
             binfile_barcodes["value"].values, block_barcode_values
         )
         barcode_values.append(good_binfile_barcodes)
-        imec_barcode_times.append(
+        reference_barcode_times.append(
             binfile_barcodes["time"].values[binfile_slice] + utils.require_acq_time(f)
         )
         tdt_barcode_times.append(block_barcode_times[block_slice])
 
     barcode_values = np.concatenate(barcode_values)
     tdt_barcode_times = np.concatenate(tdt_barcode_times)
-    imec_barcode_times = np.concatenate(imec_barcode_times)
+    reference_barcode_times = np.concatenate(reference_barcode_times)
     fit = sync.fit_times(
-        tdt_barcode_times, imec_barcode_times, xname=syncStore, yname="imec0"
+        tdt_barcode_times,
+        reference_barcode_times,
+        xname=syncStore,
+        yname=reference_probe,
     )
 
     return pd.DataFrame(
         {
             "source": "tdt",
-            "target": "imec0",
+            "target": reference_probe,
             "slope": [fit.coef_[0]],
             "intercept": [fit.intercept_],
         }

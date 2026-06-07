@@ -97,6 +97,18 @@ def _sort_strings_by_integer_suffix(strings):
     return sorted(strings, key=lambda string: int(re.split(r"(^[^\d]+)", string)[-1]))
 
 
+def resolve_reference_probe(probes) -> str:
+    """Return the lowest-numbered probe present (imec2 < imec10).
+
+    The reference probe defines the canonical cross-probe sync timebase. It
+    defaults to the lowest-numbered probe present, which is usually but not
+    always ``imec0`` (some experiments have no ``imec0`` recording at all).
+    Resolve over the probe set that actually has the relevant files (e.g. the
+    ``ap``/``barcode`` files used for sync), not over all probes.
+    """
+    return _sort_strings_by_integer_suffix(list(probes))[0]
+
+
 def get_trigger_files(probe_dir):
     """Get all SGLX files in a probe directory.
 

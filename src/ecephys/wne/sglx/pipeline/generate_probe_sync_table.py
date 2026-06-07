@@ -6,6 +6,7 @@ import pandas as pd
 
 import ecephys.utils
 from ecephys import sync
+from ecephys.sglx.file_mgmt import resolve_reference_probe
 from ecephys.wne.constants import FileExtensions
 from ecephys.wne.sglx import utils
 from ecephys.wne.sglx.project import SGLXProject
@@ -46,18 +47,20 @@ def do_session(
     ecephys.utils.write_htsv(sync_table, f)
 
 
-def get_imec0_session_sync_table(ftab: pd.DataFrame):
+def get_reference_session_sync_table(ftab: pd.DataFrame, reference_probe: str):
     probes = ftab["probe"].unique()
     assert len(probes) == 1, "Expected only one probe"
-    assert probes[0] == "imec0", "Only one probe found, and it is not imec0."
+    assert probes[0] == reference_probe, (
+        f"Expected only the reference probe {reference_probe}, found {probes[0]}."
+    )
     return pd.concat(
         [
             pd.DataFrame(
                 {
                     "source": [file.path.name],
                     "target": [file.path.name],
-                    "source_probe": "imec0",
-                    "target_probe": "imec0",
+                    "source_probe": reference_probe,
+                    "target_probe": reference_probe,
                     "slope": [1.0],
                     "intercept": [0.0],
                 }
@@ -72,32 +75,37 @@ def get_session_sync_table(
     project: SGLXProject, sglx_subject: SGLXSubject, session_ftab: pd.DataFrame
 ) -> pd.DataFrame:
     imSyncType = _get_session_sync_type(session_ftab)
-    probes, probe_ftabs, nFiles = _get_probe_ftabs(session_ftab)
-    fits = get_imec0_session_sync_table(probe_ftabs["imec0"])
-    for probe in set(probes) - {"imec0"}:
+    probes, probe_ftabs, nFiles, reference_probe = _get_probe_ftabs(session_ftab)
+    fits = get_reference_session_sync_table(
+        probe_ftabs[reference_probe], reference_probe
+    )
+    for probe in set(probes) - {reference_probe}:
         for i in range(nFiles):
             probe_binpath = probe_ftabs[probe].iloc[i]["path"]
             print(f"Doing file {i}: {probe_binpath.name}")
-            imec0_binpath = probe_ftabs["imec0"].iloc[i]["path"]
+            reference_binpath = probe_ftabs[reference_probe].iloc[i]["path"]
 
             if imSyncType == "barcode":
                 slope, intercept = _get_barcode_file_fit(
-                    project, sglx_subject, probe, probe_binpath, imec0_binpath
+                    project, sglx_subject, probe, probe_binpath, reference_binpath,
+                    reference_probe,
                 )
             elif imSyncType == "square_pulse":
                 slope, intercept = _get_square_pulse_file_fit(
-                    project, sglx_subject, probe, probe_binpath, imec0_binpath
+                    project, sglx_subject, probe, probe_binpath, reference_binpath,
+                    reference_probe,
                 )
             elif imSyncType == "random":
                 slope, intercept = _get_random_pulse_file_fit(
-                    project, sglx_subject, probe, probe_binpath, imec0_binpath
+                    project, sglx_subject, probe, probe_binpath, reference_binpath,
+                    reference_probe,
                 )
             file_fit = pd.DataFrame(
                 {
                     "source": [probe_binpath.name],
-                    "target": [imec0_binpath.name],
+                    "target": [reference_binpath.name],
                     "source_probe": probe,
-                    "target_probe": "imec0",
+                    "target_probe": reference_probe,
                     "slope": [slope],
                     "intercept": [intercept],
                 }
@@ -105,7 +113,7 @@ def get_session_sync_table(
             fits = pd.concat([fits, file_fit], ignore_index=True)
 
     fits = fits.sort_values(["source_probe", "target_probe"])
-    for probe in set(probes) - {"imec0"}:
+    for probe in set(probes) - {reference_probe}:
         is_probe = fits["source_probe"] == probe
         is_na = fits[is_probe & fits[["slope", "intercept"]].isna().any(axis=1)]
         # Only interpolate if the file is so short that the lack of sync info to have capture sufficient sync pulses.
@@ -146,8 +154,9 @@ def _get_session_sync_type(session_ftab: pd.DataFrame) -> str:
     return imSyncType[0]
 
 
-def _get_probe_ftabs(session_ftab: pd.DataFrame) -> dict[str, pd.DataFrame]:
+def _get_probe_ftabs(session_ftab: pd.DataFrame):
     probes = session_ftab["probe"].unique()
+    reference_probe = resolve_reference_probe(probes)
     probe_ftabs = {
         probe: session_ftab[session_ftab["probe"] == probe].reset_index(drop=True)
         for probe in probes
@@ -155,15 +164,15 @@ def _get_probe_ftabs(session_ftab: pd.DataFrame) -> dict[str, pd.DataFrame]:
 
     for probe, tab in probe_ftabs.items():
         cols = ["session", "run", "gate", "trigger"]
-        assert all(tab[cols] == probe_ftabs["imec0"][cols]), (
+        assert all(tab[cols] == probe_ftabs[reference_probe][cols]), (
             "Files are not matched across probe tables"
         )
-        assert all(tab.index == probe_ftabs["imec0"].index), (
+        assert all(tab.index == probe_ftabs[reference_probe].index), (
             "File indices are not matched across probe tables"
         )
 
-    nFiles = len(probe_ftabs["imec0"])
-    return probes, probe_ftabs, nFiles
+    nFiles = len(probe_ftabs[reference_probe])
+    return probes, probe_ftabs, nFiles, reference_probe
 
 
 def _get_barcode_file_fit(
@@ -171,13 +180,14 @@ def _get_barcode_file_fit(
     sglx_subject: SGLXSubject,
     probe: str,
     probe_binpath: pathlib.Path,
-    imec0_binpath: pathlib.Path,
+    reference_binpath: pathlib.Path,
+    reference_probe: str,
 ) -> tuple[float, float]:
     probe_barcodes = _load_barcodes(project, sglx_subject, probe_binpath)
-    imec0_barcodes = _load_barcodes(project, sglx_subject, imec0_binpath)
-    if min(len(probe_barcodes), len(imec0_barcodes)) == 0:
+    reference_barcodes = _load_barcodes(project, sglx_subject, reference_binpath)
+    if min(len(probe_barcodes), len(reference_barcodes)) == 0:
         warnings.warn(
-            f"Not enough barcodes to sync {probe_binpath.name} with {imec0_binpath.name}. Will attempt to interpolate."
+            f"Not enough barcodes to sync {probe_binpath.name} with {reference_binpath.name}. Will attempt to interpolate."
         )
         slope = np.nan
         intercept = np.nan
@@ -185,10 +195,10 @@ def _get_barcode_file_fit(
         fit = sync.fit_barcode_times(
             probe_barcodes["time"].values,
             probe_barcodes["value"].values,
-            imec0_barcodes["time"].values,
-            imec0_barcodes["value"].values,
+            reference_barcodes["time"].values,
+            reference_barcodes["value"].values,
             sysX_name=probe,
-            sysY_name="imec0",
+            sysY_name=reference_probe,
         )
         slope = fit.coef_[0]
         intercept = fit.intercept_
@@ -200,13 +210,14 @@ def _get_square_pulse_file_fit(
     sglx_subject: SGLXSubject,
     probe: str,
     probe_binpath: pathlib.Path,
-    imec0_binpath: pathlib.Path,
+    reference_binpath: pathlib.Path,
+    reference_probe: str,
 ) -> tuple[float, float]:
     probe_ttls = _load_ttls(project, sglx_subject, probe_binpath)
-    imec0_ttls = _load_ttls(project, sglx_subject, imec0_binpath)
-    if min(len(probe_ttls), len(imec0_ttls)) == 0:
+    reference_ttls = _load_ttls(project, sglx_subject, reference_binpath)
+    if min(len(probe_ttls), len(reference_ttls)) == 0:
         warnings.warn(
-            f"Not enough TTLs to sync {probe_binpath.name} with {imec0_binpath.name}. Will attempt to interpolate."
+            f"Not enough TTLs to sync {probe_binpath.name} with {reference_binpath.name}. Will attempt to interpolate."
         )
         slope = np.nan
         intercept = np.nan
@@ -214,10 +225,10 @@ def _get_square_pulse_file_fit(
         fit = sync.fit_square_pulse_times(
             probe_ttls["rising"].values,
             probe_ttls["falling"].values,
-            imec0_ttls["rising"].values,
-            imec0_ttls["falling"].values,
+            reference_ttls["rising"].values,
+            reference_ttls["falling"].values,
             sysX_name=probe,
-            sysY_name="imec0",
+            sysY_name=reference_probe,
         )
         slope = fit.coef_[0]
         intercept = fit.intercept_
@@ -229,22 +240,23 @@ def _get_random_pulse_file_fit(
     sglx_subject: SGLXSubject,
     probe: str,
     probe_binpath: pathlib.Path,
-    imec0_binpath: pathlib.Path,
+    reference_binpath: pathlib.Path,
+    reference_probe: str,
 ) -> tuple[float, float]:
     probe_ttls = _load_ttls(project, sglx_subject, probe_binpath)
-    imec0_ttls = _load_ttls(project, sglx_subject, imec0_binpath)
-    if min(len(probe_ttls), len(imec0_ttls)) == 0:
+    reference_ttls = _load_ttls(project, sglx_subject, reference_binpath)
+    if min(len(probe_ttls), len(reference_ttls)) == 0:
         warnings.warn(
-            f"Not enough TTLs to sync {probe_binpath.name} with {imec0_binpath.name}. Will attempt to interpolate."
+            f"Not enough TTLs to sync {probe_binpath.name} with {reference_binpath.name}. Will attempt to interpolate."
         )
         slope = np.nan
         intercept = np.nan
     else:
         fit = sync.fit_random_pulse_times(
             probe_ttls["rising"].values,
-            imec0_ttls["rising"].values,
+            reference_ttls["rising"].values,
             sysX_name=probe,
-            sysY_name="imec0",
+            sysY_name=reference_probe,
         )
         slope = fit.coef_[0]
         intercept = fit.intercept_

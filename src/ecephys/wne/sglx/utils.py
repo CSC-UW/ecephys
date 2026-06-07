@@ -132,10 +132,10 @@ def get_time2time(
                 )  # Mask samples belonging to this file
                 sync_entry = experiment_sync_table.loc[
                     file.path.name
-                ]  # Get info needed to sync to imec0's (expmtPrbAcq) timebase
+                ]  # Get info needed to sync to the reference probe's (expmtPrbAcq) timebase
                 t2[mask] = (
                     sync_entry.slope * t1[mask] + sync_entry.intercept
-                )  # Sync to imec0 (expmtPrbAcq) timebase
+                )  # Sync to the reference probe's (expmtPrbAcq) timebase
             is_nan = np.isnan(t2)
             if any(is_nan):
                 msg = "Some of the provided times were not covered by the original recording and therefore can't be converted unambiguously."
