@@ -5,8 +5,11 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    import spikeinterface as si
     from spikeinterface.extractors.extractor_classes import KiloSortSortingExtractor
+
+    import spikeinterface as si
+
+# TODO: Consider using UnitRefine via spikeinterface.
 
 required_metric_thresholds = MappingProxyType(
     {
@@ -18,20 +21,28 @@ required_metric_thresholds = MappingProxyType(
         },
         "firing_rate": {
             "all": (0.0, np.inf),
-            "permissive": (0.2, np.inf),
-            "moderate": (0.5, np.inf),
-            "conservative": (0.5, np.inf),
-        },
+            "permissive": (0.1, np.inf),
+            "moderate": (0.2, np.inf),
+            "conservative": (0.3, np.inf),
+        },  # L2/3 neurons can have low FR (~0.1Hz, ~0.3Hz avg)
     }
 )
 
 isolation_metric_thresholds = MappingProxyType(
     {
         "isi_violations_ratio": {
-            "permissive": (0.0, 0.5),
+            "permissive": (0.0, 0.5),  # This is generally considered good, surprisingly
             "moderate": (0.0, 0.3),
             "conservative": (0.0, 0.1),
         },
+        # rp_contamination uses a 1ms refractory period by default, while
+        # isi_violations_ratio uses a 1.5ms refractory period by default
+        # At the same refractory period, they are largely redundant, with rp_contamination
+        # being a bit stricter and more principled.
+        # They are OR'd later, rather than AND'd.
+        # It probably makes sense to use sliding_rp_violations rather than either, but
+        # unfortunately that metric only works (has adequate statistical power) for
+        # high-rate units.
         "rp_contamination": {
             "permissive": (0.0, 0.5),
             "moderate": (0.0, 0.3),
@@ -45,6 +56,8 @@ isolation_metric_thresholds = MappingProxyType(
     }
 )
 
+# Often people use <0.1, but Tom had a lot of (well supported) issues with this metric,
+# especially on our chronic rat Neuropixel data.
 false_negative_metric_thresholds = MappingProxyType(
     {
         "amplitude_cutoff": {
