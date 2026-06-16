@@ -153,17 +153,21 @@ class SpikeInterfaceKilosortSorting:
         start_time: Union[float, None] = None,
         end_time: Union[float, None] = None,
     ) -> dtypes.SpikeTrain:
-        """Thin wrapper around SpikeInterface's get_unit_spike_train(), to add caching behavior.
-        Beware: Even if only a small time range of data are requested, the whole-recording spike train will be loaded and cached, before returning the data of interest.
-        """
-        # TODO: URGENT! When this was written, the SI behavior was very different. SI
-        # offered no cache. Now SI does offer a cache, and in fact it is enabled by
-        # by default, so this effectively just double-caches. HOWEVER, it is not as
-        # simply as disabling this cache, because SI's caches the ENTIRE SORTING SPIKE
-        # VECTOR, which is huge, slow, and not the train. It does this even if you just
-        # request a single unit's spike train! So, it may actually make sense to disable
-        # the SI cache and keep this one.
+        """Thin wrapper around SpikeInterface's get_unit_spike_train(), adding a
+        per-cluster sample-index cache plus sample2time conversion.
 
+        Performance note (SpikeInterface >=0.104, verified 2026-06-16): the first
+        access builds SpikeInterface's own cached spike vector for the (selected)
+        sorting. That is now cheap -- PR #4579 removed the full lexsort and PR
+        #4581 made unit selection fast -- so per-unit access afterwards is sub-ms.
+        To load MANY units at once, the bulk ``si_obj.get_unit_spike_trains()``
+        (plural, PR #4502) or ``si_obj.to_spike_vector()`` is faster than this
+        per-cluster loop (measured ~1.7x on a 224-unit structure on this NFS;
+        upstream reports up to ~6x). The dominant cost on NFS is the spike-vector
+        read + ``sample2time``, not the per-unit scan, so the bulk path helps
+        modestly rather than dramatically. This wrapper cache predates those PRs;
+        it still helps repeated single-unit access (e.g. raster plots).
+        """
         # First, check the cache, and update it if needed.
         if cluster_id not in self._cache:
             self._cache[cluster_id] = self.si_obj.get_unit_spike_train(
@@ -236,7 +240,12 @@ class SpikeInterfaceKilosortSorting:
     ) -> dtypes.ClusterTrains:
         """Get spike trains for a list of clusters (default all).
 
-        Performance note: Getting several spike trains this way (i.e. cluster-by-cluster) is MUCH faster than getting them all together using si_obj.get_all_unit_spike_trains()
+        Performance note (SpikeInterface >=0.104, verified 2026-06-16): this loops
+        per cluster. For many clusters the bulk ``si_obj.get_unit_spike_trains()``
+        (plural, PR #4502) / ``si_obj.to_spike_vector()`` is faster -- the old claim
+        that cluster-by-cluster beats the bulk path predates those PRs and no longer
+        holds. The legacy ``get_all_unit_spike_trains()`` it referenced is gone;
+        ``to_spike_vector()`` is the modern bulk primitive.
         """
         if cluster_ids is None:
             cluster_ids = self.si_obj.get_unit_ids()
@@ -275,10 +284,15 @@ class SpikeInterfaceKilosortSorting:
     def get_spike_vector(
         self, return_times=False
     ) -> tuple[dtypes.SpikeTrain, dtypes.ClusterIXs, dtypes.ClusterIDs]:
-        """This is a replacement for si_obj.get_all_spike_trains()! Never use si_obj.get_all_spike_trains()!
-        Not only is this faster (Faster even with an empty cache! MUCH faster with any caching!),
-        but it is also more correct, since you need to be very careful about using sample2time on
-        the spike times returned by get_all_spike_trains(). Plus, segment-handling logic is easier.
+        """Build a (spike_times, cluster_ixs, cluster_ids) spike vector.
+
+        Correctness note: prefer this (or ``si_obj.to_spike_vector()``) over the
+        legacy ``si_obj.get_all_spike_trains()`` -- you must be careful applying
+        sample2time to those raw times, and segment handling is easier here.
+        Performance (SpikeInterface >=0.104): this currently goes through the
+        per-cluster ``get_cluster_trains`` loop; ``si_obj.to_spike_vector()``
+        (cached, lexsort-free since PR #4579) is the faster bulk path when you
+        don't need the dict/seconds form.
         """
         trains = self.get_cluster_trains(return_times=return_times)
         return cluster_trains.convert_cluster_trains_to_spike_vector(trains)
