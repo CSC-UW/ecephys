@@ -48,6 +48,17 @@ isolation_metric_thresholds = MappingProxyType(
             "moderate": (0.0, 0.3),
             "conservative": (0.0, 0.1),
         },
+        # Window-agnostic salvage clause, OR'd with rp_contamination: rescues genuine
+        # short-refractory fast-spiking units that the fixed 1ms rp window miscounts.
+        # Capped at <=0.3 (the metric saturates near 0.345) so the permissive clause stays
+        # non-vacuous. CRITICAL: a NaN value means "too few refractory coincidences to
+        # evaluate" (abstain) and must FAIL this clause -- never nan->0->pass, or the ~89%
+        # of low-rate units it abstains on would all pass spuriously.
+        "sliding_rp_violation": {
+            "permissive": (0.0, 0.3),
+            "moderate": (0.0, 0.2),
+            "conservative": (0.0, 0.1),
+        },
         "nn_isolation": {
             "permissive": (0.7, np.inf),
             "moderate": (0.8, np.inf),
