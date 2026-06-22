@@ -118,7 +118,12 @@ def reconcile_labeled_intervals(
     result = (
         df1.copy() if df2.empty else df2.copy() if df1.empty else pd.concat([df2, df1])
     )  # Concatenate, handling possibly empty dataframes
-    result = result.sort_values(lo).reset_index(drop=True)  # Sort and reset index
+    # Sort by (lo, hi), not lo alone: when two intervals share a start time (e.g.
+    # sub-millisecond NoData/Artifact slivers produced by boundary reconciliation),
+    # sorting by lo only leaves their relative order to a non-stable sort, which can
+    # place a longer interval before a shorter one and yield non-monotonic end times.
+    # FloatHypnogram validation requires monotonic end_time, so make the order total.
+    result = result.sort_values([lo, hi]).reset_index(drop=True)
     return result.loc[~(result[delta] == 0)]
 
 
