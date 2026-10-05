@@ -201,10 +201,9 @@ def get_recording(
     )
 
     # Compute synchronzied timestamps for the concatenated recording.
-    sync_file = project.get_experiment_subject_file(
-        experiment, subject.name, wne_files.AP_SYNC
+    sync_table = sglx_utils.get_probe_sync_table(
+        project, subject.name, experiment, "ap"
     )
-    sync_table = ece_utils.read_htsv(sync_file)
     slices = sglx_utils.add_sample2time_columns(slices, sync_table)
     times = sglx_utils.slice_table2times(slices)
     recording.set_times(times, with_warning=False)

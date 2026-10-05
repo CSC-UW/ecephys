@@ -86,6 +86,42 @@ def get_sglx_file_counterparts(
     return ecephys.utils.remove_duplicates(counterparts)
 
 
+def load_probe_sync_table(path: pathlib.Path) -> pd.DataFrame:
+    """Read a ``prb_sync.{ap,lf}.htsv`` table, refusing one fitted on a timebase other
+    than the one ``get_time2time`` / ``get_sample2time`` apply it on.
+
+    Tables written before the experiment-acquisition fit have no ``timebase`` column;
+    applying one shifts every non-reference time by a per-file constant.
+    """
+    table = ecephys.utils.read_htsv(path)
+    col = constants.PROBE_SYNC_TIMEBASE_COLUMN
+    if col not in table.columns:
+        raise ValueError(
+            f"{path}: probe sync table has no `{col}` column, so it was fitted on "
+            "within-file time and cannot be applied on the experiment-acquisition "
+            "timebase. Regenerate it with "
+            "ecephys.wne.sglx.pipeline.generate_probe_sync_table.do_experiment()."
+        )
+    other = set(table[col].unique()) - {constants.PROBE_SYNC_TIMEBASE}
+    if other:
+        raise ValueError(
+            f"{path}: probe sync table timebase {sorted(other)} is not "
+            f"{constants.PROBE_SYNC_TIMEBASE!r}. A per-session table must be "
+            "converted by generate_probe_sync_table.do_experiment() before use."
+        )
+    return table
+
+
+def get_probe_sync_table(
+    project: SGLXProject, subject: str, experiment: str, stream: str
+) -> pd.DataFrame:
+    return load_probe_sync_table(
+        project.get_experiment_subject_file(
+            experiment, subject, constants.SYNC_FNAME_MAP[stream]
+        )
+    )
+
+
 def get_time2time(
     experiment_sync_table: pd.DataFrame,
     experiment_probe_ftable: pd.DataFrame,
@@ -109,21 +145,12 @@ def get_time2time(
         # If we don't know the binfile a-priori, our time-to-time function has to infer it.
         # WARNING: Because of file overlap, this method of assigning times to files is imperfect! Use per-file sync for maximum precision!
         def experiment_time2time(t1):
-            # An un-finalized recording has NaN expmt windows, so the range mask
-            # below can't place times in it. If it is the ONLY file for this probe
-            # there is nothing to disambiguate -- every time maps to it, and the
-            # unknown offset is irrelevant (slope/intercept absorb it).
             if experiment_probe_ftable["expmtPrbAcqFirstTime"].isna().any():
-                if len(experiment_probe_ftable) == 1:
-                    sync_entry = experiment_sync_table.loc[
-                        experiment_probe_ftable.iloc[0].path.name
-                    ]
-                    return sync_entry.slope * t1 + sync_entry.intercept
                 raise UnfinalizedRecordingError(
-                    "Cannot infer per-file membership: this probe mixes files with "
-                    "and without a known acquisition window (NaN expmtPrbAcqFirstTime). "
-                    "Pass an explicit `binfile=` for per-file sync, or exclude the "
-                    "un-finalized session."
+                    "Cannot place times on the experiment-acquisition timebase: this "
+                    "probe has files with unknown acquisition offsets (NaN "
+                    "expmtPrbAcqFirstTime, un-finalized recording). Re-finalize the "
+                    "metas (ecephys.sglx.repair_metadata) or exclude the session."
                 )
             t2 = np.full_like(t1, fill_value=np.nan)
             for file in experiment_probe_ftable.itertuples():
@@ -182,10 +209,8 @@ def get_time_synchronizer(
     experiment_probe_ftable = sglx_subject.get_experiment_frame(
         experiment, ftype="bin", stream=stream, probe=probe
     )
-    experiment_sync_table = ecephys.utils.read_htsv(
-        sync_project.get_experiment_subject_file(
-            experiment, sglx_subject.name, constants.SYNC_FNAME_MAP[stream]
-        )
+    experiment_sync_table = get_probe_sync_table(
+        sync_project, sglx_subject.name, experiment, stream
     )
     return get_time2time(
         experiment_sync_table, experiment_probe_ftable, binfile, extrapolate

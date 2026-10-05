@@ -71,3 +71,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "requires_nfs: marks tests that require mounted production NFS data",
+]

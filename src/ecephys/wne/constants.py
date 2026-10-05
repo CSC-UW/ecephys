@@ -38,6 +38,11 @@ class Files(StrEnum):
 
 
 SYNC_FNAME_MAP = {"ap": Files.AP_SYNC, "lf": Files.LF_SYNC}
+# Per-session prb_sync tables are fitted on within-file time; experiment tables are
+# converted to experiment-acquisition time, the only value consumers accept.
+PROBE_SYNC_TIMEBASE_COLUMN: Final = "timebase"
+PROBE_SYNC_TIMEBASE: Final = "expmtPrbAcq"
+PROBE_SYNC_SESSION_TIMEBASE: Final = "withinFile"
 
 #  TODO: The following are not constants, and should be elsewhere.
 SIMPLIFIED_ARTIFACTS = {

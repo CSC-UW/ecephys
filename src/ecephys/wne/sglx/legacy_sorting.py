@@ -154,7 +154,7 @@ def get_sample2time_from_sorting(
         else:
             raise FileNotFoundError(f"No sync file at {sync_file}")
     else:
-        sync_table = ecephys.utils.read_htsv(sync_file)
+        sync_table = sglx_utils.load_probe_sync_table(sync_file)
 
     slice_table = sglx_utils.add_sample2time_columns(slice_table, sync_table)
     return sglx_utils.get_sample2time(slice_table)
