@@ -133,6 +133,35 @@ def test_to_experiment_timebase_raises_on_unfinalized_file():
         )
 
 
+def test_to_experiment_timebase_interpolates_short_unfitted_edge_file():
+    table = _session_table([0, 1, 2], 1.0, 0.0)
+    is_t0 = (table["source_probe"] == "imec1") & table["source"].str.contains("_t0.")
+    table.loc[is_t0, ["slope", "intercept"]] = np.nan
+    files = {f"a_g0_t{t}.imec{p}.ap.bin": 7200.0 * t for t in range(3) for p in (0, 1)}
+    ftab = _ftab(files)
+    ftab.loc[ftab["path"].map(lambda p: "_t0." in p.name), "fileTimeSecs"] = 17.0
+    out = generate_probe_sync_table.to_experiment_timebase(table, ftab)
+    assert not out[["slope", "intercept"]].isna().any(axis=None)
+
+
+def test_session_sync_table_single_probe_has_reference_rows_only():
+    ftab = pd.DataFrame(
+        {
+            "path": [Path("/x/a_g0_t0.imec0.ap.bin"), Path("/x/a_g0_t1.imec0.ap.bin")],
+            "probe": "imec0",
+            "imSyncType": "no_sync",
+            "session": "a",
+            "run": "a",
+            "gate": "g0",
+            "trigger": ["t0", "t1"],
+        }
+    )
+    out = generate_probe_sync_table.get_session_sync_table(None, None, ftab)
+    assert len(out) == 2
+    assert (out["slope"] == 1.0).all() and (out["intercept"] == 0.0).all()
+    assert set(out[TB]) == {constants.PROBE_SYNC_SESSION_TIMEBASE}
+
+
 def test_to_experiment_timebase_interpolates_short_unfitted_file():
     table = _session_table([0, 1, 2], 1.0, 0.0)
     table.loc[

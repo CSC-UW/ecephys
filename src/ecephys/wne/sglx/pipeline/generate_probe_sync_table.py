@@ -116,7 +116,7 @@ def _interpolate_short_files(table: pd.DataFrame, files: dict) -> pd.DataFrame:
         ):
             table.loc[is_probe, ["slope", "intercept"]] = table.loc[
                 is_probe, ["slope", "intercept"]
-            ].interpolate(method="linear")
+            ].interpolate(method="linear", limit_direction="both")
     if table[["slope", "intercept"]].isna().any(axis=None):
         raise ValueError("Unable to interpolate all the missing sync info.")
     return table
@@ -161,6 +161,8 @@ def get_session_sync_table(
     fits = get_reference_session_sync_table(
         probe_ftabs[reference_probe], reference_probe
     )
+    if len(probes) == 1:
+        return fits
     fit_fn = {
         "barcode": _get_barcode_file_fit,
         "square_pulse": _get_square_pulse_file_fit,
