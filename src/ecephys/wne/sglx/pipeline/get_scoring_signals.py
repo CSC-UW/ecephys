@@ -159,7 +159,9 @@ def do_experiment(
     new_times = np.arange(lf_min, lf_max, 1 / target_fs)
 
     # Resample, tidy, and save.
-    lfp_rs = xr.concat([prepare_lfp(lfp, new_times) for lfp in lfps], dim="signal")
+    lfp_rs = xr.concat(
+        [prepare_lfp(lfp, new_times, target_fs) for lfp in lfps], dim="signal"
+    )
     lfp_rs.to_zarr(
         data_project.get_experiment_subject_file(
             experiment, sglx_subject.name, Files.SCORING_LFP
@@ -172,7 +174,7 @@ def do_experiment(
         experiment, sglx_subject.name, Files.EMG
     )
     emg = xr.open_dataarray(emg_file)
-    emg_rs = prepare_emg(emg, target_fs)  # 1m for 48h
+    emg_rs = prepare_emg(emg, new_times, target_fs)
     emg_rs.to_zarr(
         data_project.get_experiment_subject_file(
             experiment, sglx_subject.name, Files.SCORING_EMG
