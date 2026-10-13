@@ -26,4 +26,12 @@ def __getattr__(name):
         module = importlib.import_module(_LAZY_IMPORTS[name], package=__package__)
         globals()[name] = module
         return module
+    for submodule in ("core", "plt"):
+        import importlib
+
+        module = importlib.import_module(f".{submodule}", package=__package__)
+        if hasattr(module, name):
+            attr = getattr(module, name)
+            globals()[name] = attr
+            return attr
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
