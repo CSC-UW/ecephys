@@ -20,7 +20,7 @@ def make_signal_headers_from_datarray(da: xr.DataArray, **kwargs) -> list:
         edf.make_signal_header(
             lbl,
             dimension=da.units,
-            sample_rate=da.fs,
+            sample_frequency=da.fs,
             physical_min=float(da.sel(signal=lbl).min()),
             physical_max=float(da.sel(signal=lbl).max()),
             **kwargs,
@@ -63,6 +63,8 @@ def prepare_emg(
 ) -> xr.DataArray:
     # We cannot resample using scipy.interp1d without removing duplicate timestamps
     emg = emg.drop_duplicates(dim="time", keep="first")
+    # A single NaN (an undefined per-window estimate) would make the whole cubic spline NaN
+    emg = emg.fillna(0.0)
 
     # Resample data. Extrapolated values will be zero-filled.
     assert np.allclose(np.diff(new_times), 1 / new_fs), (
