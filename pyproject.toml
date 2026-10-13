@@ -18,7 +18,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "brainglobe-atlasapi",
+    "brainglobe-atlasapi>=3.0.2",
     "colorcet",
     "dask[complete]",
     "emg_from_lfp @ git+https://github.com/CSC-UW/emg_from_lfp.git@main", 
