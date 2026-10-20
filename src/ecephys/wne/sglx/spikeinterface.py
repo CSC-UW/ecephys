@@ -206,7 +206,7 @@ def get_recording(
     )
     slices = sglx_utils.add_sample2time_columns(slices, sync_table)
     times = sglx_utils.slice_table2times(slices)
-    recording.set_times(times, with_warning=False)
+    recording.set_times(times)
 
     # Annotate the recording with provenance information for each slice.
     annotations = slices[RECORDING_ANNOTATION_COLS.keys()].astype(
