@@ -206,7 +206,13 @@ def get_recording(
     )
     slices = sglx_utils.add_sample2time_columns(slices, sync_table)
     times = sglx_utils.slice_table2times(slices)
-    recording.set_times(times)
+    # Not set_times(): since spikeinterface #4671 it flags the time info as modified, and
+    # to_dict() then embeds the whole vector in every derived recording's provenance
+    # (~300 GB of JSON for a 48 h probe when saved). Writing the segment attribute avoids that.
+    segment = recording._recording_segments[0]
+    assert times.ndim == 1 and times.shape[0] == segment.get_num_samples(), "times have wrong shape"
+    segment._t_start = None
+    segment._time_vector = times.astype("float64", copy=False)
 
     # Annotate the recording with provenance information for each slice.
     annotations = slices[RECORDING_ANNOTATION_COLS.keys()].astype(
